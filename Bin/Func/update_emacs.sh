@@ -5,7 +5,7 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			06/27/2011, 06:42 PM
 ## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			July 09 2011 at 04:17 PM
+## On			July 17 2011 at 01:25 AM
 
 # Usage: update_emacs [mode_name]
 function update_emacs() {
@@ -52,19 +52,19 @@ function __update_emacs_one() {
 }
 
 function __update_emacs_all() {
-    __update_emacs_pkgbuild
-    __update_emacs_android
-    __update_emacs_django
-    __update_emacs_egg
-    __update_emacs_yaml
     __update_emacs_cmake
 
-     # Add other mode HERE
+     # Put the modes which need to be copied above this comment
 
     put_info -n "Updating all retrieved mode... "
     cp $repo_path/*/*.el $autoload_path/
     __update_emacs_check_return $? "fail" "done"
 
+    __update_emacs_pkgbuild
+    __update_emacs_android
+    __update_emacs_django
+    __update_emacs_egg
+    __update_emacs_yaml
     __update_emacs_python
     __update_emacs_html5
     __update_emacs_yasnippet
@@ -90,39 +90,29 @@ function __update_emacs_check_return() {
     return 0
 }
 
-function __update_emacs_pkgbuild() {
-    put_info "Retrieving pkgbuild-mode"
-    git clone https://github.com/juergenhoetzel/pkgbuild-mode.git \
-	 $repo_path/pkgbuild
+# Usage : mode-name
+function __update_emacs_from_git() {
+    put_info "Updating $1"
+    cd $autoload_path/$1
+    git pull
     __update_emacs_check_return $? "fail" "done"
+    cd "/tmp"
+}
+
+function __update_emacs_pkgbuild() {
+    __update_emacs_from_git "pkgbuild-mode"
 }
 
 function __update_emacs_android() {
-    put_info "Retrieving android-mode"
-    git clone https://github.com/remvee/android-mode.git \
-	 $repo_path/android-mode
-    __update_emacs_check_return $? "fail" "done"
+    __update_emacs_from_git "android-mode"
 }
 
 function __update_emacs_django() {
-    put_info "Retrieving django-mode"
-    git clone https://github.com/myfreeweb/django-mode.git \
-	 $repo_path/django-mode
-    if [ $? -eq 0 ]; then
-	put_info -n "Updating snippets... "
-	cp -Rf  $repo_path/django-mode/snippets/text-mode/* $snippets_path
-	__update_emacs_check_return $? "fail" "done"
-	put_info "done"
-    else
-	put_error "fail"
-    fi
+    __update_emacs_from_git "django-mode"
 }
 
 function __update_emacs_egg() {
-    put_info "Retrieving egg"
-    git clone https://github.com/bogolisk/egg.git \
-	 $repo_path/egg
-    __update_emacs_check_return $? "fail" "done"
+    __update_emacs_from_git "django-mode"
 }
 
 function __update_emacs_cmake() {
@@ -134,33 +124,20 @@ function __update_emacs_cmake() {
 }
 
 function __update_emacs_yaml() {
-    put_info "Retrieving yaml-mode"
-    git clone https://github.com/yoshiki/yaml-mode.git \
-	$repo_path/yaml-mode
-    __update_emacs_check_return $? "fail" "done"
+    __update_emacs_from_git "yaml-mode"
 }
 
 function __update_emacs_python() {
-    put_info "Updating python-mode"
-    git clone https://github.com/emacsmirror/python-mode.git \
-	 $repo_path/python-mode
-    if [ $? -eq 0 ]; then
-	cp $repo_path/python-mode/python-mode.el $autoload_path/
-	__update_emacs_check_return $? "fail" "done"
-    else
-	put_error "fail"
-    fi
+    __update_emacs_from_git "python-mode"
 }
 
 function __update_emacs_html5() {
     put_info "Updating html5-el..."
     cd $autoload_path/html5-el
-    git pull origin master
-    hg clone https://bitbucket.org/validator/syntax/  $repo_path/syntax
-    rm -Rf relaxng
-    mv  $repo_path/syntax/relaxng .
+    git pull
+    make relaxng
+    __update_emacs_check_return $? "fail" "done"
     cd /tmp
-    put_info "Updating html5-el done"
 }
 
 function __update_emacs_yasnippet() {

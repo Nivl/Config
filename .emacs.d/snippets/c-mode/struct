@@ -1,0 +1,6 @@
+#name : typedef struct ... { ... }
+# --
+typedef struct ${1:name}
+{
+  $0
+} $1;

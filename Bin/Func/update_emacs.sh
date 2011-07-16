@@ -5,7 +5,7 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			06/27/2011, 06:42 PM
 ## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			July 17 2011 at 01:25 AM
+## On			July 17 2011 at 01:46 AM
 
 # Usage: update_emacs [mode_name]
 function update_emacs() {
@@ -71,7 +71,7 @@ function __update_emacs_all() {
     __update_emacs_nxhtml
 
     put_error "The following modes are not auto-updated: "
-    echo -e "pov-mode"
+    echo -e "pov-mode\nredo\nredo+\nphp-mode\nctypes"
 }
 
 # Usage : $? message_if_fail [message_if_ok]

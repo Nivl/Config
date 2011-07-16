@@ -1,16 +1,15 @@
+;; MEMO:
+;; Pour trouver le nom d'une commande a partir d'un shortcut : C-h c
 
 (load-file "~/.emacs.d/compile.el")
 (compile-uncompiled-files)
 
-;; MEMO:
-;; Pour trouver le nom d'une commande a partir d'un shortcut : C-h c
+(load-file "~/.emacs.d/my-autoload.el")
+(my-autoload "~/.emacs.d/autoloadable" 1)
 
 ;; Load CEDET (Collection of Emacs Development Environment Tools)
 ; (load-file "/usr/share/emacs/site-lisp/cedet/common/cedet.el")
 
-(add-to-list 'load-path "~/.emacs.d/autoloadable")
-(add-to-list 'load-path "~/.emacs.d/autoloadable/html5-el")
-;(add-to-list 'load-path "~/.emacs.d/autoloadable/nxhtml")
 (require 'redo+)
 
 (autoload 'php-mode "php-mode" "Major mode for PHP" t)

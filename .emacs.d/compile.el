@@ -19,8 +19,7 @@
 (defun compile-uncompiled-files-process (dir &optional remove recur)
   "Compiles all uncompiled and not up-to-date .el files from dir"
   (setq dir (file-name-as-directory dir))
-  (setq files (directory-files dir))
-  (dolist (file files)
+  (dolist (file (directory-files dir))
     (if (and
 	 (and (> (length file) 3)
 	      (equal ".el" (substring file -3 nil)))
@@ -33,7 +32,7 @@
 	(if (and (equal remove t)
 		 (> (length file) 4)
 		 (equal ".elc" (substring file -4 nil)))
-	    (when (not (file-exists-p (concat dir (substring file 0 -1))))
+	    (unless (file-exists-p (concat dir (substring file 0 -1)))
 	      (message "removed %s" (concat dir file))
 	      (delete-file (concat dir file)))
 	  (when (and

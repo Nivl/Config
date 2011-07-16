@@ -4,3 +4,9 @@
 [submodule ".emacs.d/autoloadable/html5-el"]
 	path = .emacs.d/autoloadable/html5-el
 	url = https://github.com/hober/html5-el.git
+[submodule ".emacs.d/autoloadable/pkgbuild-mode"]
+	path = .emacs.d/autoloadable/pkgbuild-mode
+	url = https://github.com/juergenhoetzel/pkgbuild-mode.git
+[submodule ".emacs.d/autoloadable/android-mode"]
+	path = .emacs.d/autoloadable/android-mode
+	url = https://github.com/remvee/android-mode.git

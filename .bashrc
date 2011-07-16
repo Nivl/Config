@@ -5,7 +5,7 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			June 11 2011 at 17:21 PM
 ## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			June 29 2011 at 10:39 PM
+## On			July 16 2011 at 10:19 PM
 
 
 . ~/Bin/Func/source.sh
@@ -29,6 +29,10 @@ export PAGER='less'
 export PS1="\[\033[01;32m\][\u@\h \w]\$\[\033[00m\] "
 # For Root
 # export PS1="\[\033[01;31m\]\h:\w#\[\033[00m\] "
+
+# To make .XCompose working in GTK apps
+GTK_IM_MODULE=xim
+export GTK_IM_MODULE
 
 alias mman='man -M ~/Src/Epitech/man/'
 alias norme="python2 ~/Bin/python2/norme"

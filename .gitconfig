@@ -1,0 +1,14 @@
+[user]
+	name = Melvin Laplanche
+	email = melvin.laplanche+dev@gmail.com
+
+[color]
+	diff = auto
+	status = auto
+	brach = auto
+
+[alias]
+	ci = commit
+	co = checkout
+	st = status
+	br = branch

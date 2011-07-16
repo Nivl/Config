@@ -1,0 +1,4 @@
+[ui]
+username = Melvin Laplanche <melvin.laplanche+dev@gmail.com>
+[web]
+cacerts = /etc/ssl/certs/ca-certificates.crt

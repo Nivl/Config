@@ -1,11 +1,12 @@
 ;; MEMO:
 ;; Pour trouver le nom d'une commande a partir d'un shortcut : C-h c
 
-(load-file "~/.emacs.d/compile.el")
-(compile-uncompiled-files)
 
 (load-file "~/.emacs.d/my-autoload.el")
 (my-autoload "~/.emacs.d/autoloadable" 1)
+
+(load-file "~/.emacs.d/compile.el")
+(compile-uncompiled-files)
 
 ;; Load CEDET (Collection of Emacs Development Environment Tools)
 ; (load-file "/usr/share/emacs/site-lisp/cedet/common/cedet.el")

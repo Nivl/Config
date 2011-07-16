@@ -10,7 +10,7 @@
 (defun compile-uncompiled-files ()
   ;(compile-uncompiled-files-process "~/")
   (compile-uncompiled-files-process "~/.emacs.d/" t)
-  (compile-uncompiled-files-process "~/.emacs.d/autoloadable/" t)
+  (compile-uncompiled-files-process "~/.emacs.d/autoloadable/" t 1)
   )
 
 ; remove: Remove an .elc file if his .el file is not found in the
@@ -19,6 +19,10 @@
 (defun compile-uncompiled-files-process (dir &optional remove recur)
   "Compiles all uncompiled and not up-to-date .el files from dir"
   (setq dir (file-name-as-directory dir))
+  (if (equal recur nil)
+      (setq recur 0)
+    (when (equal recur t)
+      (setq recur -1)))
   (dolist (file (directory-files dir))
     (if (and
 	 (and (> (length file) 3)
@@ -36,10 +40,12 @@
 	      (message "removed %s" (concat dir file))
 	      (delete-file (concat dir file)))
 	  (when (and
-		 (equal t recur)
+		 (not (equal recur 0))
 		 (not (or (equal file ".")
 			  (equal file "..")))
 		 (equal t (file-directory-p (concat dir file))))
-	    (compile-uncompiled-files-process (concat dir file) t)
+	    (compile-uncompiled-files-process (concat dir file)
+					      remove
+					      (- recur 1))
 	    ))))))
 

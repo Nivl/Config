@@ -13,3 +13,6 @@
 [submodule ".emacs.d/autoloadable/egg"]
 	path = .emacs.d/autoloadable/egg
 	url = https://github.com/bogolisk/egg.git
+[submodule ".emacs.d/autoloadable/yaml-mode"]
+	path = .emacs.d/autoloadable/yaml-mode
+	url = https://github.com/yoshiki/yaml-mode.git

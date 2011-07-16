@@ -16,3 +16,6 @@
 [submodule ".emacs.d/autoloadable/yaml-mode"]
 	path = .emacs.d/autoloadable/yaml-mode
 	url = https://github.com/yoshiki/yaml-mode.git
+[submodule ".emacs.d/autoloadable/python-mode"]
+	path = .emacs.d/autoloadable/python-mode
+	url = https://github.com/emacsmirror/python-mode.git

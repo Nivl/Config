@@ -1,6 +1,23 @@
 ;;; hooks.el ---
 
 
+;; Conditional load of nxhtml because its really heavy, but really good.
+(setq *nxhtml-autostart-file*
+      (expand-file-name "~/.emacs.d/autoloadable/nxhtml/autostart.el"))
+(defun load-nxhtml-if-required ()
+  (if (and (string-match nivl-mumamo-regex (buffer-file-name))
+	   (not (featurep 'nxhtml-autostart)))
+      (progn
+	(load *nxhtml-autostart-file*)
+	(setq mumamo-background-colors nil)
+	(setq auto-mode-alist
+	      (append
+	       nivl-mumamo-mode-alist
+	       auto-mode-alist))
+	(revert-buffer t t)))) ;; mumamo loads nxhtml-mode et al
+(add-hook 'find-file-hook 'load-nxhtml-if-required)
+
+
 ; HTML5
 ;(defun my-nxml-mode-hook ()
 ;  (eval-after-load "rng-loc"

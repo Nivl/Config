@@ -26,13 +26,11 @@
 	 ("\\.xml\\'" . sgml-mode)
 	 ("\\.xsl\\'" . sgml-mode)
 	 ("\\.svg\\'" . sgml-mode)
-	 ("\\.[sxd]?html?\\'" . django-html-mode); django-html-mumamo-mode)
 	 ("\\.py\\'" . django-mode)
 	 ("\\.js\\'" . javascript-mode)
 	 ("\\.css\\'" . css-mode)
 	 ("\\.less\\'" . css-mode)
 	 ("\\.tpl\\'" . html-helper-mode)
-	 ("\\.php\\'" . php-mode)
 	 ("\\.inc\\'" . php-mode)
 	 ("\\.awk\\'" . awk-mode)
 	 ("\\.tex\\'" . latex-mode)
@@ -47,3 +45,11 @@
 	 ;("\\.po\\'" . po-mode) gettext-el
 	 )
        auto-mode-alist))
+
+(setq nivl-mumamo-regex ".+\\.\\(php\\|[sxd]?html\\)$")
+(setq nivl-mumamo-mode-alist
+      '(
+	("\\.[sxd]?html?\\'" . django-html-mumamo-mode)
+	("\\.php\\'" . php-mode)
+	))
+

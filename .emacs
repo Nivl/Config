@@ -1,7 +1,6 @@
 ;; MEMO:
 ;; Pour trouver le nom d'une commande a partir d'un shortcut : C-h c
 
-
 (load-file "~/.emacs.d/my-autoload.el")
 (my-autoload "~/.emacs.d/autoloadable" 1)
 
@@ -35,10 +34,6 @@
 			     yas/ido-prompt
 			     yas/completing-prompt))
 
-; Gère plein de mode (html, php, ...)
-;(load "~/.emacs.d/autoloadable/nxhtml/autostart.el")
-;(setq mumamo-background-colors nil)
-
 ; Android dev
 (require 'android-mode)
 (setq android-mode-sdk-dir "/opt/android-sdk")
@@ -46,11 +41,11 @@
 (load-file "~/.emacs.d/main_options.elc")
 (load-file "~/.emacs.d/shortcuts.elc")
 (load-file "~/.emacs.d/insert.elc")
-(load-file "~/.emacs.d/file_to_mode.elc")
+(load-file "~/.emacs.d/file_to_mode.elc") ; _BEFORE_ HOOK, defines some vars
+(load-file "~/.emacs.d/hooks.elc")
 (load-file "~/.emacs.d/misc_functions.elc")
 (load-file "~/.emacs.d/main_options.elc")
 (load-file "~/.emacs.d/templates.elc")
 (load-file "~/.emacs.d/headers.elc")
-(load-file "~/.emacs.d/hooks.elc")
 
 ;(require 'epitech-mode)

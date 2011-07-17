@@ -5,7 +5,7 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			06/27/2011, 06:42 PM
 ## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			July 17 2011 at 01:46 AM
+## On			July 17 2011 at 03:01 PM
 
 # Usage: update_emacs [mode_name]
 function update_emacs() {
@@ -36,7 +36,7 @@ function update_emacs() {
 function __update_emacs_one() {
     local found=0
     array=( "pkgbuild" "android" "django" "egg" "yaml" "cmake"
-	"python" "html5" "yasnippet" "snippets" "nxhtml")
+	"python" "html5" "yasnippet" "snippets" "nxhtml" "markdown")
 
     for (( i=0; i<${#array[@]}; i++ )); do
 	if [ "$1" == "${array[$i]}" ]; then
@@ -63,6 +63,7 @@ function __update_emacs_all() {
     __update_emacs_pkgbuild
     __update_emacs_android
     __update_emacs_django
+    __update_emacs_markdown
     __update_emacs_egg
     __update_emacs_yaml
     __update_emacs_python
@@ -109,6 +110,10 @@ function __update_emacs_android() {
 
 function __update_emacs_django() {
     __update_emacs_from_git "django-mode"
+}
+
+function __update_emacs_markdown() {
+    __update_emacs_from_git "markdown-mode"
 }
 
 function __update_emacs_egg() {
@@ -164,7 +169,6 @@ function __update_emacs_nxhtml() {
     put_info "Updating nxhtml"
     cd $autoload_path/nxhtml
     bzr merge
-    #bzr branch lp:nxhtml $repo_path/nxhtml
     __update_emacs_check_return $? "fail" "done"
     cd "/tmp"
 }

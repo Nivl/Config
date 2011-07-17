@@ -5,12 +5,13 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			06/27/2011, 06:42 PM
 ## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			July 17 2011 at 03:02 PM
+## On			July 17 2011 at 11:21 PM
 
 # Usage: update_emacs [mode_name]
 function update_emacs() {
     pwd_save=`pwd`
     repo_path=/tmp/emacs-save
+    conf_path=~/.emacs.d/
     autoload_path=~/.emacs.d/autoloadable
     snippets_path=~/.emacs.d/snippets
 
@@ -60,13 +61,12 @@ function __update_emacs_all() {
     cp $repo_path/*/*.el $autoload_path/
     __update_emacs_check_return $? "fail" "done"
 
-    __update_emacs_pkgbuild
-    __update_emacs_android
-    __update_emacs_django
-    __update_emacs_markdown
-    __update_emacs_egg
-    __update_emacs_yaml
-    __update_emacs_python
+    cd $conf_path
+    put_info "Updating pkgbuild, android, django, markdown, egg, yaml and python"
+    git submodule update
+    __update_emacs_check_return $? "fail" "done"
+    cd "/tmp"
+
     __update_emacs_html5
     __update_emacs_yasnippet
     __update_emacs_nxhtml
@@ -93,9 +93,9 @@ function __update_emacs_check_return() {
 
 # Usage : mode-name
 function __update_emacs_from_git() {
-    put_info "Updating $1"
-    cd $autoload_path/$1
-    git pull
+    put_info -n "Updating $1... "
+    cd ~
+    git submodule update $autoload_path/$1
     __update_emacs_check_return $? "fail" "done"
     cd "/tmp"
 }

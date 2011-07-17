@@ -24,7 +24,6 @@
 (global-set-key (kbd "C-c u") 'uncomment-region)
 (global-set-key (kbd "M-g") 'goto-line)
 (global-set-key (kbd "C-c n") 'insert-filename-no-ext)
-(global-set-key (kbd "C-c d") 'insert-date)
 (global-set-key (kbd "C-x C-b") 'buffer-menu)
 (global-set-key (kbd "C-c g") 'gdb)
 (global-set-key (kbd "C-c C-c") 'compile)

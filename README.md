@@ -1,4 +1,5 @@
-External Needs:
+External dependencies:
+
 * emacs
     * pymacs
 * bash

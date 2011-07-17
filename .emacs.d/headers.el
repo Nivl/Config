@@ -145,13 +145,13 @@
   "Insert file header"
   (interactive)
   (save-excursion
-    (setq header-type (assoc major-mode header-modes-alist))
-    (if (equal header-type nil)
-	(setq cc (read-from-minibuffer "Comment content: "))
-      (setq cc (cdr (assoc 'content (eval (cdr header-type))))))
     (beginning-of-buffer)
     (if (search-forward header-last-by nil t)
 	(progn
+	  (setq header-type (assoc major-mode header-modes-alist))
+	  (if (equal header-type nil)
+	      (setq cc (read-from-minibuffer "Comment content: "))
+	    (setq cc (cdr (assoc 'content (eval (cdr header-type))))))
 	  (beginning-of-line)
 	  (kill-line)
 	  (kill-line)

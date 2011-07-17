@@ -5,7 +5,7 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			06/27/2011, 06:42 PM
 ## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			July 17 2011 at 03:01 PM
+## On			July 17 2011 at 03:02 PM
 
 # Usage: update_emacs [mode_name]
 function update_emacs() {
@@ -117,7 +117,7 @@ function __update_emacs_markdown() {
 }
 
 function __update_emacs_egg() {
-    __update_emacs_from_git "django-mode"
+    __update_emacs_from_git "egg-mode"
 }
 
 function __update_emacs_cmake() {

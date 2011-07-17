@@ -42,6 +42,7 @@
 	 ("\\.yaml\\'" . yaml-mode)
 	 ("\\.pov\\'" . pov-mode)
 	 ("\\.java\\'" . java-mode)
+	 ("\\.md\\'" . markdown-mode)
 	 ("/PKGBUILD$" . pkgbuild-mode)
 	 ;("\\.po\\'" . po-mode) gettext-el
 	 )

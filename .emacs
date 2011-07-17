@@ -14,6 +14,7 @@
 (require 'redo+)
 
 (autoload 'php-mode "php-mode" "Major mode for PHP" t)
+(autoload 'markdown-mode "markdown-mode" "Major mode for Markdown" t)
 ;(autoload 'javascript-mode "javascript-mode" "Major mode for Javascript" t)
 (autoload 'pov-mode "pov-mode" "Major mode for POV-Ray" t)
 (autoload 'yaml-mode "yaml-mode" "Major mode for Yaml" t)
@@ -51,6 +52,5 @@
 (load-file "~/.emacs.d/templates.elc")
 (load-file "~/.emacs.d/headers.elc")
 (load-file "~/.emacs.d/hooks.elc")
-;(load-file "~/.emacs.d/my_c_style.elc")
 
 ;(require 'epitech-mode)

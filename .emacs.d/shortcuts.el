@@ -8,7 +8,7 @@
 ; (global-unset-key (kbd "C-x C-z"))
 (global-unset-key (kbd "C-x C-d"))
 (global-unset-key (kbd "C-x C-o"))
-(global-set-key (kbd "C-c a") 'duplicate-line)
+(global-set-key (kbd "C-c d") 'duplicate-line)
 (global-set-key (kbd "C-x C-n") 'next-buffer)
 (global-set-key (kbd "C-x C-p") 'previous-buffer)
 (global-set-key (kbd "C-c c") 'comment-line-c)

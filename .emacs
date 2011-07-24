@@ -27,8 +27,9 @@
 
 (require 'yasnippet)
 (yas/initialize)
-(setq yas/snippet-dirs "~/.emacs.d/snippets")
-(yas/load-directory yas/snippet-dirs)
+(setq yas/snippet-dirs '("~/.emacs.d/snippets"
+			 "~/.emacs.d/autoloadable/django-mode/snippets"))
+(mapc 'yas/load-directory yas/snippet-dirs)
 (require 'dropdown-list)
 (setq yas/prompt-functions '(yas/dropdown-prompt
 			     yas/ido-prompt

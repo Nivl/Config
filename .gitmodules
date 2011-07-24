@@ -1,6 +1,3 @@
-[submodule ".emacs.d/autoloadable/django-mode"]
-	path = .emacs.d/autoloadable/django-mode
-	url = https://github.com/myfreeweb/django-mode.git
 [submodule ".emacs.d/autoloadable/html5-el"]
 	path = .emacs.d/autoloadable/html5-el
 	url = https://github.com/hober/html5-el.git

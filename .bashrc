@@ -5,7 +5,7 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			June 11 2011 at 17:21 PM
 ## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			July 24 2011 at 05:01 PM
+## On			August 18 2011 at 09:21 PM
 
 . ~/Bin/Func/source.sh
 source_functions ~/Bin/Func
@@ -16,6 +16,9 @@ export PATH="/opt/android-sdk/platform-tools:$PATH"
 export PATH="~/Bin:$PATH"
 
 export PYTHONDOCS=/usr/share/doc/python2/html/
+
+export LESSOPEN="| src-hilite-lesspipe.sh %s"
+export LESS=' -R '
 
 export LESS_TERMCAP_mb=$'\E[01;31m'
 export LESS_TERMCAP_md=$'\E[01;31m'

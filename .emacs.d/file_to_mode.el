@@ -50,6 +50,6 @@
 (setq nivl-mumamo-mode-alist
       '(
 	("\\.[sxd]?html?\\'" . django-html-mumamo-mode)
-	("\\.php\\'" . php-mode)
+	("\\.php\\'" . html-mumamo-mode)
 	))
 

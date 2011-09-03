@@ -15,7 +15,7 @@ include "/usr/share/X11/locale/en_US.UTF-8/Compose"
 <Multi_key> <period> <period> <period>  : "…"
 <Multi_key> <apostrophe> <apostrophe> 	: "’"
 <Multi_key> <quotedbl> <quotedbl> : "“"
-<Multi_key> <quotedbl> <e>	: "”"
+<Multi_key> <e> <quotedbl>	: "”"
 <Multi_key> <d> <e> <g> 	: "°"
 <Multi_key> <k> <e> <l> 	: "ĸ"
 <Multi_key> <r> <i> <p>		: "†"
@@ -26,7 +26,7 @@ include "/usr/share/X11/locale/en_US.UTF-8/Compose"
 <Multi_key> <c> <o> <p> <y>	: "©"
 <Multi_key> <r> <e> <g>		: "®"
 <Multi_key> <less> <less>	: "« "
-<Multi_key> <greater> <greater> : " »"  
+<Multi_key> <greater> <greater> : " »"
 
 
 # Greek

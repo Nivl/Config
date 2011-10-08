@@ -268,7 +268,11 @@ Start main timer with delay `pause-1-minute-delay'."
     (define-key map [(meta tab)]  'backward-button)
     (define-key map [(shift tab)] 'backward-button)
     (define-key map [backtab]     'backward-button)
+    ;; Fix-me:
+    ;;(define-key map [double-down-mouse-1] (lambda () (interactive) "double-down"))
     map))
+;; (local-set-key [double-mouse-1] (lambda () (interactive) "double-down"))
+;; (local-set-key [double-down-mouse-1] (lambda () (interactive) "double-down"))
 
 (defvar pause-buffer nil)
 (defvar pause-image-buffer nil)
@@ -1044,7 +1048,8 @@ connection fails or you have set `pause-yoga-poses-use-dir' on."
                                (error (message "pause-callback-get-yoga-poses: %s" (error-message-string err))))))
                   (insert (format ": %S" (cdr err)))))))
         (setq pose (pause-random-yoga-pose (pause-get-yoga-poses-1 (current-buffer))))
-        (setq pose (cons (concat pause-yoga-poses-host-url (car pose)) (cdr pose))))
+        (when pose
+          (setq pose (cons (concat pause-yoga-poses-host-url (car pose)) (cdr pose)))))
       (when pose
         (pause-tell-about-yoga-link pose)))))
 
@@ -1084,7 +1089,9 @@ connection fails or you have set `pause-yoga-poses-use-dir' on."
                         (pause-cancel-tell-again-timer)
                         (browse-url ,pose-url)
                         (run-with-idle-timer 1 nil 'pause-break-exit-from-button))
-                    (error (message "pause-tell-about-yoga-link a: %s" (error-message-string err))))))
+                    (error (message "pause-tell-about-yoga-link a: %s, %s"
+                                    (error-message-string err)
+                                    ,pose-url)))))
       (insert " (")
       (insert-text-button
        "Do it later"
@@ -1146,7 +1153,9 @@ connection fails or you have set `pause-yoga-poses-use-dir' on."
                                     (pause-remove-1-from-line ,(1- (point)))
                                     ;;(run-with-idle-timer 1 nil 'pause-break-exit-from-button)
                                     )
-                                (error (message "pause-tell-about-yoga-link c: %s" (error-message-string err))))))
+                                (error (message "pause-tell-about-yoga-link c: %s, %s"
+                                                (error-message-string err)
+                                                ,(car pose))))))
                   (setq prev-pose pose))))
             )))))
   (dolist (win (get-buffer-window-list pause-buffer nil t))

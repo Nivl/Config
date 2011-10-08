@@ -165,7 +165,8 @@
   :group 'editing)
 
 ;;;###autoload
-(defcustom yas/snippet-dirs nil
+(defcustom yas/snippet-dirs (list "~/.emacs.d/snippets"
+                                  (concat (file-name-directory load-file-name) "snippets"))
   "Directory or list of snippet dirs for each major mode.
 
 The directory where user-created snippets are to be stored. Can
@@ -832,13 +833,12 @@ behaviour. Can also be a function of zero arguments.")
 (defun yas/minor-mode-on ()
   "Turn on YASnippet minor mode.
 
-Do this unless `yas/dont-activate' is t "
+Do this unless `yas/dont-activate' is truish "
   (interactive)
   (unless (or (minibufferp)
-              (and (functionp yas/dont-activate)
-                   (funcall yas/dont-activate))
-              (and (boundp yas/dont-activate)
-                   yas/dont-activate))
+              (if (functionp yas/dont-activate)
+                  (funcall yas/dont-activate)
+                yas/dont-activate))
     ;; Load all snippets definitions unless we still don't have a
     ;; root-directory or some snippets have already been loaded.
     ;;
@@ -1471,7 +1471,8 @@ Here's a list of currently recognized directives:
                        (cons (point) (point)))))
           (yas/expand-snippet (yas/template-content yas/current-template)
                               (car where)
-                              (cdr where)))))))
+                              (cdr where)
+                              (yas/template-expand-env yas/current-template)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Popping up for keys and templates
@@ -1672,7 +1673,7 @@ of a snippet.  The file name is the trigger key and the
 content of the file is the template."
   (interactive "DSelect the root directory: ")
   (unless (file-directory-p directory)
-    (error "Error %s not a directory" directory))
+    (error "%s is not a directory" directory))
   (unless yas/snippet-dirs
     (setq yas/snippet-dirs directory))
   (dolist (dir (yas/subdirs directory))
@@ -1688,15 +1689,12 @@ content of the file is the template."
         (yas/load-directory directory))
     (call-interactively 'yas/load-directory)))
 
-(defun yas/reload-all (&optional reset-root-directory)
+(defun yas/reload-all (&optional interactive)
   "Reload all snippets and rebuild the YASnippet menu. "
-  (interactive "P")
+  (interactive "p")
   ;; Turn off global modes and minor modes, save their state though
   ;;
-  (let ((restore-global-mode (prog1 yas/global-mode
-                               (yas/global-mode -1)))
-        (restore-minor-mode (prog1 yas/minor-mode
-                              (yas/minor-mode -1))))
+  (let ((errors))
     ;; Empty all snippet tables and all menu tables
     ;;
     (setq yas/tables (make-hash-table))
@@ -1708,24 +1706,17 @@ content of the file is the template."
     (setf (cdr yas/minor-mode-map)
           (cdr (yas/init-minor-keymap)))
 
-    (when reset-root-directory
-      (setq yas/snippet-dirs nil))
-
     ;; Reload the directories listed in `yas/snippet-dirs' or prompt
     ;; the user to select one.
     ;;
-    (yas/load-snippet-dirs)
+    (condition-case oops
+        (yas/load-snippet-dirs)
+      (error (push oops errors)
+             (message "[yas] Check your `yas/snippet-dirs': %s" (second oops))))
     ;; Reload the direct keybindings
     ;;
     (yas/direct-keymaps-reload)
-    ;; Restore the mode configuration
-    ;;
-    (when restore-minor-mode
-      (yas/minor-mode 1))
-    (when restore-global-mode
-      (yas/global-mode 1))
-
-    (message "[yas] Reloading everything... Done.")))
+    (message "[yas] Reloaded everything...%s." (if errors " (some errors, check *Messages*)" ""))))
 
 (defun yas/quote-string (string)
   "Escape and quote STRING.
@@ -2597,7 +2588,7 @@ With optional prefix argument KILL quit the window and buffer."
                                  (yas/template-expand-env yas/current-template))
              (when (and debug
                         (require 'yasnippet-debug nil t))
-               (add-hook 'post-command-hook 'yas/debug-snippet-vars 't 'local))))
+               (add-hook 'post-command-hook 'yas/debug-snippet-vars nil t))))
           (t
            (message "[yas] Cannot test snippet for unknown major mode")))))
 
@@ -3292,10 +3283,9 @@ progress."
            (snippet (overlay-get yas/active-field-overlay 'yas/snippet)))
       (cond (after?
              (yas/advance-end-maybe field (overlay-end overlay))
-             (let ((saved-point (point)))
-               (yas/field-update-display field (car (yas/snippets-at-point)))
-               (goto-char saved-point))
-             (yas/update-mirrors (car (yas/snippets-at-point))))
+             (save-excursion
+               (yas/field-update-display field snippet))
+             (yas/update-mirrors snippet))
             (field
              (when (and (not after?)
                         (not (yas/field-modified-p field))
@@ -3677,9 +3667,7 @@ exit-marker have identical start and end markers.
   (cond ((and fom (< (yas/fom-end fom) newend))
          (set-marker (yas/fom-end fom) newend)
          (yas/advance-start-maybe (yas/fom-next fom) newend)
-         (let ((parent (yas/fom-parent-field fom)))
-           (when parent
-             (yas/advance-end-maybe parent newend))))
+         (yas/advance-end-of-parents-maybe (yas/fom-parent-field fom) newend))
         ((yas/exit-p fom)
          (yas/advance-start-maybe (yas/fom-next fom) newend))))
 
@@ -3692,7 +3680,10 @@ If it does, also call `yas/advance-end-maybe' on FOM."
     (yas/advance-end-maybe fom newstart)))
 
 (defun yas/advance-end-of-parents-maybe (field newend)
-  "Like `yas/advance-end-maybe' but for parents."
+  "Like `yas/advance-end-maybe' but for parent fields.
+
+Only works for fields and doesn't care about the start of the
+next FOM. Works its way up recursively for parents of parents."
   (when (and field
              (< (yas/field-end field) newend))
     (set-marker (yas/field-end field) newend)

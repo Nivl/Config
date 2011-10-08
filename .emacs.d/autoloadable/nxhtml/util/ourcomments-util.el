@@ -2645,9 +2645,12 @@ variant of such blocks then leave the link as it is."
               )
             ;; Check if the URL is to a local file and absolute. And we
             ;; have a buffer.
-            (when (and (buffer-file-name)
-                       (> (length url) 5)
-                       (string= (substring url 0 6) "file:/"))
+            (if (not (and (buffer-file-name)
+                          (> (length url) 5)
+                          (string= (substring url 0 6) "file:/")))
+                (save-match-data
+                  (require 'browse-url)
+                  (setq url (browse-url-url-encode-chars url "[\]\[]")))
               (let ((abs-file-url
                      (if (not (memq system-type '(windows-nt ms-dos)))
                          (substring url 8)

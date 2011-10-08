@@ -89,7 +89,7 @@
 
 (defun bibhlp-browse-url-for-pdf (url)
   "Show URL in a web browser, capable of downloading PDF."
-  (if nil
+  (if t
       (browse-url url)
     (if (eq system-type 'windows-nt)
         (w32-shell-execute nil
@@ -256,11 +256,18 @@ APA reference."
           (let (last first inits auth)
             (if (not (string-match "\\(.+\\), +\\(.+\\)" val))
                 ;; Medline format perhaps:
-                (if (not (string-match "\\(.+\\) +\\(.+\\)" val))
+                (if (not (string-match "\\(.+?\\) +\\(.+\\)" val))
                     (setq auth (list val))
                   (setq last  (match-string-no-properties 1 val))
-                  (setq inits (match-string-no-properties 2 val))
-                  (setq auth (list last nil inits)))
+                  (let ((val2 (match-string-no-properties 2 val)))
+                    (if (string= (upcase val2) val2)
+                        (progn
+                          (setq inits val2)
+                          (setq auth (list last nil inits)))
+                      ;; Fix-me: initials, split
+                      (setq first val2)
+                      (setq auth (list last first))
+                      )))
               (setq last (match-string-no-properties 1 val))
               (setq first (match-string-no-properties 2 val))
               (setq auth (list last first)))
@@ -269,6 +276,8 @@ APA reference."
       (when (and journal
                  (null type))
         (setq type 'journal-article))
+      (when url
+        (setq url (replace-regexp-in-string " " "+" url t t)))
       (or ;;return-value
        (list
         :type type
@@ -700,7 +709,7 @@ Return a plist with found info, see `bibhlp-parse-entry'."
                 (setq firstpage (match-string-no-properties 1 val)))))
            ((string= mark "PY") (setq year val))
            ((string= mark "DP") (setq year val))
-           ((string= mark "DEP") (setq year val))
+           ((string= mark "DEP") (unless year (setq year val)))
            ((string= mark "Y1") (setq year val)) ;; zotero
            ((string= mark "AU") (setq authors (cons val authors)))
            ((string= mark "A1") (setq authors (cons val authors))) ;; zotero
@@ -743,6 +752,9 @@ Return a plist with found info, see `bibhlp-parse-entry'."
            ;; just continue if we do not want it.
            (t nil))))
       (setq authors (reverse authors))
+      (when year
+        (when (> 4 (length year))
+          (setq year nil)))
       (when year
         (setq year (substring year 0 4)))
       ;;(unless publisher (setq publisher address))
@@ -1777,34 +1789,58 @@ In case :et-al is set then return -1."
 If INCLUDE-DOI-ETC then include those \(they are supposed to be at the end).
 
 Return a list \(BEG MID END)."
-  (let* ((here (point))
-         (end (progn
-                (forward-paragraph)
-                (skip-chars-backward " \t\n\f")
-                (point)))
-         (beg (progn
-                (backward-paragraph)
-                (skip-chars-forward " \t\n\f")
-                (point)))
-         mid)
-    (goto-char end)
-    (skip-chars-forward " \t\n\f")
-    (while (looking-at "^[A-Z0-9]\\{2\\} +-")
-      (forward-paragraph)
-      (skip-chars-backward " \t\n\f")
-      (setq end (point)))
-    (goto-char beg)
-    (when (re-search-forward (rx whitespace
-                                 (or "[["
-                                     "http://" "https://" "ftp:" "mailto:"
-                                     "doi:" "pmid:" "pmcid:"))
-                             end t)
-      (goto-char (match-beginning 0))
-      (setq mid (point)))
-    (goto-char here)
-    (list beg mid end)))
+  (if (and buffer-file-name
+           (member (file-name-extension buffer-file-name)
+                   '("env" "ris")))
+      (list (point-min) nil (point-max))
+    (let* ((here (point))
+           (end (progn
+                  (forward-paragraph)
+                  (skip-chars-backward " \t\n\f")
+                  (point)))
+           (beg (progn
+                  (backward-paragraph)
+                  (skip-chars-forward " \t\n\f")
+                  (point)))
+           mid
+           urls)
+      (goto-char end)
+      (skip-chars-forward " \t\n\f")
+      (while (looking-at "^[A-Z0-9]\\{2\\} +-")
+        (forward-paragraph)
+        (skip-chars-backward " \t\n\f")
+        (setq end (point)))
+      (goto-char beg)
+      (when (re-search-forward (rx whitespace
+                                   (or "[["
+                                       "http://" "https://" "ftp:" "mailto:"
+                                       "doi:" "pmid:" "pmcid:"))
+                               end t)
+        (goto-char (match-beginning 0))
+        (setq mid (point))
+        (let ((url))
+          (skip-chars-forward " \t")
+          (while (setq url (org-build-url (org-link-at-point))) ;; Searches current line only!
+            (setq urls (cons url urls))
+            (forward-line)
+            (skip-chars-forward " \t"))
+          (when urls (setq end (point)))))
+      (goto-char here)
+      (list beg mid end urls))))
 
-
+(defun bibhlp-copy-and-make-urls (beg mid end urls)
+  "Copy reference to clipboard.
+Copy the bibl reference to clipboard with org style links
+converted to urls.  BEG, MID, END and URLS are the corresponding
+values returned by `bibhlp-find-reftext-at'."
+  (let (txt (first t))
+    (setq txt (buffer-substring-no-properties beg mid))
+    (setq txt (replace-regexp-in-string "\s+\\'" "" txt))
+    (dolist (url (reverse urls))
+      (setq txt (concat txt (if first "" "\n") url))
+      (setq first nil))
+    (kill-new txt)
+    (message "Copied reference to clipboard")))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1849,6 +1885,8 @@ Show:   p - Open in a browser cabable of pdf download
         f - Show in Firefox (so you can add it to Zotero)
 Find:   e - Find in org-mode buffers
         E - Find in org-mode files
+Copy:   u - Copy URL to clipboard
+        t - Copy title to clipboard
 More:   m - More alternatives
 "
                         ))
@@ -1874,21 +1912,26 @@ More:   m - More alternatives
         (bibhlp-browse-url-for-pdf url))
        ((eq cc ?m)
         (bibhlp-alternatives-for-entry))
+       ((eq cc ?u)
+        (org-copy-url-at-point))
+       ((eq cc ?t)
+        (bibhlp-copy-link-title-at-point))
        ((eq cc ?q) nil)
        (t (setq done nil))))
     ))
 
 (defun bibhlp-alternatives-for-entry ()
   (catch 'top-level
-    (let (beg mid end)
+    (let (beg mid end urls)
       (if mark-active
           (progn
             (setq beg (region-beginning))
             (setq end (region-end)))
         (let ((bme (bibhlp-find-reftext-at (point))))
-          (setq beg (nth 0 bme))
-          (setq mid (nth 1 bme))
-          (setq end (nth 2 bme)))
+          (setq beg  (nth 0 bme))
+          (setq mid  (nth 1 bme))
+          (setq end  (nth 2 bme))
+          (setq urls (nth 3 bme)))
         (if bibhlp-marking-ovl
             (move-overlay bibhlp-marking-ovl beg end)
           (setq bibhlp-marking-ovl (make-overlay beg end))
@@ -1896,11 +1939,12 @@ More:   m - More alternatives
       (let ((prompt (concat "
 What do you want to do with the marked bibliographic entry?
 
-Search:   g - Google Scholar (which you can connect to your library)
-          x - Get ids from CrossRef
-Convert:  a - APA style
-          m - AMA style
-          r - Reference Manager style
+Search:    g - Google Scholar (which you can connect to your library)
+           x - Get ids from CrossRef
+Convert:   a - APA style
+           m - AMA style
+           r - Reference Manager style
+Clipboard: c - copy reference with links converted to urls
 "
                             ;; l - LibHub
                             ;; p - PubMed
@@ -1919,6 +1963,8 @@ Convert:  a - APA style
                 (bibhlp-make-ris (bibhlp-parse-entry beg mid end)))
                (nil ;;(eq cc ?c)
                 (bibhlp-make-ris (parscit-post-reference str)))
+               ((eq cc ?c)
+                (bibhlp-copy-and-make-urls beg mid end urls))
                ((eq cc ?x)
                 (let* ((rec (catch 'top-level
                               (bibhlp-parse-entry beg mid end)))
@@ -2071,6 +2117,55 @@ and it looks like data can be shared/exported to Zotero later."
 ;;     (let ((rec (bibhlp-parse-entry nil nil nil)))
 ;;       (bibhlp-search-in-libhub rec))))
 
+;;http://www.scopus.com.ludwig.lub.lu.se/results/results.url?sort=plf-f&src=s&st1=10.1016%2fj.biopsych.2007.08.018&sid=8pTEVcKWegfJuOaPSjIfB9Q%3a310&sot=b&sdt=b&sl=35&s=DOI%2810.1016%2fj.biopsych.2007.08.018%29&origin=searchbasic&txGid=8pTEVcKWegfJuOaPSjIfB9Q%3a31
+
+;; http://www.scopus.com.ludwig.lub.lu.se/results/results.url?sort=plf-f&src=s&st1=10.1038%2fnn.2572&sid=Kue6iaMx3Jw-njyFdUKgSTE%3a230&sot=b&sdt=b&sl=20&s=DOI%2810.1038%2fnn.2572%29&origin=searchbasic&txGid=Kue6iaMx3Jw-njyFdUKgSTE%3a23
+;; http://www.scopus.com.ludwig.lub.lu.se/results/results.url?sort=plf-f&src=s&st1=10.1038%2fnn.2572&sid=Kue6iaMx3Jw-njyFdUKgSTE%3a230&sot=b&sdt=b&sl=20&s=DOI%2810.1038%2fnn.2572%29&origin=searchbasic
+;; http://www.scopus.com.ludwig.lub.lu.se/results/results.url?sort=plf-f&src=s&st1=10.1038%2fnn.2572&sot=b&sdt=b&sl=20&s=DOI%2810.1038%2fnn.2572%29&origin=searchbasic
+
+;;http://www.scopus.com.ludwig.lub.lu.se/results/results.url?sort=plf-f&src=s&st1=10.1016%2fj.biopsych.2007.08.018&sid=8pTEVcKWegfJuOaPSjIfB9Q%3a310&sot=b&sdt=b&sl=35&s=DOI%2810.1016%2fj.biopsych.2007.08.018%29
+
+
+;; http://www.scopus.com.ludwig.lub.lu.se/results/results.url?sort=plf-f&src=s&sot=b&sdt=b&sl=35&s=DOI%2810.1016%2fj.biopsych.2007.08.018%29
+
+;;http://www.scopus.com.ludwig.lub.lu.se/results/results.url?sort=plf-f&src=s&st1=10.1001%2farchgenpsychiatry.2010.199&sid=b_mAZjtRTCLqrGj5kHJD8G5%3a80&sot=b&sdt=b&sl=39&s=DOI%2810.1001%2farchgenpsychiatry.2010.199%29&origin=searchbasic&txGid=b_mAZjtRTCLqrGj5kHJD8G5%3a8
+
+;; http://www.scopus.com.ludwig.lub.lu.se/results/results.url?sort=plf-f&src=s&st1=10.1001%2farchgenpsychiatry.2010.199&sot=b&sdt=b&sl=39&s=DOI%2810.1001%2farchgenpsychiatry.2010.199%29&origin=searchbasic
+(defcustom bibhlp-scopus-url
+  "http://www.scopus.com.ludwig.lub.lu.se/results/results.url"
+  "Base URL to got to your Scopus."
+  :type 'string
+  :group 'bibhlp)
+
+;;;###autoload
+(defun bibhlp-copy-link-title-at-point ()
+  "Copy `org-mode' link at point title to clipboard."
+  (let* ((lnk (org-link-at-point))
+         (title (nth 2 lnk)))
+    (if (not lnk)
+        (message "No org-mode linke here")
+      (kill-new title)
+      (message "Copied link title to clipboard"))))
+
+;;;###autoload
+(defun bibhlp-scopus-by-doi (doi)
+  (interactive (let* ((lnk (org-link-at-point))
+                      (typ (nth 0 lnk))
+                      (val (nth 1 lnk)))
+                 (list (when (string= typ "doi") val))))
+  (message "doi=%s" doi)
+  (when doi
+    (let ((enc-doi (browse-url-encode-url doi)))
+      (browse-url (concat bibhlp-scopus-url
+                          ;; http://www.scopus.com.ludwig.lub.lu.se/results/results.url?sort=plf-f&src=s&st1=10.1038%2fnn.2572&sot=b&sdt=b&sl=20&s=DOI%2810.1038%2fnn.2572%29&origin=searchbasic
+                          "?sort=plf-f&src=s&st1="
+                          ;; 10.1038%2fnn.2572
+                          enc-doi
+                          "&sot=b&sdt=b&sl=20&s=DOI%28"
+                          ;;10.1038%2fnn.2572
+                          enc-doi
+                          "%29&origin=searchbasic"
+                          )))))
 
 (provide 'bibhlp)
 ;; Local variables:

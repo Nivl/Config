@@ -5,15 +5,16 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			06/27/2011, 06:42 PM
 ## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			July 17 2011 at 11:21 PM
+## On			October 08 2011 at 03:55 PM
 
 # Usage: update_emacs [mode_name]
 function update_emacs() {
     pwd_save=`pwd`
-    repo_path=/tmp/emacs-save
+    repo_path=/tmp/emacs-save/
     conf_path=~/.emacs.d/
     autoload_path=~/.emacs.d/autoloadable
     snippets_path=~/.emacs.d/snippets
+    git_root=~/
 
     mkdir -p $repo_path
     if [ $? -ne 0 ]; then
@@ -61,7 +62,7 @@ function __update_emacs_all() {
     cp $repo_path/*/*.el $autoload_path/
     __update_emacs_check_return $? "fail" "done"
 
-    cd $conf_path
+    cd $git_root
     put_info "Updating pkgbuild, android, django, markdown, egg, yaml and python"
     git submodule update
     __update_emacs_check_return $? "fail" "done"
@@ -122,7 +123,7 @@ function __update_emacs_egg() {
 
 function __update_emacs_cmake() {
     put_info "Retrieving cmake-mode"
-    mkdir  $repo_path/cmake-mode
+    mkdir  -p $repo_path/cmake-mode
     wget -O  $repo_path/cmake-mode/cmake-mode.el \
 	"http://www.cmake.org/CMakeDocs/cmake-mode.el"
     __update_emacs_check_return $? "fail" "done"
@@ -168,7 +169,7 @@ function __update_emacs_snippets() {
 function __update_emacs_nxhtml() {
     put_info "Updating nxhtml"
     cd $autoload_path/nxhtml
-    bzr merge
+    bzr merge --force
     __update_emacs_check_return $? "fail" "done"
     cd "/tmp"
 }

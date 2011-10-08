@@ -5,7 +5,7 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			June 11 2011 at 17:21 PM
 ## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			August 18 2011 at 09:21 PM
+## On			October 08 2011 at 06:24 PM
 
 . ~/Bin/Func/source.sh
 source_functions ~/Bin/Func
@@ -45,6 +45,7 @@ alias mman='man -M ~/Src/Epitech/man/'
 alias norme="python2 ~/Bin/python2/norme"
 alias repo="python2 ~/Bin/python2/repo"
 alias django='python2 manage.py '
+alias nivl_install='PYTHONPATH=/home/www/modules easy_install-2.7 -d /home/www/modules '
 
 alias cd..='cd ..'
 alias lss='less'
@@ -55,4 +56,4 @@ alias lla='ls -la'
 alias la='ls -a'
 alias rm='rm -i'
 alias emacs='\emacs -nw'
-alias ne='\emacs -nw'
+alias emax='\emacs -nw'

@@ -4,7 +4,7 @@
 ;; Maintainer:
 ;; Created: Fri Mar 09 2007
 (defconst mumamo:version "0.91") ;;Version:
-;; Last-Updated: 2009-10-19 Mon
+;; Last-Updated: 2011-11-03T00:18:05+0100
 ;; URL: http://OurComments.org/Emacs/Emacs.html
 ;; Keywords:
 ;; Compatibility:
@@ -491,7 +491,9 @@ See also `mumamo-chunk-value-set-min'."
          (major   (mumamo-chunk-major-mode chunk)))
     ;;(msgtrc "keyboard-major-mode cmin=%s pos=%s cmax=%s" cmin pos cmax)
     (unless (and (<= cmin pos)
-                 (< pos cmax))
+                 ;; Fix-me: patch for bug 885465. Test!
+                 ;;(< pos cmax))
+                 (<= pos cmax))
       (setq major 'mumamo-border-mode))
     major))
 
@@ -4021,9 +4023,17 @@ CHUNK-END-FUN should return the end of the chunk.
       (setq chunk-major  (nth 1 start-rec))
       (setq parseable-by (nth 2 start-rec))
       (goto-char start)
+      (when borders-fun
+        (let ((start-border (when start (unless (and (= 1 start)
+                                                     (not chunk-major))
+                                          start))))
+          ;;(msgtrc "poss-fw: %s %s %s %s" borders-fun start-border end-border chunk-major)
+          (setq borders (funcall borders-fun start-border nil chunk-major))
+          (goto-char (nth 0 borders))
+          ))
       ;; Fix-me: There should mabye be a check here, calling
       ;; mumamo-end-in-code, but that is a bit of job.
-      (setq end (when (< start max) (funcall chunk-end-fun start max)))
+      (setq end (when (< (point) max) (funcall chunk-end-fun (point) max)))
       (when borders-fun
         (let ((start-border (when start (unless (and (= 1 start)
                                                      (not chunk-major))

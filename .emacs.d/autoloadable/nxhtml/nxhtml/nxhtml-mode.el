@@ -257,7 +257,7 @@ You can add additional elisp code for completing to
 
 
 
-(defcustom nxhtml-default-encoding 'iso-8859-1
+(defcustom nxhtml-default-encoding 'utf-8
   "Default encoding."
   :type 'coding-system
   :group 'nxhtml)

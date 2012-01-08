@@ -1,4 +1,0 @@
-#contributor : rejeep <johan.rejeep@gmail.com>
-#name : margin top-bottom left-right
-# --
-margin: ${top-bottom} ${left-right};

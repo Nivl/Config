@@ -90,14 +90,14 @@
 
 
 ;; REPLACED BY A SNIPPET
-;(defun get-protect-header ()
-;  "Return a protection for header files."
-;  (setq str (file-name-sans-extension
-;	     (file-name-nondirectory (buffer-file-name))))
-;  (concat "#ifndef " (upcase str) "_H_\n"
-;	  "# define " (upcase str) "_H_\n"
-;	  "\n"
-;	  "#endif /* !" (upcase str) "_H_ */\n"))
+(defun get-protect-header ()
+  "Return a protection for header files."
+  (setq str (file-name-sans-extension
+	     (file-name-nondirectory (buffer-file-name))))
+  (concat "#ifndef " (upcase str) "_H_\n"
+	  "# define " (upcase str) "_H_\n"
+	  "\n"
+	  "#endif /* !" (upcase str) "_H_ */\n"))
 
 ;; REPLACED BY epitech-mode or headers.el
 ;(defun save-with-info()

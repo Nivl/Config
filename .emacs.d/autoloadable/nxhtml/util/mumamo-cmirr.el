@@ -93,6 +93,8 @@ See Info node `Buffer Names'.")
           (setq mumamo-cmirr-buffers (delete rec mumamo-cmirr-buffers))
           (setq buf nil)))
       (unless buf
+        ;; fix-me: this should not be needed, hunting a bug...
+        (setq mumamo-cmirr-last-chunk nil)
         (setq buf (generate-new-buffer
                    (format "%s%s [%s]"
                            (if mumamo-cmirr-nonlisted-buffers " " "")
@@ -102,7 +104,8 @@ See Info node `Buffer Names'.")
           (setq buffer-undo-list t)
           (font-lock-mode -1)
           (funcall major)
-          (setq indent-tabs-mode (with-current-buffer for-buffer indent-tabs-mode)))
+          (setq indent-tabs-mode (with-current-buffer for-buffer indent-tabs-mode))
+          (setq tab-width (with-current-buffer for-buffer tab-width)))
         (let* ((back (list major buf 1))
                (back-link (list for-buffer back)))
           (setq rec back)

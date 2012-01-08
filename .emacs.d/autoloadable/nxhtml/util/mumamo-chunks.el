@@ -586,6 +586,11 @@ See `mumamo-possible-chunk-forward' for POS and MAX."
   (mumamo-chunk-attr= pos max mumamo-onjs=-attr= t mumamo-onjs=-attr-regex
                       'javascript-mode))
 
+;;;; href=\"javascript:"
+(defun mumamo-chunk-hrefjs=(pos max)
+  "Find href=\"javascript:...\".  Return range and 'javascript-mode."
+  (mumamo-quick-chunk-forward pos max "href=\"javascript:" "\"" 'borders 'javascript-mode))
+
 ;;;; py:somthing=\"python\"
 
 (defconst mumamo-py:=-attr= "py:[a-z]+=")

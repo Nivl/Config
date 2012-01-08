@@ -1810,11 +1810,12 @@ Return a list \(BEG MID END)."
         (forward-paragraph)
         (skip-chars-backward " \t\n\f")
         (setq end (point)))
+      (setq mid end)
       (goto-char beg)
       (when (re-search-forward (rx whitespace
                                    (or "[["
                                        "http://" "https://" "ftp:" "mailto:"
-                                       "doi:" "pmid:" "pmcid:"))
+                                       "doi:" "isbn:" "pmid:" "pmcid:"))
                                end t)
         (goto-char (match-beginning 0))
         (setq mid (point))

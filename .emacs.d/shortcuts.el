@@ -26,6 +26,6 @@
 (global-set-key (kbd "C-c n") 'insert-filename-no-ext)
 (global-set-key (kbd "C-x C-b") 'buffer-menu)
 (global-set-key (kbd "C-c g") 'gdb)
-(global-set-key (kbd "C-c C-c") 'compile)
+(global-set-key (kbd "C-c o") 'compile)
 (global-set-key (kbd "C-c i") 'ide-mode-resize)
 (global-set-key (kbd "C-c p") 'fix-horizontal-size)

@@ -4,8 +4,8 @@
 ## Project:
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			06/27/2011, 06:42 PM
-## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			October 08 2011 at 03:55 PM
+## Last updated by	melvin laplanche <melvin.laplanche+dev@gmail.com>
+## On			January 08 2012 at 11:08 PM
 
 # Usage: update_emacs [mode_name]
 function update_emacs() {
@@ -70,6 +70,7 @@ function __update_emacs_all() {
 
     __update_emacs_html5
     __update_emacs_yasnippet
+    __update_emacs_snippet
     __update_emacs_nxhtml
 
     put_error "The following modes are not auto-updated: "
@@ -148,8 +149,7 @@ function __update_emacs_html5() {
 
 function __update_emacs_yasnippet() {
     put_info "Updating yasnippet"
-    svn checkout http://yasnippet.googlecode.com/svn/trunk/ \
-	 $repo_path/yasnippet
+    git clone https://github.com/capitaomorte/yasnippet.git $repo_path/yasnippet
     cp  $repo_path/yasnippet/yasnippet.el $autoload_path/
     cp  $repo_path/yasnippet/dropdown-list.el $autoload_path/
     put_info "Updating yasnippet done"
@@ -159,7 +159,7 @@ function __update_emacs_snippets() {
     put_info "Updating snippets"
     cd $snippets_path
     rm -Rf *
-    svn checkout http://yasnippet.googlecode.com/svn/trunk/ \
+    git clone https://github.com/capitaomorte/yasnippet.git \
 	$repo_path/yasnippet
     cp -Rf $repo_path/yasnippet/snippets/* .
     put_info "Updating snippets done"

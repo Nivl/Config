@@ -8,7 +8,7 @@
 ;;;### (autoloads (nxhtml-byte-recompile-file nxhtml-byte-compile-file
 ;;;;;;  nxhtml-get-missing-files nxhtml-update-existing-files nxhtml-setup-download-all
 ;;;;;;  nxhtml-setup-auto-download nxhtml-setup-install) "../nxhtml-web-vcs"
-;;;;;;  "nxhtml-web-vcs.el" (19905 14376))
+;;;;;;  "nxhtml-web-vcs.el" (19905 59322))
 ;;; Generated autoloads from nxhtml-web-vcs.el
 (web-autoload-require 'nxhtml-web-vcs 'lp '(nxhtml-download-root-url nil) "nxhtml-web-vcs" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -316,7 +316,7 @@ Report a bug in nXhtml.
 
 ;;;### (autoloads (nxhtml-overview nxhtml-menu-mode nxhtml-browse-region
 ;;;;;;  nxhtml-browse-file nxhtml-edit-with-gimp mumamo-switch-to-other-html)
-;;;;;;  "../nxhtml/nxhtml-menu" "nxhtml/nxhtml-menu.el" (19842 39555))
+;;;;;;  "../nxhtml/nxhtml-menu" "nxhtml/nxhtml-menu.el" (20135 13734))
 ;;; Generated autoloads from nxhtml/nxhtml-menu.el
 (web-autoload-require 'nxhtml-menu 'lp '(nxhtml-download-root-url nil) "nxhtml/nxhtml-menu" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -457,7 +457,7 @@ This mode may be turned on automatically in two ways:
 ;;;;;;  smarty-nxhtml-mumamo-mode mjt-nxhtml-mumamo-mode genshi-nxhtml-mumamo-mode
 ;;;;;;  mason-nxhtml-mumamo-mode django-nxhtml-mumamo-mode embperl-nxhtml-mumamo-mode
 ;;;;;;  nxhtml-mumamo-mode) "../nxhtml/nxhtml-mumamo" "nxhtml/nxhtml-mumamo.el"
-;;;;;;  (19721 6646))
+;;;;;;  (20123 18327))
 ;;; Generated autoloads from nxhtml/nxhtml-mumamo.el
 (web-autoload-require 'nxhtml-mumamo 'lp '(nxhtml-download-root-url nil) "nxhtml/nxhtml-mumamo" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -1423,7 +1423,7 @@ For Smarty functions, see PDF or HTML documentation.
 ;;;***
 
 ;;;### (autoloads (tt-mode) "../related/tt-mode" "related/tt-mode.el"
-;;;;;;  (18603 12192))
+;;;;;;  (19908 4583))
 ;;; Generated autoloads from related/tt-mode.el
 (web-autoload-require 'tt-mode 'lp '(nxhtml-download-root-url nil) "related/tt-mode" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -1452,20 +1452,20 @@ Commands:
 
 ;;;***
 
-;;;### (autoloads (ert-run-tests-interactively ert-deftest) "../tests/ert"
-;;;;;;  "tests/ert.el" (19173 52540))
-;;; Generated autoloads from tests/ert.el
-(web-autoload-require 'ert 'lp '(nxhtml-download-root-url nil) "tests/ert" nxhtml-install-dir 'nxhtml-byte-compile-file)
+;;;### (autoloads (ertn-run-tests-interactively ertn-deftest) "../tests/ertn"
+;;;;;;  "tests/ertn.el" (20145 54271))
+;;; Generated autoloads from tests/ertn.el
+(web-autoload-require 'ertn 'lp '(nxhtml-download-root-url nil) "tests/ertn" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
 
-(nxhtml-autoload 'ert-deftest `(lp '(nxhtml-download-root-url nil) "tests/ert" nxhtml-install-dir) "\
+(nxhtml-autoload 'ertn-deftest `(lp '(nxhtml-download-root-url nil) "tests/ertn" nxhtml-install-dir) "\
 Define NAME (a symbol) as a test.
 
 \(fn NAME () [:documentation DOCSTRING] [:expected-result TYPE] BODY...)" nil (quote macro))
 
-(put 'ert-deftest 'lisp-indent-function '2)
+(put 'ertn-deftest 'lisp-indent-function '2)
 
-(nxhtml-autoload 'ert-run-tests-interactively `(lp '(nxhtml-download-root-url nil) "tests/ert" nxhtml-install-dir) "\
+(nxhtml-autoload 'ertn-run-tests-interactively `(lp '(nxhtml-download-root-url nil) "tests/ertn" nxhtml-install-dir) "\
 Run the tests specified by SELECTOR and display the results in a buffer.
 
 \(fn SELECTOR &optional OUTPUT-BUFFER-NAME MESSAGE-FN)" t nil)
@@ -1473,7 +1473,7 @@ Run the tests specified by SELECTOR and display the results in a buffer.
 ;;;***
 
 ;;;### (autoloads (nxhtmltest-run-Q) "../tests/nxhtmltest-Q" "tests/nxhtmltest-Q.el"
-;;;;;;  (19264 33084))
+;;;;;;  (20145 53191))
 ;;; Generated autoloads from tests/nxhtmltest-Q.el
 (web-autoload-require 'nxhtmltest-Q 'lp '(nxhtml-download-root-url nil) "tests/nxhtmltest-Q" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -1487,7 +1487,7 @@ See `nxhtmltest-run' for more information about the tests.
 ;;;***
 
 ;;;### (autoloads (nxhtmltest-run nxhtmltest-run-indent) "../tests/nxhtmltest-suites"
-;;;;;;  "tests/nxhtmltest-suites.el" (19725 36848))
+;;;;;;  "tests/nxhtmltest-suites.el" (20145 53294))
 ;;; Generated autoloads from tests/nxhtmltest-suites.el
 (web-autoload-require 'nxhtmltest-suites 'lp '(nxhtml-download-root-url nil) "tests/nxhtmltest-suites" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -1514,7 +1514,7 @@ fail (they corresponds to known errors in nXhtml/Emacs):
 ;;;### (autoloads (web-vcs-investigate-elisp-file web-vcs-url-copy-file
 ;;;;;;  web-vcs-url-retrieve-synch web-vcs-byte-compile-file web-vcs-message-with-face
 ;;;;;;  web-vcs-get-files-from-root web-vcs-log-edit web-vcs-default-download-directory)
-;;;;;;  "../web-vcs" "web-vcs.el" (19905 16209))
+;;;;;;  "../web-vcs" "web-vcs.el" (19905 59487))
 ;;; Generated autoloads from web-vcs.el
 (web-autoload-require 'web-vcs 'lp '(nxhtml-download-root-url nil) "web-vcs" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -2081,8 +2081,9 @@ See `as-external-alist' for more information.
 
 ;;;***
 
-;;;### (autoloads (bibhlp-goto-citeulike bibhlp) "bibhlp" "util/bibhlp.el"
-;;;;;;  (19897 17913))
+;;;### (autoloads (bibhlp-scopus-by-doi bibhlp-copy-link-title-at-point
+;;;;;;  bibhlp-goto-citeulike bibhlp) "bibhlp" "util/bibhlp.el" (20139
+;;;;;;  4240))
 ;;; Generated autoloads from util/bibhlp.el
 (web-autoload-require 'bibhlp 'lp '(nxhtml-download-root-url nil) "util/bibhlp" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -2127,6 +2128,16 @@ and with close source.  However you can have your data private
 and it looks like data can be shared/exported to Zotero later.
 
 \(fn ARTICLE-URL)" t nil)
+
+(nxhtml-autoload 'bibhlp-copy-link-title-at-point `(lp '(nxhtml-download-root-url nil) "util/bibhlp" nxhtml-install-dir) "\
+Copy `org-mode' link at point title to clipboard.
+
+\(fn)" nil nil)
+
+(nxhtml-autoload 'bibhlp-scopus-by-doi `(lp '(nxhtml-download-root-url nil) "util/bibhlp" nxhtml-install-dir) "\
+Not documented
+
+\(fn DOI)" t nil)
 
 ;;;***
 
@@ -3144,7 +3155,7 @@ See `mlinks-mode' for more information on Mlinks mode.
 ;;;;;;  mumamo-list-defined-multi-major-modes mumamo-mark-for-refontification
 ;;;;;;  mumamo-hi-lock-faces mumamo mumamo-add-to-defined-multi-major-modes
 ;;;;;;  define-mumamo-multi-major-mode) "mumamo" "util/mumamo.el"
-;;;;;;  (19812 23772))
+;;;;;;  (20145 53168))
 ;;; Generated autoloads from util/mumamo.el
 (web-autoload-require 'mumamo 'lp '(nxhtml-download-root-url nil) "util/mumamo" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -3300,7 +3311,7 @@ Return t if VALUE is a multi major mode function.
 ;;;***
 
 ;;;### (autoloads (mumamo-noweb2 mumamo-define-html-file-wide-keys)
-;;;;;;  "mumamo-chunks" "util/mumamo-chunks.el" (19754 63937))
+;;;;;;  "mumamo-chunks" "util/mumamo-chunks.el" (20123 18391))
 ;;; Generated autoloads from util/mumamo-chunks.el
 (web-autoload-require 'mumamo-chunks 'lp '(nxhtml-download-root-url nil) "util/mumamo-chunks" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -3338,8 +3349,8 @@ Get the mirror rec.
 ;;;;;;  gsp-html-mumamo-mode ssjs-html-mumamo-mode smarty-html-mumamo-mode
 ;;;;;;  mjt-html-mumamo-mode genshi-html-mumamo-mode django-html-mumamo-mode
 ;;;;;;  embperl-html-mumamo-mode mason-html-mumamo-mode nxml-mumamo-mode
-;;;;;;  html-mumamo-mode) "mumamo-fun" "util/mumamo-fun.el" (19835
-;;;;;;  47458))
+;;;;;;  html-mumamo-mode) "mumamo-fun" "util/mumamo-fun.el" (20123
+;;;;;;  18235))
 ;;; Generated autoloads from util/mumamo-fun.el
 (web-autoload-require 'mumamo-fun 'lp '(nxhtml-download-root-url nil) "util/mumamo-fun" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -3608,8 +3619,8 @@ Edit the current schema in another window.
 
 ;;;***
 
-;;;### (autoloads (ocr-user-mode) "ocr-user" "util/ocr-user.el" (19290
-;;;;;;  18026))
+;;;### (autoloads (ocr-user-mode) "ocr-user" "util/ocr-user.el" (19923
+;;;;;;  47846))
 ;;; Generated autoloads from util/ocr-user.el
 (web-autoload-require 'ocr-user 'lp '(nxhtml-download-root-url nil) "util/ocr-user" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -3659,12 +3670,13 @@ Search subdirs if RECURSE is 'yes, don't if it is 'no.
 ;;;;;;  narrow-to-comment buffer-narrowed-p describe-command ourcomments-ediff-files
 ;;;;;;  find-emacs-other-file ediff-emacs-other-file ourcomments-insert-date-and-time
 ;;;;;;  describe-timers paste-as-new-buffer ourcomments-is-obsolete
-;;;;;;  ourcomments-copy+paste-set-point better-fringes-mode describe-key-and-map-briefly
-;;;;;;  ourcomments-move-end-of-line ourcomments-move-beginning-of-line
-;;;;;;  major-modep major-or-multi-majorp ourcomments-mark-whole-buffer-or-field
-;;;;;;  fill-dwim unfill-individual-paragraphs unfill-region unfill-paragraph
-;;;;;;  define-toggle-old define-toggle popup-menu-at-point ourcomments-indirect-fun)
-;;;;;;  "ourcomments-util" "util/ourcomments-util.el" (19903 1701))
+;;;;;;  ourcomments-tr ourcomments-browse-bug ourcomments-copy+paste-set-point
+;;;;;;  better-fringes-mode describe-key-and-map-briefly ourcomments-move-end-of-line
+;;;;;;  ourcomments-move-beginning-of-line major-modep major-or-multi-majorp
+;;;;;;  ourcomments-mark-whole-buffer-or-field fill-dwim unfill-individual-paragraphs
+;;;;;;  unfill-region unfill-paragraph define-toggle-old define-toggle
+;;;;;;  popup-menu-at-point ourcomments-indirect-fun) "ourcomments-util"
+;;;;;;  "util/ourcomments-util.el" (20011 12229))
 ;;; Generated autoloads from util/ourcomments-util.el
 (web-autoload-require 'ourcomments-util 'lp '(nxhtml-download-root-url nil) "util/ourcomments-util" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -3813,6 +3825,20 @@ should select a piece of text to copy and then call the command
 `ourcomments-copy+paste'.
 
 \(fn)" t nil)
+
+(nxhtml-autoload 'ourcomments-browse-bug `(lp '(nxhtml-download-root-url nil) "util/ourcomments-util" nxhtml-install-dir) "\
+Display emacs bug number EMACS-BUG in browser.
+
+\(fn EMACS-BUG)" t nil)
+
+(nxhtml-autoload 'ourcomments-tr `(lp '(nxhtml-download-root-url nil) "util/ourcomments-util" nxhtml-install-dir) "\
+Replace all characters in STR listed in FROM
+with characters listed in TO. If1 FROM is longer
+than TO, then the excess characters are deleted.
+
+\(tr \"abcdefg\" \"abcd\" \"ABC\") => \"ABCefg\"
+
+\(fn STR FROM TO)" nil nil)
 
 (nxhtml-autoload 'ourcomments-is-obsolete `(lp '(nxhtml-download-root-url nil) "util/ourcomments-util" nxhtml-install-dir) "\
 Return non-nil if SYMBOL is obsolete in current Emacs.
@@ -4017,6 +4043,8 @@ Third arg DELIMITED (prefix arg) means replace only word-delimited matches.
 If you exit (\\[keyboard-quit], RET or q), you can resume the query replace
 with the command \\[tags-loop-continue].
 
+Must be called from a `grep-mode' buffer.
+
 \(fn FROM TO &optional DELIMITED)" t nil)
 
 (nxhtml-autoload 'ldir-query-replace `(lp '(nxhtml-download-root-url nil) "util/ourcomments-util" nxhtml-install-dir) "\
@@ -4155,7 +4183,7 @@ A major mode lisp function." :complete-function (lambda nil (interactive) (lisp-
 ;;;***
 
 ;;;### (autoloads (pause-start-in-new-emacs pause-mode pause) "pause"
-;;;;;;  "util/pause.el" (19897 17913))
+;;;;;;  "util/pause.el" (20090 26653))
 ;;; Generated autoloads from util/pause.el
 (web-autoload-require 'pause 'lp '(nxhtml-download-root-url nil) "util/pause" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -4337,6 +4365,29 @@ Major mode for editing RELAX NG Compact Syntax schemas.
 \\{rnc-mode-map}
 
 \(fn)" t nil)
+
+;;;***
+
+;;;### (autoloads (rtmpdump-from-file rtmpdump-from-buffer rtmpdump-from-url)
+;;;;;;  "rtmpdump" "util/rtmpdump.el" (20047 6348))
+;;; Generated autoloads from util/rtmpdump.el
+(web-autoload-require 'rtmpdump 'lp '(nxhtml-download-root-url nil) "util/rtmpdump" nxhtml-install-dir 'nxhtml-byte-compile-file)
+
+
+(nxhtml-autoload 'rtmpdump-from-url `(lp '(nxhtml-download-root-url nil) "util/rtmpdump" nxhtml-install-dir) "\
+Not documented
+
+\(fn URL)" t nil)
+
+(nxhtml-autoload 'rtmpdump-from-buffer `(lp '(nxhtml-download-root-url nil) "util/rtmpdump" nxhtml-install-dir) "\
+Not documented
+
+\(fn BUF)" t nil)
+
+(nxhtml-autoload 'rtmpdump-from-file `(lp '(nxhtml-download-root-url nil) "util/rtmpdump" nxhtml-install-dir) "\
+Not documented
+
+\(fn FILE)" t nil)
 
 ;;;***
 
@@ -4774,7 +4825,7 @@ See also option `winsav-save-mode' and command
 ;;;;;;  winsize-balance-siblings winsize-fit-frame-width winsize-fitw-and-maxh-frame
 ;;;;;;  winsize-max-frame-height winsize-fit-windows-to-desired-widths
 ;;;;;;  winsize-fit-window-to-buffer winsize-fit-window-to-desired-width
-;;;;;;  resize-windows) "winsize" "util/winsize.el" (19821 35779))
+;;;;;;  resize-windows) "winsize" "util/winsize.el" (19948 38433))
 ;;; Generated autoloads from util/winsize.el
 (web-autoload-require 'winsize 'lp '(nxhtml-download-root-url nil) "util/winsize" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -5165,14 +5216,14 @@ accept it or skip it.
 ;;;;;;  "related/flymake-for-java.el" "related/flymake-for-rb.el"
 ;;;;;;  "related/flymake-helpers.el" "related/flymakemsg.el" "related/php-imenu.el"
 ;;;;;;  "tests/angus77-setup-jde.el" "tests/emacstest-suites.el"
-;;;;;;  "tests/ert2.el" "tests/hfy-test.el" "tests/inemacs/bug1013.el"
+;;;;;;  "tests/ertn2.el" "tests/hfy-test.el" "tests/inemacs/bug1013.el"
 ;;;;;;  "tests/mumamo-test.el" "tests/nxhtmltest-helpers.el" "tests/temp-test.el"
 ;;;;;;  "util/ack.el" "util/appmenu-fold.el" "util/backtr.el" "util/css-simple-completion.el"
 ;;;;;;  "util/custsets.el" "util/ecb-batch-compile.el" "util/fupd.el"
 ;;;;;;  "util/idn.el" "util/mumamo-trace.el" "util/new-key-seq-widget.el"
-;;;;;;  "util/org-odt.el" "util/org-panel.el" "util/powershell-mode.el"
-;;;;;;  "util/rxi.el" "util/tipframe.el" "util/win-alg.el" "web-autoload.el")
-;;;;;;  (19905 16362 560000))
+;;;;;;  "util/org-odt.el" "util/org-panel.el" "util/pipm.el" "util/powershell-mode.el"
+;;;;;;  "util/rxi.el" "util/tipframe.el" "util/umbrain.el" "util/win-alg.el"
+;;;;;;  "web-autoload.el") (20145 54340 795000))
 
 ;;;***
 

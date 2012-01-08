@@ -162,7 +162,10 @@
 
 (defun nxhtml-buffer-possibly-local-viewable (&optional file)
   (unless file
-    (setq file (buffer-or-dired-file-name)))
+    (condition-case err
+        (setq file (buffer-or-dired-file-name))
+      (error
+       (message "%s" (error-message-string err)))))
   (or (and file
            (member (file-name-extension file)
                    '("html" "htm" "gif" "png")))))

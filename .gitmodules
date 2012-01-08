@@ -21,4 +21,4 @@
 	url = git://jblevins.org/git/markdown-mode.git
 [submodule ".emacs.d/autoloadable/django-mode"]
 	path = .emacs.d/autoloadable/django-mode
-	url = git@github.com:Nivl/django-mode.git
+	url = https://github.com/johnpaulett/django-mode.git

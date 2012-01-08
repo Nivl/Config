@@ -74,6 +74,7 @@ This covers inlined style and javascript and PHP."
     mumamo-chunk-inlined-script
     mumamo-chunk-style=
     mumamo-chunk-onjs=
+    mumamo-chunk-hrefjs=
     )))
 (add-hook 'html-mumamo-mode-hook 'mumamo-define-html-file-wide-keys)
 (mumamo-inherit-sub-chunk-family 'html-mumamo-mode)
@@ -96,6 +97,7 @@ See also `mumamo-alt-php-tags-mode'."
     mumamo-chunk-inlined-script
     mumamo-chunk-style=
     mumamo-chunk-onjs=
+    mumamo-chunk-hrefjs=
     )))
 (add-hook 'nxml-mumamo-mode-hook 'mumamo-define-html-file-wide-keys)
 
@@ -126,6 +128,7 @@ This covers inlined style and javascript."
     mumamo-chunk-inlined-script
     mumamo-chunk-style=
     mumamo-chunk-onjs=
+    mumamo-chunk-hrefjs=
     )))
 (add-hook 'mason-html-mumamo-mode-hook 'mumamo-define-html-file-wide-keys)
 (mumamo-inherit-sub-chunk-family-locally 'mason-html-mumamo-mode 'mason-html-mumamo-mode)
@@ -146,6 +149,7 @@ This also covers inlined style and javascript."
     mumamo-chunk-inlined-script
     mumamo-chunk-style=
     mumamo-chunk-onjs=
+    mumamo-chunk-hrefjs=
     )))
 
 
@@ -165,6 +169,7 @@ This also covers inlined style and javascript."
     mumamo-chunk-inlined-script
     mumamo-chunk-style=
     mumamo-chunk-onjs=
+    mumamo-chunk-hrefjs=
     )))
 
 
@@ -186,6 +191,7 @@ This also covers inlined style and javascript."
     mumamo-chunk-inlined-script
     mumamo-chunk-style=
     mumamo-chunk-onjs=
+    mumamo-chunk-hrefjs=
     )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -203,6 +209,7 @@ This also covers inlined style and javascript."
     mumamo-chunk-inlined-script
     mumamo-chunk-style=
     mumamo-chunk-onjs=
+    mumamo-chunk-hrefjs=
     )))
 
 
@@ -217,6 +224,7 @@ This also covers inlined style and javascript."
    (mumamo-chunk-xml-pi
     mumamo-chunk-style=
     mumamo-chunk-onjs=
+    mumamo-chunk-hrefjs=
     ;;mumamo-chunk-inlined-style
     ;;mumamo-chunk-inlined-script
     mumamo-chunk-smarty-literal
@@ -246,6 +254,7 @@ This covers inlined style and javascript."
     mumamo-chunk-ssjs-%
     mumamo-chunk-style=
     mumamo-chunk-onjs=
+    mumamo-chunk-hrefjs=
     )))
 (add-hook 'html-mumamo-mode-hook 'mumamo-define-html-file-wide-keys)
 (mumamo-inherit-sub-chunk-family 'ssjs-html-mumamo-mode)
@@ -263,6 +272,7 @@ This also covers inlined style and javascript."
     mumamo-chunk-inlined-script
     mumamo-chunk-style=
     mumamo-chunk-onjs=
+    mumamo-chunk-hrefjs=
     )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -279,6 +289,7 @@ This also covers inlined style and javascript."
     mumamo-chunk-inlined-script
     mumamo-chunk-style=
     mumamo-chunk-onjs=
+    mumamo-chunk-hrefjs=
     )))
 
 
@@ -319,6 +330,7 @@ information about <%% ... %%>, % and %%."
     mumamo-chunk-inlined-script
     mumamo-chunk-style=
     mumamo-chunk-onjs=
+    mumamo-chunk-hrefjs=
     )))
 
 ;;;###autoload
@@ -461,6 +473,7 @@ This also covers inlined style and javascript."
     mumamo-chunk-inlined-script
     mumamo-chunk-style=
     mumamo-chunk-onjs=
+    mumamo-chunk-hrefjs=
     )))
 
 
@@ -477,6 +490,7 @@ This also covers inlined style and javascript."
     mumamo-chunk-inlined-script
     mumamo-chunk-style=
     mumamo-chunk-onjs=
+    mumamo-chunk-hrefjs=
     )))
 
 
@@ -533,6 +547,7 @@ This also covers inlined style and javascript."
     mumamo-chunk-inlined-script
     mumamo-chunk-style=
     mumamo-chunk-onjs=
+    mumamo-chunk-hrefjs=
     )))
 (mumamo-inherit-sub-chunk-family-locally 'mako-html-mumamo-mode 'mako-html-mumamo-mode)
 

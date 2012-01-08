@@ -4,8 +4,8 @@
 ## Project:
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			June 11 2011 at 17:21 PM
-## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			October 08 2011 at 06:24 PM
+## Last updated by	melvin laplanche <melvin.laplanche+dev@gmail.com>
+## On			January 07 2012 at 03:58 PM
 
 . ~/Bin/Func/source.sh
 source_functions ~/Bin/Func
@@ -56,4 +56,4 @@ alias lla='ls -la'
 alias la='ls -a'
 alias rm='rm -i'
 alias emacs='\emacs -nw'
-alias emax='\emacs -nw'
+alias em='\emacs -nw'

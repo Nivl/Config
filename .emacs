@@ -1,6 +1,8 @@
 ;; MEMO:
 ;; Pour trouver le nom d'une commande a partir d'un shortcut : C-h c
 
+(setq enable_epitech t)
+
 (load-file "~/.emacs.d/my-autoload.el")
 (my-autoload "~/.emacs.d/autoloadable" 1)
 
@@ -28,8 +30,11 @@
 (require 'yasnippet)
 (yas/initialize)
 (setq yas/snippet-dirs '("~/.emacs.d/snippets"
-			 "~/.emacs.d/autoloadable/django-mode/snippets"))
+			 "~/.emacs.d/autoloadable/django-mode/snippets"
+			 "~/.emacs.d/custom-snippets"
+			 ))
 (mapc 'yas/load-directory yas/snippet-dirs)
+(yas/global-mode 1)
 (require 'dropdown-list)
 (setq yas/prompt-functions '(yas/dropdown-prompt
 			     yas/ido-prompt
@@ -49,4 +54,6 @@
 (load-file "~/.emacs.d/templates.elc")
 (load-file "~/.emacs.d/headers.elc")
 
-;(require 'epitech-mode)
+(when enable_epitech
+  (require 'epitech-mode)
+  )

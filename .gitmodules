@@ -22,3 +22,6 @@
 [submodule ".emacs.d/autoloadable/django-mode"]
 	path = .emacs.d/autoloadable/django-mode
 	url = https://github.com/johnpaulett/django-mode.git
+[submodule ".emacs.d/autoloadable/auto-complete"]
+	path = .emacs.d/autoloadable/auto-complete
+	url = https://github.com/m2ym/auto-complete

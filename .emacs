@@ -27,11 +27,17 @@
 
 (autoload 'ide-mode "ide-mode" "Mode to use emacs as ide" t)
 
+
+(require 'auto-complete-config)
+(add-to-list 'ac-dictionary-directories "~/.emacs.d/autoloadable/auto-complete/dict")
+(ac-config-default)
+
+
 (require 'yasnippet)
 (yas/initialize)
 (setq yas/snippet-dirs '("~/.emacs.d/snippets"
 			 "~/.emacs.d/autoloadable/django-mode/snippets"
-			 "~/.emacs.d/custom-snippets"
+			 "~/.emacs.d/custom_snippets"
 			 ))
 (mapc 'yas/load-directory yas/snippet-dirs)
 (yas/global-mode 1)

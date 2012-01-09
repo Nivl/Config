@@ -5,7 +5,7 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			06/27/2011, 06:42 PM
 ## Last updated by	melvin laplanche <melvin.laplanche+dev@gmail.com>
-## On			January 08 2012 at 11:08 PM
+## On			January 09 2012 at 10:54 PM
 
 # Usage: update_emacs [mode_name]
 function update_emacs() {
@@ -37,7 +37,7 @@ function update_emacs() {
 
 function __update_emacs_one() {
     local found=0
-    array=( "pkgbuild" "android" "django" "egg" "yaml" "cmake"
+    array=( "pkgbuild" "android" "django" "auto-complete" "egg" "yaml" "cmake"
 	"python" "html5" "yasnippet" "snippets" "nxhtml" "markdown")
 
     for (( i=0; i<${#array[@]}; i++ )); do
@@ -136,6 +136,10 @@ function __update_emacs_yaml() {
 
 function __update_emacs_python() {
     __update_emacs_from_git "python-mode"
+}
+
+function __update_emacs_autocomplete() {
+    __update_emacs_from_git "auto-complete"
 }
 
 function __update_emacs_html5() {

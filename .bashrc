@@ -5,7 +5,7 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			June 11 2011 at 17:21 PM
 ## Last updated by	melvin laplanche <melvin.laplanche+dev@gmail.com>
-## On			January 07 2012 at 03:58 PM
+## On			February 05 2012 at 04:43 PM
 
 . ~/Bin/Func/source.sh
 source_functions ~/Bin/Func
@@ -42,8 +42,8 @@ export GTK_IM_MODULE
 PYMACS_PYTHON=python2
 
 alias mman='man -M ~/Src/Epitech/man/'
-alias norme="python2 ~/Bin/python2/norme"
-alias repo="python2 ~/Bin/python2/repo"
+alias norme="python2 ~/Bin/Python2/norme"
+alias repo="python2 ~/Bin/Python2/repo"
 alias django='python2 manage.py '
 alias nivl_install='PYTHONPATH=/home/www/modules easy_install-2.7 -d /home/www/modules '
 

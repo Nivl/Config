@@ -41,6 +41,7 @@
 	 ("\\.pov\\'" . pov-mode)
 	 ("\\.java\\'" . java-mode)
 	 ("\\.md\\'" . markdown-mode)
+	 ("\\.ml[iylp]?\\'" . tuareg-mode)
 	 ("/PKGBUILD$" . pkgbuild-mode)
 	 ;("\\.po\\'" . po-mode) gettext-el
 	 )

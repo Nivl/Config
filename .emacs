@@ -22,6 +22,7 @@
 (autoload 'cmake-mode "cmake-mode" "Major mode for CMake" t)
 (autoload 'python-mode "python-mode" "Major mode for python" t)
 (autoload 'django-mode "django-mode" "Major mode for Django" t)
+(autoload 'tuareg-mode "tuareg" "Major mode for Ocaml" t)
 (autoload 'django-html-mode "django-html-mode" "Major mode for Django template" t)
 (autoload 'pkgbuild-mode "pkgbuild-mode" "Major mode for editing PKGBUILD." t)
 

@@ -5,7 +5,7 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			06/27/2011, 06:42 PM
 ## Last updated by	melvin laplanche <melvin.laplanche+dev@gmail.com>
-## On			January 09 2012 at 10:54 PM
+## On			February 13 2012 at 12:53 PM
 
 # Usage: update_emacs [mode_name]
 function update_emacs() {
@@ -38,7 +38,7 @@ function update_emacs() {
 function __update_emacs_one() {
     local found=0
     array=( "pkgbuild" "android" "django" "auto-complete" "egg" "yaml" "cmake"
-	"python" "html5" "yasnippet" "snippets" "nxhtml" "markdown")
+	"python" "html5" "yasnippet" "snippets" "nxhtml" "markdown" "ocaml")
 
     for (( i=0; i<${#array[@]}; i++ )); do
 	if [ "$1" == "${array[$i]}" ]; then
@@ -68,6 +68,7 @@ function __update_emacs_all() {
     __update_emacs_check_return $? "fail" "done"
     cd "/tmp"
 
+    __update_emacs_ocaml
     __update_emacs_html5
     __update_emacs_yasnippet
     __update_emacs_snippet
@@ -176,4 +177,14 @@ function __update_emacs_nxhtml() {
     bzr merge --force
     __update_emacs_check_return $? "fail" "done"
     cd "/tmp"
+}
+
+function __update_emacs_ocaml() {
+    put_info "Updating Ocaml"
+
+    $repo_path/ocaml
+    svn up
+    __update_emacs_check_return $? "fail" "done"
+    rm -f dot-emacs.el
+    put_info "Updating ocaml done"
 }

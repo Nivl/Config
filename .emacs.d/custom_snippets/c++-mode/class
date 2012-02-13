@@ -3,6 +3,9 @@
 # --
 class ${1:Name}
 {
+private:
+
+
 public:
     ${1:$(yas/substr text "[^: ]*")}($2);
     virtual ~${1:$(yas/substr text "[^: ]*")}();

@@ -5,7 +5,7 @@
 ;; Login   <fred@epita.fr>
 ;;
 ;; Started on  Thu Sep  9 23:34:05 1993 Frederic Denis
-;; Last update Thu Jan 13 19:17:49 2011 melvin laplanche
+;; Last update Sat Mar  3 12:06:07 2012 melvin laplanche
 ;;
 ;; Based on Comment routines by Isaac
 ;;
@@ -30,7 +30,7 @@
   (setq user-nickname (user-full-name))
 )
 
-(setq write-file-hooks (cons 'update-std-header write-file-hooks))
+;$(setq write-file-hooks (cons 'update-std-header write-file-hooks))
 
 (setq std-c-alist               '( (cs . "/*") (cc . "** ") (ce . "*/") )
       std-css-alist             '( (cs . "/*") (cc . "** ") (ce . "*/") )

@@ -211,7 +211,7 @@ Query replace in current site's files.
 ;;;***
 
 ;;;### (autoloads (html-toc) "../nxhtml/html-toc" "nxhtml/html-toc.el"
-;;;;;;  (19585 29452))
+;;;;;;  (20146 29388))
 ;;; Generated autoloads from nxhtml/html-toc.el
 (web-autoload-require 'html-toc 'lp '(nxhtml-download-root-url nil) "nxhtml/html-toc" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -316,7 +316,7 @@ Report a bug in nXhtml.
 
 ;;;### (autoloads (nxhtml-overview nxhtml-menu-mode nxhtml-browse-region
 ;;;;;;  nxhtml-browse-file nxhtml-edit-with-gimp mumamo-switch-to-other-html)
-;;;;;;  "../nxhtml/nxhtml-menu" "nxhtml/nxhtml-menu.el" (20135 13734))
+;;;;;;  "../nxhtml/nxhtml-menu" "nxhtml/nxhtml-menu.el" (20248 6279))
 ;;; Generated autoloads from nxhtml/nxhtml-menu.el
 (web-autoload-require 'nxhtml-menu 'lp '(nxhtml-download-root-url nil) "nxhtml/nxhtml-menu" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -379,7 +379,7 @@ Show a HTML page with an overview of nXhtml.
 
 ;;;### (autoloads (nxhtml-validation-header-mode nxhtml-short-tag-help
 ;;;;;;  nxhtml-mode) "../nxhtml/nxhtml-mode" "nxhtml/nxhtml-mode.el"
-;;;;;;  (19744 24137))
+;;;;;;  (20146 29416))
 ;;; Generated autoloads from nxhtml/nxhtml-mode.el
 (web-autoload-require 'nxhtml-mode 'lp '(nxhtml-download-root-url nil) "nxhtml/nxhtml-mode" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -1453,7 +1453,7 @@ Commands:
 ;;;***
 
 ;;;### (autoloads (ertn-run-tests-interactively ertn-deftest) "../tests/ertn"
-;;;;;;  "tests/ertn.el" (20145 54271))
+;;;;;;  "tests/ertn.el" (20145 54589))
 ;;; Generated autoloads from tests/ertn.el
 (web-autoload-require 'ertn 'lp '(nxhtml-download-root-url nil) "tests/ertn" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -2082,8 +2082,8 @@ See `as-external-alist' for more information.
 ;;;***
 
 ;;;### (autoloads (bibhlp-scopus-by-doi bibhlp-copy-link-title-at-point
-;;;;;;  bibhlp-goto-citeulike bibhlp) "bibhlp" "util/bibhlp.el" (20139
-;;;;;;  4240))
+;;;;;;  bibhlp-goto-citeulike bibhlp) "bibhlp" "util/bibhlp.el" (20236
+;;;;;;  52073))
 ;;; Generated autoloads from util/bibhlp.el
 (web-autoload-require 'bibhlp 'lp '(nxhtml-download-root-url nil) "util/bibhlp" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -2996,6 +2996,63 @@ See also the command `inlimg-mode'.
 
 ;;;***
 
+;;;### (autoloads (jsut-jquery-css-to-js jsut-jquery-mk-bookmarklet
+;;;;;;  jsut-jquery-create-bookmarklet-file jsut-bookmarkletify jsut-plovr-compile
+;;;;;;  jsut-plovr-edit-conf jsut-plovr-dev-info) "js-utils" "util/js-utils.el"
+;;;;;;  (20248 5755))
+;;; Generated autoloads from util/js-utils.el
+(web-autoload-require 'js-utils 'lp '(nxhtml-download-root-url nil) "util/js-utils" nxhtml-install-dir 'nxhtml-byte-compile-file)
+
+
+(nxhtml-autoload 'jsut-plovr-dev-info `(lp '(nxhtml-download-root-url nil) "util/js-utils" nxhtml-install-dir) "\
+Get info for how to start plovr in dev mode for PLOVR-FILE.
+
+\(fn PLOVR-FILE)" t nil)
+
+(nxhtml-autoload 'jsut-plovr-edit-conf `(lp '(nxhtml-download-root-url nil) "util/js-utils" nxhtml-install-dir) "\
+Edit plovr config file for JS-FILE.
+
+\(fn JS-FILE)" t nil)
+
+(nxhtml-autoload 'jsut-plovr-compile `(lp '(nxhtml-download-root-url nil) "util/js-utils" nxhtml-install-dir) "\
+Compile JS-FILE with plovr/closure compiler.
+
+\(fn JS-FILE)" t nil)
+
+(nxhtml-autoload 'jsut-bookmarkletify `(lp '(nxhtml-download-root-url nil) "util/js-utils" nxhtml-install-dir) "\
+Given js bookmarklet code make HTML suitable for adding bookmarklet.
+JS-BM-BUFFER should contain the bookmarklet javascript code
+source.  This may include comments and new line characters.
+
+\(fn JS-BM-BUFFER)" t nil)
+
+(nxhtml-autoload 'jsut-jquery-create-bookmarklet-file `(lp '(nxhtml-download-root-url nil) "util/js-utils" nxhtml-install-dir) "\
+Create jQuery bookmarklet JavaScript file template.
+To make a bookmarklet for this you can use `jsut-jquery-mk-bookmarklet'.
+
+\(fn)" nil nil)
+
+(nxhtml-autoload 'jsut-jquery-mk-bookmarklet `(lp '(nxhtml-download-root-url nil) "util/js-utils" nxhtml-install-dir) "\
+Make bookmarklet javascript template.
+JS-BUFFER should contain the javascript code that is loaded from
+the bookmarklet.  This code should have markers like those given
+by `jsut-jquery-create-bookmarklet-file'.
+
+\(Compare `jsut-bookmarkletify' where the input is just the js
+source code in the bookmarklet itself.)
+
+\(fn JS-BUFFER)" t nil)
+
+(nxhtml-autoload 'jsut-jquery-css-to-js `(lp '(nxhtml-download-root-url nil) "util/js-utils" nxhtml-install-dir) "\
+Convert CSS in CSS-BUFFER to jQuery code.
+For faster startup of jQuery bookmarklets.  (Use plovr to
+include this file so the bookmarklet is all contained in one
+file.)
+
+\(fn CSS-BUFFER)" t nil)
+
+;;;***
+
 ;;;### (autoloads (key-cat-help) "key-cat" "util/key-cat.el" (19459
 ;;;;;;  61264))
 ;;; Generated autoloads from util/key-cat.el
@@ -3326,7 +3383,7 @@ Define keys in multi major mode keymap for html files.
 ;;;***
 
 ;;;### (autoloads (mumamo-cmirr-get-mirror) "mumamo-cmirr" "util/mumamo-cmirr.el"
-;;;;;;  (19585 29452))
+;;;;;;  (20189 20439))
 ;;; Generated autoloads from util/mumamo-cmirr.el
 (web-autoload-require 'mumamo-cmirr 'lp '(nxhtml-download-root-url nil) "util/mumamo-cmirr" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -4369,7 +4426,7 @@ Major mode for editing RELAX NG Compact Syntax schemas.
 ;;;***
 
 ;;;### (autoloads (rtmpdump-from-file rtmpdump-from-buffer rtmpdump-from-url)
-;;;;;;  "rtmpdump" "util/rtmpdump.el" (20047 6348))
+;;;;;;  "rtmpdump" "util/rtmpdump.el" (20146 561))
 ;;; Generated autoloads from util/rtmpdump.el
 (web-autoload-require 'rtmpdump 'lp '(nxhtml-download-root-url nil) "util/rtmpdump" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -4446,7 +4503,7 @@ Display a form for search and replace.
 ;;;***
 
 ;;;### (autoloads (search-net search-net-dwim) "search-net" "util/search-net.el"
-;;;;;;  (19802 21384))
+;;;;;;  (20227 44797))
 ;;; Generated autoloads from util/search-net.el
 (web-autoload-require 'search-net 'lp '(nxhtml-download-root-url nil) "util/search-net" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -4513,7 +4570,7 @@ handled is governed by `sex-keep-dummy-buffer'.
 ;;;***
 
 ;;;### (autoloads (sml-modeline-mode sml-modeline) "sml-modeline"
-;;;;;;  "util/sml-modeline.el" (19362 45486))
+;;;;;;  "util/sml-modeline.el" (20203 63061))
 ;;; Generated autoloads from util/sml-modeline.el
 (web-autoload-require 'sml-modeline 'lp '(nxhtml-download-root-url nil) "util/sml-modeline" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -5113,7 +5170,7 @@ quarter clockwise (or counter clockwise with prefix).
 
 ;;;### (autoloads (wrap-to-fill-column-mode wrap-to-fill-left-marg-modes
 ;;;;;;  wrap-to-fill-left-marg wrap-to-fill) "wrap-to-fill" "util/wrap-to-fill.el"
-;;;;;;  (19743 28708))
+;;;;;;  (20175 43157))
 ;;; Generated autoloads from util/wrap-to-fill.el
 (web-autoload-require 'wrap-to-fill 'lp '(nxhtml-download-root-url nil) "util/wrap-to-fill" nxhtml-install-dir 'nxhtml-byte-compile-file)
 
@@ -5219,11 +5276,11 @@ accept it or skip it.
 ;;;;;;  "tests/ertn2.el" "tests/hfy-test.el" "tests/inemacs/bug1013.el"
 ;;;;;;  "tests/mumamo-test.el" "tests/nxhtmltest-helpers.el" "tests/temp-test.el"
 ;;;;;;  "util/ack.el" "util/appmenu-fold.el" "util/backtr.el" "util/css-simple-completion.el"
-;;;;;;  "util/custsets.el" "util/ecb-batch-compile.el" "util/fupd.el"
-;;;;;;  "util/idn.el" "util/mumamo-trace.el" "util/new-key-seq-widget.el"
+;;;;;;  "util/custsets.el" "util/ecb-batch-compile.el" "util/fun.el"
+;;;;;;  "util/fupd.el" "util/idn.el" "util/mumamo-trace.el" "util/new-key-seq-widget.el"
 ;;;;;;  "util/org-odt.el" "util/org-panel.el" "util/pipm.el" "util/powershell-mode.el"
 ;;;;;;  "util/rxi.el" "util/tipframe.el" "util/umbrain.el" "util/win-alg.el"
-;;;;;;  "web-autoload.el") (20145 54340 795000))
+;;;;;;  "web-autoload.el") (20248 6414 627000))
 
 ;;;***
 

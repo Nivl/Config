@@ -47,6 +47,8 @@
 	 )
        auto-mode-alist))
 
+
+
 (setq nivl-mumamo-regex ".+\\.\\(php\\|[sxd]?html\\)$")
 (setq nivl-mumamo-mode-alist
       '(
@@ -54,3 +56,20 @@
 	("\\.php\\'" . html-mumamo-mode)
 	))
 
+
+
+(mapc (lambda (list)
+	(mapc (lambda (pair)
+		(if (or (eq (cdr pair) 'html-mode)
+			(eq (cdr pair) 'php-mode))
+		    (setcdr pair (lambda ()
+				   (require 'nxhtml-mode "~/.emacs.d/autoloadable/nxhtml/autostart.el")
+				   (setq mumamo-background-colors nil)
+				   (setq auto-mode-alist
+					 (append
+					  nivl-mumamo-mode-alist
+					  auto-mode-alist))
+				   (when (file-exists-p (buffer-file-name))
+				     (revert-buffer t t))))))
+	      list))
+      (list auto-mode-alist magic-mode-alist))

@@ -30,7 +30,7 @@
   "Resize the current buffer to 25 lines"
   (interactive)
   (if fix
-      (setq nb-line 25)
+      (setq nb-line 26)
     (setq nb-line 26))
   (when (not (equal nb-line (window-height)))
     (setq diff (- nb-line (window-height)))

@@ -2580,7 +2580,19 @@ This function is used for `end-of-defun-function'."
 ;;       html-link)))
 
 (defconst ourcomments-org-paste-html-link-regexp
-  "\\`\\(?:<a [^>]*?href=\"\\(.*?\\)\"[^>]*?>\\([^<]*\\)</a>\\)\\'")
+;;  "\\`\\(?:<a\\(?:[[:space:]]\\|$\\)+[^>]*?href=\"\\(.*?\\)\"[^>]*?>\\([^<]*\\)</a>\\)\\'")
+  (rx (and "<a"
+           (or whitespace
+               line-end)
+           (*? anything)
+           "href=\""
+           (submatch (* (not (any "\""))))
+           "\""
+           (* (not (any ">")))
+           ">"
+           (submatch (* (not (any "<"))))
+           "</a>"
+           )))
 
 ;;(string-match-p ourcomments-org-paste-html-link-regexp "<a href=\"link\">text</a>")
 

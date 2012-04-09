@@ -147,6 +147,12 @@
           (derived-mode-p 'html-mode)))
       (nxhtml-nxml-in-buffer)))
 
+(defun nxhtml-js-buffer ()
+  (and (or (not (boundp 'mumamo-multi-major-mode))
+           (not mumamo-multi-major-mode))
+       (or (derived-mode-p 'js-mode)
+           (derived-mode-p 'js2-mode))))
+
 (defun buffer-or-dired-file-name ()
   "Return buffer file name or file pointed to in dired."
   (if (derived-mode-p 'dired-mode)
@@ -380,6 +386,8 @@
         (list 'menu-item "Bibliographic Tool" 'bibhlp))
       (define-key tools-map [nxhtml-idxsearch]
         (list 'menu-item "Indexed Search" 'idxsearch))
+      (define-key tools-map [nxhtml-net-search]
+        (list 'menu-item "Internet Search" 'search-net))
       (define-key tools-map [nxhtml-last-resort-separator]
         (list 'menu-item "--" nil))
       (define-key tools-map [nxhtml-viper-tut]
@@ -395,7 +403,49 @@
         (list 'menu-item "Resize Windows"
               'resize-windows))
 
+      (define-key tools-map [nxhtml-js-separator] (list 'menu-item "--" nil))
 
+      (let ((js-map (make-sparse-keymap)))
+        (define-key tools-map [nxhtml-js-map]
+          (list 'menu-item "JavaScript Helpers" js-map))
+        ;;;;;;;;;;
+        (let ((bm-map (make-sparse-keymap)))
+          (define-key js-map [nxhtml-bm-map]
+            (list 'menu-item "Bookmarklets" bm-map))
+          (define-key bm-map [nxhtml-css-to-jquery]
+            (list 'menu-item "Convert CSS to jQuery Code"
+                  'jsut-jquery-css-to-js
+                  :enable '(derived-mode-p 'css-mode 'js-mode 'js2-mode)))
+          (define-key bm-map [nxhtml-js--bm-css-separator] (list 'menu-item "--" nil))
+          (define-key bm-map [nxhtml-js-bookmarkletify]
+            (list 'menu-item "Bookmarkletify js Code"
+                  'jsut-bookmarkletify
+                  :enable '(nxhtml-js-buffer)))
+          (define-key bm-map [nxhtml-jquery-separator] (list 'menu-item "--" nil))
+          (define-key bm-map [nxhtml-js-mk-bookmarklet]
+            (list 'menu-item "Make Bookmarklet JavaScript Template"
+                  'jsut-jquery-mk-bookmarklet
+                  :enable '(nxhtml-js-buffer)))
+          (define-key bm-map [nxhtml-js-create-bookmarklet]
+            (list 'menu-item "Create jQuery Bookmarklet JavaScript File Template"
+                  'jsut-jquery-create-bookmarklet-file
+                  ))
+          )
+        ;;;;;;;;;;
+        (define-key js-map [nxhtml-bm-separator] (list 'menu-item "--" nil))
+        (define-key js-map [nxhtml-plovr-dev-info]
+          (list 'menu-item "Start plovr in Development Mode"
+               'jsut-plovr-dev-info
+               :enable '(nxhtml-js-buffer)))
+        (define-key js-map [nxhtml-plovr-compile]
+          (list 'menu-item "Compile js with plovr"
+               'jsut-plovr-compile
+               :enable '(nxhtml-js-buffer)))
+        (define-key js-map [nxhtml-plovr-edit]
+          (list 'menu-item "Edit plovr Configuration File"
+               'jsut-plovr-edit-conf
+               :enable '(nxhtml-js-buffer)))
+        )
 
       (define-key tools-map [nxhtml-ecb-separator]
         (list 'menu-item "--" nil))

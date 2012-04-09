@@ -1386,6 +1386,7 @@ FROM should be either \"pubmed\" or \"pmc\"."
   (let ((known-from '("pubmed" "pmc")))
     (unless (member from known-from) (error "Value from=%S must be in %S" from known-from)))
   (unless (stringp id) (error "Parameter id=%S should be a string" id))
+  ;; http://www.ncbi.nlm.nih.gov/pmc/pmctopmid/
   (let* ((post-res (http-post-simple "http://www.ncbi.nlm.nih.gov/sites/pmctopmid"
                                      (list (cons 'PMCRALayout.PMCIDS.PMCIDS_Portlet.Db from)
                                            (cons 'PMCRALayout.PMCIDS.PMCIDS_Portlet.Ids id)

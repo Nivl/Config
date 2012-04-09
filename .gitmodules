@@ -1,27 +1,6 @@
-[submodule ".emacs.d/autoloadable/html5-el"]
-	path = .emacs.d/autoloadable/html5-el
-	url = https://github.com/hober/html5-el.git
 [submodule ".emacs.d/autoloadable/pkgbuild-mode"]
 	path = .emacs.d/autoloadable/pkgbuild-mode
 	url = https://github.com/juergenhoetzel/pkgbuild-mode.git
-[submodule ".emacs.d/autoloadable/android-mode"]
-	path = .emacs.d/autoloadable/android-mode
-	url = https://github.com/remvee/android-mode.git
 [submodule ".emacs.d/autoloadable/egg"]
 	path = .emacs.d/autoloadable/egg
 	url = https://github.com/bogolisk/egg.git
-[submodule ".emacs.d/autoloadable/yaml-mode"]
-	path = .emacs.d/autoloadable/yaml-mode
-	url = https://github.com/yoshiki/yaml-mode.git
-[submodule ".emacs.d/autoloadable/python-mode"]
-	path = .emacs.d/autoloadable/python-mode
-	url = https://github.com/emacsmirror/python-mode.git
-[submodule ".emacs.d/autoloadable/markdown-mode"]
-	path = .emacs.d/autoloadable/markdown-mode
-	url = git://jblevins.org/git/markdown-mode.git
-[submodule ".emacs.d/autoloadable/django-mode"]
-	path = .emacs.d/autoloadable/django-mode
-	url = https://github.com/johnpaulett/django-mode.git
-[submodule ".emacs.d/autoloadable/auto-complete"]
-	path = .emacs.d/autoloadable/auto-complete
-	url = https://github.com/m2ym/auto-complete

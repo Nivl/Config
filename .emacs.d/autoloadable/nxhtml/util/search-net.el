@@ -54,6 +54,10 @@
      "Google Search"
      ("http://www.google.com/search?q="))
 
+    (google-define
+     "Google define:"
+     ("http://www.google.com/search?q=define:"))
+
     (google-code
      "Google Code Search"
      ("http://www.google.com/codesearch?hl=zh-CN&lr=&q="))

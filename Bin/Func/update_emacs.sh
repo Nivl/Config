@@ -5,7 +5,7 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			06/27/2011, 06:42 PM
 ## Last updated by	melvin laplanche <melvin.laplanche+dev@gmail.com>
-## On			February 13 2012 at 12:53 PM
+## On			April 10 2012 at 12:05 AM
 
 # Usage: update_emacs [mode_name]
 function update_emacs() {
@@ -37,8 +37,7 @@ function update_emacs() {
 
 function __update_emacs_one() {
     local found=0
-    array=( "pkgbuild" "android" "django" "auto-complete" "egg" "yaml" "cmake"
-	"python" "html5" "yasnippet" "snippets" "nxhtml" "markdown" "ocaml")
+    array=( "pkgbuild" "egg" "snippets" "nxhtml")
 
     for (( i=0; i<${#array[@]}; i++ )); do
 	if [ "$1" == "${array[$i]}" ]; then
@@ -54,28 +53,18 @@ function __update_emacs_one() {
 }
 
 function __update_emacs_all() {
-    __update_emacs_cmake
-
-     # Put the modes which need to be copied above this comment
-
-    put_info -n "Updating all retrieved mode... "
-    cp $repo_path/*/*.el $autoload_path/
-    __update_emacs_check_return $? "fail" "done"
 
     cd $git_root
-    put_info "Updating pkgbuild, android, django, markdown, egg, yaml and python"
+    put_info "Updating pkgbuild and egg"
     git submodule update
     __update_emacs_check_return $? "fail" "done"
     cd "/tmp"
 
-    __update_emacs_ocaml
-    __update_emacs_html5
-    __update_emacs_yasnippet
-    __update_emacs_snippet
+    __update_emacs_snippets
     __update_emacs_nxhtml
 
     put_error "The following modes are not auto-updated: "
-    echo -e "pov-mode\nredo\nredo+\nphp-mode\nctypes"
+    echo -e "redo\n"
 }
 
 # Usage : $? message_if_fail [message_if_ok]
@@ -107,57 +96,8 @@ function __update_emacs_pkgbuild() {
     __update_emacs_from_git "pkgbuild-mode"
 }
 
-function __update_emacs_android() {
-    __update_emacs_from_git "android-mode"
-}
-
-function __update_emacs_django() {
-    __update_emacs_from_git "django-mode"
-}
-
-function __update_emacs_markdown() {
-    __update_emacs_from_git "markdown-mode"
-}
-
 function __update_emacs_egg() {
     __update_emacs_from_git "egg-mode"
-}
-
-function __update_emacs_cmake() {
-    put_info "Retrieving cmake-mode"
-    mkdir  -p $repo_path/cmake-mode
-    wget -O  $repo_path/cmake-mode/cmake-mode.el \
-	"http://www.cmake.org/CMakeDocs/cmake-mode.el"
-    __update_emacs_check_return $? "fail" "done"
-}
-
-function __update_emacs_yaml() {
-    __update_emacs_from_git "yaml-mode"
-}
-
-function __update_emacs_python() {
-    __update_emacs_from_git "python-mode"
-}
-
-function __update_emacs_autocomplete() {
-    __update_emacs_from_git "auto-complete"
-}
-
-function __update_emacs_html5() {
-    put_info "Updating html5-el..."
-    cd $autoload_path/html5-el
-    git pull
-    make relaxng
-    __update_emacs_check_return $? "fail" "done"
-    cd /tmp
-}
-
-function __update_emacs_yasnippet() {
-    put_info "Updating yasnippet"
-    git clone https://github.com/capitaomorte/yasnippet.git $repo_path/yasnippet
-    cp  $repo_path/yasnippet/yasnippet.el $autoload_path/
-    cp  $repo_path/yasnippet/dropdown-list.el $autoload_path/
-    put_info "Updating yasnippet done"
 }
 
 function __update_emacs_snippets() {
@@ -177,14 +117,4 @@ function __update_emacs_nxhtml() {
     bzr merge --force
     __update_emacs_check_return $? "fail" "done"
     cd "/tmp"
-}
-
-function __update_emacs_ocaml() {
-    put_info "Updating Ocaml"
-
-    $repo_path/ocaml
-    svn up
-    __update_emacs_check_return $? "fail" "done"
-    rm -f dot-emacs.el
-    put_info "Updating ocaml done"
 }

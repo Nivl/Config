@@ -5,29 +5,24 @@
 
 (load-file "~/.emacs.d/my-autoload.el")
 (my-autoload "~/.emacs.d/autoloadable" 1)
-
 (load-file "~/.emacs.d/compile.el")
 (compile-uncompiled-files)
 
-;; Load CEDET (Collection of Emacs Development Environment Tools)
-; (load-file "/usr/share/emacs/site-lisp/cedet/common/cedet.el")
+
+(require 'package)
+(add-to-list 'package-archives
+             '("elpa" . "http://tromey.com/elpa/"))
+(add-to-list 'package-archives
+	     '("marmalade" . "http://marmalade-repo.org/packages/"))
+(package-initialize)
+
 
 (require 'redo+)
 
-(autoload 'php-mode "php-mode" "Major mode for PHP" t)
-(autoload 'markdown-mode "markdown-mode" "Major mode for Markdown" t)
-;(autoload 'javascript-mode "javascript-mode" "Major mode for Javascript" t)
-(autoload 'pov-mode "pov-mode" "Major mode for POV-Ray" t)
-(autoload 'yaml-mode "yaml-mode" "Major mode for Yaml" t)
-(autoload 'cmake-mode "cmake-mode" "Major mode for CMake" t)
-(autoload 'python-mode "python-mode" "Major mode for python" t)
-(autoload 'django-mode "django-mode" "Major mode for Django" t)
-(autoload 'tuareg-mode "tuareg" "Major mode for Ocaml" t)
-(autoload 'django-html-mode "django-html-mode" "Major mode for Django template" t)
+(autoload 'php-mode "php-mode" "Major mode for php" t)
 (autoload 'pkgbuild-mode "pkgbuild-mode" "Major mode for editing PKGBUILD." t)
 
 (autoload 'ide-mode "ide-mode" "Mode to use emacs as ide" t)
-
 
 (require 'auto-complete-config)
 (add-to-list 'ac-dictionary-directories "~/.emacs.d/autoloadable/auto-complete/dict")
@@ -37,7 +32,6 @@
 (require 'yasnippet)
 (yas/initialize)
 (setq yas/snippet-dirs '("~/.emacs.d/snippets"
-			 "~/.emacs.d/autoloadable/django-mode/snippets"
 			 "~/.emacs.d/custom_snippets"
 			 ))
 (mapc 'yas/load-directory yas/snippet-dirs)

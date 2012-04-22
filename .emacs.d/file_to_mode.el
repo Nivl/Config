@@ -26,7 +26,7 @@
 	 ("\\.xml\\'" . sgml-mode)
 	 ("\\.xsl\\'" . sgml-mode)
 	 ("\\.svg\\'" . sgml-mode)
-	 ("\\.py\\'" . django-mode)
+	 ("\\.py\\'" . python-mode)
 	 ("\\.js\\'" . javascript-mode)
 	 ("\\.css\\'" . css-mode)
 	 ("\\.less\\'" . css-mode)

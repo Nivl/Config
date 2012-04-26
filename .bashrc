@@ -5,7 +5,7 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			June 11 2011 at 17:21 PM
 ## Last updated by	melvin laplanche <melvin.laplanche+dev@gmail.com>
-## On			February 05 2012 at 04:43 PM
+## On			April 26 2012 at 04:09 PM
 
 . ~/Bin/Func/source.sh
 source_functions ~/Bin/Func
@@ -57,3 +57,7 @@ alias la='ls -a'
 alias rm='rm -i'
 alias emacs='\emacs -nw'
 alias em='\emacs -nw'
+alias tgz='\tar cfz '
+alias untgz='\tar xvfz '
+alias tar='\tar cf '
+alias untar='\tar xvf '

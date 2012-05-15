@@ -1,4 +1,4 @@
-Use Xft?
+#Use Xft?
 use_xft yes
 xftfont OFL Sorts Mill Goudy:size=8
 xftalpha 0.8
@@ -89,6 +89,8 @@ ${font Goudy Bookletter 1911:style=Bold}SYSTEM${font} ${hr 2}
 ${voffset 2}${font StyleBats:size=16}i${font}   Kernel:  ${alignr}${kernel}
 ${font StyleBats:size=16}A${font}   CPU1: ${cpu cpu1}% ${alignr}${cpubar cpu1 8,60}
 ${font StyleBats:size=16}A${font}   CPU2: ${cpu cpu2}% ${alignr}${cpubar cpu2 8,60}
+${font StyleBats:size=16}A${font}   CPU3: ${cpu cpu3}% ${alignr}${cpubar cpu3 8,60}
+${font StyleBats:size=16}A${font}   CPU4: ${cpu cpu4}% ${alignr}${cpubar cpu4 8,60}
 ${font StyleBats:size=16}g${font}   RAM: $memperc% ${alignr}${membar 8,60}
 ${font Webdings:size=16}~${font}  Battery: ${battery_percent BAT0}% ${alignr}${battery_bar 8,60 BAT0}
 ${font StyleBats:size=16}l${font}  Temperature CPU: ${alignr}${hwmon 0 temp 1} C

@@ -4,11 +4,12 @@
 ## Project:
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			June 11 2011 at 17:21 PM
-## Last updated by	melvin laplanche <melvin.laplanche+dev@gmail.com>
-## On			April 26 2012 at 04:09 PM
+## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
+## On			May 11 2012 at 11:29 PM
 
 . ~/Bin/Func/source.sh
 source_functions ~/Bin/Func
+source /etc/profile.d/apache-ant.sh
 
 eval "`dircolors -b`"
 export PATH="/usr/lib/colorgcc/bin:$PATH"

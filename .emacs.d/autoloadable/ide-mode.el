@@ -127,7 +127,7 @@
   (if ide-mode-var-build-from-cmake
       (setq compile-opt (concat compile-opt
 				" && cmake " ide-mode-const-build-cmake)))
-  (setq compile-opt (concat compile-opt " && make"))
+  (setq compile-opt (concat compile-opt " && make -j"))
   (compile compile-opt)
   (setq ide-mode-var-buffer (buffer-name))
   (setq ide-mode-var-buffer-bot "*compilation*")

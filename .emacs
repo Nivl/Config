@@ -8,7 +8,6 @@
 (load-file "~/.emacs.d/compile.el")
 (compile-uncompiled-files)
 
-
 (require 'package)
 (add-to-list 'package-archives
              '("elpa" . "http://tromey.com/elpa/"))

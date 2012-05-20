@@ -68,6 +68,11 @@
       (move-end-of-line nil)
       (insert " */"))))
 
+(defun buffer-mode ()
+  "Returns the current major mode."
+  (interactive)
+  (message "%s" major-mode))
+
 (defun get-filename ()
   "return the filename"
   (interactive)

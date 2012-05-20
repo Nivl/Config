@@ -3,8 +3,8 @@
 (setq auto-mode-alist
       (append
        '(("\\.sh\\'" . sh-mode)
-	 ("\\.bash\\" . sh-mode)
-	 ("\\.profile\\" . sh-mode)
+	 ("\\.bash\\'" . sh-mode)
+	 ("\\.profile\\'" . sh-mode)
 	 ("Makefile\\'" . makefile-mode)
 	 ("makefile\\'" . makefile-mode)
 	 ("\\.mk\\'" . makefile-mode)

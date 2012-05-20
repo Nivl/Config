@@ -40,14 +40,10 @@
 			     yas/ido-prompt
 			     yas/completing-prompt))
 
-; Android dev
-(require 'android-mode)
-(setq android-mode-sdk-dir "/opt/android-sdk")
-
 (load-file "~/.emacs.d/main_options.elc")
 (load-file "~/.emacs.d/shortcuts.elc")
 (load-file "~/.emacs.d/insert.elc")
-(load-file "~/.emacs.d/file_to_mode.elc") ; _BEFORE_ HOOK, defines some vars
+(load-file "~/.emacs.d/file_to_mode.elc")
 (load-file "~/.emacs.d/hooks.elc")
 (load-file "~/.emacs.d/misc_functions.elc")
 (load-file "~/.emacs.d/main_options.elc")

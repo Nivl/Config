@@ -20,7 +20,6 @@
 (defvar ide-mode-var-buffer-bot "*scratch*" "Buffer on the bottom")
 (defvar ide-mode-var-build-path "./" "Path to the build directory/file")
 (defvar ide-mode-var-build-from-cmake nil "We’re using cmake")
-(defvar ide-mode-var-manage-py "manage.py" "Path to manage.py")
 
 (defconst ide-mode-const-build-search-count 5 "Number of dir to browse.")
 (defconst ide-mode-const-build-cmake ".." "Path from the build dir to cmake")
@@ -35,18 +34,6 @@
   (when (not (equal nb-line (window-height)))
     (setq diff (- nb-line (window-height)))
     (enlarge-window (* diff 1))))
-
-(defun ide-search-manage-py ()
-  (when (not (file-exists-p ide-mode-var-manage-py))
-    (setq ide-mode-var-manage-py "manage.py")
-    (setq count 0)
-    (while (and
-	    (not (file-exists-p ide-mode-var-manage-py))
-	    (< count 3))
-      (setq ide-mode-var-manage-py (concat "../" ide-mode-var-manage-py))
-      (setq count (+ 1 count)))
-    (if (not (file-exists-p ide-mode-var-manage-py))
-	(error "manage.py not found"))))
 
 (defun ide-search-build-dir ()
   (setq path-cmake  "./build/")
@@ -98,22 +85,15 @@
   (interactive)
   (setq ide-mode-var-source-type (file-name-extension (buffer-name)))
   (if (equal ide-mode-var-source-type "py")
-      (ide-mode-validate-django)
+      (ide-mode-validate-python)
     (ide-mode-compile-xmake)))
 
-(defun ide-mode-validate-django ()
-  "Function used to validate a django project"
+(defun ide-mode-validate-python ()
+  "Function used to validate a python project"
   (interactive)
   (if (equal ide-mode-var-buffer-bot (buffer-name))
       (switch-to-buffer-other-window ide-mode-var-buffer))
-  (ide-search-manage-py)
-  (start-process "django validate"
-		 (get-buffer-create "*django-validate*")
-		 "python" ide-mode-var-manage-py "validate")
-  (setq ide-mode-var-buffer (buffer-name))
-  (switch-to-buffer-other-window "*django-validate*")
-  (setq ide-mode-var-buffer-bot "*django-validate*")
-  (switch-to-buffer-other-window ide-mode-var-buffer)
+  (pep8)
   (ide-mode-resize))
 
 (defun ide-mode-compile-xmake ()

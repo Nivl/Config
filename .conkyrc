@@ -93,7 +93,7 @@ ${font StyleBats:size=16}A${font}   CPU3: ${cpu cpu3}% ${alignr}${cpubar cpu3 8,
 ${font StyleBats:size=16}A${font}   CPU4: ${cpu cpu4}% ${alignr}${cpubar cpu4 8,60}
 ${font StyleBats:size=16}g${font}   RAM: $memperc% ${alignr}${membar 8,60}
 ${font Webdings:size=16}~${font}  Battery: ${battery_percent BAT0}% ${alignr}${battery_bar 8,60 BAT0}
-${font StyleBats:size=16}l${font}  Temperature CPU: ${alignr}${hwmon 1 temp 1} C
+${font StyleBats:size=16}l${font}  Temperature CPU: ${alignr}${hwmon 0 temp 1} C
 ${font StyleBats:size=16}l${font}  Temperature GPU: ${alignr}${execi 60 nvidia-settings -query GPUCoreTemp | perl -ne 'print $1 if /GPUCoreTemp.*?: (\d+)./;'} C
 ${font StyleBats:size=16}q${font}   Uptime: ${alignr}${uptime}
 

@@ -1,0 +1,8 @@
+#    yaourtrc  - Configuration for yaourt
+#
+#   See yaourtrc(5) for more information
+#
+#
+
+TMPDIR="/home/laplan_m/tmp"
+DETAILUPGRADE=2

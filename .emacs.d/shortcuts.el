@@ -30,3 +30,4 @@
 (global-set-key (kbd "C-c i") 'ide-mode-resize)
 (global-set-key (kbd "C-c p") 'fix-horizontal-size)
 (global-set-key (kbd "C-c v") 'pep8)
+(global-set-key (kbd "C-x p") (lambda () (interactive) (other-window 2)))

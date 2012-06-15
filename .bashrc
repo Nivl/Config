@@ -5,7 +5,7 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			June 11 2011 at 17:21 PM
 ## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			May 11 2012 at 11:29 PM
+## On			June 15 2012 at 04:24 PM
 
 . ~/Bin/Func/source.sh
 source_functions ~/Bin/Func

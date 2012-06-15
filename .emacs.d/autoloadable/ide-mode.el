@@ -107,7 +107,7 @@
   (if ide-mode-var-build-from-cmake
       (setq compile-opt (concat compile-opt
 				" && cmake " ide-mode-const-build-cmake)))
-  (setq compile-opt (concat compile-opt " && make -j"))
+  (setq compile-opt (concat compile-opt " && make -j4"))
   (compile compile-opt)
   (setq ide-mode-var-buffer (buffer-name))
   (setq ide-mode-var-buffer-bot "*compilation*")
@@ -123,8 +123,13 @@
     (global-set-key [remap compile] 'ide-mode-compile)
     (global-set-key [remap eshell] 'ide-mode-eshell)
     (when (not (equal (one-window-p) nil))
+      (split-window-vertically)
       (split-window-vertically))
-    (ide-mode-resize t))
+    (ide-mode-resize t)
+    (other-window 1)
+    (ide-mode-resize t)
+    (other-window 2)
+    )
   (setq ide-mode-var-launched t))
 
 (defun ide-mode-off ()
@@ -138,4 +143,3 @@
 
 (provide 'ide-mode)
 ;;; ide-mode.el ends here
-

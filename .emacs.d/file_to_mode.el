@@ -29,7 +29,7 @@
 	 ("\\.py\\'" . python-mode)
 	 ("\\.js\\'" . javascript-mode)
 	 ("\\.css\\'" . css-mode)
-	 ("\\.less\\'" . css-mode)
+	 ("\\.less\\'" . less-css-mode)
 	 ("\\.tpl\\'" . html-helper-mode)
 	 ("\\.inc\\'" . php-mode)
 	 ("\\.awk\\'" . awk-mode)

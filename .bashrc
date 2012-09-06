@@ -5,18 +5,19 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			June 11 2011 at 17:21 PM
 ## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			June 15 2012 at 04:24 PM
+## On			September 06 2012 at 11:01 AM
 
-. ~/Bin/Func/source.sh
-source_functions ~/Bin/Func
+. ~/.local/bin/Func/source.sh
+source_functions ~/.local/bin/Func
 source /etc/profile.d/apache-ant.sh
 
 eval "`dircolors -b`"
 export PATH="/usr/lib/colorgcc/bin:$PATH"
 export PATH="/opt/android-sdk/platform-tools:$PATH"
-export PATH="~/Bin:$PATH"
+export PATH="~/.local/bin:$PATH"
 
 export PYTHONDOCS=/usr/share/doc/python2/html/
+export PYTHONPATH="$PYTHONPATH:/home/www/modules/"
 
 export LESSOPEN="| src-hilite-lesspipe.sh %s"
 export LESS=' -R '
@@ -43,8 +44,6 @@ export GTK_IM_MODULE
 PYMACS_PYTHON=python2
 
 alias mman='man -M ~/Src/Epitech/man/'
-alias norme="python2 ~/Bin/Python2/norme"
-alias repo="python2 ~/Bin/Python2/repo"
 alias django='python2 manage.py '
 alias nivl_install='PYTHONPATH=/home/www/modules easy_install-2.7 -d /home/www/modules '
 

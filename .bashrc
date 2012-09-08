@@ -5,7 +5,7 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			June 11 2011 at 17:21 PM
 ## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			September 06 2012 at 11:01 AM
+## On			September 08 2012 at 05:51 PM
 
 . ~/.local/bin/Func/source.sh
 source_functions ~/.local/bin/Func
@@ -45,7 +45,6 @@ PYMACS_PYTHON=python2
 
 alias mman='man -M ~/Src/Epitech/man/'
 alias django='python2 manage.py '
-alias nivl_install='PYTHONPATH=/home/www/modules easy_install-2.7 -d /home/www/modules '
 
 alias cd..='cd ..'
 alias lss='less'

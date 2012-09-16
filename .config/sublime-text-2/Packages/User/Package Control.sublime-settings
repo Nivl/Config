@@ -1,0 +1,12 @@
+{
+	"auto_upgrade_last_run": 1347801156,
+	"installed_packages":
+	[
+		"Git",
+		"jQuery",
+		"LESS",
+		"Package Control",
+		"sublemacspro",
+		"SublimeLinter"
+	]
+}

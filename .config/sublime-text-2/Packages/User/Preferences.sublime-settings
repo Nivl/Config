@@ -1,0 +1,10 @@
+{
+	"font_size": 10,
+	"rulers":
+	[
+		80
+	],
+	"word_wrap": "true",
+	"wrap_width": 0,
+	"translate_tabs_to_spaces": true
+}

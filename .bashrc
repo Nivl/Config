@@ -5,19 +5,21 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			June 11 2011 at 17:21 PM
 ## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			September 08 2012 at 05:51 PM
+## On			September 09 2012 at 01:26 AM
 
 . ~/.local/bin/Func/source.sh
 source_functions ~/.local/bin/Func
 source /etc/profile.d/apache-ant.sh
 
+export PYTHONDOCS=/usr/share/doc/python2/html/
+export PYTHONPATH="$PYTHONPATH:/home/laplan_m/Src/repo/python"
+export GOPATH="/home/laplan_m/Src/repo/go"
+
 eval "`dircolors -b`"
 export PATH="/usr/lib/colorgcc/bin:$PATH"
 export PATH="/opt/android-sdk/platform-tools:$PATH"
 export PATH="~/.local/bin:$PATH"
-
-export PYTHONDOCS=/usr/share/doc/python2/html/
-export PYTHONPATH="$PYTHONPATH:/home/www/modules/"
+export PATH="$PATH:$GOPATH/bin"
 
 export LESSOPEN="| src-hilite-lesspipe.sh %s"
 export LESS=' -R '

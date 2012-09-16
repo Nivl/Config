@@ -3,3 +3,4 @@
 .emacs.d/backups/*
 .local/share/
 *.directory
+*.pyc

@@ -1,5 +1,5 @@
 {
-	"auto_upgrade_last_run": 1347801156,
+	"auto_upgrade_last_run": 1347816311,
 	"installed_packages":
 	[
 		"Git",
@@ -7,6 +7,7 @@
 		"LESS",
 		"Package Control",
 		"sublemacspro",
+		"SublimeCodeIntel",
 		"SublimeLinter"
 	]
 }

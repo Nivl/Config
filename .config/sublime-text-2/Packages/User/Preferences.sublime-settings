@@ -1,10 +1,16 @@
 {
+	"color_scheme": "Packages/Color Scheme - Default/Monokai.tmTheme",
 	"font_size": 10,
+	"ignored_packages":
+	[
+		"Vintage"
+	],
 	"rulers":
 	[
 		80
 	],
+	"translate_tabs_to_spaces": true,
 	"word_wrap": "true",
 	"wrap_width": 0,
-	"translate_tabs_to_spaces": true
+	"draw_white_space": "all"
 }

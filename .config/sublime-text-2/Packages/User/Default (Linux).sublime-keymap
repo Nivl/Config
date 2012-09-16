@@ -11,6 +11,7 @@
 
 	{ "keys": ["ctrl+x", "g"], "command": "git_custom" },
 	{ "keys": ["alt+i"], "command": "insert", "args": {"characters": "\t"} },
+	{ "keys": ["ctrl+alt+/"], "command": "redo"},
 
 	{ "keys": ["ctrl+up"], "command": "move", "args": {"by": "stops", "empty_line": true, "forward": false} },
 	{ "keys": ["ctrl+down"], "command": "move", "args": {"by": "stops", "empty_line": true, "forward": true} },

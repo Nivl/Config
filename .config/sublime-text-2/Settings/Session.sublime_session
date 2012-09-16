@@ -271,15 +271,47 @@
 			{
 				"selected_items":
 				[
+					[
+						"backgou",
+						"background-color"
+					],
+					[
+						"bac",
+						"background-repeat"
+					]
 				]
 			},
 			"buffers":
 			[
 				{
+					"file": "nivls_website/nivls_website/templates/inc/header.html",
+					"settings":
+					{
+						"buffer_size": 8156,
+						"line_ending": "Unix"
+					}
+				},
+				{
 					"file": "nivls_website/nivls_website/static/commons/css/20/main.less",
 					"settings":
 					{
-						"buffer_size": 24186,
+						"buffer_size": 24446,
+						"line_ending": "Unix"
+					}
+				},
+				{
+					"file": "nivls_website/about/templates/about/about.html",
+					"settings":
+					{
+						"buffer_size": 1849,
+						"line_ending": "Unix"
+					}
+				},
+				{
+					"file": "nivls_website/nivls_website/templates/base_common.html",
+					"settings":
+					{
+						"buffer_size": 1323,
 						"line_ending": "Unix"
 					}
 				},
@@ -287,31 +319,15 @@
 					"file": "nivls_website/nivls_website/static/commons/js/20/main.js",
 					"settings":
 					{
-						"buffer_size": 10921,
+						"buffer_size": 13578,
 						"line_ending": "Unix"
 					}
 				},
 				{
-					"file": "/home/laplan_m/.config/sublime-text-2/Packages/Nivl/replace_tab.py",
+					"file": "nivls_website/nivls_website/static/commons/bootstrap/less/variables.less",
 					"settings":
 					{
-						"buffer_size": 262,
-						"line_ending": "Unix"
-					}
-				},
-				{
-					"file": "/home/laplan_m/.config/sublime-text-2/Packages/Default/Preferences.sublime-settings",
-					"settings":
-					{
-						"buffer_size": 13149,
-						"line_ending": "Unix"
-					}
-				},
-				{
-					"file": "/home/laplan_m/.config/sublime-text-2/Packages/Default/Default (Linux).sublime-keymap",
-					"settings":
-					{
-						"buffer_size": 31027,
+						"buffer_size": 8450,
 						"line_ending": "Unix"
 					}
 				}
@@ -319,7 +335,7 @@
 			"build_system": "DJ collectstatic",
 			"command_palette":
 			{
-				"height": 392.0,
+				"height": 32.0,
 				"selected_items":
 				[
 					[
@@ -416,15 +432,18 @@
 			},
 			"file_history":
 			[
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/Default (Linux).sublime-keymap",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/css/20/main.less",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/js/20/main.js",
+				"/home/www/nivls_website/nivls_website/search_engine/templates/search/search.html",
+				"/home/laplan_m/.config/sublime-text-2/Packages/Default/Default (Linux).sublime-keymap",
+				"/home/laplan_m/.config/sublime-text-2/Packages/Default/Preferences.sublime-settings",
+				"/home/laplan_m/.config/sublime-text-2/Packages/Nivl/replace_tab.py",
 				"/home/laplan_m/.config/sublime-text-2/Packages/User/Preferences.sublime-settings",
 				"/home/www/nivls_website/nivls_website/about/admin.py",
-				"/home/laplan_m/.config/sublime-text-2/Packages/Default/Default (Linux).sublime-keymap",
-				"/home/laplan_m/.config/sublime-text-2/Packages/User/Default (Linux).sublime-keymap",
 				"/home/www/nivls_website/nivlsWebsite.sublime-project",
 				"/home/www/nivls_website/nivls_website/nivls_website/templates/inc/header.html",
-				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/css/20/main.less",
 				"/tmp/text.js",
-				"/home/laplan_m/.config/sublime-text-2/Packages/Default/Preferences.sublime-settings",
 				"/home/laplan_m/Src/Epitech/Projects/NAO/nao-car/src/Pose/PoseManager.cpp",
 				"/home/laplan_m/.config/sublime-text-2/Packages/User/HTML (Django).sublime-settings",
 				"/home/laplan_m/.config/sublime-text-2/Packages/Djaneiro/Settings/HTML (Django).sublime-settings",
@@ -461,6 +480,13 @@
 				"case_sensitive": false,
 				"find_history":
 				[
+					"gradien",
+					"body",
+					"breadcrumb",
+					"search",
+					"tab",
+					"search",
+					"seach",
 					"dropdow",
 					"tab",
 					"/",
@@ -498,23 +524,138 @@
 			"groups":
 			[
 				{
-					"selected": 1,
+					"selected": 4,
 					"sheets":
 					[
 						{
 							"buffer": 0,
-							"file": "nivls_website/nivls_website/static/commons/css/20/main.less",
+							"file": "nivls_website/nivls_website/templates/inc/header.html",
 							"settings":
 							{
-								"buffer_size": 24186,
+								"buffer_size": 8156,
 								"regions":
 								{
 								},
 								"selection":
 								[
 									[
-										1678,
-										1678
+										8156,
+										8156
+									]
+								],
+								"settings":
+								{
+									"annotations":
+									[
+										"TODO",
+										"README",
+										"FIXME"
+									],
+									"csslint_options":
+									{
+										"adjoining-classes": "warning",
+										"box-model": true,
+										"box-sizing": "warning",
+										"compatible-vendor-prefixes": "warning",
+										"display-property-grouping": true,
+										"duplicate-background-images": "warning",
+										"duplicate-properties": true,
+										"empty-rules": true,
+										"errors": true,
+										"fallback-colors": "warning",
+										"floats": "warning",
+										"font-faces": "warning",
+										"font-sizes": "warning",
+										"gradients": "warning",
+										"ids": "warning",
+										"import": "warning",
+										"important": "warning",
+										"known-properties": true,
+										"outline-none": "warning",
+										"overqualified-elements": "warning",
+										"qualified-headings": "warning",
+										"regex-selectors": "warning",
+										"rules-count": "warning",
+										"shorthand": "warning",
+										"star-property-hack": "warning",
+										"text-indent": "warning",
+										"underscore-property-hack": "warning",
+										"unique-headings": "warning",
+										"universal-selector": "warning",
+										"vendor-prefix": true,
+										"zero-units": "warning"
+									},
+									"gjslint_ignore":
+									[
+										110
+									],
+									"gjslint_options":
+									[
+									],
+									"javascript_linter": "jshint",
+									"jshint_options":
+									{
+										"browser": true,
+										"evil": true,
+										"regexdash": true,
+										"sub": true,
+										"trailing": true,
+										"wsh": true
+									},
+									"pep8": true,
+									"pep8_ignore":
+									[
+										"E501"
+									],
+									"perl_linter": "perlcritic",
+									"pyflakes_ignore":
+									[
+									],
+									"pyflakes_ignore_import_*": true,
+									"sublimelinter": true,
+									"sublimelinter_delay": 2,
+									"sublimelinter_disable":
+									[
+									],
+									"sublimelinter_executable_map":
+									{
+									},
+									"sublimelinter_fill_outlines": false,
+									"sublimelinter_gutter_marks": false,
+									"sublimelinter_mark_style": "outline",
+									"sublimelinter_notes": false,
+									"sublimelinter_objj_check_ascii": false,
+									"sublimelinter_popup_errors_on_save": false,
+									"sublimelinter_syntax_map":
+									{
+										"Python Django": "python",
+										"Ruby on Rails": "ruby"
+									},
+									"sublimelinter_wrap_find": true,
+									"syntax": "Packages/Djaneiro/Syntaxes/HTML (Django).tmLanguage",
+									"tab_size": 2,
+									"translate_tabs_to_spaces": true
+								},
+								"translation.x": 0.0,
+								"translation.y": 2671.0,
+								"zoom_level": 1.0
+							},
+							"type": "text"
+						},
+						{
+							"buffer": 1,
+							"file": "nivls_website/nivls_website/static/commons/css/20/main.less",
+							"settings":
+							{
+								"buffer_size": 24446,
+								"regions":
+								{
+								},
+								"selection":
+								[
+									[
+										23263,
+										23263
 									]
 								],
 								"settings":
@@ -611,25 +752,255 @@
 									"translate_tabs_to_spaces": true
 								},
 								"translation.x": 0.0,
-								"translation.y": 886.0,
+								"translation.y": 423.0,
 								"zoom_level": 1.0
 							},
 							"type": "text"
 						},
 						{
-							"buffer": 1,
-							"file": "nivls_website/nivls_website/static/commons/js/20/main.js",
+							"buffer": 2,
+							"file": "nivls_website/about/templates/about/about.html",
 							"settings":
 							{
-								"buffer_size": 10921,
+								"buffer_size": 1849,
 								"regions":
 								{
 								},
 								"selection":
 								[
 									[
-										159,
-										159
+										1117,
+										1117
+									]
+								],
+								"settings":
+								{
+									"annotations":
+									[
+										"TODO",
+										"README",
+										"FIXME"
+									],
+									"csslint_options":
+									{
+										"adjoining-classes": "warning",
+										"box-model": true,
+										"box-sizing": "warning",
+										"compatible-vendor-prefixes": "warning",
+										"display-property-grouping": true,
+										"duplicate-background-images": "warning",
+										"duplicate-properties": true,
+										"empty-rules": true,
+										"errors": true,
+										"fallback-colors": "warning",
+										"floats": "warning",
+										"font-faces": "warning",
+										"font-sizes": "warning",
+										"gradients": "warning",
+										"ids": "warning",
+										"import": "warning",
+										"important": "warning",
+										"known-properties": true,
+										"outline-none": "warning",
+										"overqualified-elements": "warning",
+										"qualified-headings": "warning",
+										"regex-selectors": "warning",
+										"rules-count": "warning",
+										"shorthand": "warning",
+										"star-property-hack": "warning",
+										"text-indent": "warning",
+										"underscore-property-hack": "warning",
+										"unique-headings": "warning",
+										"universal-selector": "warning",
+										"vendor-prefix": true,
+										"zero-units": "warning"
+									},
+									"gjslint_ignore":
+									[
+										110
+									],
+									"gjslint_options":
+									[
+									],
+									"javascript_linter": "jshint",
+									"jshint_options":
+									{
+										"browser": true,
+										"evil": true,
+										"regexdash": true,
+										"sub": true,
+										"trailing": true,
+										"wsh": true
+									},
+									"pep8": true,
+									"pep8_ignore":
+									[
+										"E501"
+									],
+									"perl_linter": "perlcritic",
+									"pyflakes_ignore":
+									[
+									],
+									"pyflakes_ignore_import_*": true,
+									"sublimelinter": true,
+									"sublimelinter_delay": 2,
+									"sublimelinter_disable":
+									[
+									],
+									"sublimelinter_executable_map":
+									{
+									},
+									"sublimelinter_fill_outlines": false,
+									"sublimelinter_gutter_marks": false,
+									"sublimelinter_mark_style": "outline",
+									"sublimelinter_notes": false,
+									"sublimelinter_objj_check_ascii": false,
+									"sublimelinter_popup_errors_on_save": false,
+									"sublimelinter_syntax_map":
+									{
+										"Python Django": "python",
+										"Ruby on Rails": "ruby"
+									},
+									"sublimelinter_wrap_find": true,
+									"syntax": "Packages/Djaneiro/Syntaxes/HTML (Django).tmLanguage",
+									"tab_size": 2,
+									"translate_tabs_to_spaces": true
+								},
+								"translation.x": 0.0,
+								"translation.y": 0.0,
+								"zoom_level": 1.0
+							},
+							"type": "text"
+						},
+						{
+							"buffer": 3,
+							"file": "nivls_website/nivls_website/templates/base_common.html",
+							"settings":
+							{
+								"buffer_size": 1323,
+								"regions":
+								{
+								},
+								"selection":
+								[
+									[
+										1052,
+										1052
+									]
+								],
+								"settings":
+								{
+									"annotations":
+									[
+										"TODO",
+										"README",
+										"FIXME"
+									],
+									"csslint_options":
+									{
+										"adjoining-classes": "warning",
+										"box-model": true,
+										"box-sizing": "warning",
+										"compatible-vendor-prefixes": "warning",
+										"display-property-grouping": true,
+										"duplicate-background-images": "warning",
+										"duplicate-properties": true,
+										"empty-rules": true,
+										"errors": true,
+										"fallback-colors": "warning",
+										"floats": "warning",
+										"font-faces": "warning",
+										"font-sizes": "warning",
+										"gradients": "warning",
+										"ids": "warning",
+										"import": "warning",
+										"important": "warning",
+										"known-properties": true,
+										"outline-none": "warning",
+										"overqualified-elements": "warning",
+										"qualified-headings": "warning",
+										"regex-selectors": "warning",
+										"rules-count": "warning",
+										"shorthand": "warning",
+										"star-property-hack": "warning",
+										"text-indent": "warning",
+										"underscore-property-hack": "warning",
+										"unique-headings": "warning",
+										"universal-selector": "warning",
+										"vendor-prefix": true,
+										"zero-units": "warning"
+									},
+									"gjslint_ignore":
+									[
+										110
+									],
+									"gjslint_options":
+									[
+									],
+									"javascript_linter": "jshint",
+									"jshint_options":
+									{
+										"browser": true,
+										"evil": true,
+										"regexdash": true,
+										"sub": true,
+										"trailing": true,
+										"wsh": true
+									},
+									"pep8": true,
+									"pep8_ignore":
+									[
+										"E501"
+									],
+									"perl_linter": "perlcritic",
+									"pyflakes_ignore":
+									[
+									],
+									"pyflakes_ignore_import_*": true,
+									"sublimelinter": true,
+									"sublimelinter_delay": 2,
+									"sublimelinter_disable":
+									[
+									],
+									"sublimelinter_executable_map":
+									{
+									},
+									"sublimelinter_fill_outlines": false,
+									"sublimelinter_gutter_marks": false,
+									"sublimelinter_mark_style": "outline",
+									"sublimelinter_notes": false,
+									"sublimelinter_objj_check_ascii": false,
+									"sublimelinter_popup_errors_on_save": false,
+									"sublimelinter_syntax_map":
+									{
+										"Python Django": "python",
+										"Ruby on Rails": "ruby"
+									},
+									"sublimelinter_wrap_find": true,
+									"syntax": "Packages/Djaneiro/Syntaxes/HTML (Django).tmLanguage",
+									"tab_size": 2,
+									"translate_tabs_to_spaces": true
+								},
+								"translation.x": 0.0,
+								"translation.y": 93.0,
+								"zoom_level": 1.0
+							},
+							"type": "text"
+						},
+						{
+							"buffer": 4,
+							"file": "nivls_website/nivls_website/static/commons/js/20/main.js",
+							"settings":
+							{
+								"buffer_size": 13578,
+								"regions":
+								{
+								},
+								"selection":
+								[
+									[
+										156,
+										156
 									]
 								],
 								"settings":
@@ -722,256 +1093,29 @@
 									},
 									"sublimelinter_wrap_find": true,
 									"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
-									"tab_size": 8
-								},
-								"translation.x": 0.0,
-								"translation.y": 0.0,
-								"zoom_level": 1.0
-							},
-							"type": "text"
-						},
-						{
-							"buffer": 2,
-							"file": "/home/laplan_m/.config/sublime-text-2/Packages/Nivl/replace_tab.py",
-							"settings":
-							{
-								"buffer_size": 262,
-								"regions":
-								{
-								},
-								"selection":
-								[
-									[
-										32,
-										32
-									]
-								],
-								"settings":
-								{
-									"annotations":
-									[
-										"TODO",
-										"README",
-										"FIXME"
-									],
-									"csslint_options":
-									{
-										"adjoining-classes": "warning",
-										"box-model": true,
-										"box-sizing": "warning",
-										"compatible-vendor-prefixes": "warning",
-										"display-property-grouping": true,
-										"duplicate-background-images": "warning",
-										"duplicate-properties": true,
-										"empty-rules": true,
-										"errors": true,
-										"fallback-colors": "warning",
-										"floats": "warning",
-										"font-faces": "warning",
-										"font-sizes": "warning",
-										"gradients": "warning",
-										"ids": "warning",
-										"import": "warning",
-										"important": "warning",
-										"known-properties": true,
-										"outline-none": "warning",
-										"overqualified-elements": "warning",
-										"qualified-headings": "warning",
-										"regex-selectors": "warning",
-										"rules-count": "warning",
-										"shorthand": "warning",
-										"star-property-hack": "warning",
-										"text-indent": "warning",
-										"underscore-property-hack": "warning",
-										"unique-headings": "warning",
-										"universal-selector": "warning",
-										"vendor-prefix": true,
-										"zero-units": "warning"
-									},
-									"gjslint_ignore":
-									[
-										110
-									],
-									"gjslint_options":
-									[
-									],
-									"javascript_linter": "jshint",
-									"jshint_options":
-									{
-										"browser": true,
-										"evil": true,
-										"regexdash": true,
-										"sub": true,
-										"trailing": true,
-										"wsh": true
-									},
-									"pep8": true,
-									"pep8_ignore":
-									[
-										"E501"
-									],
-									"perl_linter": "perlcritic",
-									"pyflakes_ignore":
-									[
-									],
-									"pyflakes_ignore_import_*": true,
-									"sublimelinter": true,
-									"sublimelinter_delay": 2,
-									"sublimelinter_disable":
-									[
-									],
-									"sublimelinter_executable_map":
-									{
-									},
-									"sublimelinter_fill_outlines": false,
-									"sublimelinter_gutter_marks": false,
-									"sublimelinter_mark_style": "outline",
-									"sublimelinter_notes": false,
-									"sublimelinter_objj_check_ascii": false,
-									"sublimelinter_popup_errors_on_save": false,
-									"sublimelinter_syntax_map":
-									{
-										"Python Django": "python",
-										"Ruby on Rails": "ruby"
-									},
-									"sublimelinter_wrap_find": true,
-									"syntax": "Packages/Djaneiro/Syntaxes/Python Django.tmLanguage"
-								},
-								"translation.x": 0.0,
-								"translation.y": 0.0,
-								"zoom_level": 1.0
-							},
-							"type": "text"
-						},
-						{
-							"buffer": 3,
-							"file": "/home/laplan_m/.config/sublime-text-2/Packages/Default/Preferences.sublime-settings",
-							"settings":
-							{
-								"buffer_size": 13149,
-								"regions":
-								{
-								},
-								"selection":
-								[
-									[
-										1711,
-										1711
-									]
-								],
-								"settings":
-								{
-									"annotations":
-									[
-										"TODO",
-										"README",
-										"FIXME"
-									],
-									"csslint_options":
-									{
-										"adjoining-classes": "warning",
-										"box-model": true,
-										"box-sizing": "warning",
-										"compatible-vendor-prefixes": "warning",
-										"display-property-grouping": true,
-										"duplicate-background-images": "warning",
-										"duplicate-properties": true,
-										"empty-rules": true,
-										"errors": true,
-										"fallback-colors": "warning",
-										"floats": "warning",
-										"font-faces": "warning",
-										"font-sizes": "warning",
-										"gradients": "warning",
-										"ids": "warning",
-										"import": "warning",
-										"important": "warning",
-										"known-properties": true,
-										"outline-none": "warning",
-										"overqualified-elements": "warning",
-										"qualified-headings": "warning",
-										"regex-selectors": "warning",
-										"rules-count": "warning",
-										"shorthand": "warning",
-										"star-property-hack": "warning",
-										"text-indent": "warning",
-										"underscore-property-hack": "warning",
-										"unique-headings": "warning",
-										"universal-selector": "warning",
-										"vendor-prefix": true,
-										"zero-units": "warning"
-									},
-									"gjslint_ignore":
-									[
-										110
-									],
-									"gjslint_options":
-									[
-									],
-									"javascript_linter": "jshint",
-									"jshint_options":
-									{
-										"browser": true,
-										"evil": true,
-										"regexdash": true,
-										"sub": true,
-										"trailing": true,
-										"wsh": true
-									},
-									"pep8": true,
-									"pep8_ignore":
-									[
-										"E501"
-									],
-									"perl_linter": "perlcritic",
-									"pyflakes_ignore":
-									[
-									],
-									"pyflakes_ignore_import_*": true,
-									"sublimelinter": true,
-									"sublimelinter_delay": 2,
-									"sublimelinter_disable":
-									[
-									],
-									"sublimelinter_executable_map":
-									{
-									},
-									"sublimelinter_fill_outlines": false,
-									"sublimelinter_gutter_marks": false,
-									"sublimelinter_mark_style": "outline",
-									"sublimelinter_notes": false,
-									"sublimelinter_objj_check_ascii": false,
-									"sublimelinter_popup_errors_on_save": false,
-									"sublimelinter_syntax_map":
-									{
-										"Python Django": "python",
-										"Ruby on Rails": "ruby"
-									},
-									"sublimelinter_wrap_find": true,
-									"syntax": "Packages/JavaScript/JSON.tmLanguage",
 									"tab_size": 4,
 									"translate_tabs_to_spaces": true
 								},
 								"translation.x": 0.0,
-								"translation.y": 406.0,
+								"translation.y": 1047.0,
 								"zoom_level": 1.0
 							},
 							"type": "text"
 						},
 						{
-							"buffer": 4,
-							"file": "/home/laplan_m/.config/sublime-text-2/Packages/Default/Default (Linux).sublime-keymap",
+							"buffer": 5,
+							"file": "nivls_website/nivls_website/static/commons/bootstrap/less/variables.less",
 							"settings":
 							{
-								"buffer_size": 31027,
+								"buffer_size": 8450,
 								"regions":
 								{
 								},
 								"selection":
 								[
 									[
-										0,
-										0
+										256,
+										256
 									]
 								],
 								"settings":
@@ -1063,8 +1207,7 @@
 										"Ruby on Rails": "ruby"
 									},
 									"sublimelinter_wrap_find": true,
-									"syntax": "Packages/JavaScript/JSON.tmLanguage",
-									"translate_tabs_to_spaces": false
+									"syntax": "Packages/LESS/LESS.tmLanguage"
 								},
 								"translation.x": 0.0,
 								"translation.y": 0.0,
@@ -1144,7 +1287,7 @@
 			"show_open_files": false,
 			"show_tabs": true,
 			"side_bar_visible": true,
-			"side_bar_width": 147.0,
+			"side_bar_width": 155.0,
 			"status_bar_visible": true,
 			"window_id": 1,
 			"workspace_name": "/home/www/nivls_website/nivlsWebsite.sublime-project"

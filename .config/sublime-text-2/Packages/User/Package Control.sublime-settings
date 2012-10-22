@@ -1,13 +1,17 @@
 {
-	"auto_upgrade_last_run": 1347828644,
+	"auto_upgrade_last_run": 1350908341,
 	"installed_packages":
 	[
+		"BracketHighlighter",
+		"Dart",
 		"Git",
+		"HTMLAttributes",
+		"Jade",
 		"jQuery",
 		"LESS",
 		"Package Control",
 		"sublemacspro",
-		"SublimeCodeIntel",
+		"Sublime-HTMLPrettify",
 		"SublimeLinter"
 	]
 }

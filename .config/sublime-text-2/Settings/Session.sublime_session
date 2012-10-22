@@ -2,16 +2,88 @@
 	"folder_history":
 	[
 	],
-	"last_window_id": 3,
+	"last_window_id": 20,
 	"settings":
 	{
-		"new_window_height": 847.0,
+		"new_window_height": 840.0,
 		"new_window_settings":
 		{
 			"auto_complete":
 			{
 				"selected_items":
 				[
+					[
+						"acc",
+						"accordion-toggle"
+					],
+					[
+						"cv",
+						"cv_sections"
+					],
+					[
+						"font",
+						"font-weight"
+					],
+					[
+						"backgroun",
+						"background-color"
+					],
+					[
+						"order",
+						"order_by"
+					],
+					[
+						"font-",
+						"font-size"
+					],
+					[
+						"pretty",
+						"prettyPrintOne"
+					],
+					[
+						"boot",
+						"bootstrap-responsive"
+					],
+					[
+						"S",
+						"SITE_ID"
+					],
+					[
+						"Na",
+						"NavigationLinkAdmin"
+					],
+					[
+						"text",
+						"text-decoration"
+					],
+					[
+						"margin",
+						"margin-top"
+					],
+					[
+						"current",
+						"current_active"
+					],
+					[
+						"l",
+						"length"
+					],
+					[
+						"drop",
+						"dropdown"
+					],
+					[
+						"remove",
+						"removeClass"
+					],
+					[
+						"backgou",
+						"background-color"
+					],
+					[
+						"bac",
+						"background-repeat"
+					]
 				]
 			},
 			"build_system": "DJ collectstatic",
@@ -25,7 +97,7 @@
 						"Package Control: Install Package"
 					],
 					[
-						"rein",
+						"rei",
 						"Indentation: Reindent Lines"
 					],
 					[
@@ -33,8 +105,80 @@
 						"Indentation: Reindent Lines"
 					],
 					[
+						"remo",
+						"Package Control: Remove Package"
+					],
+					[
+						"upgra",
+						"Package Control: Upgrade Package"
+					],
+					[
+						"insta",
+						"Package Control: Install Package"
+					],
+					[
+						"rein",
+						"Indentation: Reindent Lines"
+					],
+					[
+						"pret",
+						"HTMLPrettify: Prettify"
+					],
+					[
+						"tdy",
+						"Tidy HTML"
+					],
+					[
 						"inden",
 						"Indentation: Reindent Lines"
+					],
+					[
+						"remove",
+						"Package Control: Remove Package"
+					],
+					[
+						"inst",
+						"Package Control: Install Package"
+					],
+					[
+						"bra",
+						"Bracket Highlighter: Show Left Bracket"
+					],
+					[
+						"instal",
+						"Package Control: Install Package"
+					],
+					[
+						"remove ",
+						"Package Control: Remove Package"
+					],
+					[
+						"tidy",
+						"Tidy HTML"
+					],
+					[
+						"instak",
+						"Package Control: Install Package"
+					],
+					[
+						"inder",
+						"Indentation: Reindent Lines"
+					],
+					[
+						"markdow",
+						"Markdown Preview: preview in Browser"
+					],
+					[
+						"mark",
+						"Markdown Preview: preview in Sublime Text"
+					],
+					[
+						"i",
+						"Package Control: Install Package"
+					],
+					[
+						"remoe",
+						"Package Control: Remove Package"
 					],
 					[
 						"inde",
@@ -89,15 +233,11 @@
 						"Git: Show Tags"
 					],
 					[
-						"insta",
-						"Package Control: Install Package"
-					],
-					[
 						"Package Control: ",
 						"Package Control: List Packages"
 					]
 				],
-				"width": 575.0
+				"width": 494.0
 			},
 			"console":
 			{
@@ -114,32 +254,134 @@
 			},
 			"file_history":
 			[
-				"/home/www/nivls_website/nivls_website/nivls_website/templates/inc/header.html",
-				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/css/20/main.less",
-				"/tmp/text.js",
-				"/home/laplan_m/.config/sublime-text-2/Packages/User/Default (Linux).sublime-keymap",
-				"/home/laplan_m/.config/sublime-text-2/Packages/Default/Default (Linux).sublime-keymap",
+				"/home/laplan_m/Src/Nivl/Repo/sublime-hamlpy/README.md",
+				"/home/laplan_m/.config/sublime-text-2/Packages/Djaneiro/Syntaxes/Buildout Config.tmLanguage",
+				"/home/laplan_m/.config/sublime-text-2/Packages/Djaneiro/Main.sublime-menu",
+				"/home/laplan_m/Src/Nivl/Repo/sublime-hamlpy/sublime-hamlpy.sublime-project",
+				"/home/www/nivls_website/TODO",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/base.haml",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/base_common.haml",
+				"/home/www/nivls_website/nivls_website/about/templates/about/home.haml",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/inc/footer.haml",
+				"/home/www/nivls_website/nivls_website/about/templates/about/base.haml",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/inc/footer.html",
+				"/home/www/nivls_website/nivls_website/about/templates/about/home.html",
+				"/home/www/nivls_website/nivls_website/about/templates/about/base.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/base_common.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/base.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/conf/commons.py",
+				"/home/www/nivls_website/nivls_website/nivls_website/conf/vendors.py",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/Ruby Haml.sublime-settings",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/HTML (Django).sublime-settings",
 				"/home/laplan_m/.config/sublime-text-2/Packages/Default/Preferences.sublime-settings",
 				"/home/laplan_m/.config/sublime-text-2/Packages/User/Preferences.sublime-settings",
-				"/home/laplan_m/Src/Epitech/Projects/NAO/nao-car/src/Pose/PoseManager.cpp",
-				"/home/laplan_m/.config/sublime-text-2/Packages/User/HTML (Django).sublime-settings",
-				"/home/laplan_m/.config/sublime-text-2/Packages/Djaneiro/Settings/HTML (Django).sublime-settings",
-				"/home/www/nivls_website/nivls_website/about/templates/about/contact.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/base.jade",
+				"/home/www/nivls_website/fixtures/commons.json",
 				"/home/www/nivls_website/nivls_website/about/templates/about/about.html",
-				"/home/www/nivls_website/nivls_website/lab/templates/lab/base.html",
-				"/home/www/nivls_website/nivls_website/lab/templates/lab/project.html",
-				"/home/www/nivls_website/nivls_website/lab/templates/lab/listing.html",
-				"/home/www/nivls_website/nivls_website/blog/templates/blog/post_list.html",
-				"/home/www/nivls_website/nivls_website/blog/templates/blog/post.html",
-				"/home/www/nivls_website/nivls_website/blog/templates/blog/home.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/js/20/main.js",
+				"/home/www/nivls_website/nivls_website/about/views.py",
+				"/home/www/nivls_website/static/commons/bootstrap/less/variables.less",
+				"/home/www/nivls_website/nivls_website/nivls_website/conf/private.py",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/js/20/browsers-warning.js",
+				"/home/www/nivls_website/static/commons/js/20/browsers-warning.js",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/inc/browser_warning.html",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/SublimeLinter.sublime-settings",
+				"/home/www/nivls_website/nivls_website/search_engine/templates/search/search.html",
+				"/home/www/nivls_website/nivls_website/about/templates/about/contact.html",
+				"/home/www/nivls_website/nivls_website/locale/fr/LC_MESSAGES/django.po",
+				"/home/www/nivls_website/nivls_website/about/admin.py",
+				"/home/www/nivls_website/nivls_website/about/models.py",
+				"/home/www/nivls_website/nivls_website/about/templates/about/templatetags/cat_as_description_list.html",
+				"/home/www/nivls_website/nivls_website/about/templates/about/templatetags/cat_as_list.html",
+				"/home/www/nivls_website/nivls_website/about/templatetags/about_tags.py",
+				"/home/www/nivls_website/nivls_website/about/templates/about/templatetags/display_cat.html",
+				"/home/laplan_m/.config/sublime-text-2/Packages/SublimeLinter/SublimeLinter.sublime-settings",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/LESS.sublime-settings",
+				"/home/www/nivls_website/nivls_website/about/templates/about/templatetags/cat_as_block.html",
+				"/home/www/nivls_website/nivls_website/about/templates/about/templatetags/cat_as_table.html",
+				"/home/www/nivls_website/nivls_website/about/urls.py",
 				"/home/www/nivls_website/nivls_website/about/templates/about/cv.html",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/inc/listing.html",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/templatetags/carousel.html",
+				"/home/www/nivls_website/nivls_website/blog/templatetags/blog_tags.py",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/templatetags/latest_posts.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/listing.html",
 				"/home/www/nivls_website/nivls_website/blog/templates/blog/base.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/view.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/edit_avatar.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/manage_social_accounts.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/edit_picture.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/project.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/base.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/edit_account.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/sign_up.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/sign_in.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/password_reset.html",
 				"/home/www/nivls_website/nivls_website/about/templates/about/portfolio.html",
-				"/home/laplan_m/.config/sublime-text-2/Packages/Git/Default.sublime-commands",
-				"/home/laplan_m/tmp/Default (Linux).sublime-keymap",
-				"/home/laplan_m/.config/sublime-text-2/Packages/Djaneiro/Settings/Python (Django).sublime-settings",
-				"/home/www/nivls_website/nivls_website/blog/admin.py",
-				"/home/www/nivls_website/nivls_website/blog/admin.pyc"
+				"/home/www/nivls_website/nivls_website/lab/views.py",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/home.html",
+				"/home/laplan_m/.config/sublime-text-2/Packages/Default/Default (Linux).sublime-keymap",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/Default (Linux).sublime-keymap",
+				"/home/laplan_m/.config/sublime-text-2/Packages/sublemacspro/Default (Linux).sublime-keymap",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/base.html",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/post.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/inc/header.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/css/30/main-responsive.less",
+				"/home/www/nivls_website/static/commons/css/30/bootstrap-responsive.min.css",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/500.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/405.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/404.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/403.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/project_includes/business_card.html",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/post_list.html",
+				"/home/www/nivls_website/static/commons/css/fixes/3d.css",
+				"/home/www/nivls_website/nivls_website/blog/views.py",
+				"/home/laplan_m/.mozilla/firefox/4fieasne.default-1349458460180/gm_scripts/Vraie_Note/Vraie_Note.user.js",
+				"/home/laplan_m/.mozilla/firefox/4fieasne.default-1349458460180/gm_scripts/Vraies_notes/Vraies_notes.user.js",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/templatetags/archives.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/css/20/main.less",
+				"/home/laplan_m/.config/sublime-text-2/Packages/Alignment/Default (Linux).sublime-keymap",
+				"/home/www/nivls_website/static/commons/css/30/main-responsive.less",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/css/30/main-reponsive.less",
+				"/home/www/nivls_website/static/commons/css/20/main.less",
+				"/home/www/nivls_website/static/commons/bootstrap/less/responsive.less",
+				"/home/laplan_m/Src/Epitech/Tek3/Projects/NAO/tmp/test.py",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/menu.html",
+				"/home/www/nivls_website/nivls_website/lab/templatetags/tag_lab.py",
+				"/home/www/nivls_website/nivls_website/lab/models.py",
+				"/home/www/nivls_website/nivls_website/lab/admin.py",
+				"/home/www/nivls_website/nivls_website/nivls_website/settings.py",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/Plain text.sublime-settings",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/JSON.sublime-settings",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/Distraction Free.sublime-settings",
+				"/home/www/nivls_website/nivls_website/blog/models.py",
+				"/home/www/nivls_website/nivls_website/blog/sitemaps.py",
+				"/home/laplan_m/Src/Nivl/Repo/plymouth-theme-asphyxia/README.md",
+				"/home/laplan_m/Src/Nivl/Repo/plymouth-theme-asphyxia/asphyxia.plymouth",
+				"/home/laplan_m/Src/Nivl/Repo/plymouth-theme-asphyxia/asphyxia.script",
+				"/home/laplan_m/tmp/asphyxia_bkp.script",
+				"/home/laplan_m/tmp/asphyxia.plymouth",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/bootstrap/less/variables.less",
+				"/home/www/nivls_website/nivls_website/blog/urls.py",
+				"/home/www/nivls_website/nivls_website/nivls_website/urls.py",
+				"/home/www/nivls_website/nivlsWebsite.sublime-project",
+				"/home/www/nivls_website/nivls_website/commons/sitemaps.py",
+				"/home/www/nivls_website/nivls_website/about/sitemaps.py",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/project_includes/infos.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/project_list.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/css/20/main.css",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/js/30/ajax.js",
+				"/home/www/nivls_website/nivls_website/blog/search_indexes.py",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/inc/menu.html",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/templatetags/categories.html",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/templatetags/menus.html",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/templatetags/tag_cloud.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/project_includes/progress.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/project_includes/videos.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/project_includes/downloads.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/project_includes/images.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/bootstrap/js/bootstrap-typeahead.js",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/bootstrap/js/bootstrap-dropdown.js"
 			],
 			"find":
 			{
@@ -150,6 +392,7 @@
 				"height": 0.0,
 				"where_history":
 				[
+					"/home/www/nivls_website/nivls_website"
 				]
 			},
 			"find_state":
@@ -157,33 +400,158 @@
 				"case_sensitive": false,
 				"find_history":
 				[
-					"dropdow",
+					"section.{",
+					"header",
+					"home",
+					"footer",
+					"  \\{% trans \"([a-zA-z ]+)\" %\\}",
+					"{% trans \"",
+					"{% trans \"([a-zA-z ]+)\" %}",
+					"  {% trans \"([a-zA-z ]+)\" %}",
+					"  {% trans \"([a-zA-z ])\" %}",
+					"block",
+					"body-con",
+					"about",
+					">",
+					"<",
+					"<div class=\"([a-zA-z0-9_-]+)\">",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z ]+\" %\\})\" (href)=\"(\\{% url '[a-z-]+' %\\})\">",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z ]+\" %\\})\" (href)=\"\\({% url '[a-z-]+' %\\})\">",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z ]+\" %\\})\" (href)=\"(\\{\\{ user.get_absolute_url \\}\\})\">",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z ]+\" %\\})\" (href)=\"\\{\\{ user.get_absolute_url \\}\\}\">",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z ]+\" %\\})\" (href)=\"(\\{\\{ \"[a-z_.-]+\" \\}\\})\">",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z ]+\" %\\})\" (href)=\"(\\{% url \"[a-z-]+\" %\\})\">",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z ]+\" %\\})\" (href)=\"(\\{% url \"[a-z-]+\" %\\})",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z]+\" %\\})\" (href)=\"(\\{% url \"[a-z]+\" %\\})",
+					"<a (data-depth)=\"([0-9])\" (data-ajax)=\"(body-content)\" (title)=\"(\\{% trans \"[a-zA-Z]+\" %\\})\" (href)=\"(\\{% url \"[a-z]+\" %\\})",
+					"<li id=\"(navbar-[a-z]+)\" (\\{% block \"menu-[a-z]+\" %\\}\\{% endblock %\\})>",
+					"<li id=\"(navbar-[a-z]+)\" \\{% block \"menu-[a-z]+\" %\\}\\{% endblock %\\}>",
+					": 4",
+					"indent",
+					"body",
+					"footer",
+					".post ",
+					"footer",
+					"../../fonts/",
+					"commons/fonts",
+					"\" %}",
+					"{% static \"",
+					"static",
+					"link",
+					"consol",
+					"cooki",
+					"browse",
+					"we get in",
+					"left",
+					"main",
+					"link",
+					"linkH",
+					"ColorL",
+					"HoverL",
+					"article",
+					"resume",
+					"cv",
+					"sections",
+					"subcon",
+					"depth=\"0\"",
 					"tab",
-					"/",
-					"deleteDelete",
-					"delete",
-					"past",
-					"ctrl+spa",
-					"ctrl+x",
-					"delete",
-					"delete\n",
-					"}\n",
-					"ctrl+d",
-					"\n	",
-					"},\n",
-					"			",
-					"para",
-					"title",
-					"contact",
-					"in",
-					"wra"
+					"trim",
+					"page-ti",
+					" class=\"active\"{% endifequal %}",
+					"{% ifequal act_menu \"",
+					"\" %} class=\"active\"{% endifequal %}",
+					"ifequal act_menu \"",
+					"brea",
+					"::",
+					"brand",
+					"clean",
+					"middle",
+					"sub",
+					"sub-hea",
+					"sub",
+					"{% url \"home\" %}",
+					"sub",
+					"brea",
+					"busi",
+					"sub",
+					"id ",
+					"footer",
+					"font",
+					"h1",
+					"footer",
+					"preview",
+					"#form",
+					"ctrl+shift+l",
+					"sub",
+					"header",
+					"navbar",
+					"60px",
+					":60px",
+					"60px",
+					" 60px",
+					"60px",
+					"transpa",
+					"brand",
+					"naviga",
+					"files",
+					"column",
+					"grayA",
+					"grayAr",
+					"border",
+					"lab",
+					"sub",
+					"footer",
+					"lab-na",
+					"menu",
+					"figure",
+					"textF",
+					"proje",
+					"porf",
+					"section",
+					"link",
+					"control",
+					"{% block \"header\" %}",
+					"include \"header\"",
+					"-1px",
+					"img",
+					"2f96b4",
+					"btn",
+					"dark-btn",
+					"2f9",
+					"caption",
+					"2f9",
+					"colorH",
+					"dark",
+					"caption",
+					"action",
+					"select",
+					"h1",
+					"g\"",
+					"login-box"
 				],
 				"highlight": true,
 				"in_selection": false,
 				"preserve_case": false,
-				"regex": false,
+				"regex": true,
 				"replace_history":
 				[
+					"  - trans \"\\1\"",
+					".\\1",
+					"%a{'\\1': '\\2', \\n '\\3': '\\4', \\n'\\5': '\\6', \\n'\\7': '\\8'}",
+					"%li#\\1{'\\2'}",
+					"../fonts/",
+					"../fonts",
+					"../../fonts",
+					"",
+					"we can get in",
+					"depth=\"1\"",
+					"{% endblock %}",
+					"{% block \"menu-",
+					" %}{% endblock %}",
+					"block menu-",
+					"{% url \"about\" %}",
+					"btn",
+					""
 				],
 				"reverse": false,
 				"show_context": true,
@@ -232,7 +600,7 @@
 			},
 			"replace":
 			{
-				"height": 0.0
+				"height": 62.0
 			},
 			"save_all_on_build": true,
 			"select_file":
@@ -241,28 +609,536 @@
 				"selected_items":
 				[
 					[
+						"todo",
+						"TODO"
+					],
+					[
+						"baseco",
+						"nivls_website/nivls_website/templates/base_common.haml"
+					],
+					[
+						"abouthtml",
+						"nivls_website/about/templates/about/about.html"
+					],
+					[
+						"aboutba",
+						"nivls_website/about/templates/about/base.haml"
+					],
+					[
+						"base",
+						"nivls_website/nivls_website/templates/base.haml"
+					],
+					[
+						"foo",
+						"nivls_website/nivls_website/templates/inc/footer.html"
+					],
+					[
+						"home.haml",
+						"nivls_website/about/templates/about/home.haml"
+					],
+					[
+						"view",
+						"nivls_website/about/views.py"
+					],
+					[
+						"aboutbaseht",
+						"nivls_website/about/templates/about/base.html"
+					],
+					[
+						"aboutbase",
+						"nivls_website/about/templates/about/base.haml"
+					],
+					[
+						"aboutho",
+						"nivls_website/about/templates/about/home.html"
+					],
+					[
+						"common",
+						"nivls_website/nivls_website/conf/commons.py"
+					],
+					[
+						"vendor",
+						"nivls_website/nivls_website/conf/vendors.py"
+					],
+					[
+						"basecommo",
+						"nivls_website/nivls_website/templates/base_common.html"
+					],
+					[
+						"footer",
+						"nivls_website/nivls_website/templates/inc/footer.html"
+					],
+					[
+						"comon",
+						"nivls_website/nivls_website/conf/commons.py"
+					],
+					[
+						"basecom",
+						"nivls_website/nivls_website/templates/base_common.html"
+					],
+					[
+						"varia",
+						"static/commons/bootstrap/less/variables.less"
+					],
+					[
+						"about",
+						"nivls_website/about/templates/about/about.html"
+					],
+					[
+						"conf/",
+						"nivls_website/nivls_website/conf/private.py"
+					],
+					[
+						"vendr",
+						"nivls_website/nivls_website/conf/vendors.py"
+					],
+					[
+						"browserwarningjs",
+						"nivls_website/nivls_website/static/commons/js/20/browsers-warning.js"
+					],
+					[
+						"browser.js",
+						"nivls_website/nivls_website/static/commons/js/20/browsers-warning.js"
+					],
+					[
+						"brow",
+						"static/commons/js/20/browsers-warning.js"
+					],
+					[
+						"baseconm",
+						"nivls_website/nivls_website/templates/base_common.html"
+					],
+					[
+						"browser",
+						"static/commons/js/20/browsers-warning.js"
+					],
+					[
+						"brows",
+						"nivls_website/nivls_website/templates/inc/browser_warning.html"
+					],
+					[
+						"main.js",
+						"nivls_website/nivls_website/static/commons/js/20/main.js"
+					],
+					[
+						"serch",
+						"nivls_website/search_engine/templates/search/search.html"
+					],
+					[
+						"as",
+						"nivls_website/about/templates/about/templatetags/cat_as_description_list.html"
+					],
+					[
+						"cat",
+						"nivls_website/about/templates/about/templatetags/cat_as_list.html"
+					],
+					[
+						"admin",
+						"nivls_website/about/admin.py"
+					],
+					[
+						"templata",
+						"nivls_website/about/templatetags/about_tags.py"
+					],
+					[
+						"dis",
+						"nivls_website/about/templates/about/templatetags/display_cat.html"
+					],
+					[
+						"descr",
+						"nivls_website/about/templates/about/templatetags/cat_as_description_list.html"
+					],
+					[
+						"asdl",
+						"nivls_website/about/templates/about/templatetags/cat_as_description_list.html"
+					],
+					[
+						"templateta",
+						"nivls_website/about/templatetags/about_tags.py"
+					],
+					[
+						"aslist",
+						"nivls_website/about/templates/about/templatetags/cat_as_list.html"
+					],
+					[
+						"displa",
+						"nivls_website/about/templates/about/templatetags/display_cat.html"
+					],
+					[
+						"model",
+						"nivls_website/about/models.py"
+					],
+					[
+						"va",
+						"static/commons/bootstrap/less/variables.less"
+					],
+					[
+						"display_cat",
+						"nivls_website/about/templates/about/templatetags/display_cat.html"
+					],
+					[
+						"aboutview",
+						"nivls_website/about/views.py"
+					],
+					[
+						"url",
+						"nivls_website/about/urls.py"
+					],
+					[
+						"commons",
+						"nivls_website/nivls_website/conf/commons.py"
+					],
+					[
+						"cv",
+						"nivls_website/about/templates/about/cv.html"
+					],
+					[
+						"abou",
+						"nivls_website/about/templates/about/about.html"
+					],
+					[
+						"inclis",
+						"nivls_website/blog/templates/blog/inc/listing.html"
+					],
+					[
+						"lates",
+						"nivls_website/blog/templates/blog/templatetags/latest_posts.html"
+					],
+					[
+						"blogtags",
+						"nivls_website/blog/templatetags/blog_tags.py"
+					],
+					[
+						"blogca",
+						"nivls_website/blog/templates/blog/templatetags/carousel.html"
+					],
+					[
+						"ome",
+						"nivls_website/about/templates/about/home.html"
+					],
+					[
+						"lablis",
+						"nivls_website/lab/templates/lab/listing.html"
+					],
+					[
+						"proje",
+						"nivls_website/lab/templates/lab/project.html"
+					],
+					[
+						"labbase",
+						"nivls_website/lab/templates/lab/base.html"
+					],
+					[
+						"acou",
+						"nivls_website/user_profile/templates/users/manage_social_accounts.html"
+					],
+					[
+						"accou",
+						"nivls_website/user_profile/templates/users/edit_account.html"
+					],
+					[
+						"viht",
+						"nivls_website/user_profile/templates/users/view.html"
+					],
+					[
+						"si",
+						"nivls_website/user_profile/templates/users/sign_in.html"
+					],
+					[
+						"sign",
+						"nivls_website/user_profile/templates/users/sign_up.html"
+					],
+					[
+						"pic",
+						"nivls_website/user_profile/templates/users/edit_picture.html"
+					],
+					[
+						"ava",
+						"nivls_website/user_profile/templates/users/edit_avatar.html"
+					],
+					[
+						"viewh",
+						"nivls_website/user_profile/templates/users/view.html"
+					],
+					[
+						"edita",
+						"nivls_website/user_profile/templates/users/edit_account.html"
+					],
+					[
+						"sea",
+						"nivls_website/search_engine/templates/search/search.html"
+					],
+					[
+						"sig",
+						"nivls_website/user_profile/templates/users/sign_in.html"
+					],
+					[
+						"passe",
+						"nivls_website/user_profile/templates/users/password_reset.html"
+					],
+					[
+						"signu",
+						"nivls_website/user_profile/templates/users/sign_up.html"
+					],
+					[
+						"labviw",
+						"nivls_website/lab/views.py"
+					],
+					[
+						"labpro",
+						"nivls_website/lab/templates/lab/project.html"
+					],
+					[
+						"port",
+						"nivls_website/about/templates/about/portfolio.html"
+					],
+					[
 						"",
-						"/home/www/nivls_website/nivls_website/nivls_website/templates/inc/header.html"
+						"nivls_website/about/templates/about/home.html"
+					],
+					[
+						"blogba",
+						"nivls_website/blog/templates/blog/base.html"
+					],
+					[
+						"blog",
+						"nivls_website/blog/templates/blog/home.html"
+					],
+					[
+						"vari",
+						"static/commons/bootstrap/less/variables.less"
+					],
+					[
+						"to",
+						"TODO"
+					],
+					[
+						"list",
+						"nivls_website/blog/templates/blog/inc/listing.html"
+					],
+					[
+						"usersbase",
+						"nivls_website/user_profile/templates/users/base.html"
+					],
+					[
+						"base.html",
+						"nivls_website/nivls_website/templates/base.html"
+					],
+					[
+						"usersa",
+						"nivls_website/user_profile/templates/users/manage_social_accounts.html"
+					],
+					[
+						"usersaccou",
+						"nivls_website/user_profile/templates/users/edit_account.html"
+					],
+					[
+						"usersview",
+						"nivls_website/user_profile/templates/users/view.html"
+					],
+					[
+						"usershtml",
+						"nivls_website/user_profile/templates/users/base.html"
+					],
+					[
+						"users",
+						"nivls_website/user_profile/templates/users/sign_in.html"
+					],
+					[
+						"contac",
+						"nivls_website/about/templates/about/contact.html"
+					],
+					[
+						"blogbase",
+						"nivls_website/blog/templates/blog/base.html"
+					],
+					[
+						"home",
+						"nivls_website/blog/templates/blog/home.html"
+					],
+					[
+						"base.ht",
+						"nivls_website/nivls_website/templates/base.html"
+					],
+					[
+						"basec",
+						"nivls_website/nivls_website/templates/base_common.html"
+					],
+					[
+						"post",
+						"nivls_website/blog/templates/blog/post.html"
+					],
+					[
+						"header",
+						"nivls_website/nivls_website/templates/inc/header.html"
+					],
+					[
+						"blogho",
+						"nivls_website/blog/templates/blog/home.html"
+					],
+					[
+						"foot",
+						"nivls_website/nivls_website/templates/inc/footer.html"
+					],
+					[
+						"last",
+						"nivls_website/blog/templates/blog/templatetags/latest_posts.html"
+					],
+					[
+						"mainresponsive",
+						"nivls_website/nivls_website/static/commons/css/30/main-responsive.less"
+					],
+					[
+						"responsive",
+						"static/commons/css/30/bootstrap-responsive.min.css"
+					],
+					[
+						"bloglist",
+						"nivls_website/blog/templates/blog/inc/listing.html"
+					],
+					[
+						"blogtag",
+						"nivls_website/blog/templatetags/blog_tags.py"
+					],
+					[
+						"hea",
+						"nivls_website/nivls_website/templates/inc/header.html"
+					],
+					[
+						"basecommon",
+						"nivls_website/nivls_website/templates/base_common.html"
+					],
+					[
+						"bus",
+						"nivls_website/lab/templates/lab/inc/project_includes/business_card.html"
+					],
+					[
+						"lis",
+						"nivls_website/blog/templates/blog/inc/listing.html"
+					],
+					[
+						"pos",
+						"nivls_website/blog/templates/blog/post_list.html"
+					],
+					[
+						"eader",
+						"nivls_website/nivls_website/templates/inc/header.html"
+					],
+					[
+						"fix3",
+						"static/commons/css/fixes/3d.css"
+					],
+					[
+						"var",
+						"static/commons/bootstrap/less/variables.less"
+					],
+					[
+						"carou",
+						"nivls_website/blog/templates/blog/templatetags/carousel.html"
+					],
+					[
+						"about.h",
+						"nivls_website/about/templates/about/about.html"
+					],
+					[
+						"browe",
+						"nivls_website/nivls_website/templates/inc/browser_warning.html"
+					],
+					[
+						"main.less",
+						"nivls_website/nivls_website/static/commons/css/20/main.less"
+					],
+					[
+						"confven",
+						"nivls_website/nivls_website/conf/vendors.py"
+					],
+					[
+						"labview",
+						"nivls_website/lab/views.py"
+					],
+					[
+						"blogar",
+						"nivls_website/blog/templates/blog/templatetags/archives.html"
+					],
+					[
+						"blogpost",
+						"nivls_website/blog/templates/blog/post.html"
+					],
+					[
+						"blogview",
+						"nivls_website/blog/views.py"
+					],
+					[
+						"main-respons",
+						"nivls_website/nivls_website/static/commons/css/30/main-responsive.less"
+					],
+					[
+						"main-res",
+						"static/commons/css/30/main-responsive.less"
+					],
+					[
+						"responsive.c",
+						"static/commons/css/30/bootstrap-responsive.min.css"
+					],
+					[
+						"repons",
+						"static/commons/bootstrap/less/responsive.less"
+					],
+					[
+						"tag",
+						"nivls_website/lab/templatetags/tag_lab.py"
+					],
+					[
+						"labmen",
+						"nivls_website/lab/templates/lab/inc/menu.html"
+					],
+					[
+						"he",
+						"nivls_website/nivls_website/templates/inc/header.html"
+					],
+					[
+						"sitemaps",
+						"nivls_website/blog/sitemaps.py"
+					],
+					[
+						"urls",
+						"nivls_website/blog/urls.py"
+					],
+					[
+						"models",
+						"nivls_website/blog/models.py"
+					],
+					[
+						"blogsite",
+						"nivls_website/blog/sitemaps.py"
+					],
+					[
+						"site",
+						"nivls_website/about/sitemaps.py"
+					],
+					[
+						"labbas",
+						"lab/templates/lab/base.html"
 					]
 				],
 				"width": 0.0
 			},
 			"select_project":
 			{
-				"height": 0.0,
+				"height": 500.0,
 				"selected_items":
 				[
 				],
-				"width": 0.0
+				"width": 380.0
 			},
 			"show_minimap": true,
 			"show_open_files": false,
 			"show_tabs": true,
 			"side_bar_visible": true,
-			"side_bar_width": 147.0,
+			"side_bar_width": 229.0,
 			"status_bar_visible": true
 		},
-		"new_window_width": 1331.0
+		"new_window_width": 1325.0
 	},
 	"windows":
 	[
@@ -271,6 +1147,78 @@
 			{
 				"selected_items":
 				[
+					[
+						"key",
+						"keyword"
+					],
+					[
+						"captu",
+						"captures	captures"
+					],
+					[
+						"acc",
+						"accordion-toggle"
+					],
+					[
+						"cv",
+						"cv_sections"
+					],
+					[
+						"font",
+						"font-weight"
+					],
+					[
+						"backgroun",
+						"background-color"
+					],
+					[
+						"order",
+						"order_by"
+					],
+					[
+						"font-",
+						"font-size"
+					],
+					[
+						"pretty",
+						"prettyPrintOne"
+					],
+					[
+						"boot",
+						"bootstrap-responsive"
+					],
+					[
+						"S",
+						"SITE_ID"
+					],
+					[
+						"Na",
+						"NavigationLinkAdmin"
+					],
+					[
+						"text",
+						"text-decoration"
+					],
+					[
+						"margin",
+						"margin-top"
+					],
+					[
+						"current",
+						"current_active"
+					],
+					[
+						"l",
+						"length"
+					],
+					[
+						"drop",
+						"dropdown"
+					],
+					[
+						"remove",
+						"removeClass"
+					],
 					[
 						"backgou",
 						"background-color"
@@ -284,10 +1232,18 @@
 			"buffers":
 			[
 				{
-					"file": "nivls_website/nivls_website/templates/inc/header.html",
+					"file": "/home/laplan_m/.config/sublime-text-2/Packages/sublime-hamlpy/Hamlpy.JSON-tmLanguage",
 					"settings":
 					{
-						"buffer_size": 8156,
+						"buffer_size": 7089,
+						"line_ending": "Unix"
+					}
+				},
+				{
+					"file": "nivls_website/about/templates/about/about.haml",
+					"settings":
+					{
+						"buffer_size": 2892,
 						"line_ending": "Unix"
 					}
 				},
@@ -295,51 +1251,55 @@
 					"file": "nivls_website/nivls_website/static/commons/css/20/main.less",
 					"settings":
 					{
-						"buffer_size": 24446,
+						"buffer_size": 22579,
 						"line_ending": "Unix"
 					}
 				},
 				{
-					"file": "nivls_website/about/templates/about/about.html",
+					"file": "nivls_website/about/views.py",
 					"settings":
 					{
-						"buffer_size": 1849,
+						"buffer_size": 2711,
 						"line_ending": "Unix"
 					}
 				},
 				{
-					"file": "nivls_website/nivls_website/templates/base_common.html",
+					"file": "nivls_website/nivls_website/templates/base.haml",
 					"settings":
 					{
-						"buffer_size": 1323,
-						"line_ending": "Unix"
-					}
-				},
-				{
-					"file": "nivls_website/nivls_website/static/commons/js/20/main.js",
-					"settings":
-					{
-						"buffer_size": 13578,
-						"line_ending": "Unix"
-					}
-				},
-				{
-					"file": "nivls_website/nivls_website/static/commons/bootstrap/less/variables.less",
-					"settings":
-					{
-						"buffer_size": 8450,
+						"buffer_size": 1638,
 						"line_ending": "Unix"
 					}
 				}
 			],
-			"build_system": "DJ collectstatic",
+			"build_system": "Packages/AAAPackageDev/Support/Json to tmLanguage.sublime-build",
 			"command_palette":
 			{
-				"height": 32.0,
+				"height": 392.0,
 				"selected_items":
 				[
 					[
+						"rei",
+						"Indentation: Reindent Lines"
+					],
+					[
 						"install",
+						"Package Control: Install Package"
+					],
+					[
+						"reinde",
+						"Indentation: Reindent Lines"
+					],
+					[
+						"remo",
+						"Package Control: Remove Package"
+					],
+					[
+						"upgra",
+						"Package Control: Upgrade Package"
+					],
+					[
+						"insta",
 						"Package Control: Install Package"
 					],
 					[
@@ -347,12 +1307,64 @@
 						"Indentation: Reindent Lines"
 					],
 					[
-						"reinde",
-						"Indentation: Reindent Lines"
+						"pret",
+						"HTMLPrettify: Prettify"
+					],
+					[
+						"tdy",
+						"Tidy HTML"
 					],
 					[
 						"inden",
 						"Indentation: Reindent Lines"
+					],
+					[
+						"remove",
+						"Package Control: Remove Package"
+					],
+					[
+						"inst",
+						"Package Control: Install Package"
+					],
+					[
+						"bra",
+						"Bracket Highlighter: Show Left Bracket"
+					],
+					[
+						"instal",
+						"Package Control: Install Package"
+					],
+					[
+						"remove ",
+						"Package Control: Remove Package"
+					],
+					[
+						"tidy",
+						"Tidy HTML"
+					],
+					[
+						"instak",
+						"Package Control: Install Package"
+					],
+					[
+						"inder",
+						"Indentation: Reindent Lines"
+					],
+					[
+						"markdow",
+						"Markdown Preview: preview in Browser"
+					],
+					[
+						"mark",
+						"Markdown Preview: preview in Sublime Text"
+					],
+					[
+						"i",
+						"Package Control: Install Package"
+					],
+					[
+						"remoe",
+						"Package Control: Remove Package"
 					],
 					[
 						"inde",
@@ -407,15 +1419,11 @@
 						"Git: Show Tags"
 					],
 					[
-						"insta",
-						"Package Control: Install Package"
-					],
-					[
 						"Package Control: ",
 						"Package Control: List Packages"
 					]
 				],
-				"width": 602.0
+				"width": 494.0
 			},
 			"console":
 			{
@@ -432,37 +1440,134 @@
 			},
 			"file_history":
 			[
-				"/home/laplan_m/.config/sublime-text-2/Packages/User/Default (Linux).sublime-keymap",
-				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/css/20/main.less",
-				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/js/20/main.js",
-				"/home/www/nivls_website/nivls_website/search_engine/templates/search/search.html",
-				"/home/laplan_m/.config/sublime-text-2/Packages/Default/Default (Linux).sublime-keymap",
-				"/home/laplan_m/.config/sublime-text-2/Packages/Default/Preferences.sublime-settings",
-				"/home/laplan_m/.config/sublime-text-2/Packages/Nivl/replace_tab.py",
-				"/home/laplan_m/.config/sublime-text-2/Packages/User/Preferences.sublime-settings",
-				"/home/www/nivls_website/nivls_website/about/admin.py",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/base_common.haml",
+				"/home/www/nivls_website/nivls_website/about/templates/about/about.haml",
+				"/home/www/nivls_website/nivls_website/about/templates/about/base.haml",
 				"/home/www/nivls_website/nivlsWebsite.sublime-project",
-				"/home/www/nivls_website/nivls_website/nivls_website/templates/inc/header.html",
-				"/tmp/text.js",
-				"/home/laplan_m/Src/Epitech/Projects/NAO/nao-car/src/Pose/PoseManager.cpp",
+				"/home/www/nivls_website/TODO",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/base.haml",
+				"/home/www/nivls_website/nivls_website/about/templates/about/home.haml",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/inc/footer.haml",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/inc/footer.html",
+				"/home/www/nivls_website/nivls_website/about/templates/about/home.html",
+				"/home/www/nivls_website/nivls_website/about/templates/about/base.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/base_common.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/base.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/conf/commons.py",
+				"/home/www/nivls_website/nivls_website/nivls_website/conf/vendors.py",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/Ruby Haml.sublime-settings",
 				"/home/laplan_m/.config/sublime-text-2/Packages/User/HTML (Django).sublime-settings",
-				"/home/laplan_m/.config/sublime-text-2/Packages/Djaneiro/Settings/HTML (Django).sublime-settings",
-				"/home/www/nivls_website/nivls_website/about/templates/about/contact.html",
+				"/home/laplan_m/.config/sublime-text-2/Packages/Default/Preferences.sublime-settings",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/Preferences.sublime-settings",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/base.jade",
+				"/home/www/nivls_website/fixtures/commons.json",
 				"/home/www/nivls_website/nivls_website/about/templates/about/about.html",
-				"/home/www/nivls_website/nivls_website/lab/templates/lab/base.html",
-				"/home/www/nivls_website/nivls_website/lab/templates/lab/project.html",
-				"/home/www/nivls_website/nivls_website/lab/templates/lab/listing.html",
-				"/home/www/nivls_website/nivls_website/blog/templates/blog/post_list.html",
-				"/home/www/nivls_website/nivls_website/blog/templates/blog/post.html",
-				"/home/www/nivls_website/nivls_website/blog/templates/blog/home.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/js/20/main.js",
+				"/home/www/nivls_website/nivls_website/about/views.py",
+				"/home/www/nivls_website/static/commons/bootstrap/less/variables.less",
+				"/home/www/nivls_website/nivls_website/nivls_website/conf/private.py",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/js/20/browsers-warning.js",
+				"/home/www/nivls_website/static/commons/js/20/browsers-warning.js",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/inc/browser_warning.html",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/SublimeLinter.sublime-settings",
+				"/home/www/nivls_website/nivls_website/search_engine/templates/search/search.html",
+				"/home/www/nivls_website/nivls_website/about/templates/about/contact.html",
+				"/home/www/nivls_website/nivls_website/locale/fr/LC_MESSAGES/django.po",
+				"/home/www/nivls_website/nivls_website/about/admin.py",
+				"/home/www/nivls_website/nivls_website/about/models.py",
+				"/home/www/nivls_website/nivls_website/about/templates/about/templatetags/cat_as_description_list.html",
+				"/home/www/nivls_website/nivls_website/about/templates/about/templatetags/cat_as_list.html",
+				"/home/www/nivls_website/nivls_website/about/templatetags/about_tags.py",
+				"/home/www/nivls_website/nivls_website/about/templates/about/templatetags/display_cat.html",
+				"/home/laplan_m/.config/sublime-text-2/Packages/SublimeLinter/SublimeLinter.sublime-settings",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/LESS.sublime-settings",
+				"/home/www/nivls_website/nivls_website/about/templates/about/templatetags/cat_as_block.html",
+				"/home/www/nivls_website/nivls_website/about/templates/about/templatetags/cat_as_table.html",
+				"/home/www/nivls_website/nivls_website/about/urls.py",
 				"/home/www/nivls_website/nivls_website/about/templates/about/cv.html",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/inc/listing.html",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/templatetags/carousel.html",
+				"/home/www/nivls_website/nivls_website/blog/templatetags/blog_tags.py",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/templatetags/latest_posts.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/listing.html",
 				"/home/www/nivls_website/nivls_website/blog/templates/blog/base.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/view.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/edit_avatar.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/manage_social_accounts.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/edit_picture.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/project.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/base.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/edit_account.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/sign_up.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/sign_in.html",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/password_reset.html",
 				"/home/www/nivls_website/nivls_website/about/templates/about/portfolio.html",
-				"/home/laplan_m/.config/sublime-text-2/Packages/Git/Default.sublime-commands",
-				"/home/laplan_m/tmp/Default (Linux).sublime-keymap",
-				"/home/laplan_m/.config/sublime-text-2/Packages/Djaneiro/Settings/Python (Django).sublime-settings",
-				"/home/www/nivls_website/nivls_website/blog/admin.py",
-				"/home/www/nivls_website/nivls_website/blog/admin.pyc"
+				"/home/www/nivls_website/nivls_website/lab/views.py",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/home.html",
+				"/home/laplan_m/.config/sublime-text-2/Packages/Default/Default (Linux).sublime-keymap",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/Default (Linux).sublime-keymap",
+				"/home/laplan_m/.config/sublime-text-2/Packages/sublemacspro/Default (Linux).sublime-keymap",
+				"/home/www/nivls_website/nivls_website/user_profile/templates/users/base.html",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/post.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/inc/header.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/css/30/main-responsive.less",
+				"/home/www/nivls_website/static/commons/css/30/bootstrap-responsive.min.css",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/500.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/405.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/404.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/templates/403.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/project_includes/business_card.html",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/post_list.html",
+				"/home/www/nivls_website/static/commons/css/fixes/3d.css",
+				"/home/www/nivls_website/nivls_website/blog/views.py",
+				"/home/laplan_m/.mozilla/firefox/4fieasne.default-1349458460180/gm_scripts/Vraie_Note/Vraie_Note.user.js",
+				"/home/laplan_m/.mozilla/firefox/4fieasne.default-1349458460180/gm_scripts/Vraies_notes/Vraies_notes.user.js",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/templatetags/archives.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/css/20/main.less",
+				"/home/laplan_m/.config/sublime-text-2/Packages/Alignment/Default (Linux).sublime-keymap",
+				"/home/www/nivls_website/static/commons/css/30/main-responsive.less",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/css/30/main-reponsive.less",
+				"/home/www/nivls_website/static/commons/css/20/main.less",
+				"/home/www/nivls_website/static/commons/bootstrap/less/responsive.less",
+				"/home/laplan_m/Src/Epitech/Tek3/Projects/NAO/tmp/test.py",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/menu.html",
+				"/home/www/nivls_website/nivls_website/lab/templatetags/tag_lab.py",
+				"/home/www/nivls_website/nivls_website/lab/models.py",
+				"/home/www/nivls_website/nivls_website/lab/admin.py",
+				"/home/www/nivls_website/nivls_website/nivls_website/settings.py",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/Plain text.sublime-settings",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/JSON.sublime-settings",
+				"/home/laplan_m/.config/sublime-text-2/Packages/User/Distraction Free.sublime-settings",
+				"/home/www/nivls_website/nivls_website/blog/models.py",
+				"/home/www/nivls_website/nivls_website/blog/sitemaps.py",
+				"/home/laplan_m/Src/Nivl/Repo/plymouth-theme-asphyxia/README.md",
+				"/home/laplan_m/Src/Nivl/Repo/plymouth-theme-asphyxia/asphyxia.plymouth",
+				"/home/laplan_m/Src/Nivl/Repo/plymouth-theme-asphyxia/asphyxia.script",
+				"/home/laplan_m/tmp/asphyxia_bkp.script",
+				"/home/laplan_m/tmp/asphyxia.plymouth",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/bootstrap/less/variables.less",
+				"/home/www/nivls_website/nivls_website/blog/urls.py",
+				"/home/www/nivls_website/nivls_website/nivls_website/urls.py",
+				"/home/www/nivls_website/nivls_website/commons/sitemaps.py",
+				"/home/www/nivls_website/nivls_website/about/sitemaps.py",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/project_includes/infos.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/project_list.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/css/20/main.css",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/js/30/ajax.js",
+				"/home/www/nivls_website/nivls_website/blog/search_indexes.py",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/inc/menu.html",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/templatetags/categories.html",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/templatetags/menus.html",
+				"/home/www/nivls_website/nivls_website/blog/templates/blog/templatetags/tag_cloud.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/project_includes/progress.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/project_includes/videos.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/project_includes/downloads.html",
+				"/home/www/nivls_website/nivls_website/lab/templates/lab/inc/project_includes/images.html",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/bootstrap/js/bootstrap-typeahead.js",
+				"/home/www/nivls_website/nivls_website/nivls_website/static/commons/bootstrap/js/bootstrap-dropdown.js",
+				"/home/laplan_m/.config/sublime-text-2/Packages/Nivl/replace_tab.py",
+				"/tmp/text.js",
+				"/home/laplan_m/Src/Epitech/Projects/NAO/nao-car/src/Pose/PoseManager.cpp"
 			],
 			"find":
 			{
@@ -473,6 +1578,7 @@
 				"height": 0.0,
 				"where_history":
 				[
+					"/home/www/nivls_website/nivls_website"
 				]
 			},
 			"find_state":
@@ -480,40 +1586,158 @@
 				"case_sensitive": false,
 				"find_history":
 				[
-					"gradien",
+					"section.{",
+					"header",
+					"home",
+					"footer",
+					"  \\{% trans \"([a-zA-z ]+)\" %\\}",
+					"{% trans \"",
+					"{% trans \"([a-zA-z ]+)\" %}",
+					"  {% trans \"([a-zA-z ]+)\" %}",
+					"  {% trans \"([a-zA-z ])\" %}",
+					"block",
+					"body-con",
+					"about",
+					">",
+					"<",
+					"<div class=\"([a-zA-z0-9_-]+)\">",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z ]+\" %\\})\" (href)=\"(\\{% url '[a-z-]+' %\\})\">",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z ]+\" %\\})\" (href)=\"\\({% url '[a-z-]+' %\\})\">",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z ]+\" %\\})\" (href)=\"(\\{\\{ user.get_absolute_url \\}\\})\">",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z ]+\" %\\})\" (href)=\"\\{\\{ user.get_absolute_url \\}\\}\">",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z ]+\" %\\})\" (href)=\"(\\{\\{ \"[a-z_.-]+\" \\}\\})\">",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z ]+\" %\\})\" (href)=\"(\\{% url \"[a-z-]+\" %\\})\">",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z ]+\" %\\})\" (href)=\"(\\{% url \"[a-z-]+\" %\\})",
+					"<a (data-ajax)=\"(body-content)\" (data-depth)=\"([0-9])\" (title)=\"(\\{% trans \"[a-zA-Z]+\" %\\})\" (href)=\"(\\{% url \"[a-z]+\" %\\})",
+					"<a (data-depth)=\"([0-9])\" (data-ajax)=\"(body-content)\" (title)=\"(\\{% trans \"[a-zA-Z]+\" %\\})\" (href)=\"(\\{% url \"[a-z]+\" %\\})",
+					"<li id=\"(navbar-[a-z]+)\" (\\{% block \"menu-[a-z]+\" %\\}\\{% endblock %\\})>",
+					"<li id=\"(navbar-[a-z]+)\" \\{% block \"menu-[a-z]+\" %\\}\\{% endblock %\\}>",
+					": 4",
+					"indent",
 					"body",
-					"breadcrumb",
-					"search",
+					"footer",
+					".post ",
+					"footer",
+					"../../fonts/",
+					"commons/fonts",
+					"\" %}",
+					"{% static \"",
+					"static",
+					"link",
+					"consol",
+					"cooki",
+					"browse",
+					"we get in",
+					"left",
+					"main",
+					"link",
+					"linkH",
+					"ColorL",
+					"HoverL",
+					"article",
+					"resume",
+					"cv",
+					"sections",
+					"subcon",
+					"depth=\"0\"",
 					"tab",
-					"search",
-					"seach",
-					"dropdow",
-					"tab",
-					"/",
-					"deleteDelete",
-					"delete",
-					"past",
-					"ctrl+spa",
-					"ctrl+x",
-					"delete",
-					"delete\n",
-					"}\n",
-					"ctrl+d",
-					"\n	",
-					"},\n",
-					"			",
-					"para",
-					"title",
-					"contact",
-					"in",
-					"wra"
+					"trim",
+					"page-ti",
+					" class=\"active\"{% endifequal %}",
+					"{% ifequal act_menu \"",
+					"\" %} class=\"active\"{% endifequal %}",
+					"ifequal act_menu \"",
+					"brea",
+					"::",
+					"brand",
+					"clean",
+					"middle",
+					"sub",
+					"sub-hea",
+					"sub",
+					"{% url \"home\" %}",
+					"sub",
+					"brea",
+					"busi",
+					"sub",
+					"id ",
+					"footer",
+					"font",
+					"h1",
+					"footer",
+					"preview",
+					"#form",
+					"ctrl+shift+l",
+					"sub",
+					"header",
+					"navbar",
+					"60px",
+					":60px",
+					"60px",
+					" 60px",
+					"60px",
+					"transpa",
+					"brand",
+					"naviga",
+					"files",
+					"column",
+					"grayA",
+					"grayAr",
+					"border",
+					"lab",
+					"sub",
+					"footer",
+					"lab-na",
+					"menu",
+					"figure",
+					"textF",
+					"proje",
+					"porf",
+					"section",
+					"link",
+					"control",
+					"{% block \"header\" %}",
+					"include \"header\"",
+					"-1px",
+					"img",
+					"2f96b4",
+					"btn",
+					"dark-btn",
+					"2f9",
+					"caption",
+					"2f9",
+					"colorH",
+					"dark",
+					"caption",
+					"action",
+					"select",
+					"h1",
+					"g\"",
+					"login-box"
 				],
 				"highlight": true,
 				"in_selection": false,
 				"preserve_case": false,
-				"regex": false,
+				"regex": true,
 				"replace_history":
 				[
+					"  - trans \"\\1\"",
+					".\\1",
+					"%a{'\\1': '\\2', \\n '\\3': '\\4', \\n'\\5': '\\6', \\n'\\7': '\\8'}",
+					"%li#\\1{'\\2'}",
+					"../fonts/",
+					"../fonts",
+					"../../fonts",
+					"",
+					"we can get in",
+					"depth=\"1\"",
+					"{% endblock %}",
+					"{% block \"menu-",
+					" %}{% endblock %}",
+					"block menu-",
+					"{% url \"about\" %}",
+					"btn",
+					""
 				],
 				"reverse": false,
 				"show_context": true,
@@ -524,23 +1748,23 @@
 			"groups":
 			[
 				{
-					"selected": 4,
+					"selected": 1,
 					"sheets":
 					[
 						{
 							"buffer": 0,
-							"file": "nivls_website/nivls_website/templates/inc/header.html",
+							"file": "/home/laplan_m/.config/sublime-text-2/Packages/sublime-hamlpy/Hamlpy.JSON-tmLanguage",
 							"settings":
 							{
-								"buffer_size": 8156,
+								"buffer_size": 7089,
 								"regions":
 								{
 								},
 								"selection":
 								[
 									[
-										8156,
-										8156
+										1459,
+										1459
 									]
 								],
 								"settings":
@@ -587,12 +1811,13 @@
 									},
 									"gjslint_ignore":
 									[
-										110
+										120,
+										210
 									],
 									"gjslint_options":
 									[
 									],
-									"javascript_linter": "jshint",
+									"javascript_linter": "gjslint",
 									"jshint_options":
 									{
 										"browser": true,
@@ -628,34 +1853,33 @@
 									"sublimelinter_popup_errors_on_save": false,
 									"sublimelinter_syntax_map":
 									{
+										"C++": "c",
 										"Python Django": "python",
 										"Ruby on Rails": "ruby"
 									},
 									"sublimelinter_wrap_find": true,
-									"syntax": "Packages/Djaneiro/Syntaxes/HTML (Django).tmLanguage",
-									"tab_size": 2,
-									"translate_tabs_to_spaces": true
+									"syntax": "Packages/AAAPackageDev/Support/Sublime JSON Syntax Definition.tmLanguage"
 								},
-								"translation.x": 0.0,
-								"translation.y": 2671.0,
+								"translation.x": 4660.0,
+								"translation.y": 0.0,
 								"zoom_level": 1.0
 							},
 							"type": "text"
 						},
 						{
 							"buffer": 1,
-							"file": "nivls_website/nivls_website/static/commons/css/20/main.less",
+							"file": "nivls_website/about/templates/about/about.haml",
 							"settings":
 							{
-								"buffer_size": 24446,
+								"buffer_size": 2892,
 								"regions":
 								{
 								},
 								"selection":
 								[
 									[
-										23263,
-										23263
+										2875,
+										2875
 									]
 								],
 								"settings":
@@ -702,12 +1926,13 @@
 									},
 									"gjslint_ignore":
 									[
-										110
+										120,
+										210
 									],
 									"gjslint_options":
 									[
 									],
-									"javascript_linter": "jshint",
+									"javascript_linter": "gjslint",
 									"jshint_options":
 									{
 										"browser": true,
@@ -743,6 +1968,122 @@
 									"sublimelinter_popup_errors_on_save": false,
 									"sublimelinter_syntax_map":
 									{
+										"C++": "c",
+										"Python Django": "python",
+										"Ruby on Rails": "ruby"
+									},
+									"sublimelinter_wrap_find": true,
+									"syntax": "Packages/sublime-hamlpy/Hamlpy.tmLanguage"
+								},
+								"translation.x": 0.0,
+								"translation.y": 1170.0,
+								"zoom_level": 1.0
+							},
+							"type": "text"
+						},
+						{
+							"buffer": 2,
+							"file": "nivls_website/nivls_website/static/commons/css/20/main.less",
+							"settings":
+							{
+								"buffer_size": 22579,
+								"regions":
+								{
+								},
+								"selection":
+								[
+									[
+										18068,
+										18068
+									]
+								],
+								"settings":
+								{
+									"annotations":
+									[
+										"TODO",
+										"README",
+										"FIXME"
+									],
+									"csslint_options":
+									{
+										"adjoining-classes": "warning",
+										"box-model": true,
+										"box-sizing": "warning",
+										"compatible-vendor-prefixes": "warning",
+										"display-property-grouping": true,
+										"duplicate-background-images": "warning",
+										"duplicate-properties": true,
+										"empty-rules": true,
+										"errors": true,
+										"fallback-colors": "warning",
+										"floats": "warning",
+										"font-faces": "warning",
+										"font-sizes": "warning",
+										"gradients": "warning",
+										"ids": "warning",
+										"import": "warning",
+										"important": "warning",
+										"known-properties": true,
+										"outline-none": "warning",
+										"overqualified-elements": "warning",
+										"qualified-headings": "warning",
+										"regex-selectors": "warning",
+										"rules-count": "warning",
+										"shorthand": "warning",
+										"star-property-hack": "warning",
+										"text-indent": "warning",
+										"underscore-property-hack": "warning",
+										"unique-headings": "warning",
+										"universal-selector": "warning",
+										"vendor-prefix": true,
+										"zero-units": "warning"
+									},
+									"gjslint_ignore":
+									[
+										120,
+										210
+									],
+									"gjslint_options":
+									[
+									],
+									"javascript_linter": "gjslint",
+									"jshint_options":
+									{
+										"browser": true,
+										"evil": true,
+										"regexdash": true,
+										"sub": true,
+										"trailing": true,
+										"wsh": true
+									},
+									"pep8": true,
+									"pep8_ignore":
+									[
+										"E501"
+									],
+									"perl_linter": "perlcritic",
+									"pyflakes_ignore":
+									[
+									],
+									"pyflakes_ignore_import_*": true,
+									"sublimelinter": true,
+									"sublimelinter_delay": 2,
+									"sublimelinter_disable":
+									[
+									],
+									"sublimelinter_executable_map":
+									{
+									},
+									"sublimelinter_fill_outlines": false,
+									"sublimelinter_gutter_marks": false,
+									"sublimelinter_mark_style": "outline",
+									"sublimelinter_notes": false,
+									"sublimelinter_objj_check_ascii": false,
+									"sublimelinter_popup_errors_on_save": false,
+									"sublimelinter_syntax_map":
+									{
+										"C++": "c",
 										"Python Django": "python",
 										"Ruby on Rails": "ruby"
 									},
@@ -752,140 +2093,25 @@
 									"translate_tabs_to_spaces": true
 								},
 								"translation.x": 0.0,
-								"translation.y": 423.0,
-								"zoom_level": 1.0
-							},
-							"type": "text"
-						},
-						{
-							"buffer": 2,
-							"file": "nivls_website/about/templates/about/about.html",
-							"settings":
-							{
-								"buffer_size": 1849,
-								"regions":
-								{
-								},
-								"selection":
-								[
-									[
-										1117,
-										1117
-									]
-								],
-								"settings":
-								{
-									"annotations":
-									[
-										"TODO",
-										"README",
-										"FIXME"
-									],
-									"csslint_options":
-									{
-										"adjoining-classes": "warning",
-										"box-model": true,
-										"box-sizing": "warning",
-										"compatible-vendor-prefixes": "warning",
-										"display-property-grouping": true,
-										"duplicate-background-images": "warning",
-										"duplicate-properties": true,
-										"empty-rules": true,
-										"errors": true,
-										"fallback-colors": "warning",
-										"floats": "warning",
-										"font-faces": "warning",
-										"font-sizes": "warning",
-										"gradients": "warning",
-										"ids": "warning",
-										"import": "warning",
-										"important": "warning",
-										"known-properties": true,
-										"outline-none": "warning",
-										"overqualified-elements": "warning",
-										"qualified-headings": "warning",
-										"regex-selectors": "warning",
-										"rules-count": "warning",
-										"shorthand": "warning",
-										"star-property-hack": "warning",
-										"text-indent": "warning",
-										"underscore-property-hack": "warning",
-										"unique-headings": "warning",
-										"universal-selector": "warning",
-										"vendor-prefix": true,
-										"zero-units": "warning"
-									},
-									"gjslint_ignore":
-									[
-										110
-									],
-									"gjslint_options":
-									[
-									],
-									"javascript_linter": "jshint",
-									"jshint_options":
-									{
-										"browser": true,
-										"evil": true,
-										"regexdash": true,
-										"sub": true,
-										"trailing": true,
-										"wsh": true
-									},
-									"pep8": true,
-									"pep8_ignore":
-									[
-										"E501"
-									],
-									"perl_linter": "perlcritic",
-									"pyflakes_ignore":
-									[
-									],
-									"pyflakes_ignore_import_*": true,
-									"sublimelinter": true,
-									"sublimelinter_delay": 2,
-									"sublimelinter_disable":
-									[
-									],
-									"sublimelinter_executable_map":
-									{
-									},
-									"sublimelinter_fill_outlines": false,
-									"sublimelinter_gutter_marks": false,
-									"sublimelinter_mark_style": "outline",
-									"sublimelinter_notes": false,
-									"sublimelinter_objj_check_ascii": false,
-									"sublimelinter_popup_errors_on_save": false,
-									"sublimelinter_syntax_map":
-									{
-										"Python Django": "python",
-										"Ruby on Rails": "ruby"
-									},
-									"sublimelinter_wrap_find": true,
-									"syntax": "Packages/Djaneiro/Syntaxes/HTML (Django).tmLanguage",
-									"tab_size": 2,
-									"translate_tabs_to_spaces": true
-								},
-								"translation.x": 0.0,
-								"translation.y": 0.0,
+								"translation.y": 14129.0,
 								"zoom_level": 1.0
 							},
 							"type": "text"
 						},
 						{
 							"buffer": 3,
-							"file": "nivls_website/nivls_website/templates/base_common.html",
+							"file": "nivls_website/about/views.py",
 							"settings":
 							{
-								"buffer_size": 1323,
+								"buffer_size": 2711,
 								"regions":
 								{
 								},
 								"selection":
 								[
 									[
-										1052,
-										1052
+										2493,
+										2493
 									]
 								],
 								"settings":
@@ -932,12 +2158,13 @@
 									},
 									"gjslint_ignore":
 									[
-										110
+										120,
+										210
 									],
 									"gjslint_options":
 									[
 									],
-									"javascript_linter": "jshint",
+									"javascript_linter": "gjslint",
 									"jshint_options":
 									{
 										"browser": true,
@@ -973,34 +2200,33 @@
 									"sublimelinter_popup_errors_on_save": false,
 									"sublimelinter_syntax_map":
 									{
+										"C++": "c",
 										"Python Django": "python",
 										"Ruby on Rails": "ruby"
 									},
 									"sublimelinter_wrap_find": true,
-									"syntax": "Packages/Djaneiro/Syntaxes/HTML (Django).tmLanguage",
-									"tab_size": 2,
-									"translate_tabs_to_spaces": true
+									"syntax": "Packages/Djaneiro/Syntaxes/Python Django.tmLanguage"
 								},
 								"translation.x": 0.0,
-								"translation.y": 93.0,
+								"translation.y": 405.0,
 								"zoom_level": 1.0
 							},
 							"type": "text"
 						},
 						{
 							"buffer": 4,
-							"file": "nivls_website/nivls_website/static/commons/js/20/main.js",
+							"file": "nivls_website/nivls_website/templates/base.haml",
 							"settings":
 							{
-								"buffer_size": 13578,
+								"buffer_size": 1638,
 								"regions":
 								{
 								},
 								"selection":
 								[
 									[
-										156,
-										156
+										0,
+										0
 									]
 								],
 								"settings":
@@ -1047,12 +2273,13 @@
 									},
 									"gjslint_ignore":
 									[
-										110
+										120,
+										210
 									],
 									"gjslint_options":
 									[
 									],
-									"javascript_linter": "jshint",
+									"javascript_linter": "gjslint",
 									"jshint_options":
 									{
 										"browser": true,
@@ -1088,126 +2315,12 @@
 									"sublimelinter_popup_errors_on_save": false,
 									"sublimelinter_syntax_map":
 									{
+										"C++": "c",
 										"Python Django": "python",
 										"Ruby on Rails": "ruby"
 									},
 									"sublimelinter_wrap_find": true,
-									"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
-									"tab_size": 4,
-									"translate_tabs_to_spaces": true
-								},
-								"translation.x": 0.0,
-								"translation.y": 1047.0,
-								"zoom_level": 1.0
-							},
-							"type": "text"
-						},
-						{
-							"buffer": 5,
-							"file": "nivls_website/nivls_website/static/commons/bootstrap/less/variables.less",
-							"settings":
-							{
-								"buffer_size": 8450,
-								"regions":
-								{
-								},
-								"selection":
-								[
-									[
-										256,
-										256
-									]
-								],
-								"settings":
-								{
-									"annotations":
-									[
-										"TODO",
-										"README",
-										"FIXME"
-									],
-									"csslint_options":
-									{
-										"adjoining-classes": "warning",
-										"box-model": true,
-										"box-sizing": "warning",
-										"compatible-vendor-prefixes": "warning",
-										"display-property-grouping": true,
-										"duplicate-background-images": "warning",
-										"duplicate-properties": true,
-										"empty-rules": true,
-										"errors": true,
-										"fallback-colors": "warning",
-										"floats": "warning",
-										"font-faces": "warning",
-										"font-sizes": "warning",
-										"gradients": "warning",
-										"ids": "warning",
-										"import": "warning",
-										"important": "warning",
-										"known-properties": true,
-										"outline-none": "warning",
-										"overqualified-elements": "warning",
-										"qualified-headings": "warning",
-										"regex-selectors": "warning",
-										"rules-count": "warning",
-										"shorthand": "warning",
-										"star-property-hack": "warning",
-										"text-indent": "warning",
-										"underscore-property-hack": "warning",
-										"unique-headings": "warning",
-										"universal-selector": "warning",
-										"vendor-prefix": true,
-										"zero-units": "warning"
-									},
-									"gjslint_ignore":
-									[
-										110
-									],
-									"gjslint_options":
-									[
-									],
-									"javascript_linter": "jshint",
-									"jshint_options":
-									{
-										"browser": true,
-										"evil": true,
-										"regexdash": true,
-										"sub": true,
-										"trailing": true,
-										"wsh": true
-									},
-									"pep8": true,
-									"pep8_ignore":
-									[
-										"E501"
-									],
-									"perl_linter": "perlcritic",
-									"pyflakes_ignore":
-									[
-									],
-									"pyflakes_ignore_import_*": true,
-									"sublimelinter": true,
-									"sublimelinter_delay": 2,
-									"sublimelinter_disable":
-									[
-									],
-									"sublimelinter_executable_map":
-									{
-									},
-									"sublimelinter_fill_outlines": false,
-									"sublimelinter_gutter_marks": false,
-									"sublimelinter_mark_style": "outline",
-									"sublimelinter_notes": false,
-									"sublimelinter_objj_check_ascii": false,
-									"sublimelinter_popup_errors_on_save": false,
-									"sublimelinter_syntax_map":
-									{
-										"Python Django": "python",
-										"Ruby on Rails": "ruby"
-									},
-									"sublimelinter_wrap_find": true,
-									"syntax": "Packages/LESS/LESS.tmLanguage"
+									"syntax": "Packages/sublime-hamlpy/Hamlpy.tmLanguage"
 								},
 								"translation.x": 0.0,
 								"translation.y": 0.0,
@@ -1249,6 +2362,10 @@
 				]
 			},
 			"menu_visible": true,
+			"output.aaa_package_dev":
+			{
+				"height": 137.0
+			},
 			"output.exec":
 			{
 				"height": 178.0
@@ -1257,10 +2374,10 @@
 			{
 				"height": 252.0
 			},
-			"position": "0,0,0,0,0,52,26,1383,873,1600,900",
+			"position": "0,0,0,0,0,0,27,1325,867,1600,900",
 			"replace":
 			{
-				"height": 0.0
+				"height": 62.0
 			},
 			"save_all_on_build": true,
 			"select_file":
@@ -1269,27 +2386,535 @@
 				"selected_items":
 				[
 					[
+						"aboutabou",
+						"nivls_website/about/templates/about/about.haml"
+					],
+					[
+						"ba",
+						"nivls_website/nivls_website/templates/base.haml"
+					],
+					[
+						"todo",
+						"TODO"
+					],
+					[
+						"baseco",
+						"nivls_website/nivls_website/templates/base_common.haml"
+					],
+					[
+						"abouthtml",
+						"nivls_website/about/templates/about/about.html"
+					],
+					[
+						"aboutba",
+						"nivls_website/about/templates/about/base.haml"
+					],
+					[
+						"base",
+						"nivls_website/nivls_website/templates/base.haml"
+					],
+					[
+						"foo",
+						"nivls_website/nivls_website/templates/inc/footer.html"
+					],
+					[
+						"home.haml",
+						"nivls_website/about/templates/about/home.haml"
+					],
+					[
+						"view",
+						"nivls_website/about/views.py"
+					],
+					[
+						"aboutbaseht",
+						"nivls_website/about/templates/about/base.html"
+					],
+					[
+						"aboutbase",
+						"nivls_website/about/templates/about/base.haml"
+					],
+					[
+						"aboutho",
+						"nivls_website/about/templates/about/home.html"
+					],
+					[
+						"common",
+						"nivls_website/nivls_website/conf/commons.py"
+					],
+					[
+						"vendor",
+						"nivls_website/nivls_website/conf/vendors.py"
+					],
+					[
+						"basecommo",
+						"nivls_website/nivls_website/templates/base_common.html"
+					],
+					[
+						"footer",
+						"nivls_website/nivls_website/templates/inc/footer.html"
+					],
+					[
+						"comon",
+						"nivls_website/nivls_website/conf/commons.py"
+					],
+					[
+						"basecom",
+						"nivls_website/nivls_website/templates/base_common.html"
+					],
+					[
+						"varia",
+						"static/commons/bootstrap/less/variables.less"
+					],
+					[
+						"about",
+						"nivls_website/about/templates/about/about.html"
+					],
+					[
+						"conf/",
+						"nivls_website/nivls_website/conf/private.py"
+					],
+					[
+						"vendr",
+						"nivls_website/nivls_website/conf/vendors.py"
+					],
+					[
+						"browserwarningjs",
+						"nivls_website/nivls_website/static/commons/js/20/browsers-warning.js"
+					],
+					[
+						"browser.js",
+						"nivls_website/nivls_website/static/commons/js/20/browsers-warning.js"
+					],
+					[
+						"brow",
+						"static/commons/js/20/browsers-warning.js"
+					],
+					[
+						"baseconm",
+						"nivls_website/nivls_website/templates/base_common.html"
+					],
+					[
+						"browser",
+						"static/commons/js/20/browsers-warning.js"
+					],
+					[
+						"brows",
+						"nivls_website/nivls_website/templates/inc/browser_warning.html"
+					],
+					[
+						"main.js",
+						"nivls_website/nivls_website/static/commons/js/20/main.js"
+					],
+					[
+						"serch",
+						"nivls_website/search_engine/templates/search/search.html"
+					],
+					[
+						"as",
+						"nivls_website/about/templates/about/templatetags/cat_as_description_list.html"
+					],
+					[
+						"cat",
+						"nivls_website/about/templates/about/templatetags/cat_as_list.html"
+					],
+					[
+						"admin",
+						"nivls_website/about/admin.py"
+					],
+					[
+						"templata",
+						"nivls_website/about/templatetags/about_tags.py"
+					],
+					[
+						"dis",
+						"nivls_website/about/templates/about/templatetags/display_cat.html"
+					],
+					[
+						"descr",
+						"nivls_website/about/templates/about/templatetags/cat_as_description_list.html"
+					],
+					[
+						"asdl",
+						"nivls_website/about/templates/about/templatetags/cat_as_description_list.html"
+					],
+					[
+						"templateta",
+						"nivls_website/about/templatetags/about_tags.py"
+					],
+					[
+						"aslist",
+						"nivls_website/about/templates/about/templatetags/cat_as_list.html"
+					],
+					[
+						"displa",
+						"nivls_website/about/templates/about/templatetags/display_cat.html"
+					],
+					[
+						"model",
+						"nivls_website/about/models.py"
+					],
+					[
+						"va",
+						"static/commons/bootstrap/less/variables.less"
+					],
+					[
+						"display_cat",
+						"nivls_website/about/templates/about/templatetags/display_cat.html"
+					],
+					[
+						"aboutview",
+						"nivls_website/about/views.py"
+					],
+					[
+						"url",
+						"nivls_website/about/urls.py"
+					],
+					[
+						"commons",
+						"nivls_website/nivls_website/conf/commons.py"
+					],
+					[
+						"cv",
+						"nivls_website/about/templates/about/cv.html"
+					],
+					[
+						"abou",
+						"nivls_website/about/templates/about/about.html"
+					],
+					[
+						"inclis",
+						"nivls_website/blog/templates/blog/inc/listing.html"
+					],
+					[
+						"lates",
+						"nivls_website/blog/templates/blog/templatetags/latest_posts.html"
+					],
+					[
+						"blogtags",
+						"nivls_website/blog/templatetags/blog_tags.py"
+					],
+					[
+						"blogca",
+						"nivls_website/blog/templates/blog/templatetags/carousel.html"
+					],
+					[
+						"ome",
+						"nivls_website/about/templates/about/home.html"
+					],
+					[
+						"lablis",
+						"nivls_website/lab/templates/lab/listing.html"
+					],
+					[
+						"proje",
+						"nivls_website/lab/templates/lab/project.html"
+					],
+					[
+						"labbase",
+						"nivls_website/lab/templates/lab/base.html"
+					],
+					[
+						"acou",
+						"nivls_website/user_profile/templates/users/manage_social_accounts.html"
+					],
+					[
+						"accou",
+						"nivls_website/user_profile/templates/users/edit_account.html"
+					],
+					[
+						"viht",
+						"nivls_website/user_profile/templates/users/view.html"
+					],
+					[
+						"si",
+						"nivls_website/user_profile/templates/users/sign_in.html"
+					],
+					[
+						"sign",
+						"nivls_website/user_profile/templates/users/sign_up.html"
+					],
+					[
+						"pic",
+						"nivls_website/user_profile/templates/users/edit_picture.html"
+					],
+					[
+						"ava",
+						"nivls_website/user_profile/templates/users/edit_avatar.html"
+					],
+					[
+						"viewh",
+						"nivls_website/user_profile/templates/users/view.html"
+					],
+					[
+						"edita",
+						"nivls_website/user_profile/templates/users/edit_account.html"
+					],
+					[
+						"sea",
+						"nivls_website/search_engine/templates/search/search.html"
+					],
+					[
+						"sig",
+						"nivls_website/user_profile/templates/users/sign_in.html"
+					],
+					[
+						"passe",
+						"nivls_website/user_profile/templates/users/password_reset.html"
+					],
+					[
+						"signu",
+						"nivls_website/user_profile/templates/users/sign_up.html"
+					],
+					[
+						"labviw",
+						"nivls_website/lab/views.py"
+					],
+					[
+						"labpro",
+						"nivls_website/lab/templates/lab/project.html"
+					],
+					[
+						"port",
+						"nivls_website/about/templates/about/portfolio.html"
+					],
+					[
 						"",
-						"/home/www/nivls_website/nivls_website/nivls_website/templates/inc/header.html"
+						"nivls_website/about/templates/about/home.html"
+					],
+					[
+						"blogba",
+						"nivls_website/blog/templates/blog/base.html"
+					],
+					[
+						"blog",
+						"nivls_website/blog/templates/blog/home.html"
+					],
+					[
+						"vari",
+						"static/commons/bootstrap/less/variables.less"
+					],
+					[
+						"to",
+						"TODO"
+					],
+					[
+						"list",
+						"nivls_website/blog/templates/blog/inc/listing.html"
+					],
+					[
+						"usersbase",
+						"nivls_website/user_profile/templates/users/base.html"
+					],
+					[
+						"base.html",
+						"nivls_website/nivls_website/templates/base.html"
+					],
+					[
+						"usersa",
+						"nivls_website/user_profile/templates/users/manage_social_accounts.html"
+					],
+					[
+						"usersaccou",
+						"nivls_website/user_profile/templates/users/edit_account.html"
+					],
+					[
+						"usersview",
+						"nivls_website/user_profile/templates/users/view.html"
+					],
+					[
+						"usershtml",
+						"nivls_website/user_profile/templates/users/base.html"
+					],
+					[
+						"users",
+						"nivls_website/user_profile/templates/users/sign_in.html"
+					],
+					[
+						"contac",
+						"nivls_website/about/templates/about/contact.html"
+					],
+					[
+						"blogbase",
+						"nivls_website/blog/templates/blog/base.html"
+					],
+					[
+						"home",
+						"nivls_website/blog/templates/blog/home.html"
+					],
+					[
+						"base.ht",
+						"nivls_website/nivls_website/templates/base.html"
+					],
+					[
+						"basec",
+						"nivls_website/nivls_website/templates/base_common.html"
+					],
+					[
+						"post",
+						"nivls_website/blog/templates/blog/post.html"
+					],
+					[
+						"header",
+						"nivls_website/nivls_website/templates/inc/header.html"
+					],
+					[
+						"blogho",
+						"nivls_website/blog/templates/blog/home.html"
+					],
+					[
+						"foot",
+						"nivls_website/nivls_website/templates/inc/footer.html"
+					],
+					[
+						"last",
+						"nivls_website/blog/templates/blog/templatetags/latest_posts.html"
+					],
+					[
+						"mainresponsive",
+						"nivls_website/nivls_website/static/commons/css/30/main-responsive.less"
+					],
+					[
+						"responsive",
+						"static/commons/css/30/bootstrap-responsive.min.css"
+					],
+					[
+						"bloglist",
+						"nivls_website/blog/templates/blog/inc/listing.html"
+					],
+					[
+						"blogtag",
+						"nivls_website/blog/templatetags/blog_tags.py"
+					],
+					[
+						"hea",
+						"nivls_website/nivls_website/templates/inc/header.html"
+					],
+					[
+						"basecommon",
+						"nivls_website/nivls_website/templates/base_common.html"
+					],
+					[
+						"bus",
+						"nivls_website/lab/templates/lab/inc/project_includes/business_card.html"
+					],
+					[
+						"lis",
+						"nivls_website/blog/templates/blog/inc/listing.html"
+					],
+					[
+						"pos",
+						"nivls_website/blog/templates/blog/post_list.html"
+					],
+					[
+						"eader",
+						"nivls_website/nivls_website/templates/inc/header.html"
+					],
+					[
+						"fix3",
+						"static/commons/css/fixes/3d.css"
+					],
+					[
+						"var",
+						"static/commons/bootstrap/less/variables.less"
+					],
+					[
+						"carou",
+						"nivls_website/blog/templates/blog/templatetags/carousel.html"
+					],
+					[
+						"about.h",
+						"nivls_website/about/templates/about/about.html"
+					],
+					[
+						"browe",
+						"nivls_website/nivls_website/templates/inc/browser_warning.html"
+					],
+					[
+						"main.less",
+						"nivls_website/nivls_website/static/commons/css/20/main.less"
+					],
+					[
+						"confven",
+						"nivls_website/nivls_website/conf/vendors.py"
+					],
+					[
+						"labview",
+						"nivls_website/lab/views.py"
+					],
+					[
+						"blogar",
+						"nivls_website/blog/templates/blog/templatetags/archives.html"
+					],
+					[
+						"blogpost",
+						"nivls_website/blog/templates/blog/post.html"
+					],
+					[
+						"blogview",
+						"nivls_website/blog/views.py"
+					],
+					[
+						"main-respons",
+						"nivls_website/nivls_website/static/commons/css/30/main-responsive.less"
+					],
+					[
+						"main-res",
+						"static/commons/css/30/main-responsive.less"
+					],
+					[
+						"responsive.c",
+						"static/commons/css/30/bootstrap-responsive.min.css"
+					],
+					[
+						"repons",
+						"static/commons/bootstrap/less/responsive.less"
+					],
+					[
+						"tag",
+						"nivls_website/lab/templatetags/tag_lab.py"
+					],
+					[
+						"labmen",
+						"nivls_website/lab/templates/lab/inc/menu.html"
+					],
+					[
+						"he",
+						"nivls_website/nivls_website/templates/inc/header.html"
+					],
+					[
+						"sitemaps",
+						"nivls_website/blog/sitemaps.py"
+					],
+					[
+						"urls",
+						"nivls_website/blog/urls.py"
+					],
+					[
+						"models",
+						"nivls_website/blog/models.py"
+					],
+					[
+						"blogsite",
+						"nivls_website/blog/sitemaps.py"
 					]
 				],
 				"width": 0.0
 			},
 			"select_project":
 			{
-				"height": 0.0,
+				"height": 500.0,
 				"selected_items":
 				[
 				],
-				"width": 0.0
+				"width": 380.0
 			},
 			"show_minimap": true,
 			"show_open_files": false,
 			"show_tabs": true,
 			"side_bar_visible": true,
-			"side_bar_width": 155.0,
+			"side_bar_width": 229.0,
 			"status_bar_visible": true,
-			"window_id": 1,
+			"window_id": 20,
 			"workspace_name": "/home/www/nivls_website/nivlsWebsite.sublime-project"
 		}
 	],
@@ -1297,7 +2922,9 @@
 	{
 		"recent_workspaces":
 		[
-			"/home/www/nivls_website/nivlsWebsite.sublime-project"
+			"/home/www/nivls_website/nivlsWebsite.sublime-project",
+			"/home/laplan_m/Src/Nivl/Repo/sublime-hamlpy/sublime-hamlpy.sublime-project",
+			"/home/laplan_m/Src/Epitech/Projects/NAO/nao.sublime-project"
 		]
 	}
 }

@@ -8,13 +8,57 @@
 	{ "keys": ["ctrl+shift+pageup"], "command": "prev_view_in_stack" },
 
 	{ "keys": ["ctrl+c", "d"], "command": "duplicate_line" },
+	{ "keys": ["ctrl+c", "r"], "command": "show_panel", "args": {"panel": "replace"} },
 
 	{ "keys": ["ctrl+x", "g"], "command": "git_custom" },
 	{ "keys": ["alt+i"], "command": "insert", "args": {"characters": "\t"} },
 	{ "keys": ["ctrl+alt+/"], "command": "redo"},
 
+	{ "keys": ["ctrl+c", "c"], "command": "toggle_comment", "args": { "block": false } },
+
 	{ "keys": ["ctrl+up"], "command": "move", "args": {"by": "stops", "empty_line": true, "forward": false} },
 	{ "keys": ["ctrl+down"], "command": "move", "args": {"by": "stops", "empty_line": true, "forward": true} },
 	{ "keys": ["alt+up"], "command": "scroll_lines", "args": {"amount": 1.0 } },
-	{ "keys": ["alt+down"], "command": "scroll_lines", "args": {"amount": -1.0 } }
+	{ "keys": ["alt+down"], "command": "scroll_lines", "args": {"amount": -1.0 } },
+
+	{ "keys": ["ctrl+c", "l"], "command": "split_selection_into_lines" },
+
+    { "keys": ["ctrl+tab"], "command": "insert_best_completion", "args": {"default": "\t", "exact": true} },
+
+    { "keys": ["ctrl+tab"], "command": "insert_best_completion", "args": {"default": "\t", "exact": false},
+    "context":
+        [
+            { "key": "setting.tab_completion", "operator": "equal", "operand": true }
+        ]
+    },
+    { "keys": ["ctrl+tab"], "command": "replace_completion_with_next_completion", "context":
+        [
+            { "key": "last_command", "operator": "equal", "operand": "insert_best_completion" },
+            { "key": "setting.tab_completion", "operator": "equal", "operand": true }
+        ]
+    },
+    { "keys": ["ctrl+tab"], "command": "reindent", "context":
+        [
+            { "key": "setting.auto_indent", "operator": "equal", "operand": true },
+            { "key": "selection_empty", "operator": "equal", "operand": true, "match_all": true },
+            { "key": "preceding_text", "operator": "regex_match", "operand": "^$", "match_all": true },
+            { "key": "following_text", "operator": "regex_match", "operand": "^$", "match_all": true }
+        ]
+    },
+    { "keys": ["ctrl+tab"], "command": "indent", "context":
+        [
+            { "key": "text", "operator": "regex_contains", "operand": "\n" }
+        ]
+    },
+    { "keys": ["ctrl+tab"], "command": "next_field", "context":
+        [
+            { "key": "has_next_field", "operator": "equal", "operand": true }
+        ]
+    },
+    { "keys": ["ctrl+tab"], "command": "commit_completion", "context":
+        [
+            { "key": "auto_complete_visible" },
+            { "key": "setting.auto_complete_commit_on_tab" }
+        ]
+    }
 ]

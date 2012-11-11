@@ -83,47 +83,36 @@ override_utf8_locale yes
 # Add spaces to keep things from moving about?  This only affects certain objects.
 use_spacer none
 
-# Lua Load  #
-lua_load ~/.conky/clock_rings.lua
-lua_draw_hook_pre clock_rings
-
 TEXT
 
-${font Goudy Bookletter 1911:style=Bold}SYSTEM${font} ${color FF6600}${hr 2}
-${color FFFFFF}${goto 22}${voffset 40}${cpu cpu1}%
-${color FF6600}${goto 22}CPU
-${color FFFFFF}${goto 112}${voffset -27}${cpu cpu2}%
-${color FF6600}${goto 112}CPU
-${color FFFFFF}${goto 22}${voffset 40}${cpu cpu3}%
-${color FF6600}${goto 22}CPU
-${color FFFFFF}${goto 112}${voffset -27}${cpu cpu4}%
-${color FF6600}${goto 112}CPU
-${color FFFFFF}${goto 22}${voffset 43}${memperc}%
-${color FFFFFF}${goto 22}${voffset 0}${swapperc}%
-${color FF6600}${goto 22}RAM
-${color FFFFFF}${goto 112}${voffset -37}${fs_used_perc /}%
-${color FFFFFF}${goto 112}${fs_used_perc /home}%
-${color FF6600}${goto 112}Disk
-${color FFFFFF}${goto 22}${voffset 38}${battery_percent BAT0}%
-${color FF6600}${goto 23}Bat
-${color FFFFFF}${goto 75}${voffset 43}${downspeed wlan0}
-${color FFFFFF}${goto 75}${upspeed wlan0}
-${color FF6600}${goto 85}Net
+${font Goudy Bookletter 1911:style=Bold}SYSTEM${font} ${hr 2}
 
+${voffset 2}${font StyleBats:size=16}i${font}   Kernel:  ${alignr}${kernel}
+${font StyleBats:size=16}A${font}   CPU1: ${cpu cpu1}% ${alignr}${cpubar cpu1 8,60}
+${font StyleBats:size=16}A${font}   CPU2: ${cpu cpu2}% ${alignr}${cpubar cpu2 8,60}
+${font StyleBats:size=16}A${font}   CPU3: ${cpu cpu3}% ${alignr}${cpubar cpu3 8,60}
+${font StyleBats:size=16}A${font}   CPU4: ${cpu cpu4}% ${alignr}${cpubar cpu4 8,60}
+${font StyleBats:size=16}g${font}   RAM: $memperc% ${alignr}${membar 8,60}
+${font Webdings:size=16}~${font}  Battery: ${battery_percent BAT0}% ${alignr}${battery_bar 8,60 BAT0}
+${font StyleBats:size=16}l${font}  Temperature CPU: ${alignr}${hwmon 0 temp 1} C
+#${font StyleBats:size=16}l${font}  Temperature GPU: ${alignr}${execi 60 nvidia-settings -query GPUCoreTemp | perl -ne 'print $1 if /GPUCoreTemp.*?: (\d+)./;'} C
+${font StyleBats:size=16}q${font}   Uptime: ${alignr}${uptime}
 
+${font Goudy Bookletter 1911:style=Bold}HD${font} ${hr 2}
+${voffset 4}${font Pie charts for maps:size=14}7${font}   ${voffset -5}Root:
+${voffset 4}${fs_used /}/${fs_size /} ${alignr}${fs_bar 8,60 /}
+${voffset 4}${font Pie charts for maps:size=14}7${font}   ${voffset -5}Home:
+${voffset 4}${fs_used /home}/${fs_size /home} ${alignr}${fs_bar 8,60 /home}
 
+${font Goudy Bookletter 1911:style=Bold}WIRELESS${font} ${hr 2}
+${voffset 4}${font PizzaDude Bullets:size=14}O${font}   Up: ${upspeed wlan0} ${alignr}${upspeedgraph wlan0 8,60 000000 000000}
+${voffset 4}${font PizzaDude Bullets:size=14}U${font}   Down: ${downspeed wlan0} ${alignr}${downspeedgraph wlan0 8,60 000000 000000}
+${voffset 4}${font PizzaDude Bullets:size=14}N${font}   Upload: ${alignr}${totalup wlan0}
+${voffset 4}${font PizzaDude Bullets:size=14}T${font}   Download: ${alignr}${totaldown wlan0}
+${voffset 4}${font PizzaDude Bullets:size=14}a${font}   Local Ip: ${alignr}${addr wlan0}
 
-${color FF6600}${font caviar dreams:size=8}Uptime: ${alignr}${color FFFFFF}${uptime_short}
-${color FF6600}${font caviar dreams:size=8}Kernel: ${alignr}${color FFFFFF}${kernel}
-${color FF6600}${font caviar dreams:size=8}CPU temp: ${alignr}${color FFFFFF}${hwmon 0 temp 1} C
-#${color FF6600}${font caviar dreams:size=8}Temperature GPU: ${alignr}${color FFFFFF}${execi 60 nvidia-settings -query GPUCoreTemp | perl -ne 'print $1 if /GPUCoreTemp.*?: (\d+)./;'} C
-${color FF6600}${font caviar dreams:size=8}Total Upload: ${alignr}${color FFFFFF}${totalup wlan0}
-${color FF6600}${font caviar dreams:size=8}Total Download: ${alignr}${color FFFFFF}${totaldown wlan0}
-${color FF6600}${font caviar dreams:size=8}Local Ip: ${alignr}${color FFFFFF}${addr wlan0}
-
-${font Goudy Bookletter 1911:style=Bold}PROCESSES${font} ${color FF6600}${hr 2}
-
-${color FF6600}${font caviar dreams:size=8}NAME $alignr PID    CPU${color FFFFFF}
+${font Goudy Bookletter 1911:style=Bold}PROCESSES${font} ${hr 2}
+NAME $alignr PID    CPU
 ${top name 1} $alignr ${top pid 1} ${top cpu 1}
 ${top name 2} $alignr ${top pid 2} ${top cpu 2}
 ${top name 3} $alignr ${top pid 3} ${top cpu 3}

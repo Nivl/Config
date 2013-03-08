@@ -5,12 +5,10 @@
 ## Started by		Melvin Laplanche <melvin.laplanche+dev@gmail.com>
 ## On			June 11 2011 at 17:21 PM
 ## Last updated by	Melvin Laplanche <melvin.laplanche+dev@gmail.com>
-## On			November 02 2012 at 03:24 PM
+## On			March 09 2013 at 12:45 AM
 
 export WORKON_HOME=~/.virtualenvs
 export PYTHONDOCS=/usr/share/doc/python2/html/
-#export PYTHONPATH="$PYTHONPATH:/home/laplan_m/Src/repo/python"
-#export GOPATH="/home/laplan_m/Src/repo/go"
 
 eval "`dircolors -b`"
 export PATH="/usr/lib/colorgcc/bin:$PATH"
@@ -42,9 +40,6 @@ export GTK_IM_MODULE
 . ~/.local/bin/Func/source.sh
 source_functions ~/.local/bin/Func
 source /usr/bin/virtualenvwrapper.sh
-#source /etc/profile.d/apache-ant.sh
-
-
 
 alias mman='man -M ~/Src/Epitech/man/'
 alias django='python2 manage.py '

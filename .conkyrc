@@ -106,8 +106,8 @@ ${color FFFFFF}${goto 112}${fs_used_perc /home}%
 ${color FF6600}${goto 112}Disk
 ${color FFFFFF}${goto 22}${voffset 38}${battery_percent BAT0}%
 ${color FF6600}${goto 23}Bat
-${color FFFFFF}${goto 75}${voffset 43}${downspeed wlan0}
-${color FFFFFF}${goto 75}${upspeed wlan0}
+${color FFFFFF}${goto 75}${voffset 43}${downspeed wlp3s0}
+${color FFFFFF}${goto 75}${upspeed wlp3s0}
 ${color FF6600}${goto 85}Net
 
 
@@ -116,10 +116,10 @@ ${color FF6600}${goto 85}Net
 ${color FF6600}${font caviar dreams:size=8}Uptime: ${alignr}${color FFFFFF}${uptime_short}
 ${color FF6600}${font caviar dreams:size=8}Kernel: ${alignr}${color FFFFFF}${kernel}
 ${color FF6600}${font caviar dreams:size=8}CPU temp: ${alignr}${color FFFFFF}${hwmon 0 temp 1} C
-${color FF6600}${font caviar dreams:size=8}Temperature GPU: ${alignr}${color FFFFFF}${execi 60 nvidia-settings -query GPUCoreTemp | perl -ne 'print $1 if /GPUCoreTemp.*?: (\d+)./;'} C
-${color FF6600}${font caviar dreams:size=8}Total Upload: ${alignr}${color FFFFFF}${totalup wlan0}
-${color FF6600}${font caviar dreams:size=8}Total Download: ${alignr}${color FFFFFF}${totaldown wlan0}
-${color FF6600}${font caviar dreams:size=8}Local Ip: ${alignr}${color FFFFFF}${addr wlan0}
+#${color FF6600}${font caviar dreams:size=8}Temperature GPU: ${alignr}${color FFFFFF}${execi 60 nvidia-settings -query GPUCoreTemp | perl -ne 'print $1 if /GPUCoreTemp.*?: (\d+)./;'} C
+${color FF6600}${font caviar dreams:size=8}Total Upload: ${alignr}${color FFFFFF}${totalup wlp3s0}
+${color FF6600}${font caviar dreams:size=8}Total Download: ${alignr}${color FFFFFF}${totaldown wlp3s0}
+${color FF6600}${font caviar dreams:size=8}Local Ip: ${alignr}${color FFFFFF}${addr wlp3s0}
 
 ${font Goudy Bookletter 1911:style=Bold}PROCESSES${font} ${color FF6600}${hr 2}
 

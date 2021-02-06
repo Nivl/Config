@@ -54,7 +54,7 @@ export GEM_HOME=$HOME/.gem #is this even needed?
 # Go
 mkdir -p $HOME/.go
 export GOPATH=$HOME/.go
-export PATH=~$PATH:$GOPATH/bin
+export PATH=$PATH:$GOPATH/bin
 
 # Python
 export PYTHONPATH=./pip-components:$PYTHONPATH

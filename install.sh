@@ -2,7 +2,7 @@
 
 USE_APP_STORE=false
 while true; do
-  echo -n "Should the AppStore be used when possible (Y/n)? "
+  echo -n "Use the Mac AppStore to install apps when possible (Y/n)? "
   read answer
 
   case ${answer:0:1} in
@@ -79,13 +79,13 @@ fi
 
 if [ "$USE_APP_STORE" = true ]; then
   brew install mas
+  # Ids can be found in the URL of the Mac AppStore
   # slack: 803453959
-  # Xcode: 497799835
   # Enpass: 455566716
   # The Unarchive‪r‬: 425424353
-  mas install 803453959 497799835 455566716 425424353
+  mas install 803453959 455566716 425424353
 else
-  brew install --cask the-unarchiver enpass xcode slack
+  brew install --cask the-unarchiver enpass slack
 fi
 
 # create default SSH key
@@ -115,6 +115,5 @@ chsh -s "$(which zsh)"
 
 echo "Things left to do:"
 echo "\t1. Switch to ZSH and run 'compaudit | xargs chmod g-w,o-w'"
-echo "\t2. Don't forget to upload $HOME/.ssh/default to github: 'pbcopy < ~/.ssh/default.pub'"
-echo "\t3. Install Enpass, The Unarchiver, and xCode from the App Store"
-echo "\t4. Set PGP Key"
+echo "\t2. Don't forget to upload $HOME/.ssh/default to github: 'pbcopy < $HOME/.ssh/default.pub'"
+echo "\t3. Set PGP Key"

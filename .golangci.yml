@@ -1,0 +1,45 @@
+run:
+  timeout: 5s
+
+issues:
+  max-same-issues: 0
+  max-per-linter: 0
+  exclude-use-default: false
+
+linters:
+  enable-all: false
+  disable-all: true
+  fast: true
+
+  # Some linter have been removed due to a bug in golangci-lint
+  enable:
+    - golint
+    - govet
+    - errcheck
+    - ineffassign
+    - misspell
+    - unconvert
+    - whitespace
+    - gosimple
+    - interfacer
+    - goprintffuncname
+    - scopelint
+    - gocritic
+    - gochecknoglobals
+    - deadcode
+    - tparallel
+
+linters-settings:
+  govet:
+    check-shadowing: true
+
+    gocritic:
+      # disabled-checks:
+      #   - regexpMust
+
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+        - experimental
+        - opinionated

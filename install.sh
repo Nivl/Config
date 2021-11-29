@@ -54,10 +54,12 @@ if [ ! -e "$ZSHRC" ]; then
 fi
 
 # install all softwares
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 brew tap homebrew/cask
 brew tap homebrew/cask-fonts
 brew install gnupg diff-so-fancy emacs pinentry-mac jq zsh brew-cask-completion less font-fira-code zsh-syntax-highlighting
+# Install opinionated tools
+brew install go golangci-lint task
 # Install common apps
 brew install --cask zoom loom visual-studio-code app-cleaner homebrew/cask-drivers/1kc-razer homebrew/cask-drivers/logitech-options homebrew/cask-drivers/logitech-firmwareupdatetool
 # install betas
@@ -82,11 +84,11 @@ if [ "$USE_APP_STORE" = true ]; then
   # Ids can be found in the URL of the Mac AppStore
   # slack: 803453959
   # Enpass: 455566716
-  # The Unarchive‪r‬: 425424353
-  # EasyRe‪s‬: 688211836
+  # The Unarchiver: 425424353
+  # EasyRes: 688211836
   mas install 803453959 455566716 425424353 688211836
 else
-  # EasyRe‪s‬ is not on Cask
+  # EasyRes is not on Cask
   brew install --cask the-unarchiver enpass slack
 fi
 

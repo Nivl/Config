@@ -11,8 +11,12 @@
 	la = "!git config -l | grep alias | cut -c 7-" # list of aliases
 	lg = log --color --graph --pretty=format:'%C(yellow)%h%Creset %s - %C(bold blue)%an%Creset' --abbrev-commit #logs
 	st = status
-	cp = cherry-pick
 	since = "!f() { git log --pretty=format:'%h %<(20)%an %s%n%w(0,10,10)%b%n' $1^..HEAD | sed -e ':a' -e 'N' -e '$!ba' -E -e 's/\\n +(\\n\\n([a-f]|[0-9]){9} )/\\1/g'; }; f" # list all commits since $1
+
+	# cherry-pick
+	cp = cherry-pick
+	cpc = cherry-pick --continue
+	cpa = cherry-pick --abort
 
 	# fetch
 	fo = fetch origin # fetch remote changes ("fo master" for the remote change on a master)
@@ -41,7 +45,8 @@
 	brr = branch -m # rename a branch locally
 
 	# clone
-	cl = "!f() { git clone git@github.com:$1.git ; }; f" # commit staged with an inline message
+	cl = "!f() { git clone git@github.com:$1.git ; }; f" #
+	clb = "!f() { git clone --bare git@github.com:$1.git ; }; f"
 
 	# tag
 	tg = "!f() { git tag -a v$1 -m \"Release version $1\" ; }; f"
@@ -100,6 +105,10 @@
 	plm = "!f() { git pull origin $(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'); }; f"
 	plmr = "!f() { git pull origin $(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@') --rebase; }; f"
 	plf = pull -s recusrsive -Xtheirs
+
+	# worktrees
+	# wta = "!f() { git worktree add ../$1 $1; }; f"
+	# wtal = "!f() { git worktree add -b $1 ../$1; }; f"
 [push]
 	default = simple
 [commit]

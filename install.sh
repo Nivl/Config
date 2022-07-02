@@ -24,7 +24,6 @@ CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 CONF_DIR=$CURRENT_DIR
 FILES=(
   ".oh-my-zsh"
-  ".gitconfig"
   ".emacs.d"
   ".bin-remote"
   ".golangci.yml"
@@ -50,33 +49,31 @@ mkdir -p "$HOME/.emacs-saves"
 # if we don't have a base .zshrc, we create one with the default config
 ZSHRC="$HOME/.zshrc"
 if [ ! -e "$ZSHRC" ]; then
-  echo "source \"\$HOME/Google Drive/Melvin/Perso/IT/unix_conf/base.zshrc\"" > "$ZSHRC"
+  echo "source \"\$HOME/My Drive/unix_conf/base.zshrc\"" > "$ZSHRC"
+fi
+
+# if we don't have a base .gitconfig, we create one with the default config
+GITCFG="$HOME/.gitconfig"
+if [ ! -e "$GITCFG" ]; then
+  echo "[include]\n\tpath = \"$HOME/My Drive/unix_conf/.gitconfig\"" > "$GITCFG"
 fi
 
 # install all softwares
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 brew tap homebrew/cask
 brew tap homebrew/cask-fonts
-brew install gnupg diff-so-fancy emacs pinentry-mac jq zsh brew-cask-completion less font-fira-code zsh-syntax-highlighting
+brew install gnupg diff-so-fancy emacs pinentry-mac jq zsh brew-cask-completion less font-fira-code zsh-syntax-highlighting shellcheck
 # Install opinionated tools
-brew install go golangci-lint task
+brew install go golangci-lint go-task/tap/go-task
 # Install common apps
-brew install --cask zoom loom visual-studio-code app-cleaner homebrew/cask-drivers/1kc-razer homebrew/cask-drivers/logitech-options homebrew/cask-drivers/logitech-firmwareupdatetool
+brew install --cask zoom brave-browser loom visual-studio-code app-cleaner homebrew/cask-drivers/1kc-razer homebrew/cask-drivers/logitech-options homebrew/cask-drivers/logitech-firmwareupdatetool
 # install betas
-brew install --cask homebrew/cask-versions/google-chrome-beta homebrew/cask-versions/iterm2-beta
+brew install --cask homebrew/cask-versions/iterm2-beta
 
 # Some apps are still not available on ARM
 IS_ARM=true
 if [ ! -e "/opt/homebrew/" ]; then
   IS_ARM=false
-
-  # can't use the app store with mas on ARM yet
-  # https://github.com/mas-cli/mas/issues/308
-  USE_APP_STORE=false
-
-  # install Intel only apps
-  # https://github.com/koalaman/shellcheck/issues/2109
-  brew install shellcheck
 fi
 
 if [ "$USE_APP_STORE" = true ]; then
@@ -120,7 +117,7 @@ chsh -s "$(which zsh)"
 echo "Things left to do:"
 echo "\t1. Switch to ZSH and run 'compaudit | xargs chmod g-w,o-w'"
 echo "\t2. Don't forget to upload $HOME/.ssh/default to github: 'pbcopy < $HOME/.ssh/default.pub'"
-echo "\t3. Set PGP Key"
+echo "\t3. Import PGP Key from Enpass with 'gpg --import private.key"
 if [ "$USE_APP_STORE" = false ]; then
   echo "\t4. Install EasyRes: http://easyresapp.com"
 fi

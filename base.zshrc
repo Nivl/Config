@@ -38,6 +38,7 @@ export C_INCLUDE_PATH=/usr/local/include
 export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export PATH=$HOME/.local/bin:$PATH
 export PATH="/opt/homebrew/bin:$PATH"
+export PATH="/opt/homebrew/sbin:$PATH"
 
 
 # Android
@@ -61,6 +62,11 @@ export PYTHONPATH=./pip-components:$PYTHONPATH
 
 # Shared
 export PATH=$HOME/.bin-remote:$PATH
+
+# Go
+mkdir -p $HOME/.go
+export GOPATH=$HOME/.go
+export PATH=$PATH:$GOPATH/bin
 
 export EDITOR='emacs -nw'
 export PAGER='less'
@@ -107,4 +113,21 @@ function findport {
     fi
 
     lsof -nP -i4TCP:$1 | grep LISTEN
+}
+
+function erase {
+    if [ -z "$1" ]; then
+        echo "usage: erase _directory_"
+    fi
+
+    mkdir -p trash
+
+    # mkdir -p trash ; rsync -a --delete trash/ "$1" && rmdir trash
+    for dir in "$@"
+    do
+       rsync -aP --delete trash/ "$dir"
+       rmdir "$dir"
+    done
+
+    rmdir trash
 }

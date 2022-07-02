@@ -107,8 +107,10 @@
 	plf = pull -s recusrsive -Xtheirs
 
 	# worktrees
-	# wta = "!f() { git worktree add ../$1 $1; }; f"
-	# wtal = "!f() { git worktree add -b $1 ../$1; }; f"
+	wtl = "worktree list"
+	wtae = "!f() { git worktree add \"$(git rev-parse --show-toplevel)/../wt/$(basename $(git rev-parse --show-toplevel))/$1\" \"$1\" && echo Worktree created at \"$(git rev-parse --show-toplevel)/../wt/$(basename $(git rev-parse --show-toplevel))/$1\"; }; f"
+	wtan = "!f() { git worktree add -b \"$1\" \"$(git rev-parse --show-toplevel)/../wt/$(basename $(git rev-parse --show-toplevel))/$1\" && echo Worktree created at \"$(git rev-parse --show-toplevel)/../wt/$(basename $(git rev-parse --show-toplevel))/$1\"; }; f"
+	wtrm = "!f() { if [ -n \"$1\" ]; then rm -rf \"$(git rev-parse --show-toplevel)/../wt/$(basename $(git rev-parse --show-toplevel))/$1\"; fi; git worktree prune; }; f"
 [push]
 	default = simple
 [commit]
@@ -123,3 +125,9 @@
 	defaultBranch = main
 [pull]
 	rebase = false
+# Needed to deals with private repos in Go.
+# We force github to use ssh
+# Not enabled by default in the default config
+# as it messes with the install script (breaks brew install)
+# [url "ssh://git@github.com/"]
+# 	insteadOf = https://github.com/

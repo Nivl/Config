@@ -56,6 +56,12 @@ fi
 GITCFG="$HOME/.gitconfig"
 if [ ! -e "$GITCFG" ]; then
   echo "[include]\n\tpath = \"$HOME/My Drive/unix_conf/.gitconfig\"" > "$GITCFG"
+  echo "\n[user]\n\temail = melvin.wont.reply@gmail.com" >> "$GITCFG"
+  echo "\tname = Melvin Laplanche" >> "$GITCFG"
+  echo "\tsigningkey = 2C307E0D0413344B" >> "$GITCFG"
+  echo "\n[url \"ssh://git@github.com/\"]\n\tinsteadOf = https://github.com/" >> "$GITCFG"
+  echo "#[commit]" >> "$GITCFG"
+  echo "#\tgpgsign = false" >> "$GITCFG"
 fi
 
 # install all softwares
@@ -66,11 +72,10 @@ brew install gnupg diff-so-fancy emacs pinentry-mac jq zsh brew-cask-completion 
 # Install opinionated tools
 brew install go golangci-lint go-task/tap/go-task
 # Install common apps
-brew install --cask zoom brave-browser loom visual-studio-code app-cleaner homebrew/cask-drivers/1kc-razer homebrew/cask-drivers/logitech-options homebrew/cask-drivers/logitech-firmwareupdatetool
+brew install --cask zoom brave-browser visual-studio-code logi-options-plus
 # install betas
 brew install --cask homebrew/cask-versions/iterm2-beta
 
-# Some apps are still not available on ARM
 IS_ARM=true
 if [ ! -e "/opt/homebrew/" ]; then
   IS_ARM=false
@@ -117,7 +122,7 @@ chsh -s "$(which zsh)"
 echo "Things left to do:"
 echo "\t1. Switch to ZSH and run 'compaudit | xargs chmod g-w,o-w'"
 echo "\t2. Don't forget to upload $HOME/.ssh/default to github: 'pbcopy < $HOME/.ssh/default.pub'"
-echo "\t3. Import PGP Key from Enpass with 'gpg --import private.key"
+echo "\t3. (optional) Import PGP Key from Enpass with 'gpg --import private.key"
 if [ "$USE_APP_STORE" = false ]; then
   echo "\t4. Install EasyRes: http://easyresapp.com"
 fi

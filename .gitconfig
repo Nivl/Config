@@ -2,11 +2,6 @@
 	diff = auto
 	status = auto
 	branch = auto
-[user]
-	name = Melvin Laplanche
-	email = melvin.wont.reply@gmail.com
-	signingkey = 2C307E0D0413344B
-	# signingkey = C47FAEFC422AFA82 # Y1 - need to import public key
 [alias]
 	la = "!git config -l | grep alias | cut -c 7-" # list of aliases
 	lg = log --color --graph --pretty=format:'%C(yellow)%h%Creset %s - %C(bold blue)%an%Creset' --abbrev-commit #logs
@@ -125,9 +120,21 @@
 	defaultBranch = main
 [pull]
 	rebase = false
+
+# Add the following to base config if missing
+# This is removed because it cannot be overriden easily and
+# needs to be changed depending on the computer
+#
+# [user]
+# 	name = Melvin Laplanche
+# 	email = melvin.wont.reply@gmail.com
+# 	signingkey = 2C307E0D0413344B
+# 	signingkey = C47FAEFC422AFA82 # Y1 - need to import public key
+#
 # Needed to deals with private repos in Go.
 # We force github to use ssh
 # Not enabled by default in the default config
 # as it messes with the install script (breaks brew install)
+#
 # [url "ssh://git@github.com/"]
 # 	insteadOf = https://github.com/

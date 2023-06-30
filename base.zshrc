@@ -40,7 +40,6 @@ export PATH=$HOME/.local/bin:$PATH
 export PATH="/opt/homebrew/bin:$PATH"
 export PATH="/opt/homebrew/sbin:$PATH"
 
-
 # Android
 export PATH=$HOME/Library/Android/sdk/platform-tools:$PATH
 export PATH=$HOME/Library/Android/sdk/tools:$PATH
@@ -52,11 +51,6 @@ export GEM_HOME=$HOME/.gem #is this even needed?
 
 # export PATH=$PATH:$(yarn global bin)
 
-# Go
-mkdir -p $HOME/.go
-export GOPATH=$HOME/.go
-export PATH=$PATH:$GOPATH/bin
-
 # Python
 export PYTHONPATH=./pip-components:$PYTHONPATH
 
@@ -67,6 +61,13 @@ export PATH=$HOME/.bin-remote:$PATH
 mkdir -p $HOME/.go
 export GOPATH=$HOME/.go
 export PATH=$PATH:$GOPATH/bin
+
+# Node
+mkdir -p $HOME/.nvm
+export NVM_DIR=~/.nvm
+if [ -e "$(brew --prefix nvm)/nvm.sh" ]; then
+  source $(brew --prefix nvm)/nvm.sh
+fi
 
 export EDITOR='emacs -nw'
 export PAGER='less'

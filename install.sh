@@ -59,27 +59,34 @@ if [ ! -e "$GITCFG" ]; then
   echo "\n[user]\n\temail = melvin.wont.reply@gmail.com" >> "$GITCFG"
   echo "\tname = Melvin Laplanche" >> "$GITCFG"
   echo "\tsigningkey = 2C307E0D0413344B" >> "$GITCFG"
-  echo "\n[url \"ssh://git@github.com/\"]\n\tinsteadOf = https://github.com/" >> "$GITCFG"
+  echo "\n#[url \"ssh://git@github.com/\"]\n\tinsteadOf = https://github.com/" >> "$GITCFG"
   echo "#[commit]" >> "$GITCFG"
   echo "#\tgpgsign = false" >> "$GITCFG"
 fi
 
-# install all softwares
+# install brew
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew tap homebrew/cask
-brew tap homebrew/cask-fonts
-brew install gnupg diff-so-fancy emacs pinentry-mac jq zsh brew-cask-completion less font-fira-code zsh-syntax-highlighting shellcheck
-# Install opinionated tools
-brew install go golangci-lint go-task/tap/go-task
-# Install common apps
-brew install --cask zoom brave-browser visual-studio-code logi-options-plus
-# install betas
-brew install --cask homebrew/cask-versions/iterm2-beta
 
 IS_ARM=true
 if [ ! -e "/opt/homebrew/" ]; then
   IS_ARM=false
 fi
+
+if [ "$IS_ARM" = true ]; then
+  (echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> /Users/melvin/.zprofile
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
+# install all softwares
+brew tap homebrew/cask
+brew tap homebrew/cask-fonts
+brew install gnupg diff-so-fancy emacs pinentry-mac jq brew-cask-completion less font-fira-code zsh-syntax-highlighting shellcheck
+# Install opinionated tools
+brew install go golangci-lint go-task/tap/go-task nvm
+# Install common apps
+brew install --cask zoom brave-browser visual-studio-code logi-options-plus
+# install betas
+brew install --cask homebrew/cask-versions/iterm2-beta
 
 if [ "$USE_APP_STORE" = true ]; then
   brew install mas
@@ -116,13 +123,9 @@ if [ ! -e "$HOME/.gnupg/gpg-agent.conf" ]; then
   gpg-agent --daemon
 fi
 
-# switch shell to zsh
-chsh -s "$(which zsh)"
-
 echo "Things left to do:"
-echo "\t1. Switch to ZSH and run 'compaudit | xargs chmod g-w,o-w'"
-echo "\t2. Don't forget to upload $HOME/.ssh/default to github: 'pbcopy < $HOME/.ssh/default.pub'"
-echo "\t3. (optional) Import PGP Key from Enpass with 'gpg --import private.key"
+echo "\t1. Don't forget to upload $HOME/.ssh/default to github: 'pbcopy < $HOME/.ssh/default.pub'"
+echo "\t2. (optional) Import PGP Key from Enpass with 'gpg --import private.key"
 if [ "$USE_APP_STORE" = false ]; then
-  echo "\t4. Install EasyRes: http://easyresapp.com"
+  echo "\t3. Install EasyRes: http://easyresapp.com"
 fi

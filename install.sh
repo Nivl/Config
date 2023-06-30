@@ -84,7 +84,7 @@ brew install gnupg diff-so-fancy emacs pinentry-mac jq brew-cask-completion less
 # Install opinionated tools
 brew install go golangci-lint go-task/tap/go-task nvm
 # Install common apps
-brew install --cask zoom brave-browser visual-studio-code logi-options-plus
+brew install --cask zoom brave-browser visual-studio-code logi-options-plus homebrew/cask/docker
 # install betas
 brew install --cask homebrew/cask-versions/iterm2-beta
 

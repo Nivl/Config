@@ -30,16 +30,17 @@ linters:
     - tparallel
 
 linters-settings:
-  govet:
-    check-shadowing: true
+  # done locally using gopls, see vscode config
+  # govet:
+  #   check-shadowing: true
 
-    gocritic:
-      # disabled-checks:
-      #   - regexpMust
+  gocritic:
+    # disabled-checks:
+    #   - regexpMust
 
-      enabled-tags:
-        - diagnostic
-        - style
-        - performance
-        - experimental
-        - opinionated
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+      - experimental
+      - opinionated

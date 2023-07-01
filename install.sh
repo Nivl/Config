@@ -82,7 +82,7 @@ brew tap homebrew/cask
 brew tap homebrew/cask-fonts
 brew install gnupg diff-so-fancy emacs pinentry-mac jq brew-cask-completion less font-fira-code zsh-syntax-highlighting shellcheck
 # Install opinionated tools
-brew install go golangci-lint go-task/tap/go-task nvm
+brew install go golangci-lint go-task/tap/go-task nvm yarn
 # Install common apps
 brew install --cask zoom brave-browser visual-studio-code logi-options-plus homebrew/cask/docker
 # install betas

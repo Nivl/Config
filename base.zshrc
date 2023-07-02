@@ -132,3 +132,12 @@ function erase {
 
     rmdir trash
 }
+
+function code {
+    if command -p code &> /dev/null
+    then
+        command code "$@"
+    else
+        code-insiders "$@"
+    fi
+}

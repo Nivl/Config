@@ -108,6 +108,7 @@
 	wtrm = "!f() { if [ -n \"$1\" ]; then rm -rf \"$(git rev-parse --show-toplevel)/../wt/$(basename $(git rev-parse --show-toplevel))/$1\"; fi; git worktree prune; }; f"
 [push]
 	default = simple
+	autoSetupRemote = true
 [commit]
 	gpgsign = true
 [rebase]

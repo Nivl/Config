@@ -85,7 +85,6 @@ alias rm='rm -i'
 alias emacs='\emacs -nw'
 alias reload=". $HOME/.zshrc"
 alias extract-pkg="pkgutil --expand-full " # usage extract-pkg [pkg] [out_dir]
-alias lint="golangci-lint run ./... "
 
 # record terminal to file
 function rec {
@@ -139,5 +138,17 @@ function code {
         command code "$@"
     else
         code-insiders "$@"
+    fi
+}
+
+function lint {
+    if [ -e "yarn.lock" ]; then
+        yarn lint "$@"
+    elif [ -e "package-lock.json" ]; then
+        npm run lint "$@"
+    elif [ -e "go.mod" ]; then
+        golangci-lint run ./... "$@"
+    else
+        echo "Nothing to lint"
     fi
 }

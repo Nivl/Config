@@ -28,6 +28,7 @@ linters:
     - gochecknoglobals
     - deadcode
     - tparallel
+    - tagalign
 
 linters-settings:
   # done locally using gopls, see vscode config
@@ -44,3 +45,9 @@ linters-settings:
       - performance
       - experimental
       - opinionated
+
+  tagalign:
+    order:
+      - db
+      - json
+      - exhaustruct

@@ -50,6 +50,7 @@ mkdir -p "$HOME/.emacs-saves"
 ZSHRC="$HOME/.zshrc"
 if [ ! -e "$ZSHRC" ]; then
   echo "source \"\$HOME/My Drive/unix_conf/base.zshrc\"" > "$ZSHRC"
+  echo "\n\export nGH_CLONE_USER_NAME=\"Nivl\"" >> "$ZSHRC"
 fi
 
 # if we don't have a base .gitconfig, we create one with the default config

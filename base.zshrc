@@ -152,3 +152,13 @@ function lint {
         echo "Nothing to lint"
     fi
 }
+
+function cl() {
+    if [ -z "$1" ]; then
+        echo "cl <repo-name>"
+    fi
+
+    local user="${GH_CLONE_USER_NAME:-Nivl}"
+    git cl "$user/$1"
+    cd "$1"
+}

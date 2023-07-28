@@ -150,6 +150,20 @@ function lint {
         golangci-lint run ./... "$@"
     else
         echo "Nothing to lint"
+        return 1
+    fi
+}
+
+function run {
+    if [ -e "yarn.lock" ]; then
+        yarn "$@"
+    elif [ -e "package-lock.json" ]; then
+        npm run "$@"
+    elif [ -e "go.mod" ]; then
+        task "$@"
+    else
+        echo "Nothing to run"
+        return 1
     fi
 }
 

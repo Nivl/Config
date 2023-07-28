@@ -79,7 +79,6 @@ if [ "$IS_ARM" = true ]; then
 fi
 
 # install all softwares
-brew tap homebrew/cask
 brew tap homebrew/cask-fonts
 brew install gnupg diff-so-fancy emacs pinentry-mac jq brew-cask-completion less font-fira-code zsh-syntax-highlighting shellcheck
 # Install opinionated tools
@@ -87,7 +86,7 @@ brew install go golangci-lint go-task/tap/go-task nvm yarn
 # Install common apps
 brew install --cask zoom brave-browser visual-studio-code logi-options-plus homebrew/cask/docker
 # install betas
-brew install --cask homebrew/cask-versions/iterm2-beta
+brew install --cask warp
 
 if [ "$USE_APP_STORE" = true ]; then
   brew install mas

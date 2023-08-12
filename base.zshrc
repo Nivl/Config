@@ -133,8 +133,7 @@ function erase {
 }
 
 function code {
-    if command -p code &> /dev/null
-    then
+    if [[ "$(command -v code)" == /* ]]; then
         command code "$@"
     else
         code-insiders "$@"

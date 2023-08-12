@@ -53,15 +53,15 @@ add-zsh-hook precmd exec_time_precmd_hook
 
 # Execution time start
 exec_time_preexec_hook() {
-  PROMPT_EXEC_TIME_START=$(date +%s)
+  PROMPT_EXEC_TIME_START=${EPOCHREALTIME}
 }
 
 # Execution time end
 exec_time_precmd_hook() {
   [[ -n $PROMPT_EXEC_TIME_DURATION ]] && unset PROMPT_EXEC_TIME_DURATION
   [[ -z $PROMPT_EXEC_TIME_START ]] && return
-  local PROMPT_EXEC_TIME_STOP=$(date +%s)
-  PROMPT_EXEC_TIME_DURATION=$(( $PROMPT_EXEC_TIME_STOP - $PROMPT_EXEC_TIME_START ))
+  local PROMPT_EXEC_TIME_STOP=${EPOCHREALTIME}
+  PROMPT_EXEC_TIME_DURATION=$(echo $(( $PROMPT_EXEC_TIME_STOP - $PROMPT_EXEC_TIME_START ))  | cut -c1-5)
   unset PROMPT_EXEC_TIME_START
 }
 
@@ -201,17 +201,14 @@ prompt_status() {
   last_command=$(fc -l -L -1)
 
   [[ $RETVAL -ne 0 ]] && symbols+="%{%F{red}%}oops"
-  [[ $UID -eq 0 ]] && symbols+="%{%F{yellow}%}i am groot"
-  [[ $last_command ==  *"sudo "* ]] && symbols+="%{%F{yellow}%}i was groot"
-  [[ $PROMPT_EXEC_TIME_DURATION -ge 5 ]] && symbols+="%{%F{magenta}%}ran in $(displaytime $PROMPT_EXEC_TIME_DURATION)"
+  [[ $UID -eq 0 ]] && symbols+="%{%F{yellow}%} I am groot"
+  [[ $last_command ==  *"sudo "* ]] && symbols+="%{%F{yellow}%}Previous ran as root"
+  symbols+="%{%F{magenta}%}ran in ${PROMPT_EXEC_TIME_DURATION}s"
 
   [[ -n "$symbols" ]] && prompt_segment NONE default "$symbols"
 }
 
-# Status:
-# - was there an error
-# - am I root
-# - are there background jobs?
+# shows the prompt symbol (regular ❯, error ✘, root ⚡, has BG jobs ✦)
 prompt_line2() {
   local symbols
   symbols=()
@@ -233,7 +230,7 @@ build_prompt() {
   prompt_dir
   prompt_git
   prompt_status
-  prompt_line2
+  # prompt_line2 # Not needed for Warp, add for Iterm 2
   prompt_end
 }
 

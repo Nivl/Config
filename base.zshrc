@@ -69,6 +69,15 @@ if [ -e "$(brew --prefix nvm)/nvm.sh" ]; then
   source $(brew --prefix nvm)/nvm.sh
 fi
 
+# postgres
+#
+# the formula libpq conflicts with the package postgres.
+# libpq only has client tools (psql, pq_dump, etc) while postgres has
+# everything
+if ! command -v psql &> /dev/null ; then
+    export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+fi
+
 export EDITOR='emacs -nw'
 export PAGER='less'
 export LESS="R --quit-if-one-screen"

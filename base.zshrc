@@ -78,11 +78,8 @@ if ! command -v psql &> /dev/null ; then
     export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 fi
 
-export EDITOR='emacs -nw'
-export PAGER='less'
-export LESS="R --quit-if-one-screen"
-export CLICOLOR=1
 
+alias emacs='\emacs -nw'
 alias cd..='cd ..'
 alias lss='less'
 alias grep='grep --color'
@@ -91,9 +88,13 @@ alias ll='ls -l'
 alias lla='ls -la'
 alias la='ls -a'
 alias rm='rm -i'
-alias emacs='\emacs -nw'
 alias reload=". $HOME/.zshrc"
 alias extract-pkg="pkgutil --expand-full " # usage extract-pkg [pkg] [out_dir]
+
+export EDITOR='emacs'
+export PAGER='less'
+export LESS="R --quit-if-one-screen"
+export CLICOLOR=1
 
 # record terminal to file
 function rec {

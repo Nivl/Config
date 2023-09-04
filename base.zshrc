@@ -78,6 +78,10 @@ if ! command -v psql &> /dev/null ; then
     export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 fi
 
+# google cloud
+if [ -d "$HOME/google-cloud-sdk" ]; then
+    export PATH="$HOME/google-cloud-sdk/bin:$PATH"
+fi
 
 alias emacs='\emacs -nw'
 alias cd..='cd ..'
@@ -166,6 +170,10 @@ function lint {
 function run {
     if [ -e "yarn.lock" ]; then
         yarn "$@"
+    elif [ -e "pnpm-lock.yaml" ]; then
+        pnpm "$@"
+    elif [ -e "bun.lockb" ]; then
+        bun run "$@"
     elif [ -e "package-lock.json" ]; then
         npm run "$@"
     elif [ -e "go.mod" ]; then

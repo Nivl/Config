@@ -158,6 +158,7 @@ function is-go-repo {
     return $(test -e "go.mod")
 }
 
+# TODO(melvin): figure out a clean not-too-hacky way to clean that up
 function run {
     if [ -e "yarn.lock" ]; then
         yarn "$@"
@@ -169,6 +170,23 @@ function run {
         npm run "$@"
     elif [ -e "go.mod" ]; then
         task "$@"
+    else
+        echo "Nothing to run"
+        return 1
+    fi
+}
+
+function install {
+    if [ -e "yarn.lock" ]; then
+        yarn add "$@"
+    elif [ -e "pnpm-lock.yaml" ]; then
+        pnpm install "$@"
+    elif [ -e "bun.lockb" ]; then
+        bun install "$@"
+    elif [ -e "package-lock.json" ]; then
+        npm install "$@"
+    elif [ -e "go.mod" ]; then
+        go get "$@"
     else
         echo "Nothing to run"
         return 1

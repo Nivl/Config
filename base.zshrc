@@ -154,17 +154,8 @@ function code {
     fi
 }
 
-function lint {
-    if [ -e "yarn.lock" ]; then
-        yarn lint "$@"
-    elif [ -e "package-lock.json" ]; then
-        npm run lint "$@"
-    elif [ -e "go.mod" ]; then
-        golangci-lint run ./... "$@"
-    else
-        echo "Nothing to lint"
-        return 1
-    fi
+function is-go-repo {
+    return $(test -e "go.mod")
 }
 
 function run {
@@ -181,6 +172,14 @@ function run {
     else
         echo "Nothing to run"
         return 1
+    fi
+}
+
+function lint {
+    if is-go-repo; then
+        golangci-lint run ./... "$@"
+    else
+        run lint
     fi
 }
 

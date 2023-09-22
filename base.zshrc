@@ -170,6 +170,8 @@ function run {
         npm run "$@"
     elif [ -e "go.mod" ]; then
         task "$@"
+    elif [ -e "manage.py" ]; then
+        python manage.py "$@"
     else
         echo "Nothing to run"
         return 1
@@ -187,6 +189,9 @@ function install {
         npm install "$@"
     elif [ -e "go.mod" ]; then
         go get "$@"
+    elif [ -d ".venv" ]; then
+        pip install "$@"
+        pip freeze > requirements.txt
     else
         echo "Nothing to run"
         return 1

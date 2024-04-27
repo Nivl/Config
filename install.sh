@@ -50,7 +50,7 @@ mkdir -p "$HOME/.emacs-saves"
 ZSHRC="$HOME/.zshrc"
 if [ ! -e "$ZSHRC" ]; then
   echo "source \"\$HOME/My Drive/unix_conf/base.zshrc\"" > "$ZSHRC"
-  echo "\n\export nGH_CLONE_USER_NAME=\"Nivl\"" >> "$ZSHRC"
+  echo "\nexport GH_CLONE_USER_NAME=\"Nivl\"" >> "$ZSHRC"
 fi
 
 # if we don't have a base .gitconfig, we create one with the default config
@@ -79,14 +79,17 @@ if [ "$IS_ARM" = true ]; then
 fi
 
 # install all softwares
+brew install gnupg diff-so-fancy emacs pinentry-mac jq brew-cask-completion less  zsh-syntax-highlighting shellcheck lsd
+# fonts
 brew tap homebrew/cask-fonts
-brew install gnupg diff-so-fancy emacs pinentry-mac jq brew-cask-completion less font-fira-code zsh-syntax-highlighting shellcheck
+brew install font-hack-nerd-font
 # Install opinionated tools
-brew install go golangci-lint go-task/tap/go-task nvm yarn
+brew install go golangci-lint go-task/tap/go-task nvm yarn pnpm
 # Install common apps
-brew install --cask zoom brave-browser visual-studio-code logi-options-plus homebrew/cask/docker
+brew install --cask zoom brave-browser warp homebrew/cask/docker
 # install betas
-brew install --cask warp
+brew tap homebrew/cask-versions
+brew install --cask  visual-studio-code-insiders
 
 if [ "$USE_APP_STORE" = true ]; then
   brew install mas

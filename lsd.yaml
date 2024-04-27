@@ -1,0 +1,21 @@
+classic: false
+
+icons:
+  # When to use icons.
+  # When "classic" is set, this is set to "never".
+  # Possible values: always, auto, never
+  when: always
+  # Which icon theme to use.
+  # Possible values: fancy, unicode
+  theme: fancy
+  # Separator between icon and the name
+  # Default to 1 space
+  separator: " "
+
+indicators: true
+# Possible values: grid, tree, oneline
+layout: tree
+
+recursion:
+  enabled: false
+  depth: 1

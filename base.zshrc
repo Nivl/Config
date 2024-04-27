@@ -87,13 +87,15 @@ alias emacs='\emacs -nw'
 alias cd..='cd ..'
 alias lss='less'
 alias grep='grep --color'
-alias ls='ls -hF'
-alias ll='ls -l'
-alias lla='ls -la'
-alias la='ls -a'
 alias rm='rm -i'
 alias reload=". $HOME/.zshrc"
 alias extract-pkg="pkgutil --expand-full " # usage extract-pkg [pkg] [out_dir]
+
+alias lsd='lsd --config-file="$HOME/My Drive/unix_conf/lsd.yaml"'
+alias ls='lsd -hF'
+alias ll='lsd -l'
+alias lla='lsd -la'
+alias la='lsd -a'
 
 export EDITOR='emacs'
 export PAGER='less'

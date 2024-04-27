@@ -3,7 +3,7 @@
 USE_APP_STORE=false
 while true; do
   echo -n "Use the Mac AppStore to install apps when possible (Y/n)? "
-  read answer
+  read -r answer
 
   case ${answer:0:1} in
     "y"|"Y"|"" )
@@ -49,20 +49,24 @@ mkdir -p "$HOME/.emacs-saves"
 # if we don't have a base .zshrc, we create one with the default config
 ZSHRC="$HOME/.zshrc"
 if [ ! -e "$ZSHRC" ]; then
-  echo "source \"\$HOME/My Drive/unix_conf/base.zshrc\"" > "$ZSHRC"
-  echo "\nexport GH_CLONE_USER_NAME=\"Nivl\"" >> "$ZSHRC"
+  {
+    printf "source \"\$HOME/My Drive/unix_conf/base.zshrc\""
+    printf "\nexport GH_CLONE_USER_NAME=\"Nivl\""
+  } > "$ZSHRC"
 fi
 
 # if we don't have a base .gitconfig, we create one with the default config
 GITCFG="$HOME/.gitconfig"
 if [ ! -e "$GITCFG" ]; then
-  echo "[include]\n\tpath = \"$HOME/My Drive/unix_conf/.gitconfig\"" > "$GITCFG"
-  echo "\n[user]\n\temail = melvin.wont.reply@gmail.com" >> "$GITCFG"
-  echo "\tname = Melvin Laplanche" >> "$GITCFG"
-  echo "\tsigningkey = 2C307E0D0413344B" >> "$GITCFG"
-  echo "\n#[url \"ssh://git@github.com/\"]\n\tinsteadOf = https://github.com/" >> "$GITCFG"
-  echo "#[commit]" >> "$GITCFG"
-  echo "#\tgpgsign = false" >> "$GITCFG"
+  {
+    printf "[include]\n\tpath = \"%s/My Drive/unix_conf/.gitconfig\"" "$HOME"
+    printf "\n[user]\n\temail = melvin.wont.reply@gmail.com"
+    printf "\tname = Melvin Laplanche"
+    printf "\tsigningkey = 2C307E0D0413344B"
+    printf "\n#[url \"ssh://git@github.com/\"]\n\tinsteadOf = https://github.com/"
+    printf "#[commit]"
+    printf "#\tgpgsign = false"
+  } > "$GITCFG"
 fi
 
 # install brew
@@ -74,7 +78,7 @@ if [ ! -e "/opt/homebrew/" ]; then
 fi
 
 if [ "$IS_ARM" = true ]; then
-  (echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> /Users/melvin/.zprofile
+  (echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> "$HOME/.zprofile"
   eval "$(/opt/homebrew/bin/brew shellenv)"
 fi
 
@@ -127,8 +131,8 @@ if [ ! -e "$HOME/.gnupg/gpg-agent.conf" ]; then
 fi
 
 echo "Things left to do:"
-echo "\t1. Don't forget to upload $HOME/.ssh/default to github: 'pbcopy < $HOME/.ssh/default.pub'"
-echo "\t2. (optional) Import PGP Key from Enpass with 'gpg --import private.key"
+printf "\t1. Don't forget to upload %s/.ssh/default to github: 'pbcopy < %s/.ssh/default.pub'" "$HOME" "$HOME"
+printf "\t2. (optional) Import PGP Key from Enpass with 'gpg --import private.key"
 if [ "$USE_APP_STORE" = false ]; then
-  echo "\t3. Install EasyRes: http://easyresapp.com"
+  printf "\t3. Install EasyRes: http://easyresapp.com"
 fi

@@ -109,6 +109,8 @@
 [push]
 	default = simple
 	autoSetupRemote = true
+[branch]
+	autoSetupMerge = simple
 [commit]
 	gpgsign = true
 [rebase]

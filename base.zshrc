@@ -93,6 +93,7 @@ alias extract-pkg="pkgutil --expand-full " # usage extract-pkg [pkg] [out_dir]
 
 alias lsd='lsd --config-file="$HOME/My Drive/unix_conf/lsd.yaml"'
 alias ls='lsd -hF'
+alias lt='lsd --tree'
 alias ll='lsd -l'
 alias lla='lsd -la'
 alias la='lsd -a'

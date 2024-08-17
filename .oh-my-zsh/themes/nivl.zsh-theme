@@ -230,7 +230,7 @@ build_prompt() {
   prompt_dir
   prompt_git
   prompt_status
-  # prompt_line2 # Not needed for Warp, add for Iterm 2
+  prompt_line2
   prompt_end
 }
 

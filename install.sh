@@ -83,7 +83,7 @@ if [ "$IS_ARM" = true ]; then
 fi
 
 # install all softwares
-brew install gnupg diff-so-fancy emacs pinentry-mac jq brew-cask-completion less  zsh-syntax-highlighting shellcheck lsd
+brew install gnupg diff-so-fancy emacs pinentry-mac jq brew-cask-completion less grep zsh-syntax-highlighting shellcheck lsd
 # fonts
 brew tap homebrew/cask-fonts
 brew install font-hack-nerd-font

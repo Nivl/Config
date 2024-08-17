@@ -83,6 +83,10 @@ if [ -d "$HOME/google-cloud-sdk" ]; then
     export PATH="$HOME/google-cloud-sdk/bin:$PATH"
 fi
 
+if [ -d "/opt/homebrew/opt/grep" ]; then
+    export PATH="/opt/homebrew/opt/grep/libexec/gnubin:$PATH"
+fi
+
 alias emacs='\emacs -nw'
 alias cd..='cd ..'
 alias lss='less'
@@ -146,7 +150,7 @@ function erase {
        rmdir "$dir"
     done
 
-    rmdir trash
+    rm -rf trash
 }
 
 function code {

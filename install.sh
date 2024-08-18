@@ -19,6 +19,25 @@ while true; do
   esac
 done
 
+PERSONAL_COMPUTER=false
+while true; do
+  echo -n "Is this for a personal computer (y/n)? "
+  read -r answer
+
+  case ${answer:0:1} in
+    "y"|"Y" )
+        PERSONAL_COMPUTER=true
+        break
+    ;;
+    "n"|"N" )
+        break
+    ;;
+    * )
+        echo "Invalid value"
+    ;;
+  esac
+done
+
 # Copy the config files over
 CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 CONF_DIR=$CURRENT_DIR
@@ -94,6 +113,10 @@ brew install --cask zoom brave-browser warp homebrew/cask/docker
 # install betas
 brew tap homebrew/cask-versions
 brew install --cask  visual-studio-code-insiders
+
+if [ "$PERSONAL_COMPUTER" = true ]; then
+  brew install proton-drive proton-mail proton-pass protonvpn
+fi
 
 if [ "$USE_APP_STORE" = true ]; then
   brew install mas

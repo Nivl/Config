@@ -1,3 +1,4 @@
+# https://github.com/lsd-rs/lsd?tab=readme-ov-file#config-file-content
 classic: false
 
 icons:
@@ -19,3 +20,6 @@ layout: tree
 recursion:
   enabled: false
   depth: 1
+
+sorting:
+  dir-grouping: first

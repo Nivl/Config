@@ -261,6 +261,8 @@ done
 
 last_element="$#list"
 
+zcurses clear main redraw
+zcurses clear inner redraw
 while (( 1 )); do
     # Do searching (filtering with string)
     if [ -n "$NLIST_SEARCH_BUFFER" ]; then
@@ -465,7 +467,7 @@ while (( 1 )); do
     elif [ -n "$keypad" ]; then
         final_key="$keypad"
     else
-        _nlist_status_msg "Inproper input detected"
+        _nlist_status_msg "Improper input detected"
         zcurses refresh main inner
     fi
 

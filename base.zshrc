@@ -1,11 +1,6 @@
 #!/bin/env zsh
 # ZSH conf
 
-#
-# Requirements:
-# brew install less
-#
-
 BREW_PATH="/opt/Homebrew"
 if [ ! -d "/opt/Homebrew" ]; then
     BREW_PATH="/usr/local"

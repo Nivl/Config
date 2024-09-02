@@ -1,7 +1,5 @@
 # ansible plugin
 
-## Introduction
-
 The `ansible plugin` adds several aliases for useful [ansible](https://docs.ansible.com/ansible/latest/index.html) commands and [aliases](#aliases).
 
 To use it, add `ansible` to the plugins array of your zshrc file:
@@ -19,10 +17,8 @@ plugins=(... ansible)
 | `a`                                        | command `ansible`                                                   |
 | `aconf`                                    | command `ansible-config`                                            |
 | `acon`                                     | command `ansible-console`                                           |
-| `aconn`                                    | command `ansible-connection`                                        |
 | `ainv`                                     | command `ansible-inventory`                                         |
-| `aplay`                                    | command `ansible-playbook`                                          |
-| `ainv`                                     | command `ansible-inventory`                                         |
+| `aplaybook`                                | command `ansible-playbook`                                          |
 | `adoc`                                     | command `ansible-doc`                                               |
 | `agal`                                     | command `ansible-galaxy`                                            |
 | `apull`                                    | command `ansible-pull`                                              |
@@ -30,6 +26,6 @@ plugins=(... ansible)
 
 ## Maintainer
 
-### [Deepankumar](https://github.com/deepan10) 
+### [Deepankumar](https://github.com/deepan10)
 
 [https://github.com/deepan10/oh-my-zsh/tree/features/ansible-plugin](https://github.com/deepan10/oh-my-zsh/tree/features/ansible-plugin)

@@ -184,19 +184,38 @@ function run {
     fi
 }
 
-function install {
+function add {
     if [ -e "yarn.lock" ]; then
         yarn add "$@"
     elif [ -e "pnpm-lock.yaml" ]; then
-        pnpm install "$@"
+        pnpm add "$@"
     elif [ -e "bun.lockb" ]; then
-        bun install "$@"
+        bun add "$@"
     elif [ -e "package-lock.json" ]; then
         npm install "$@"
     elif [ -e "go.mod" ]; then
         go get "$@"
     elif [ -d ".venv" ]; then
         pip install "$@"
+        pip freeze > requirements.txt
+    else
+        echo "Nothing to run"
+        return 1
+    fi
+}
+
+function install {
+    if [ -e "yarn.lock" ]; then
+        yarn install
+    elif [ -e "pnpm-lock.yaml" ]; then
+        pnpm install
+    elif [ -e "bun.lockb" ]; then
+        bun install
+    elif [ -e "package-lock.json" ]; then
+        npm install
+    elif [ -e "go.mod" ]; then
+        go mod tidy
+    elif [ -d ".venv" ]; then
         pip freeze > requirements.txt
     else
         echo "Nothing to run"

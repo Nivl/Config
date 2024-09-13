@@ -162,6 +162,10 @@ function is-go-repo {
 
 # TODO(melvin): figure out a clean not-too-hacky way to clean that up
 function run {
+    if [ -e ".nvmrc" ]; then
+        nvm install
+    fi
+
     if [ -e "yarn.lock" ]; then
         yarn "$@"
     elif [ -e "pnpm-lock.yaml" ]; then

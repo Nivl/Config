@@ -174,7 +174,7 @@ function run {
         bun run "$@"
     elif [ -e "package-lock.json" ]; then
         npm run "$@"
-    elif [ -e "go.mod" ]; then
+    elif is-go-repo; then
         task "$@"
     elif [ -e "manage.py" ]; then
         python manage.py "$@"
@@ -193,7 +193,7 @@ function add {
         bun add "$@"
     elif [ -e "package-lock.json" ]; then
         npm install "$@"
-    elif [ -e "go.mod" ]; then
+    elif is-go-repo; then
         go get "$@"
     elif [ -d ".venv" ]; then
         pip install "$@"

@@ -109,7 +109,7 @@ brew install font-hack-nerd-font
 # Install opinionated tools
 brew install go golangci-lint go-task/tap/go-task nvm yarn pnpm
 # Install common apps
-brew install --cask zoom brave-browser warp homebrew/cask/docker raycast lulu
+brew install --cask zoom brave-browser warp homebrew/cask/docker raycast lulu gh
 # install betas
 brew tap homebrew/cask-versions
 brew install --cask  visual-studio-code-insiders

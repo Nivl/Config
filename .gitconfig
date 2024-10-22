@@ -3,6 +3,8 @@
 	status = auto
 	branch = auto
 [alias]
+	main-branch = "!f() { git symbolic-ref --quiet refs/remotes/origin/HEAD > /dev/null && echo $(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@') || (git show-ref --verify --quiet refs/heads/main && echo main || echo master); }; f"
+
 	la = "!git config -l | grep alias | cut -c 7-" # list of aliases
 	lg = log --color --graph --pretty=format:'%C(yellow)%h%Creset %s - %C(bold blue)%an%Creset' --abbrev-commit #logs
 	st = status
@@ -25,13 +27,13 @@
 	# checkout
 	co = checkout
 	cob = checkout -b # create a new branch
-	com = checkout master # switch to master
+	com = "!f() { git checkout \"$(git main-branch)\"; git pull; }; f" # switch to master
 	cop = checkout -
 
 	# Switch branch
 	sw = switch
 	swc = switch -c # create a new branch
-	swm = switch master
+	swm = "!f() { git switch \"$(git main-branch)\" ; }; f"
 	swp = switch -
 
 	# Branches
@@ -58,23 +60,24 @@
 	ciau = "commit -a --amend --no-edit"  # add all changes to the previous commit
 
 	# Put the last X commit into their parents:
-	# A -> B -> C -> D => git fixup 2 => A -> B
+	# A -> B -> C -> D => git fixup 2 => A -> B (B contains B, C, D)
 	fixup = "!f(){ git reset --soft HEAD~${1} && git commit --amend -C HEAD; };f"
 
 	# rebase
 	rb = "rebase" # rebase all the commits up to SHA $1 (excluded)
 	rbs = "!f() { git rebase -i $1; }; f" # rebase all the commits up to SHA $1 (excluded)
 	rbx = "!f() { git rebase -i HEAD~$1; }; f" # rebase the last $1 commits
-	rbm = "!f() { git rebase `git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'`; }; f"
+	rbm = "!f() { git rebase \"$(git main-branch)\"; }; f"
 	rbc = rebase --continue
 	rba = rebase --abort
 	# https://stackoverflow.com/a/22593321/382879
 	# example rebase --onto origin/master HEAD~4
 	# This will change the base to be origin/master and apply the last 4 commits on it
 	rbo = rebase --onto # rebase --onto source-branche HEAD~X
+	rbom = "!f() { git fetch origin \"$(git main-branch)\"; && git rebase --onto \"$(git main-branch)\" HEAD~$1; }; f"
 	# if curr branch depends on branch $1 that has been squashed into master
 	# and if branch $1 still exists
-	rbf = "!f() { git rebase --onto `git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'` $1 `git rev-parse --abbrev-ref HEAD`; }; f"
+	rbf = "!f() { git rebase --onto \"$(git main-branch)\" $1 `git rev-parse --abbrev-ref HEAD`; }; f"
 
 	# merge
 	me = "merge --no-edit"
@@ -87,7 +90,7 @@
 	res = reset --soft
 	reh = reset --hard
 	rer = "!f() { git reset --hard origin/`git rev-parse --abbrev-ref HEAD`; }; f"
-	rem = "!f() { git fetch origin `git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'` && git reset --hard `git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/@@'`; }; f"
+	rem = "!f() { git fetch origin \"$(git main-branch)\" && git reset --hard `git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/@@'`; }; f"
 
 	# stashing
 	shu = stash --include-untracked

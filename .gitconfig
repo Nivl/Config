@@ -74,7 +74,7 @@
 	# example rebase --onto origin/master HEAD~4
 	# This will change the base to be origin/master and apply the last 4 commits on it
 	rbo = rebase --onto # rebase --onto source-branche HEAD~X
-	rbom = "!f() { git fetch origin \"$(git main-branch)\"; && git rebase --onto \"$(git main-branch)\" HEAD~$1; }; f"
+	rbom = "!f() { git fetch origin \"$(git main-branch)\" && git rebase --onto origin/\"$(git main-branch)\" HEAD~$1; }; f"
 	# if curr branch depends on branch $1 that has been squashed into master
 	# and if branch $1 still exists
 	rbf = "!f() { git rebase --onto \"$(git main-branch)\" $1 `git rev-parse --abbrev-ref HEAD`; }; f"

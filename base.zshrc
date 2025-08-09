@@ -64,6 +64,11 @@ if [ -e "$(brew --prefix nvm)/nvm.sh" ]; then
   source $(brew --prefix nvm)/nvm.sh
 fi
 
+# Rust
+if [ -d "$(brew --prefix rustup)" ]; then
+  export PATH="$(brew --prefix rustup)/bin:$PATH"
+fi
+
 # postgres
 #
 # the formula libpq conflicts with the package postgres.

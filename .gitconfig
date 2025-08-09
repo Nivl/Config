@@ -126,6 +126,8 @@
 	defaultBranch = main
 [pull]
 	rebase = false
+[tag]
+	sort = -version:refname
 
 # Add the following to base config if missing
 # This is removed because it cannot be overriden easily and

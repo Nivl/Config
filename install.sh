@@ -2,7 +2,7 @@
 
 USE_APP_STORE=false
 while true; do
-  echo -n "Use the Mac AppStore to install apps when possible (Y/n)? "
+  echo "Use the Mac AppStore to install apps when possible (Y/n)? "
   read -r answer
 
   case ${answer:0:1} in
@@ -21,7 +21,7 @@ done
 
 PERSONAL_COMPUTER=false
 while true; do
-  echo -n "Is this for a personal computer (y/n)? "
+  echo "Is this for a personal computer (y/n)? "
   read -r answer
 
   case ${answer:0:1} in
@@ -70,7 +70,9 @@ ZSHRC="$HOME/.zshrc"
 if [ ! -e "$ZSHRC" ]; then
   {
     printf "source \"\$HOME/My Drive/unix_conf/base.zshrc\""
-    printf "\nexport GH_CLONE_USER_NAME=\"Nivl\""
+    printf "\n"
+    printf "\nexport GIT_HOST=\"git@github.com\""
+    printf "\nexport GIT_CLONE_USER_NAME=\"Nivl\""
   } > "$ZSHRC"
 fi
 
@@ -79,12 +81,27 @@ GITCFG="$HOME/.gitconfig"
 if [ ! -e "$GITCFG" ]; then
   {
     printf "[include]\n\tpath = \"%s/My Drive/unix_conf/.gitconfig\"" "$HOME"
-    printf "\n[user]\n\temail = melvin.wont.reply@gmail.com"
-    printf "\tname = Melvin Laplanche"
-    printf "\tsigningkey = 2C307E0D0413344B"
-    printf "\n#[url \"ssh://git@github.com/\"]\n\tinsteadOf = https://github.com/"
-    printf "#[commit]"
-    printf "#\tgpgsign = false"
+
+    if [ "$PERSONAL_COMPUTER" = true ]; then
+      printf "\n\n[user]\n\temail = melvin.wont.reply@gmail.com"
+      printf "\n\tname = Melvin"
+      printf "\n\tsigningkey = 2C307E0D0413344B"
+    else
+      printf "\n\n[user]\n\temail = melvin@domain.tld"
+      printf "\n\tname = Melvin"
+      printf "\n\t# signingkey = <key>"
+    fi
+
+    printf "\n\n# [url \"ssh://git@github.com/\"]"
+    printf "\n\t# insteadOf = https://github.com/"
+
+    if [ "$PERSONAL_COMPUTER" = true ]; then
+      printf "\n\n[commit]"
+      printf "\n\tgpgsign = true"
+    else
+      printf "\n\n[commit]"
+      printf "\n\tgpgsign = false"
+    fi
   } > "$GITCFG"
 fi
 
@@ -104,18 +121,16 @@ fi
 # install all softwares
 brew install gnupg diff-so-fancy emacs pinentry-mac jq brew-cask-completion less grep zsh-syntax-highlighting shellcheck lsd
 # fonts
-brew tap homebrew/cask-fonts
-brew install font-hack-nerd-font
+brew install font-fira-code-nerd-font
 # Install opinionated tools
 brew install go golangci-lint go-task/tap/go-task nvm yarn pnpm
 # Install common apps
-brew install --cask zoom brave-browser warp homebrew/cask/docker raycast lulu gh
+brew install --cask zoom brave-browser warp homebrew/cask/docker raycast lulu
 # install betas
-brew tap homebrew/cask-versions
-brew install --cask  visual-studio-code-insiders
+brew install --cask  visual-studio-code@insiders
 
 if [ "$PERSONAL_COMPUTER" = true ]; then
-  brew install proton-drive proton-mail proton-pass protonvpn
+  brew install proton-drive proton-pass protonvpn lulu
 fi
 
 if [ "$USE_APP_STORE" = true ]; then
@@ -155,7 +170,7 @@ fi
 
 echo "Things left to do:"
 printf "\t1. Don't forget to upload %s/.ssh/default to github: 'pbcopy < %s/.ssh/default.pub'" "$HOME" "$HOME"
-printf "\t2. (optional) Import PGP Key from Enpass with 'gpg --import private.key"
+printf "\n\t2. (optional) Import PGP Key from Enpass with 'gpg --import private.key"
 if [ "$USE_APP_STORE" = false ]; then
-  printf "\t3. Install EasyRes: http://easyresapp.com"
+  printf "\n\t3. Install EasyRes: http://easyresapp.com"
 fi

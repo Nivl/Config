@@ -1,10 +1,7 @@
 #!/bin/env zsh
 # ZSH conf
 
-BREW_PATH="/opt/Homebrew"
-if [ ! -d "/opt/Homebrew" ]; then
-    BREW_PATH="/usr/local"
-fi
+BREW_PATH=$(brew --prefix)
 
 zstyle ':completion:*' special-dirs true
 
@@ -25,66 +22,51 @@ fpath=(/usr/local/share/zsh-completions $fpath)
 source "$ZSH/oh-my-zsh.sh"
 source $BREW_PATH/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
-# User configuration
-
 export C_INCLUDE_PATH=/usr/local/include
 # export MANPATH="/:$MANPATH"
 
 export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export PATH=$HOME/.local/bin:$PATH
-export PATH="/opt/homebrew/bin:$PATH"
-export PATH="/opt/homebrew/sbin:$PATH"
-
-# Android
-export PATH=$HOME/Library/Android/sdk/platform-tools:$PATH
-export PATH=$HOME/Library/Android/sdk/tools:$PATH
-
-# Ruby
-export GEM_HOME=$HOME/.gem #is this even needed?
-#export PATH=$GEM_HOME/bin:$PATH
-#export PATH=$HOME/.gem/ruby/2.0.0/bin:$PATH
-
-# export PATH=$PATH:$(yarn global bin)
-
-# Python
-export PYTHONPATH=./pip-components:$PYTHONPATH
+export PATH="$BREW_PATH/bin:$PATH"
+export PATH="$BREW_PATH/sbin:$PATH"
 
 # Shared
 export PATH=$HOME/.bin-remote:$PATH
+
+# All the stuff installed by brew, that needs their bin directories
+# to be added to PATH
+brew_installed=(
+    'rustup' # rust
+    # libpq conflicts with the package postgres.
+    # libpq only has client tools (psql, pq_dump, etc) while postgres
+    # has everything
+    'libpq'
+)
+for package in $brew_installed; do
+  export PATH="$(brew --prefix $package)/bin:$PATH"
+done
 
 # Go
 mkdir -p $HOME/.go
 export GOPATH=$HOME/.go
 export PATH=$PATH:$GOPATH/bin
 
+# GNU grep
+if [ -d "$(brew --prefix grep)" ]; then
+    export PATH="$(brew --prefix grep)/libexec/gnubin:$PATH"
+fi
+
+# google cloud
+# https://cloud.google.com/sdk/docs/install
+if [ -d "$HOME/google-cloud-sdk" ]; then
+    export PATH="$HOME/google-cloud-sdk/bin:$PATH"
+fi
+
 # Node
 mkdir -p $HOME/.nvm
 export NVM_DIR=~/.nvm
 if [ -e "$(brew --prefix nvm)/nvm.sh" ]; then
   source $(brew --prefix nvm)/nvm.sh
-fi
-
-# Rust
-if [ -d "$(brew --prefix rustup)" ]; then
-  export PATH="$(brew --prefix rustup)/bin:$PATH"
-fi
-
-# postgres
-#
-# the formula libpq conflicts with the package postgres.
-# libpq only has client tools (psql, pq_dump, etc) while postgres has
-# everything
-if ! command -v psql &> /dev/null ; then
-    export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-fi
-
-# google cloud
-if [ -d "$HOME/google-cloud-sdk" ]; then
-    export PATH="$HOME/google-cloud-sdk/bin:$PATH"
-fi
-
-if [ -d "/opt/homebrew/opt/grep" ]; then
-    export PATH="/opt/homebrew/opt/grep/libexec/gnubin:$PATH"
 fi
 
 alias emacs='\emacs -nw'

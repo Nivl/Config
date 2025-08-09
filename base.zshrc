@@ -173,10 +173,14 @@ function run {
         yarn "$@"
     elif [ -e "pnpm-lock.yaml" ]; then
         pnpm "$@"
-    elif [ -e "bun.lockb" ]; then
+    elif [ -e "nx.json" ]; then
+        nx "$@"
+    elif [ -e "bun.lock" ]; then
         bun run "$@"
     elif [ -e "package-lock.json" ]; then
         npm run "$@"
+    elif [ -e "Makefile" ]; then
+        make "$@"
     elif is-go-repo; then
         task "$@"
     elif [ -e "manage.py" ]; then
@@ -192,7 +196,7 @@ function add {
         yarn add "$@"
     elif [ -e "pnpm-lock.yaml" ]; then
         pnpm add "$@"
-    elif [ -e "bun.lockb" ]; then
+    elif [ -e "bun.lock" ]; then
         bun add "$@"
     elif [ -e "package-lock.json" ]; then
         npm install "$@"
@@ -212,7 +216,7 @@ function install {
         yarn install
     elif [ -e "pnpm-lock.yaml" ]; then
         pnpm install
-    elif [ -e "bun.lockb" ]; then
+    elif [ -e "bun.lock" ]; then
         bun install
     elif [ -e "package-lock.json" ]; then
         npm install
@@ -227,19 +231,28 @@ function install {
 }
 
 function lint {
-    if is-go-repo; then
+    if [ -e "Makefile" ]; then
+        make lint "$@"
+    elif is-go-repo; then
         golangci-lint run ./... "$@"
     else
-        run lint
+        run lint "$@"
     fi
 }
 
 function cl() {
     if [ -z "$1" ]; then
-        echo "cl <repo-name>"
+        echo "cl <repo-name | user/repo-name>"
     fi
 
-    local user="${GH_CLONE_USER_NAME:-Nivl}"
-    git cl "$user/$1"
+    local host="${GIT_HOST:-git@github.com}"
+    local user="${GIT_CLONE_USER_NAME:-Nivl}"
+
+    local repo="$user/$1"
+    if [[ "$1" =~ '/' ]]; then
+         repo="$1"
+    fi
+
+    git clone "$host:$repo.git"
     cd "$1"
 }

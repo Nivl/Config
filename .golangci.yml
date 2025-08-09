@@ -1,53 +1,128 @@
-run:
-  timeout: 5s
-
-issues:
-  max-same-issues: 0
-  max-per-linter: 0
-  exclude-use-default: false
+version: "2"
 
 linters:
-  enable-all: false
-  disable-all: true
-  fast: true
+  default: all
+  disable:
+    - ireturn # Complains when returning an interface || failed to ignore with nolint
 
-  # Some linter have been removed due to a bug in golangci-lint
+    # Cool, but too specific
+    - depguard # Go linter that checks if package imports are in a list of acceptable packages
+    - gomodguard # Allow/block list for direct Go module dependencies
+
+    # Too opinionated / doesn't solve problems we have
+    - funcorder # Checks that exported functions are declared before unexported functions
+    - funlen # Tool for detection of long functions
+    - godox # Tool for detection of FIXME, TODO and other comment keywords || There is absolutely nothing wrong having in-code FIXMEs and TODOs
+    - nakedret # Finds naked returns in functions greater than a specified function length
+    - nlreturn # checks for a new line before return and branch statements to increase code clarity
+    - noinlineerr # Disallows inline error handling (`if err := ...; err != nil {`)
+    - nonamedreturns # Prevent named return || We use this in defers. Also useful when returning multiple params
+    - varnamelen # Find var names that are too short
+    - wsl # Forces you to use empty lines
+    - wsl_v5 # Forces you to use empty lines
+
+    # Cool on paper, but hard to use productively
+    - cyclop # checks function and package cyclomatic complexity
+    - dupl # Tool for code clone detection
+    - gochecknoglobals # check that no global variables exist
+    - gocognit # Computes and checks the cognitive complexity of functions
+    - goconst # Finds repeated strings that could be replaced by a constant
+    - gocyclo # Computes and checks the cyclomatic complexity of functions
+    - lll # Reports long lines
+    - mnd # An analyzer to detect magic numbers
+    - nestif # Reports deeply nested if statements
+    - testpackage # linter that makes you use a separate _test package
+    - wrapcheck # Checks that errors returned from external packages are wrapped
+
+    # to try
+    - godot # Check if comments end in a period
+    - paralleltest # Detects missing usage of t.Parallel() method in your Go test
+    - thelper # detects golang test helpers without t.Helper() call and checks the consistency of test helpers
+
+  settings:
+    depguard:
+      rules:
+        main:
+          deny:
+            - pkg: github.com/labstack/echo
+              desc: replace with github.com/labstack/echo/v4
+    exhaustruct:
+      exclude:
+        - database/sql\.NullString$
+        - database/sql\.TxOptions$
+        - net/http\.Response$
+        - net/http\.Client$
+        - net/http\.Cookie$
+        - github.com/google/uuid\.NullUUID$
+        - github.com/golang-migrate/migrate/v4/database/postgres\.Config$
+        - github.com/sethvargo/go-envconfig\.Config$
+        - github.com/ashwanthkumar/slack-go-webhook\.Payload$
+    gocritic:
+      disabled-checks:
+        - sloppyReassign
+        - hugeParam
+        - singleCaseSwitch
+      enabled-tags:
+        - performance
+        - diagnostic
+        - style
+        - experimental
+        - opinionated
+    gosec:
+      excludes:
+        - G104 # Error checking - there's another linter for that
+    govet:
+      enable-all: true
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    tagalign:
+      order:
+        - db
+        - json
+        - exhaustruct
+
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - govet
+        text: 'shadow: declaration of "err"' # there's another linter for that
+
+      - linters:
+          - err113
+        text: do not define dynamic errors # Not all errors need to be compared
+
+      - linters:
+          - recvcheck # don't mix receiver types
+        path: secret/secret\.go #we have this one in almost all our projects
+
+      - linters:
+          - err113
+          - errcheck
+          - forcetypeassert
+          - gosec
+          - maintidx
+        path: _test\.go
+
+      - linters:
+          - err113
+          - errcheck
+          - forcetypeassert
+          - gosec
+          - maintidx
+        path: testutil/
+
+      - path: _test\.go
+        text: "fieldalignment: struct"
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
   enable:
-    - golint
-    - govet
-    - errcheck
-    - ineffassign
-    - misspell
-    - unconvert
-    - whitespace
-    - gosimple
-    - interfacer
-    - goprintffuncname
-    - scopelint
-    - gocritic
-    - gochecknoglobals
-    - deadcode
-    - tparallel
-    - tagalign
-
-linters-settings:
-  # done locally using gopls, see vscode config
-  # govet:
-  #   check-shadowing: true
-
-  gocritic:
-    # disabled-checks:
-    #   - regexpMust
-
-    enabled-tags:
-      - diagnostic
-      - style
-      - performance
-      - experimental
-      - opinionated
-
-  tagalign:
-    order:
-      - db
-      - json
-      - exhaustruct
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax

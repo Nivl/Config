@@ -243,3 +243,9 @@ function cl() {
     git clone "$host:$repo.git"
     cd "$1"
 }
+
+function keygen() {
+    local size="${1:-32}"
+
+    print $(cat /dev/urandom | LC_ALL=C tr -dc 'a-zA-Z0-9' | fold -w "$size" | head -n 1)
+}

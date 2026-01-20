@@ -119,7 +119,7 @@ if [ "$IS_ARM" = true ]; then
 fi
 
 # install all softwares
-brew install gnupg diff-so-fancy emacs pinentry-mac jq brew-cask-completion less grep zsh-syntax-highlighting shellcheck lsd
+brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd
 # fonts
 brew install font-fira-code-nerd-font
 # Install opinionated tools

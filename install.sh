@@ -98,7 +98,7 @@ if [ "$IS_ARM" = true ]; then
   (echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> "$HOME/.zprofile"
   eval "$(/opt/homebrew/bin/brew shellenv)"
 fi
-
+ 
 # install all softwares
 brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd
 # fonts
@@ -111,7 +111,7 @@ brew install --cask zoom brave-browser warp homebrew/cask/docker raycast keka en
 brew install --cask  visual-studio-code@insiders
 
 if [ "$PERSONAL_COMPUTER" = true ]; then
-  brew install proton-drive proton-pass protonvpn lulu discord
+  brew install proton-drive proton-pass protonvpn daisydisk lulu ente yaak discord
 fi
 
 # create default SSH key

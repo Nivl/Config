@@ -1,24 +1,5 @@
 #!/bin/bash
 
-USE_APP_STORE=false
-while true; do
-  echo "Use the Mac AppStore to install apps when possible (Y/n)? "
-  read -r answer
-
-  case ${answer:0:1} in
-    "y"|"Y"|"" )
-        USE_APP_STORE=true
-        break
-    ;;
-    "n"|"N" )
-        break
-    ;;
-    * )
-        echo "Invalid value"
-    ;;
-  esac
-done
-
 PERSONAL_COMPUTER=false
 while true; do
   echo "Is this for a personal computer (y/n)? "
@@ -123,27 +104,14 @@ brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-high
 # fonts
 brew install font-fira-code-nerd-font
 # Install opinionated tools
-brew install go golangci-lint go-task/tap/go-task nvm yarn pnpm
+brew install go golangci-lint go-task/tap/go-task nvm pnpm
 # Install common apps
-brew install --cask zoom brave-browser warp homebrew/cask/docker raycast lulu
+brew install --cask zoom brave-browser warp homebrew/cask/docker raycast keka enpass slack
 # install betas
 brew install --cask  visual-studio-code@insiders
 
 if [ "$PERSONAL_COMPUTER" = true ]; then
-  brew install proton-drive proton-pass protonvpn lulu
-fi
-
-if [ "$USE_APP_STORE" = true ]; then
-  brew install mas
-  # Ids can be found in the URL of the Mac AppStore
-  # slack: 803453959
-  # Enpass: 455566716
-  # The Unarchiver: 425424353
-  # EasyRes: 688211836
-  mas install 803453959 455566716 425424353 688211836
-else
-  # EasyRes is not on Cask
-  brew install --cask the-unarchiver enpass slack
+  brew install proton-drive proton-pass protonvpn lulu discord
 fi
 
 # create default SSH key
@@ -171,6 +139,5 @@ fi
 echo "Things left to do:"
 printf "\t1. Don't forget to upload %s/.ssh/default to github: 'pbcopy < %s/.ssh/default.pub'" "$HOME" "$HOME"
 printf "\n\t2. (optional) Import PGP Key from Enpass with 'gpg --import private.key"
-if [ "$USE_APP_STORE" = false ]; then
-  printf "\n\t3. Install EasyRes: http://easyresapp.com"
-fi
+printf "\n\t3. Install EasyRes if needed: http://easyresapp.com"
+

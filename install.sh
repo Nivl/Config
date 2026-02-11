@@ -64,7 +64,7 @@ if [ ! -e "$GITCFG" ]; then
     printf "[include]\n\tpath = \"%s/My Drive/unix_conf/.gitconfig\"" "$HOME"
 
     if [ "$PERSONAL_COMPUTER" = true ]; then
-      printf "\n\n[user]\n\temail = melvin.wont.reply@gmail.com"
+      printf "\n\n[user]\n\temail = noreply@melvin.la"
       printf "\n\tname = Melvin"
       printf "\n\tsigningkey = 2C307E0D0413344B"
     else

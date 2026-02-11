@@ -94,18 +94,18 @@ fi
 eval "$(/opt/homebrew/bin/brew shellenv)"
  
 # install all softwares
-brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd
+brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd gh
 # fonts
 brew install font-fira-code-nerd-font
 # Install opinionated tools
 brew install go golangci-lint go-task/tap/go-task nvm pnpm
 # Install common apps
-brew install --cask zoom brave-browser warp homebrew/cask/docker raycast keka enpass slack
+brew install --cask zoom brave-browser warp homebrew/cask/docker raycast keka slack
 # install betas
 brew install --cask  visual-studio-code@insiders
 
 if [ "$PERSONAL_COMPUTER" = true ]; then
-  brew install proton-drive proton-pass protonvpn daisydisk lulu ente yaak discord
+  brew install proton-drive proton-pass protonvpn daisydisk lulu ente yaak discord enpass
 fi
 
 # create default SSH key
@@ -126,8 +126,40 @@ if [ ! -e "$HOME/.gnupg/gpg-agent.conf" ]; then
   gpg-agent --daemon
 fi
 
-echo "Things left to do:"
-printf "\t1. Don't forget to upload %s/.ssh/default to github: 'pbcopy < %s/.ssh/default.pub'" "$HOME" "$HOME"
-printf "\n\t2. (optional) Import PGP Key from Enpass with 'gpg --import private.key"
-printf "\n\t3. Install EasyRes if needed: http://easyresapp.com"
 
+SETUP_GITHUB=false
+if [ "$(gh auth status -a --json hosts --jq '.hosts["github.com"][0].state')" != "success" ]; then
+  while true; do
+    echo "Setup Github (y/n)? "
+    read -r answer
+
+    case ${answer:0:1} in
+      "y"|"Y" )
+          SETUP_GITHUB=true
+          gh auth login -w # will ask to upload the previously generated SSH key to Github, and set it as default for git operations
+          break
+      ;;
+      "n"|"N" )
+          break
+      ;;
+      * )
+          echo "Invalid value"
+      ;;
+    esac
+  done
+else 
+  SETUP_GITHUB=true
+fi
+
+echo "Things left to do:"
+
+if [ "$SETUP_GITHUB" = false ]; then
+  printf "\t1* Upload %s/.ssh/default to your Cloud VCS: 'pbcopy < %s/.ssh/default.pub'" "$HOME" "$HOME"
+fi
+
+easyRes=$(mdfind "kMDItemKind == 'Application'" | grep -iF "EasyRes")
+if [ $? -eq 1 ]; then
+  printf "\n\t* (optional) Install EasyRes if needed: http://easyresapp.com"
+fi
+
+printf "\n\t* (optional) Import PGP Key from Enpass with 'gpg --import private.key"

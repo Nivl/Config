@@ -89,15 +89,9 @@ fi
 # install brew
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-IS_ARM=true
-if [ ! -e "/opt/homebrew/" ]; then
-  IS_ARM=false
-fi
 
-if [ "$IS_ARM" = true ]; then
-  (echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> "$HOME/.zprofile"
-  eval "$(/opt/homebrew/bin/brew shellenv)"
-fi
+(echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> "$HOME/.zprofile"
+eval "$(/opt/homebrew/bin/brew shellenv)"
  
 # install all softwares
 brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd
@@ -127,10 +121,6 @@ fi
 if [ ! -e "$HOME/.gnupg/gpg-agent.conf" ]; then
   mkdir -p "$HOME/.gnupg"
   P="/opt/homebrew/bin/pinentry-mac"
-  if [ "$IS_ARM" = false ]; then
-    P="/usr/local/bin/pinentry-mac"
-    echo "Not an ARM mac, using $P"
-  fi
   echo "pinentry-program $P" > "$HOME/.gnupg/gpg-agent.conf"
   killall gpg-agent
   gpg-agent --daemon

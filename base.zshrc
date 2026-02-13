@@ -4,6 +4,7 @@
 BREW_PATH=$(brew --prefix)
 
 zstyle ':completion:*' special-dirs true
+zstyle ':omz:update' mode disabled # Updates should be done manually
 
 export ZSH=$HOME/.oh-my-zsh
 ZSH_THEME="nivl"
@@ -77,7 +78,7 @@ alias rm='rm -i'
 alias reload=". $HOME/.zshrc"
 alias extract-pkg="pkgutil --expand-full " # usage extract-pkg [pkg] [out_dir]
 
-alias lsd='lsd --config-file="$HOME/My Drive/unix_conf/lsd.yaml"'
+alias lsd='lsd --config-file="$HOME/.melvin/config/lsd.yaml"'
 alias ls='lsd -hF'
 alias lt='lsd --tree'
 alias ll='lsd -l'

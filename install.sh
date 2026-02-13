@@ -1,27 +1,96 @@
 #!/bin/bash
 
-PERSONAL_COMPUTER=false
+if [ -z "$PERSONAL_COMPUTER" ]; then
+  PERSONAL_COMPUTER=false
+  while true; do
+    echo "Is this for a personal computer (y/n)? "
+    read -r answer
+
+    case ${answer:0:1} in
+      "y"|"Y" )
+          PERSONAL_COMPUTER=true
+          break
+      ;;
+      "n"|"N" )
+          break
+      ;;
+      * )
+          printf "Invalid value\n"
+      ;;
+    esac
+  done
+fi
+
+SKIP_EXISTING_CONFIG_FILES=false
 while true; do
-  echo "Is this for a personal computer (y/n)? "
+  printf "Do you want to skip copying existing config files (y/n)? "
   read -r answer
 
   case ${answer:0:1} in
     "y"|"Y" )
-        PERSONAL_COMPUTER=true
+        SKIP_EXISTING_CONFIG_FILES=true
         break
     ;;
     "n"|"N" )
         break
     ;;
     * )
-        echo "Invalid value"
+        printf "Invalid value\n"
     ;;
   esac
 done
 
+# install brew if not already installed
+if [ -z "$HOMEBREW_PREFIX" ]; then
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+  (echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> "$HOME/.zprofile"
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
+# install/Update all softwares
+brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd gh
+# fonts
+brew install font-fira-code-nerd-font
+# Install opinionated tools
+brew install go golangci-lint go-task/tap/go-task nvm pnpm
+# Install common apps
+brew install --cask zoom brave-browser warp homebrew/cask/docker raycast keka slack
+# install betas
+brew install --cask visual-studio-code@insiders
+
+if [ "$PERSONAL_COMPUTER" = true ]; then
+  brew install --cask proton-drive proton-pass protonvpn daisydisk lulu ente yaak discord enpass
+fi
+
+# create default SSH key
+if [ ! -e "$HOME/.ssh/default.pub" ]; then
+  ssh-keygen -o -a 100 -t ed25519 -f "$HOME/.ssh/default"
+fi
+if [ ! -e "$HOME/.ssh/config" ]; then
+  echo "IdentityFile $HOME/.ssh/default" > "$HOME/.ssh/config"
+fi
+
+CONFIG_DIR="$HOME/.melvin/config"
+
+# Clone/update the repository
+if [ ! -d "$CONFIG_DIR" ]; then
+  mkdir -p "$CONFIG_DIR"
+  cd "$CONFIG_DIR" || exit 1
+  git clone git@github.com:Nivl/Config.git .
+else
+  cd "$CONFIG_DIR" || exit 1
+  if [ -z "$(git status --porcelain)" ]; then 
+   git pull
+  else 
+    printf "Your config repository has uncommited changes, please commit or stash them before we can update\n"
+  fi
+fi
+
+# TODO(melvin):
+# Enable auto update.
+
 # Copy the config files over
-CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-CONF_DIR=$CURRENT_DIR
 FILES=(
   ".oh-my-zsh"
   ".emacs.d"
@@ -29,19 +98,45 @@ FILES=(
   ".golangci.yml"
 )
 for FILE_NAME in "${FILES[@]}"; do
-  SOURCE="$CONF_DIR/$FILE_NAME"
+  SOURCE="$CONFIG_DIR/$FILE_NAME"
   TARGET="$HOME/$FILE_NAME"
 
-  # if the target exists and is not a symlink we back it up
-  if [ -e "$TARGET" ] && [ ! -L "$TARGET" ]; then
-    mv "$TARGET" "$TARGET.bpk"
-  else
-    # otherwise we just delete it
-    rm -rf "$TARGET"
-  fi
+  if [ "$SKIP_EXISTING_CONFIG_FILES" = false ]; then
+    if [ -e "$TARGET" ]; then
+      while true; do
+        printf "%s already exists\n" "$TARGET"
+        printf "\t1) Backup and Overwrite\n"
+        printf "\t2) Overwrite\n"
+        printf "\t3) Skip\n"
+        read -r answer
 
-  # link the files
-  ln -s "$SOURCE" "$TARGET"
+        case ${answer:0:1} in
+          "1" )
+              if [ -e "$TARGET.bpk" ]; then
+                rm -rf "$TARGET.bpk"
+              fi
+              mv "$TARGET" "$TARGET.bpk"
+              ln -s "$SOURCE" "$TARGET"
+              break
+          ;;
+          "2" )
+              rm -rf "$TARGET"
+              ln -s "$SOURCE" "$TARGET"
+              break
+          ;;
+          "3" )
+              printf "Skipping\n"
+              break
+          ;;
+          * )
+              printf "Invalid value\n"
+          ;;
+        esac
+      done
+    else 
+      ln -s "$SOURCE" "$TARGET"
+    fi
+  fi
 done
 
 mkdir -p "$HOME/.emacs-saves"
@@ -50,10 +145,11 @@ mkdir -p "$HOME/.emacs-saves"
 ZSHRC="$HOME/.zshrc"
 if [ ! -e "$ZSHRC" ]; then
   {
-    printf "source \"\$HOME/My Drive/unix_conf/base.zshrc\""
+    printf "source \"\$HOME/.melvin/config/base.zshrc\""
     printf "\n"
     printf "\nexport GIT_HOST=\"git@github.com\""
     printf "\nexport GIT_CLONE_USER_NAME=\"Nivl\""
+    printf "\nexport PERSONAL_COMPUTER=\"%s\"" "$PERSONAL_COMPUTER"
   } > "$ZSHRC"
 fi
 
@@ -61,7 +157,7 @@ fi
 GITCFG="$HOME/.gitconfig"
 if [ ! -e "$GITCFG" ]; then
   {
-    printf "[include]\n\tpath = \"%s/My Drive/unix_conf/.gitconfig\"" "$HOME"
+    printf "[include]\n\tpath = \"%s/.melvin/config/.gitconfig\"" "$HOME"
 
     if [ "$PERSONAL_COMPUTER" = true ]; then
       printf "\n\n[user]\n\temail = noreply@melvin.la"
@@ -86,41 +182,11 @@ if [ ! -e "$GITCFG" ]; then
   } > "$GITCFG"
 fi
 
-# install brew
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-
-(echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> "$HOME/.zprofile"
-eval "$(/opt/homebrew/bin/brew shellenv)"
- 
-# install all softwares
-brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd gh
-# fonts
-brew install font-fira-code-nerd-font
-# Install opinionated tools
-brew install go golangci-lint go-task/tap/go-task nvm pnpm
-# Install common apps
-brew install --cask zoom brave-browser warp homebrew/cask/docker raycast keka slack
-# install betas
-brew install --cask  visual-studio-code@insiders
-
-if [ "$PERSONAL_COMPUTER" = true ]; then
-  brew install proton-drive proton-pass protonvpn daisydisk lulu ente yaak discord enpass
-fi
-
-# create default SSH key
-if [ ! -e "$HOME/.ssh/default.pub" ]; then
-  ssh-keygen -o -a 100 -t ed25519 -f "$HOME/.ssh/default"
-fi
-if [ ! -e "$HOME/.ssh/config" ]; then
-  echo "IdentityFile $HOME/.ssh/default" > "$HOME/.ssh/config"
-fi
-
 # Setup default gpg config
 # https://dev.to/wes/how2-using-gpg-on-macos-without-gpgtools-428f
 if [ ! -e "$HOME/.gnupg/gpg-agent.conf" ]; then
   mkdir -p "$HOME/.gnupg"
-  P="/opt/homebrew/bin/pinentry-mac"
+  P="$HOMEBREW_PREFIX/bin/pinentry-mac"
   echo "pinentry-program $P" > "$HOME/.gnupg/gpg-agent.conf"
   killall gpg-agent
   gpg-agent --daemon

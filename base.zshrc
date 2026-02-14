@@ -1,7 +1,4 @@
 #!/bin/env zsh
-# ZSH conf
-
-BREW_PATH=$(brew --prefix)
 
 zstyle ':completion:*' special-dirs true
 zstyle ':omz:update' mode disabled # Updates should be done manually
@@ -21,232 +18,55 @@ fpath=(/usr/local/share/zsh-completions $fpath)
 
 # Path to your oh-my-zsh configuration.
 source "$ZSH/oh-my-zsh.sh"
-source $BREW_PATH/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+source $HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 export C_INCLUDE_PATH=/usr/local/include
 # export MANPATH="/:$MANPATH"
 
 export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export PATH=$HOME/.local/bin:$PATH
-export PATH="$BREW_PATH/bin:$PATH"
-export PATH="$BREW_PATH/sbin:$PATH"
+export PATH="$HOMEBREW_PREFIX/bin:$PATH"
+export PATH="$HOMEBREW_PREFIX/sbin:$PATH"
 
-# Shared
-export PATH=$HOME/.bin-remote:$PATH
+_melvin_check_update() {
+    local current_time=$(date +%s)
+    local last_check=0
 
-# All the stuff installed by brew, that needs their bin directories
-# to be added to PATH
-brew_installed=(
-    'rustup' # rust
-    # libpq conflicts with the package postgres.
-    # libpq only has client tools (psql, pq_dump, etc) while postgres
-    # has everything
-    'libpq'
-)
-for package in $brew_installed; do
-  export PATH="$(brew --prefix $package)/bin:$PATH"
-done
+    _melvin_config_dir="$HOME/.melvin/config"
+    _melvin_update_check_file="$_melvin_config_dir/.last_update_check"
+    _melvin_two_weeks=$((14 * 24 * 60 * 60))
 
-# Go
-mkdir -p $HOME/.go
-export GOPATH=$HOME/.go
-export PATH=$PATH:$GOPATH/bin
-
-# GNU grep
-if [ -d "$(brew --prefix grep)" ]; then
-    export PATH="$(brew --prefix grep)/libexec/gnubin:$PATH"
-fi
-
-# google cloud
-# https://cloud.google.com/sdk/docs/install
-if [ -d "$HOME/google-cloud-sdk" ]; then
-    export PATH="$HOME/google-cloud-sdk/bin:$PATH"
-fi
-
-# Node
-mkdir -p $HOME/.nvm
-export NVM_DIR=~/.nvm
-if [ -e "$(brew --prefix nvm)/nvm.sh" ]; then
-  source $(brew --prefix nvm)/nvm.sh
-fi
-
-alias emacs='\emacs -nw'
-alias cd..='cd ..'
-alias lss='less'
-alias grep='grep --color'
-alias rm='rm -i'
-alias reload=". $HOME/.zshrc"
-alias extract-pkg="pkgutil --expand-full " # usage extract-pkg [pkg] [out_dir]
-
-alias lsd='lsd --config-file="$HOME/.melvin/config/lsd.yaml"'
-alias ls='lsd -hF'
-alias lt='lsd --tree'
-alias ll='lsd -l'
-alias lla='lsd -la'
-alias lla='lsd -la'
-alias la='lsd -a'
-alias prs='gh pr list --author "@me"'
-alias pr='gh pr'
-
-export EDITOR='emacs'
-export PAGER='less'
-export LESS="R --quit-if-one-screen"
-export CLICOLOR=1
-
-# record terminal to file
-function rec {
-    local dir="$HOME/Documents/term_rec"
-
-    if [ -z "$1" ]; then
-        echo "usage: rec [-adkpqr] [-F pipe] [-t time] output-file-name"
+    if [[ -f "$_melvin_update_check_file" ]]; then
+        last_check=$(cat "$_melvin_update_check_file")
     fi
 
-    local flags
-    local outfile=$1
+    if (( current_time - last_check >= _melvin_two_weeks )); then
+        # part of this logic is also in install.sh
+        #
+        # It's a bit hacky to add the time BEFORE the update, but it's
+        # to handle the case where we open multiple shell at the same time.
+        # it may not work perfectly well, but that better than nothing.
+        echo "$current_time" > "$_melvin_update_check_file"
 
-    if [ "${#@[*]}" -gt "1" ]; then
-        flags="${@:1:$#@-1}"
-        outfile=${*:$#}
-    fi
-
-    mkdir -p "$dir"
-
-    script $flags "$dir/$outfile"
-}
-
-function findport {
-    if [ -z "$1" ]; then
-        echo "usage: findport port-number"
-    fi
-
-    lsof -nP -i4TCP:$1 | grep LISTEN
-}
-
-function erase {
-    if [ -z "$1" ]; then
-        echo "usage: erase _directory_"
-    fi
-
-    mkdir -p trash
-
-    # mkdir -p trash ; rsync -a --delete trash/ "$1" && rmdir trash
-    for dir in "$@"
-    do
-       rsync -aP --delete trash/ "$dir"
-       rmdir "$dir"
-    done
-
-    rm -rf trash
-}
-
-function code {
-    if [[ "$(command -v code)" == /* ]]; then
-        command code "$@"
-    else
-        code-insiders "$@"
+        while true; do
+            echo -n "Would you like to update your config? (Y/N): "
+            read answer
+            case "$answer" in
+                "y"|"Y" )
+                    sh "$_melvin_config_dir/install.sh"
+                    break
+                    ;;
+                "n"|"N" )
+                    break
+                    ;;
+                * )
+                    echo "Please answer Y or N."
+                    ;;
+            esac
+        done
     fi
 }
 
-function is-go-repo {
-    return $(test -e "go.mod")
-}
+_melvin_check_update
 
-# TODO(melvin): figure out a clean not-too-hacky way to clean that up
-function run {
-    if [ -e ".nvmrc" ]; then
-        nvm install
-    fi
-
-    if [ -e "yarn.lock" ]; then
-        yarn "$@"
-    elif [ -e "pnpm-lock.yaml" ]; then
-        pnpm "$@"
-    elif [ -e "nx.json" ]; then
-        nx "$@"
-    elif [ -e "bun.lock" ]; then
-        bun run "$@"
-    elif [ -e "package-lock.json" ]; then
-        npm run "$@"
-    elif [ -e "Makefile" ]; then
-        make "$@"
-    elif is-go-repo; then
-        task "$@"
-    elif [ -e "manage.py" ]; then
-        python manage.py "$@"
-    else
-        echo "Nothing to run"
-        return 1
-    fi
-}
-
-function add {
-    if [ -e "yarn.lock" ]; then
-        yarn add "$@"
-    elif [ -e "pnpm-lock.yaml" ]; then
-        pnpm add "$@"
-    elif [ -e "bun.lock" ]; then
-        bun add "$@"
-    elif [ -e "package-lock.json" ]; then
-        npm install "$@"
-    elif is-go-repo; then
-        go get "$@"
-    elif [ -d ".venv" ]; then
-        pip install "$@"
-        pip freeze > requirements.txt
-    else
-        echo "Nothing to run"
-        return 1
-    fi
-}
-
-function install {
-    if [ -e "yarn.lock" ]; then
-        yarn install
-    elif [ -e "pnpm-lock.yaml" ]; then
-        pnpm install
-    elif [ -e "bun.lock" ]; then
-        bun install
-    elif [ -e "package-lock.json" ]; then
-        npm install
-    elif [ -e "go.mod" ]; then
-        go mod tidy
-    elif [ -d ".venv" ]; then
-        pip freeze > requirements.txt
-    else
-        echo "Nothing to run"
-        return 1
-    fi
-}
-
-function lint {
-    if [ -e "Makefile" ]; then
-        make lint "$@"
-    elif is-go-repo; then
-        golangci-lint run ./... "$@"
-    else
-        run lint "$@"
-    fi
-}
-
-function cl() {
-    if [ -z "$1" ]; then
-        echo "cl <repo-name | user/repo-name>"
-    fi
-
-    local host="${GIT_HOST:-git@github.com}"
-    local user="${GIT_CLONE_USER_NAME:-Nivl}"
-
-    local repo="$user/$1"
-    if [[ "$1" =~ '/' ]]; then
-         repo="$1"
-    fi
-
-    git clone "$host:$repo.git"
-    cd "$1"
-}
-
-function keygen() {
-    local size="${1:-32}"
-
-    print $(cat /dev/urandom | LC_ALL=C tr -dc 'a-zA-Z0-9' | fold -w "$size" | head -n 1)
-}
+source $HOME/.melvin/config/config.zshrc

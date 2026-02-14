@@ -3,7 +3,7 @@
 if [ -z "$PERSONAL_COMPUTER" ]; then
   PERSONAL_COMPUTER=false
   while true; do
-    echo "Is this for a personal computer (y/n)? "
+    printf "Is this for a personal computer (y/n)? "
     read -r answer
 
     case ${answer:0:1} in
@@ -19,6 +19,7 @@ if [ -z "$PERSONAL_COMPUTER" ]; then
       ;;
     esac
   done
+  printf "\nexport PERSONAL_COMPUTER=%s" $PERSONAL_COMPUTER > "$HOME/.zprofile"
 fi
 
 SKIP_EXISTING_CONFIG_FILES=false
@@ -72,6 +73,8 @@ if [ ! -e "$HOME/.ssh/config" ]; then
 fi
 
 CONFIG_DIR="$HOME/.melvin/config"
+GH_STATUS=$(gh auth status -a --json hosts --jq '.hosts["github.com"][0].state')
+GH_ACCOUNT=$(gh auth status -a --json hosts --jq '.hosts["github.com"][0].login')
 
 # Clone/update the repository
 if [ ! -d "$CONFIG_DIR" ]; then
@@ -81,7 +84,15 @@ if [ ! -d "$CONFIG_DIR" ]; then
 else
   cd "$CONFIG_DIR" || exit 1
   if [ -z "$(git status --porcelain)" ]; then 
-   git pull
+    git pull
+    if [ "$GH_STATUS" == "success" ] && [ "$GH_ACCOUNT" != "Nivl" ]; then
+      omz update
+      if [ ! -z "$(git status --porcelain)" ]; then 
+        git add .oh-my-zsh
+        git commit -m "update omz"
+        git push
+      fi
+    fi
   else 
     printf "Your config repository has uncommited changes, please commit or stash them before we can update\n"
   fi
@@ -144,11 +155,72 @@ mkdir -p "$HOME/.emacs-saves"
 # if we don't have a base .zshrc, we create one with the default config
 ZSHRC="$HOME/.zshrc"
 if [ ! -e "$ZSHRC" ]; then
+  GIT_CLONE_USER_NAME=Nivl
+  if [ "$PERSONAL_COMPUTER" != true ]; then
+    while true; do
+      printf "What is the name of the git org? "
+      read -r answer
+  
+      case ${answer} in
+        "" )
+        ;;
+        * )
+            GIT_CLONE_USER_NAME="$answer"
+            break
+        ;;
+      esac
+    done
+  fi
+
+  GIT_HOST="git@github.com"
+  while true; do
+    printf "Pick the git server\n"
+    printf "\t1) GitHub\n"
+    printf "\t2) Bitbucket\n"
+    printf "\t3) Gitlab\n"
+    printf "\t4) Custom\n"
+    read -r answer
+
+    case ${answer:0:1} in
+      "1" )
+          GIT_HOST="git@github.com"
+          break
+      ;;
+      "2" )
+          GIT_HOST="git@bitbucket.org"
+          break
+      ;;
+      "3" )
+          GIT_HOST="git@gitlab.com"
+          break
+      ;;
+      "4" )
+          while true; do
+            printf "Type the URL of the git server (usually in the form of git@github.com): "
+            read -r answer_2
+        
+            case ${answer_2} in
+              "" )
+              ;;
+              * )
+                  GIT_HOST="$answer_2"
+                  break
+              ;;
+            esac
+          done
+          break
+      ;;
+      * )
+          printf "Invalid value\n"
+      ;;
+    esac
+  done
+
   {
     printf "source \"\$HOME/.melvin/config/base.zshrc\""
     printf "\n"
-    printf "\nexport GIT_HOST=\"git@github.com\""
-    printf "\nexport GIT_CLONE_USER_NAME=\"Nivl\""
+    printf "\nexport GIT_HOST=\"%s\"" "$GIT_HOST"
+    printf "\nexport GIT_CLONE_USER_NAME=\"%s\"" "$GIT_CLONE_USER_NAME"
     printf "\nexport PERSONAL_COMPUTER=\"%s\"" "$PERSONAL_COMPUTER"
   } > "$ZSHRC"
 fi
@@ -192,9 +264,8 @@ if [ ! -e "$HOME/.gnupg/gpg-agent.conf" ]; then
   gpg-agent --daemon
 fi
 
-
 SETUP_GITHUB=false
-if [ "$(gh auth status -a --json hosts --jq '.hosts["github.com"][0].state')" != "success" ]; then
+if [ "$GH_STATUS" != "success" ]; then
   while true; do
     echo "Setup Github (y/n)? "
     read -r answer
@@ -216,6 +287,11 @@ if [ "$(gh auth status -a --json hosts --jq '.hosts["github.com"][0].state')" !=
 else 
   SETUP_GITHUB=true
 fi
+
+
+# Let's make sure we update the config files
+# part of this logic is also in base.zshrc
+date +%s > "$CONFIG_DIR/.last_update_check"
 
 echo "Things left to do:"
 

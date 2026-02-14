@@ -1,233 +1,292 @@
 #!/bin/bash
 
-if [ -z "$PERSONAL_COMPUTER" ]; then
-  PERSONAL_COMPUTER=false
-  while true; do
-    printf "Is this for a personal computer (y/n)? "
-    read -r answer
+set -e  # Exit on error
 
-    case ${answer:0:1} in
-      "y"|"Y" )
-          PERSONAL_COMPUTER=true
-          break
-      ;;
-      "n"|"N" )
-          break
-      ;;
-      * )
-          printf "Invalid value\n"
-      ;;
-    esac
-  done
-  printf "\nexport PERSONAL_COMPUTER=%s" $PERSONAL_COMPUTER > "$HOME/.zprofile"
-fi
-
-SKIP_EXISTING_CONFIG_FILES=false
-while true; do
-  printf "Do you want to skip copying existing config files (y/n)? "
-  read -r answer
-
-  case ${answer:0:1} in
-    "y"|"Y" )
-        SKIP_EXISTING_CONFIG_FILES=true
-        break
-    ;;
-    "n"|"N" )
-        break
-    ;;
-    * )
-        printf "Invalid value\n"
-    ;;
-  esac
-done
-
-# install brew if not already installed
-if [ -z "$HOMEBREW_PREFIX" ]; then
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-  (echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> "$HOME/.zprofile"
-  eval "$(/opt/homebrew/bin/brew shellenv)"
-fi
-
-# install/Update all softwares
-brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd gh
-# fonts
-brew install font-fira-code-nerd-font
-# Install opinionated tools
-brew install go golangci-lint go-task/tap/go-task nvm pnpm
-# Install common apps
-brew install --cask zoom brave-browser warp homebrew/cask/docker raycast keka slack
-# install betas
-brew install --cask visual-studio-code@insiders
-
-if [ "$PERSONAL_COMPUTER" = true ]; then
-  brew install --cask proton-drive proton-pass protonvpn daisydisk lulu ente yaak discord enpass
-fi
-
-# create default SSH key
-if [ ! -e "$HOME/.ssh/default.pub" ]; then
-  ssh-keygen -o -a 100 -t ed25519 -f "$HOME/.ssh/default"
-fi
-if [ ! -e "$HOME/.ssh/config" ]; then
-  echo "IdentityFile $HOME/.ssh/default" > "$HOME/.ssh/config"
-fi
+# =============================================================================
+# Configuration
+# =============================================================================
 
 CONFIG_DIR="$HOME/.melvin/config"
-GH_STATUS=$(gh auth status -a --json hosts --jq '.hosts["github.com"][0].state')
-GH_ACCOUNT=$(gh auth status -a --json hosts --jq '.hosts["github.com"][0].login')
+ZSHRC="$HOME/.zshrc"
+GITCFG="$HOME/.gitconfig"
 
-# Clone/update the repository
-if [ ! -d "$CONFIG_DIR" ]; then
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+# Prompt for yes/no input, returns 0 for yes, 1 for no
+ask_yes_no() {
+  local prompt="$1"
+  while true; do
+    printf "%s (y/n)? " "$prompt"
+    read -r answer
+    case ${answer:0:1} in
+      "y"|"Y") return 0 ;;
+      "n"|"N") return 1 ;;
+      *) printf "Invalid value\n" ;;
+    esac
+  done
+}
+
+# Prompt for non-empty text input
+ask_input() {
+  local prompt="$1"
+  local result=""
+  while true; do
+    printf "%s " "$prompt" >&2
+    read -r result
+    if [ -n "$result" ]; then
+      echo "$result"
+      return
+    fi
+  done
+}
+
+# =============================================================================
+# Setup Functions
+# =============================================================================
+
+setup_personal_computer_flag() {
+  if [ -n "$PERSONAL_COMPUTER" ]; then
+    return
+  fi
+
+  PERSONAL_COMPUTER=false
+  if ask_yes_no "Is this for a personal computer"; then
+    PERSONAL_COMPUTER=true
+  fi
+  printf "\nexport PERSONAL_COMPUTER=%s" "$PERSONAL_COMPUTER" > "$HOME/.zprofile"
+}
+
+setup_skip_existing_flag() {
+  SKIP_CONFIG_FILE_SETUP=false
+  if ask_yes_no "Do you want to skip existing config files without prompting"; then
+    SKIP_CONFIG_FILE_SETUP=true
+  fi
+}
+
+# =============================================================================
+# Installation Functions
+# =============================================================================
+
+install_homebrew() {
+  if [ -n "$HOMEBREW_PREFIX" ]; then
+    return
+  fi
+
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  (echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> "$HOME/.zprofile"
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+}
+
+install_packages() {
+  # Core utilities
+  brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd gh
+
+  # Fonts
+  brew install font-fira-code-nerd-font
+
+  # Development tools
+  brew install go golangci-lint go-task/tap/go-task nvm pnpm
+
+  # Common apps
+  brew install --cask zoom brave-browser warp docker raycast keka slack
+
+  # Beta apps
+  brew install --cask visual-studio-code@insiders
+
+  # Personal apps
+  if [ "$PERSONAL_COMPUTER" = true ]; then
+    brew install --cask proton-drive proton-pass protonvpn daisydisk lulu ente yaak discord enpass
+  fi
+}
+
+# =============================================================================
+# SSH Functions
+# =============================================================================
+
+setup_ssh() {
+  # Ensure .ssh directory exists with proper permissions
+  if [ ! -d "$HOME/.ssh" ]; then
+    mkdir -p "$HOME/.ssh"
+    chmod 700 "$HOME/.ssh"
+  fi
+
+  if [ ! -e "$HOME/.ssh/default.pub" ]; then
+    ssh-keygen -o -a 100 -t ed25519 -f "$HOME/.ssh/default"
+  fi
+
+  if [ ! -e "$HOME/.ssh/config" ]; then
+    echo "IdentityFile $HOME/.ssh/default" > "$HOME/.ssh/config"
+  fi
+}
+
+# =============================================================================
+# Repository Functions
+# =============================================================================
+
+clone_config_repo() {
   mkdir -p "$CONFIG_DIR"
   cd "$CONFIG_DIR" || exit 1
   git clone git@github.com:Nivl/Config.git .
-else
+}
+
+update_config_repo() {
   cd "$CONFIG_DIR" || exit 1
-  if [ -z "$(git status --porcelain)" ]; then 
-    git pull
-    if [ "$GH_STATUS" == "success" ] && [ "$GH_ACCOUNT" != "Nivl" ]; then
-      omz update
-      if [ ! -z "$(git status --porcelain)" ]; then 
-        git add .oh-my-zsh
-        git commit -m "update omz"
-        git push
-      fi
-    fi
-  else 
+
+  if [ -n "$(git status --porcelain)" ]; then
     printf "Your config repository has uncommited changes, please commit or stash them before we can update\n"
+    return
   fi
-fi
 
-# TODO(melvin):
-# Enable auto update.
+  git pull
 
-# Copy the config files over
-FILES=(
-  ".oh-my-zsh"
-  ".emacs.d"
-  ".bin-remote"
-  ".golangci.yml"
-)
-for FILE_NAME in "${FILES[@]}"; do
-  SOURCE="$CONFIG_DIR/$FILE_NAME"
-  TARGET="$HOME/$FILE_NAME"
-
-  if [ "$SKIP_EXISTING_CONFIG_FILES" = false ]; then
-    if [ -e "$TARGET" ]; then
-      while true; do
-        printf "%s already exists\n" "$TARGET"
-        printf "\t1) Backup and Overwrite\n"
-        printf "\t2) Overwrite\n"
-        printf "\t3) Skip\n"
-        read -r answer
-
-        case ${answer:0:1} in
-          "1" )
-              if [ -e "$TARGET.bpk" ]; then
-                rm -rf "$TARGET.bpk"
-              fi
-              mv "$TARGET" "$TARGET.bpk"
-              ln -s "$SOURCE" "$TARGET"
-              break
-          ;;
-          "2" )
-              rm -rf "$TARGET"
-              ln -s "$SOURCE" "$TARGET"
-              break
-          ;;
-          "3" )
-              printf "Skipping\n"
-              break
-          ;;
-          * )
-              printf "Invalid value\n"
-          ;;
-        esac
-      done
-    else 
-      ln -s "$SOURCE" "$TARGET"
+  # Update oh-my-zsh if authenticated as owner
+  if [ "$GH_STATUS" == "success" ] && [ "$GH_ACCOUNT" == "Nivl" ]; then
+    omz update
+    if [ -n "$(git status --porcelain)" ]; then
+      git add .oh-my-zsh
+      git commit -m "update omz"
+      git push
     fi
   fi
-done
+}
 
-mkdir -p "$HOME/.emacs-saves"
-
-# if we don't have a base .zshrc, we create one with the default config
-ZSHRC="$HOME/.zshrc"
-if [ ! -e "$ZSHRC" ]; then
-  GIT_CLONE_USER_NAME=Nivl
-  if [ "$PERSONAL_COMPUTER" != true ]; then
-    while true; do
-      printf "What is the name of the git org? "
-      read -r answer
-  
-      case ${answer} in
-        "" )
-        ;;
-        * )
-            GIT_CLONE_USER_NAME="$answer"
-            break
-        ;;
-      esac
-    done
+setup_config_repo() {
+  if [ ! -d "$CONFIG_DIR" ]; then
+    clone_config_repo
+  else
+    update_config_repo
   fi
+}
 
-  GIT_HOST="git@github.com"
+# =============================================================================
+# Config File Functions
+# =============================================================================
+
+handle_existing_file() {
+  local source="$1"
+  local target="$2"
+
   while true; do
-    printf "Pick the git server\n"
-    printf "\t1) GitHub\n"
-    printf "\t2) Bitbucket\n"
-    printf "\t3) Gitlab\n"
-    printf "\t4) Custom\n"
+    printf "%s already exists\n" "$target"
+    printf "\t1) Backup and Overwrite\n"
+    printf "\t2) Overwrite\n"
+    printf "\t3) Skip\n"
     read -r answer
 
     case ${answer:0:1} in
-      "1" )
-          GIT_HOST="git@github.com"
-          break
-      ;;
-      "2" )
-          GIT_HOST="git@bitbucket.org"
-          break
-      ;;
-      "3" )
-          GIT_HOST="git@gitlab.com"
-          break
-      ;;
-      "4" )
-          while true; do
-            printf "Type the URL of the git server (usually in the form of git@github.com): "
-            read -r answer_2
-        
-            case ${answer_2} in
-              "" )
-              ;;
-              * )
-                  GIT_HOST="$answer_2"
-                  break
-              ;;
-            esac
-          done
-          break
-      ;;
-      * )
-          printf "Invalid value\n"
-      ;;
+      "1")
+        [ -e "$target.bpk" ] && rm -rf "$target.bpk"
+        mv "$target" "$target.bpk"
+        ln -s "$source" "$target"
+        break
+        ;;
+      "2")
+        rm -rf "$target"
+        ln -s "$source" "$target"
+        break
+        ;;
+      "3")
+        printf "Skipping\n"
+        break
+        ;;
+      *)
+        printf "Invalid value\n"
+        ;;
     esac
   done
+}
+
+copy_config_files() {
+  local files=(
+    ".oh-my-zsh"
+    ".emacs.d"
+    ".bin-remote"
+    ".golangci.yml"
+  )
+
+  for file_name in "${files[@]}"; do
+    local source="$CONFIG_DIR/$file_name"
+    local target="$HOME/$file_name"
+
+    if [ -e "$target" ]; then
+      if [ "$SKIP_CONFIG_FILE_SETUP" = true ]; then
+        printf "Skipping existing %s\n" "$target"
+      else
+        handle_existing_file "$source" "$target"
+      fi
+    else
+      ln -s "$source" "$target"
+    fi
+  done
+
+  mkdir -p "$HOME/.emacs-saves"
+}
+
+# =============================================================================
+# Zshrc Functions
+# =============================================================================
+
+ask_git_org() {
+  if [ "$PERSONAL_COMPUTER" = true ]; then
+    echo "Nivl"
+    return
+  fi
+  ask_input "What is the name of the git org?"
+}
+
+ask_git_host() {
+  while true; do
+    printf "Pick the git server\n" >&2
+    printf "\t1) GitHub\n" >&2
+    printf "\t2) Bitbucket\n" >&2
+    printf "\t3) Gitlab\n" >&2
+    printf "\t4) Custom\n" >&2
+    read -r answer
+
+    case ${answer:0:1} in
+      "1") echo "git@github.com"; return ;;
+      "2") echo "git@bitbucket.org"; return ;;
+      "3") echo "git@gitlab.com"; return ;;
+      "4")
+        ask_input "Type the URL of the git server (usually in the form of git@github.com):"
+        return
+        ;;
+      *) printf "Invalid value\n" >&2 ;;
+    esac
+  done
+}
+
+setup_zshrc() {
+  if [ -e "$ZSHRC" ]; then
+    return
+  fi
+
+  local git_clone_user_name
+  local git_host
+
+  git_clone_user_name=$(ask_git_org)
+  git_host=$(ask_git_host)
 
   {
     printf "source \"\$HOME/.melvin/config/base.zshrc\""
     printf "\n"
-    printf "\nexport GIT_HOST=\"%s\"" "$GIT_HOST"
-    printf "\nexport GIT_CLONE_USER_NAME=\"%s\"" "$GIT_CLONE_USER_NAME"
+    printf "\nexport GIT_HOST=\"%s\"" "$git_host"
+    printf "\nexport GIT_CLONE_USER_NAME=\"%s\"" "$git_clone_user_name"
     printf "\nexport PERSONAL_COMPUTER=\"%s\"" "$PERSONAL_COMPUTER"
   } > "$ZSHRC"
-fi
+}
 
-# if we don't have a base .gitconfig, we create one with the default config
-GITCFG="$HOME/.gitconfig"
-if [ ! -e "$GITCFG" ]; then
+# =============================================================================
+# Gitconfig Functions
+# =============================================================================
+
+setup_gitconfig() {
+  if [ -e "$GITCFG" ]; then
+    return
+  fi
+
   {
     printf "[include]\n\tpath = \"%s/.melvin/config/.gitconfig\"" "$HOME"
 
@@ -252,56 +311,103 @@ if [ ! -e "$GITCFG" ]; then
       printf "\n\tgpgsign = false"
     fi
   } > "$GITCFG"
-fi
+}
 
-# Setup default gpg config
-# https://dev.to/wes/how2-using-gpg-on-macos-without-gpgtools-428f
-if [ ! -e "$HOME/.gnupg/gpg-agent.conf" ]; then
+# =============================================================================
+# GPG Functions
+# =============================================================================
+
+setup_gpg() {
+  # https://dev.to/wes/how2-using-gpg-on-macos-without-gpgtools-428f
+  if [ -e "$HOME/.gnupg/gpg-agent.conf" ]; then
+    return
+  fi
+
   mkdir -p "$HOME/.gnupg"
-  P="$HOMEBREW_PREFIX/bin/pinentry-mac"
-  echo "pinentry-program $P" > "$HOME/.gnupg/gpg-agent.conf"
+  local pinentry_path="$HOMEBREW_PREFIX/bin/pinentry-mac"
+  echo "pinentry-program $pinentry_path" > "$HOME/.gnupg/gpg-agent.conf"
   killall gpg-agent
   gpg-agent --daemon
-fi
+}
 
-SETUP_GITHUB=false
-if [ "$GH_STATUS" != "success" ]; then
-  while true; do
-    echo "Setup Github (y/n)? "
-    read -r answer
+# =============================================================================
+# GitHub Functions
+# =============================================================================
 
-    case ${answer:0:1} in
-      "y"|"Y" )
-          SETUP_GITHUB=true
-          gh auth login -w # will ask to upload the previously generated SSH key to Github, and set it as default for git operations
-          break
-      ;;
-      "n"|"N" )
-          break
-      ;;
-      * )
-          echo "Invalid value"
-      ;;
-    esac
-  done
-else 
-  SETUP_GITHUB=true
-fi
+setup_github() {
+  SETUP_GITHUB=false
 
+  if [ "$GH_STATUS" = "success" ]; then
+    SETUP_GITHUB=true
+    return
+  fi
 
-# Let's make sure we update the config files
-# part of this logic is also in base.zshrc
-date +%s > "$CONFIG_DIR/.last_update_check"
+  if ask_yes_no "Setup Github"; then
+    SETUP_GITHUB=true
+    gh auth login -w  # will ask to upload the previously generated SSH key to Github
+  fi
+}
 
-echo "Things left to do:"
+# =============================================================================
+# Final Tasks
+# =============================================================================
 
-if [ "$SETUP_GITHUB" = false ]; then
-  printf "\t1* Upload %s/.ssh/default to your Cloud VCS: 'pbcopy < %s/.ssh/default.pub'" "$HOME" "$HOME"
-fi
+print_remaining_tasks() {
+  echo "Things left to do:"
 
-easyRes=$(mdfind "kMDItemKind == 'Application'" | grep -iF "EasyRes")
-if [ $? -eq 1 ]; then
-  printf "\n\t* (optional) Install EasyRes if needed: http://easyresapp.com"
-fi
+  if [ "$SETUP_GITHUB" = false ]; then
+    printf "\t* Upload %s/.ssh/default to your Cloud VCS: 'pbcopy < %s/.ssh/default.pub'\n" "$HOME" "$HOME"
+  fi
 
-printf "\n\t* (optional) Import PGP Key from Enpass with 'gpg --import private.key"
+  if ! mdfind "kMDItemKind == 'Application'" | grep -iF "EasyRes" > /dev/null 2>&1; then
+    printf "\t* (optional) Install EasyRes if needed: http://easyresapp.com\n"
+  fi
+
+  printf "\t* (optional) Import PGP Key from Enpass with 'gpg --import private.key'\n"
+}
+
+# =============================================================================
+# Main
+# =============================================================================
+
+main() {
+  # Initial setup prompts
+  setup_personal_computer_flag
+  setup_skip_existing_flag
+
+  # Install dependencies
+  install_homebrew
+  install_packages
+
+  # Setup SSH
+  setup_ssh
+
+  # Get GitHub status for later use
+  GH_STATUS=$(gh auth status -a --json hosts --jq '.hosts["github.com"][0].state')
+  GH_ACCOUNT=$(gh auth status -a --json hosts --jq '.hosts["github.com"][0].login')
+
+  # Setup config repository
+  setup_config_repo
+
+  # Copy config files
+  copy_config_files
+
+  # Setup shell and git configs
+  setup_zshrc
+  setup_gitconfig
+
+  # Setup GPG
+  setup_gpg
+
+  # Setup GitHub
+  setup_github
+
+  # Update last check timestamp
+  date +%s > "$CONFIG_DIR/.last_update_check"
+
+  # Print remaining manual tasks
+  print_remaining_tasks
+}
+
+# Run main function
+main

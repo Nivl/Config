@@ -89,6 +89,9 @@ install_packages() {
   # Development tools
   brew install go golangci-lint go-task/tap/go-task nvm pnpm
 
+  # AI
+  brew install copilot-cli claude-code
+
   # Common apps
   brew install --cask zoom brave-browser warp docker raycast keka slack
 

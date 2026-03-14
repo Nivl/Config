@@ -81,7 +81,7 @@ install_homebrew() {
 
 install_packages() {
   # Core utilities
-  brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd gh
+  brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd gh 
 
   # Fonts
   brew install font-fira-code-nerd-font
@@ -93,7 +93,7 @@ install_packages() {
   brew install copilot-cli claude-code
 
   # Common apps
-  brew install --cask zoom brave-browser warp docker raycast keka slack
+  brew install --cask zoom brave-browser warp docker raycast keka slack shottr
 
   # Beta apps
   brew install --cask visual-studio-code@insiders

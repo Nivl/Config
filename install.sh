@@ -79,7 +79,108 @@ install_homebrew() {
   eval "$(/opt/homebrew/bin/brew shellenv)"
 }
 
+SKIPPED_CASK_UPDATES=()
+
+list_cask_apps() {
+  brew info --cask --json=v2 "$1" | jq -r '
+    .casks[0].artifacts[]? |
+    select(type == "object" and has("app")) |
+    .app[]?
+  ' | sed -E 's#.*/##; s/\.app$//'
+}
+
+is_app_running() {
+  local app_name="$1"
+
+  if pgrep -ix "$app_name" > /dev/null 2>&1; then
+    return 0
+  fi
+
+  if osascript -e "tell application \"$app_name\" to if it is running then return \"true\"" 2>/dev/null | grep -q '^true$'; then
+    return 0
+  fi
+
+  return 1
+}
+
+is_cask_running() {
+  local cask="$1"
+  local app_name=""
+
+  while IFS= read -r app_name; do
+    if [ -z "$app_name" ]; then
+      continue
+    fi
+
+    if is_app_running "$app_name"; then
+      return 0
+    fi
+  done < <(list_cask_apps "$cask")
+
+  return 1
+}
+
+install_cask() {
+  local cask="$1"
+
+  if brew list --cask "$cask" > /dev/null 2>&1 && is_cask_running "$cask"; then
+    printf "Skipping cask update for %s because its app is running\n" "$cask"
+    SKIPPED_CASK_UPDATES+=("$cask")
+    return
+  fi
+
+  brew install --cask "$cask"
+}
+
+install_casks() {
+  local cask=""
+
+  for cask in "$@"; do
+    install_cask "$cask"
+  done
+}
+
+print_skipped_cask_updates() {
+  local cask=""
+
+  if [ "${#SKIPPED_CASK_UPDATES[@]}" -eq 0 ]; then
+    return
+  fi
+
+  printf "\nSkipped cask updates because the app is running:\n"
+  for cask in "${SKIPPED_CASK_UPDATES[@]}"; do
+    printf "\t- %s\n" "$cask"
+  done
+}
+
 install_packages() {
+  local common_casks=(
+    zoom
+    brave-browser
+    warp
+    docker
+    raycast
+    keka
+    slack
+    shottr
+  )
+  local beta_casks=(
+    visual-studio-code@insiders
+  )
+  local personal_casks=(
+    proton-drive
+    proton-pass
+    protonvpn
+    daisydisk
+    lulu
+    ente
+    yaak
+    discord
+    enpass
+  )
+
+  SKIPPED_CASK_UPDATES=()
+
   # Core utilities
   brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd gh 
 
@@ -93,15 +194,17 @@ install_packages() {
   brew install copilot-cli claude-code
 
   # Common apps
-  brew install --cask zoom brave-browser warp docker raycast keka slack shottr
+  install_casks "${common_casks[@]}"
 
   # Beta apps
-  brew install --cask visual-studio-code@insiders
+  install_casks "${beta_casks[@]}"
 
   # Personal apps
   if [ "$PERSONAL_COMPUTER" = true ]; then
-    brew install --cask proton-drive proton-pass protonvpn daisydisk lulu ente yaak discord enpass
+    install_casks "${personal_casks[@]}"
   fi
+
+  print_skipped_cask_updates
 }
 
 # =============================================================================

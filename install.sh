@@ -80,6 +80,8 @@ install_homebrew() {
 }
 
 SKIPPED_CASK_UPDATES=()
+FAILED_CASK_UPDATES=()
+FAILED_CASK_FAILURE_REASONS=()
 
 list_cask_apps() {
   brew info --cask --json=v2 "$1" | jq -r '
@@ -120,8 +122,23 @@ is_cask_running() {
   return 1
 }
 
+extract_cask_failure_reason() {
+  local stderr_file="$1"
+  local reason=""
+
+  reason="$(awk 'NF { line = $0 } END { print line }' "$stderr_file" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+  if [ -n "$reason" ]; then
+    printf "%s\n" "$reason"
+    return
+  fi
+
+  printf "Homebrew cask command failed without an error message\n"
+}
+
 install_cask() {
   local cask="$1"
+  local brew_stderr_file=""
+  local failure_reason=""
 
   if brew list --cask "$cask" > /dev/null 2>&1 && is_cask_running "$cask"; then
     printf "Skipping cask update for %s because its app is running\n" "$cask"
@@ -129,7 +146,18 @@ install_cask() {
     return
   fi
 
-  brew install --cask "$cask"
+  brew_stderr_file="$(mktemp)"
+  if brew install --cask "$cask" 2>"$brew_stderr_file"; then
+    rm -f "$brew_stderr_file"
+    return
+  fi
+
+  failure_reason="$(extract_cask_failure_reason "$brew_stderr_file")"
+  rm -f "$brew_stderr_file"
+
+  printf "Failed to install or upgrade cask %s: %s\n" "$cask" "$failure_reason"
+  FAILED_CASK_UPDATES+=("$cask")
+  FAILED_CASK_FAILURE_REASONS+=("$failure_reason")
 }
 
 install_casks() {
@@ -150,6 +178,19 @@ print_skipped_cask_updates() {
   printf "\nSkipped cask updates because the app is running:\n"
   for cask in "${SKIPPED_CASK_UPDATES[@]}"; do
     printf "\t- %s\n" "$cask"
+  done
+}
+
+print_failed_cask_updates() {
+  local i=0
+
+  if [ "${#FAILED_CASK_UPDATES[@]}" -eq 0 ]; then
+    return
+  fi
+
+  printf "\nFailed cask installs or upgrades:\n"
+  for i in "${!FAILED_CASK_UPDATES[@]}"; do
+    printf "\t- %s: %s\n" "${FAILED_CASK_UPDATES[$i]}" "${FAILED_CASK_FAILURE_REASONS[$i]}"
   done
 }
 
@@ -180,6 +221,8 @@ install_packages() {
   )
 
   SKIPPED_CASK_UPDATES=()
+  FAILED_CASK_UPDATES=()
+  FAILED_CASK_FAILURE_REASONS=()
 
   # Core utilities
   brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd gh 
@@ -205,6 +248,7 @@ install_packages() {
   fi
 
   print_skipped_cask_updates
+  print_failed_cask_updates
 }
 
 # =============================================================================

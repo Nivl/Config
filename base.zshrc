@@ -53,7 +53,7 @@ _melvin_check_update() {
             read answer
             case "$answer" in
                 "y"|"Y" )
-                    sh "$_melvin_config_dir/install.sh"
+                    bash "$_melvin_config_dir/install.sh"
                     break
                     ;;
                 "n"|"N" )
@@ -70,7 +70,7 @@ _melvin_check_update() {
 _melvin_check_update
 
 function update-cfg {
-    sh "$_melvin_config_dir/install.sh"
+    bash "$_melvin_config_dir/install.sh"
 }
 
 source $HOME/.melvin/config/config.zshrc

@@ -79,6 +79,10 @@ install_homebrew() {
   eval "$(/opt/homebrew/bin/brew shellenv)"
 }
 
+upgrade_homebrew_packages() {
+  brew upgrade
+}
+
 SKIPPED_CASK_UPDATES=()
 FAILED_CASK_UPDATES=()
 FAILED_CASK_FAILURE_REASONS=()
@@ -527,6 +531,7 @@ main() {
 
   # Install dependencies
   install_homebrew
+  upgrade_homebrew_packages
   install_packages
 
   # Setup SSH

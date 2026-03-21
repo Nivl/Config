@@ -1,0 +1,35 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  shell-syntax:
+    name: Shell syntax checks
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run shell syntax checks
+        run: |
+          bash -n install.sh
+          zsh -n base.zshrc config.zshrc
+
+  install-regression:
+    name: Install regression test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run install regression test
+        run: bash tests/install_cask_update_test.sh

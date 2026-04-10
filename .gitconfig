@@ -106,9 +106,6 @@
 
 	# worktrees
 	wtl = "worktree list"
-	wtae = "!f() { git worktree add \"$(git rev-parse --show-toplevel)/../wt/$(basename $(git rev-parse --show-toplevel))/$1\" \"$1\" && echo Worktree created at \"$(git rev-parse --show-toplevel)/../wt/$(basename $(git rev-parse --show-toplevel))/$1\"; }; f"
-	wtan = "!f() { git worktree add -b \"$1\" \"$(git rev-parse --show-toplevel)/../wt/$(basename $(git rev-parse --show-toplevel))/$1\" && echo Worktree created at \"$(git rev-parse --show-toplevel)/../wt/$(basename $(git rev-parse --show-toplevel))/$1\"; }; f"
-	wtrm = "!f() { if [ -n \"$1\" ]; then rm -rf \"$(git rev-parse --show-toplevel)/../wt/$(basename $(git rev-parse --show-toplevel))/$1\"; fi; git worktree prune; }; f"
 [push]
 	default = simple
 	autoSetupRemote = true

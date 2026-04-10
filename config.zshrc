@@ -273,7 +273,7 @@ function wt() {
 
   # We put the worktree in a folder named after the repo's origin URL,
   # to avoid conflicts between repos with the same name.
-  local wk_root="${WORKTREE_ROOT:-"$HOME/.wt"}"
+  local wk_root="${WORKTREES_ROOT:-"$HOME/.wt"}"
   local remote_url=$(git -C "$project_dir" config --get remote.origin.url) || return 1
   local wk_project_path="$remote_url"
 
@@ -319,4 +319,82 @@ function wt() {
 
   cd "$worktree_path"
   code . &
+
+  echo "Ready to work."
 }
+
+function _confirm_wt_done_delete() {
+  local answer
+
+  while true; do
+    echo "Worktree has uncommitted or unpushed changes."
+    read "answer?Type 'continue' to force delete or 'cancel' to abort: "
+
+    case "$answer" in
+      continue)
+        return 0
+        ;;
+      cancel|"")
+        echo "Canceled wt-done."
+        return 1
+        ;;
+      *)
+        echo "Please type 'continue' or 'cancel'."
+        ;;
+    esac
+  done
+}
+
+function wt_done() {
+  local project_dir=$(git rev-parse --show-toplevel 2>/dev/null) || {
+    echo "wt-done must be run inside a Git repository."
+    return 1
+  }
+  local git_dir=$(git rev-parse --git-dir) || return 1
+  local common_dir=$(git rev-parse --git-common-dir) || return 1
+
+  if [ "$git_dir" = "$common_dir" ]; then
+    echo "wt-done only works inside a linked worktree."
+    return 1
+  fi
+
+  local branch_name=$(git symbolic-ref --quiet --short HEAD) || {
+    echo "wt-done could not determine the current branch."
+    return 1
+  }
+  local has_uncommitted=false
+  local has_unpushed=false
+
+  if [ -n "$(git status --porcelain --untracked-files=normal)" ]; then
+    has_uncommitted=true
+  fi
+
+  if git rev-parse --verify --quiet '@{upstream}' >/dev/null; then
+    if [ "$(git rev-list --count '@{upstream}..HEAD')" -gt 0 ]; then
+      has_unpushed=true
+    fi
+  else
+    has_unpushed=true
+  fi
+
+  local redirect_target = "$REPOS_ROOT/$(dirname "$project_dir")"
+  if [ ! -d "$DIRECTORY" ]; then
+    redirect_target="${REPOS_ROOT:-$HOME}"
+  fi
+
+  local -a remove_args
+  if $has_uncommitted || $has_unpushed; then
+    _confirm_wt_done_delete || return 1
+    remove_args=(--force)
+  else
+    remove_args=()
+  fi
+
+  cd "$redirect_target" || return 1
+  git --git-dir="$common_dir" worktree remove "${remove_args[@]}" "$project_dir" || return 1
+  git --git-dir="$common_dir" branch -D "$branch_name" || return 1
+
+  echo "Deleted worktree '$project_dir' and branch '$branch_name'."
+}
+
+alias wt-done='wt_done'

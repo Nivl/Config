@@ -33,3 +33,14 @@ jobs:
 
       - name: Run install regression test
         run: bash tests/install_cask_update_test.sh
+
+  worktrees:
+    name: Worktrees test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run wt
+        run: bash tests/wt_ignored_copy_test.sh

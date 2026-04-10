@@ -7,10 +7,10 @@ TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 SOURCE_REPO="$TMP_DIR/source-repo"
-WORKTREE_ROOT="$TMP_DIR/worktrees"
+WORKTREES_ROOT="$TMP_DIR/worktrees"
 TEST_HOME="$TMP_DIR/home"
 
-mkdir -p "$SOURCE_REPO" "$WORKTREE_ROOT" "$TEST_HOME"
+mkdir -p "$SOURCE_REPO" "$WORKTREES_ROOT" "$TEST_HOME"
 
 git -C "$SOURCE_REPO" init >/dev/null
 git -C "$SOURCE_REPO" config user.name "Test User"
@@ -54,7 +54,7 @@ git -C "$SOURCE_REPO" commit -m "init" >/dev/null
 TEST_RESULT="$(
   REPO_ROOT="$REPO_ROOT" \
   SOURCE_REPO="$SOURCE_REPO" \
-  WORKTREE_ROOT="$WORKTREE_ROOT" \
+  WORKTREES_ROOT="$WORKTREES_ROOT" \
   TEST_HOME="$TEST_HOME" \
   TEST_TMP_DIR="$TMP_DIR" \
   zsh <<'EOF'
@@ -80,11 +80,11 @@ code() {
 }
 
 cd "$SOURCE_REPO"
-WORKTREE_ROOT="$WORKTREE_ROOT" wt feature-copy
+WORKTREES_ROOT="$WORKTREES_ROOT" wt feature-copy
 EOF
 )"
 
-EXPECTED_WORKTREE="$WORKTREE_ROOT/github.com/example/project/feature-copy"
+EXPECTED_WORKTREE="$WORKTREES_ROOT/github.com/example/project/feature-copy"
 
 assert_exists() {
   local path="$1"
@@ -123,9 +123,9 @@ assert_not_exists "$EXPECTED_WORKTREE/dist/app.js"
 assert_not_exists "$EXPECTED_WORKTREE/.next/cache/data.json"
 
 case "$TEST_RESULT" in
-  *"feature-copy"* ) ;;
+  *"Ready to work"* ) ;;
   *)
-    printf 'Expected wt output to mention feature-copy, got:\n%s\n' "$TEST_RESULT" >&2
+    printf 'Expected wt output to mention Ready to work, got:\n%s\n' "$TEST_RESULT" >&2
     exit 1
     ;;
 esac

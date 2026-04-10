@@ -219,3 +219,104 @@ function keygen() {
 
     print $(cat /dev/urandom | LC_ALL=C tr -dc 'a-zA-Z0-9' | fold -w "$size" | head -n 1)
 }
+
+function _should_copy_wt_ignored_path() {
+  local path="${1%/}"
+
+  case "$path" in
+    .git|.git/*|*/.git|*/.git/*)
+      return 1
+      ;;
+    .cache|.cache/*|*/.cache|*/.cache/*)
+      return 1
+      ;;
+    .next|.next/*|*/.next|*/.next/*)
+      return 1
+      ;;
+    .turbo|.turbo/*|*/.turbo|*/.turbo/*)
+      return 1
+      ;;
+    .pnpm-store|.pnpm-store/*|*/.pnpm-store|*/.pnpm-store/*)
+      return 1
+      ;;
+    .yarn/cache|.yarn/cache/*|*/.yarn/cache|*/.yarn/cache/*)
+      return 1
+      ;;
+    coverage|coverage/*|*/coverage|*/coverage/*)
+      return 1
+      ;;
+    dist|dist/*|*/dist|*/dist/*)
+      return 1
+      ;;
+    build|build/*|*/build|*/build/*)
+      return 1
+      ;;
+    out|out/*|*/out|*/out/*)
+      return 1
+      ;;
+    tmp|tmp/*|*/tmp|*/tmp/*|temp|temp/*|*/temp|*/temp/*)
+      return 1
+      ;;
+  esac
+
+  return 0
+}
+
+function wt() {
+  if [ -z "$1" ]; then
+      echo "wt <feature-name>"
+      return 1
+  fi
+
+  local feature_name="$1"
+  local project_dir=$(git rev-parse --show-toplevel) || return 1
+
+  # We put the worktree in a folder named after the repo's origin URL,
+  # to avoid conflicts between repos with the same name.
+  local wk_root="${WORKTREE_ROOT:-"$HOME/.wt"}"
+  local remote_url=$(git -C "$project_dir" config --get remote.origin.url) || return 1
+  local wk_project_path="$remote_url"
+
+  case "$wk_project_path" in
+    https://*|http://*)
+      wk_project_path="${wk_project_path#https://}"
+      wk_project_path="${wk_project_path#http://}"
+      ;;
+    git@*:* )
+      wk_project_path="${wk_project_path#git@}"
+      wk_project_path="${wk_project_path/:/\/}"
+      ;;
+  esac
+
+  wk_project_path="${wk_project_path%.git}"
+
+  local worktree_parent="$wk_root/$wk_project_path"
+  mkdir -p "$worktree_parent"
+
+  # Define the full path of the new worktree folder
+  local worktree_path="${worktree_parent}/${feature_name}"
+
+  # Create the worktree and the branch
+  git -C "$project_dir" worktree add -b "$feature_name" "$worktree_path"
+
+  local ignored_path
+  while IFS= read -r ignored_path; do
+    local relative_path="${ignored_path%/}"
+
+    [ -n "$relative_path" ] || continue
+
+    if ! _should_copy_wt_ignored_path "$relative_path"; then
+      continue
+    fi
+
+    (
+      cd "$project_dir" || exit 1
+      rsync -aR -- "$relative_path" "$worktree_path"
+    ) || return 1
+  done < <(
+    git -C "$project_dir" ls-files --others --ignored --exclude-standard --directory --no-empty-directory
+  )
+
+  cd "$worktree_path"
+  code . &
+}

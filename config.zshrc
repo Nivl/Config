@@ -219,3 +219,184 @@ function keygen() {
 
     print $(cat /dev/urandom | LC_ALL=C tr -dc 'a-zA-Z0-9' | fold -w "$size" | head -n 1)
 }
+
+function _should_copy_wt_ignored_path() {
+  local path="${1%/}"
+
+  case "$path" in
+    .git|.git/*|*/.git|*/.git/*)
+      return 1
+      ;;
+    .cache|.cache/*|*/.cache|*/.cache/*)
+      return 1
+      ;;
+    .next|.next/*|*/.next|*/.next/*)
+      return 1
+      ;;
+    .turbo|.turbo/*|*/.turbo|*/.turbo/*)
+      return 1
+      ;;
+    .pnpm-store|.pnpm-store/*|*/.pnpm-store|*/.pnpm-store/*)
+      return 1
+      ;;
+    .yarn/cache|.yarn/cache/*|*/.yarn/cache|*/.yarn/cache/*)
+      return 1
+      ;;
+    coverage|coverage/*|*/coverage|*/coverage/*)
+      return 1
+      ;;
+    dist|dist/*|*/dist|*/dist/*)
+      return 1
+      ;;
+    build|build/*|*/build|*/build/*)
+      return 1
+      ;;
+    out|out/*|*/out|*/out/*)
+      return 1
+      ;;
+    tmp|tmp/*|*/tmp|*/tmp/*|temp|temp/*|*/temp|*/temp/*)
+      return 1
+      ;;
+  esac
+
+  return 0
+}
+
+function wt() {
+  if [ -z "$1" ]; then
+      echo "wt <feature-name>"
+      return 1
+  fi
+
+  local feature_name="$1"
+  local project_dir=$(git rev-parse --show-toplevel) || return 1
+
+  # We put the worktree in a folder named after the repo's origin URL,
+  # to avoid conflicts between repos with the same name.
+  local wk_root="${WORKTREES_ROOT:-"$HOME/.wt"}"
+  local remote_url=$(git -C "$project_dir" config --get remote.origin.url) || return 1
+  local wk_project_path="$remote_url"
+
+  case "$wk_project_path" in
+    https://*|http://*)
+      wk_project_path="${wk_project_path#https://}"
+      wk_project_path="${wk_project_path#http://}"
+      ;;
+    git@*:* )
+      wk_project_path="${wk_project_path#git@}"
+      wk_project_path="${wk_project_path/:/\/}"
+      ;;
+  esac
+
+  wk_project_path="${wk_project_path%.git}"
+
+  local worktree_parent="$wk_root/$wk_project_path"
+  mkdir -p "$worktree_parent"
+
+  # Define the full path of the new worktree folder
+  local worktree_path="${worktree_parent}/${feature_name}"
+
+  # Create the worktree and the branch
+  git -C "$project_dir" worktree add -b "$feature_name" "$worktree_path"
+
+  local ignored_path
+  while IFS= read -r ignored_path; do
+    local relative_path="${ignored_path%/}"
+
+    [ -n "$relative_path" ] || continue
+
+    if ! _should_copy_wt_ignored_path "$relative_path"; then
+      continue
+    fi
+
+    (
+      cd "$project_dir" || exit 1
+      rsync -aR -- "$relative_path" "$worktree_path"
+    ) || return 1
+  done < <(
+    git -C "$project_dir" ls-files --others --ignored --exclude-standard --directory --no-empty-directory
+  )
+
+  cd "$worktree_path"
+  code . &
+
+  echo "Ready to work."
+}
+
+function _confirm_wt_done_delete() {
+  local answer
+
+  while true; do
+    echo "Worktree has uncommitted or unpushed changes."
+    read "answer?Type 'continue' to force delete or 'cancel' to abort: "
+
+    case "$answer" in
+      continue)
+        return 0
+        ;;
+      cancel|"")
+        echo "Canceled wt-done."
+        return 1
+        ;;
+      *)
+        echo "Please type 'continue' or 'cancel'."
+        ;;
+    esac
+  done
+}
+
+function wt_done() {
+  local project_dir=$(git rev-parse --show-toplevel 2>/dev/null) || {
+    echo "wt-done must be run inside a Git repository."
+    return 1
+  }
+  local wk_root="${WORKTREES_ROOT:-"$HOME/.wt"}"
+  local git_dir=$(git rev-parse --git-dir) || return 1
+  local common_dir=$(git rev-parse --git-common-dir) || return 1
+
+  if [ "$git_dir" = "$common_dir" ]; then
+    echo "wt-done only works inside a linked worktree."
+    return 1
+  fi
+
+  local branch_name=$(git symbolic-ref --quiet --short HEAD) || {
+    echo "wt-done could not determine the current branch."
+    return 1
+  }
+  local has_uncommitted=false
+  local has_unpushed=false
+
+  if [ -n "$(git status --porcelain --untracked-files=normal)" ]; then
+    has_uncommitted=true
+  fi
+
+  if git rev-parse --verify --quiet '@{upstream}' >/dev/null; then
+    if [ "$(git rev-list --count '@{upstream}..HEAD')" -gt 0 ]; then
+      has_unpushed=true
+    fi
+  else
+    has_unpushed=true
+  fi
+
+
+  local redirect_target="${common_dir%.git}"
+  if [ ! -d "$redirect_target" ]; then
+    redirect_target="${REPOS_ROOT:-$HOME}"
+  fi
+
+  local -a remove_args
+  if $has_uncommitted || $has_unpushed; then
+    _confirm_wt_done_delete || return 1
+    remove_args=(--force)
+  else
+    remove_args=()
+  fi
+
+  cd "$redirect_target" || return 1
+  git --git-dir="$common_dir" worktree remove "${remove_args[@]}" "$project_dir" || return 1
+  git --git-dir="$common_dir" branch -D "$branch_name" || return 1
+
+  echo "Deleted worktree '$project_dir' and branch '$branch_name'."
+}
+
+alias wt-done='wt_done'

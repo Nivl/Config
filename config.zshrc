@@ -199,19 +199,55 @@ function lint {
 
 function cl() {
     if [ -z "$1" ]; then
-        echo "cl <repo-name | user/repo-name>"
+        echo "cl <repo-name | user/repo-name | git@host:user/repo-name.git | https://host/user/repo-name.git>"
+        return 1
     fi
 
-    local host="${GIT_HOST:-git@github.com}"
-    local user="${GIT_CLONE_USER_NAME:-Nivl}"
+    local default_host="${GIT_HOST:-git@github.com}"
+    local default_user="${GIT_CLONE_USER_NAME:-Nivl}"
 
-    local repo="$user/$1"
-    if [[ "$1" =~ '/' ]]; then
-         repo="$1"
+    local host user repo_name local_path clone_url
+
+    if [[ "$1" =~ '^git@([^:]+):([^/]+)/(.+)\.git$' ]]; then
+        # Case: git@github.com:Nivl/Config.git
+        host="git@${match[1]}"
+        user="${match[2]}"
+        repo_name="${match[3]}"
+        clone_url="$1"
+        local_path="${match[1]}/${user}/${repo_name}"
+    elif [[ "$1" =~ '^https://([^/]+)/([^/]+)/([^/]+)$' ]]; then
+        # Case: https://gitlab.com/user/repo.git
+        host="git@${match[1]}"
+        user="${match[2]}"
+        repo_name="${match[3]%.git}"
+        clone_url="$1"
+        local_path="${match[1]}/${user}/${repo_name}"
+    elif [[ "$1" =~ '/' ]]; then
+        # Case: user/repo
+        user="${1%%/*}"
+        repo_name="${1#*/}"
+        host="$default_host"
+        local_path="${default_host#git@}/${user}/${repo_name}"
+        clone_url="${host}:${user}/${repo_name}.git"
+    else
+        # Case: repo-name only
+        user="$default_user"
+        repo_name="$1"
+        host="$default_host"
+        local_path="${default_host#git@}/${user}/${repo_name}"
+        clone_url="${host}:${user}/${repo_name}.git"
     fi
 
-    git clone "$host:$repo.git"
-    cd "$1"
+    local dest="${REPOS_ROOT:-$HOME/repos}/${local_path}"
+
+    if [ -d "$dest" ]; then
+        echo "Repository already exists at ${dest}, skipping clone."
+    else
+        mkdir -p "$dest"
+        git clone "$clone_url" "$dest"
+    fi
+
+    cd "$dest"
 }
 
 function keygen() {

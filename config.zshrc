@@ -345,6 +345,7 @@ function wt() {
       continue
     fi
 
+    echo "Copying '$relative_path' to worktree..."
     (
       cd "$project_dir" || exit 1
       rsync -aR -- "$relative_path" "$worktree_path"

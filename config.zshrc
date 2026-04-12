@@ -387,7 +387,6 @@ function wt_done() {
     echo "wt-done must be run inside a Git repository."
     return 1
   }
-  local wk_root="${WORKTREES_ROOT:-"$HOME/.wt"}"
   local git_dir=$(git rev-parse --git-dir) || return 1
   local common_dir=$(git rev-parse --git-common-dir) || return 1
 
@@ -437,3 +436,29 @@ function wt_done() {
 }
 
 alias wt-done='wt_done'
+
+function wt_exit() {
+  local project_dir=$(git rev-parse --show-toplevel 2>/dev/null) || {
+    echo "wt-exit must be run inside a Git repository."
+    return 1
+  }
+  local git_dir=$(git rev-parse --git-dir) || return 1
+  local common_dir=$(git rev-parse --git-common-dir) || return 1
+
+  if [ "$git_dir" = "$common_dir" ]; then
+    echo "wt-exit only works inside a linked worktree."
+    return 1
+  fi
+
+  local redirect_target="${common_dir%.git}"
+  if [ ! -d "$redirect_target" ]; then
+    echo "Repo's root directory not found."
+    return 1
+  fi
+
+  cd "$redirect_target" || return 1
+
+  echo "Back to '$redirect_target'."
+}
+
+alias wt-exit='wt_exit'

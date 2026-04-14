@@ -59,6 +59,10 @@ setup_personal_computer_flag() {
 }
 
 setup_skip_existing_flag() {
+  if [ -n "$SKIP_CONFIG_FILE_SETUP" ]; then
+    return
+  fi
+
   SKIP_CONFIG_FILE_SETUP=false
   if ask_yes_no "Do you want to skip existing config files without prompting"; then
     SKIP_CONFIG_FILE_SETUP=true
@@ -290,8 +294,11 @@ update_config_repo() {
 
   if [ -n "$(git status --porcelain)" ]; then
     printf "Your config repository has uncommited changes, please commit or stash them before we can update\n"
-    return
+    return 0
   fi
+
+  local before
+  before=$(git rev-parse HEAD)
 
   git pull
 
@@ -304,13 +311,12 @@ update_config_repo() {
       git push
     fi
   fi
-}
 
-setup_config_repo() {
-  if [ ! -d "$CONFIG_DIR" ]; then
-    clone_config_repo
-  else
-    update_config_repo
+  local after
+  after=$(git rev-parse HEAD)
+
+  if [ "$before" != "$after" ]; then
+    return 1
   fi
 }
 
@@ -529,6 +535,15 @@ main() {
   setup_personal_computer_flag
   setup_skip_existing_flag
 
+  # If the repo already exists, pull first so the latest install.sh is used.
+  # If new commits were fetched, re-exec this script with the updated version.
+  if [ -d "$CONFIG_DIR" ]; then
+    update_config_repo || exec env \
+      PERSONAL_COMPUTER="$PERSONAL_COMPUTER" \
+      SKIP_CONFIG_FILE_SETUP="$SKIP_CONFIG_FILE_SETUP" \
+      bash "$CONFIG_DIR/install.sh"
+  fi
+
   # Install dependencies
   install_homebrew
   upgrade_homebrew_packages
@@ -542,7 +557,9 @@ main() {
   GH_ACCOUNT=$(gh auth status -a --json hosts --jq '.hosts["github.com"][0].login')
 
   # Setup config repository
-  setup_config_repo
+  if [ ! -d "$CONFIG_DIR" ]; then
+    clone_config_repo
+  fi
 
   # Copy config files
   copy_config_files

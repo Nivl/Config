@@ -388,6 +388,22 @@ copy_config_files() {
 # Zshrc Functions
 # =============================================================================
 
+ask_dev_root() {
+  if [ -n "$DEV_ROOT" ]; then
+    echo "$DEV_ROOT"
+    return
+  fi
+
+  local default="$HOME/dev"
+  local result=""
+  printf "Where do you want your dev root to be? [%s]: " "$default" >&2
+  read -r result
+  if [ -z "$result" ]; then
+    result="$default"
+  fi
+  echo "$result"
+}
+
 ask_git_org() {
   if [ "$PERSONAL_COMPUTER" = true ]; then
     echo "Nivl"
@@ -425,16 +441,20 @@ setup_zshrc() {
 
   local git_clone_user_name
   local git_host
+  local dev_root
 
   git_clone_user_name=$(ask_git_org)
   git_host=$(ask_git_host)
+  dev_root=$(ask_dev_root)
 
   {
-    printf "source \"\$HOME/.melvin/config/base.zshrc\""
-    printf "\n"
     printf "\nexport GIT_HOST=\"%s\"" "$git_host"
     printf "\nexport GIT_CLONE_USER_NAME=\"%s\"" "$git_clone_user_name"
     printf "\nexport PERSONAL_COMPUTER=\"%s\"" "$PERSONAL_COMPUTER"
+    printf "\nexport DEV_ROOT=\"%s\"" "$dev_root"
+    printf "\n"
+    printf "source \"\$HOME/.melvin/config/base.zshrc\""
+    printf "\n"
   } > "$ZSHRC"
 }
 

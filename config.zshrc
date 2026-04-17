@@ -1,5 +1,14 @@
 #!/bin/env zsh
 
+local dev_root="${DEV_ROOT:-"$HOME/dev"}"
+mkdir -p "$dev_root"
+local repos_root="${REPOS_ROOT:-"$dev_root/repos"}"
+mkdir -p "$repos_root"
+local worktrees_root="${WORKTREES_ROOT:-"$HOME/worktrees"}"
+mkdir -p "$worktrees_root"
+local sdks_root="${SDKS_ROOT:-"$HOME/sdks"}"
+mkdir -p "$sdks_root"
+
 # Shared
 export PATH=$HOME/.bin-remote:$PATH
 
@@ -17,8 +26,8 @@ for package in $brew_installed; do
 done
 
 # Go
-mkdir -p $HOME/.go
-export GOPATH=$HOME/.go
+mkdir -p "$sdks_root/go"
+export GOPATH="$sdks_root/go"
 export PATH=$PATH:$GOPATH/bin
 
 # GNU grep
@@ -28,13 +37,20 @@ fi
 
 # google cloud
 # https://cloud.google.com/sdk/docs/install
-if [ -d "$HOME/google-cloud-sdk" ]; then
-    export PATH="$HOME/google-cloud-sdk/bin:$PATH"
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f "$sdks_root/google-cloud-sdk/path.zsh.inc" ]; then 
+  . "$sdks_root/google-cloud-sdk/path.zsh.inc";
+fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f "$sdks_root/google-cloud-sdk/completion.zsh.inc" ]; then
+  . "$sdks_root/google-cloud-sdk/completion.zsh.inc";
 fi
 
 # Node
-mkdir -p $HOME/.nvm
-export NVM_DIR=~/.nvm
+mkdir -p "$sdks_root/nvm"
+export NVM_DIR="$sdks_root/nvm"
 if [ -e "$(brew --prefix nvm)/nvm.sh" ]; then
   source $(brew --prefix nvm)/nvm.sh
 fi
@@ -238,7 +254,7 @@ function cl() {
         clone_url="${host}:${user}/${repo_name}.git"
     fi
 
-    local dest="${REPOS_ROOT:-$HOME/repos}/${local_path}"
+    local dest="$repos_root/${local_path}"
 
     if [ -d "$dest" ]; then
         echo "Repository already exists at ${dest}, skipping clone."
@@ -309,7 +325,7 @@ function wt() {
 
   # We put the worktree in a folder named after the repo's origin URL,
   # to avoid conflicts between repos with the same name.
-  local wk_root="${WORKTREES_ROOT:-"$HOME/.wt"}"
+  local wk_root="$worktrees_root"
   local remote_url=$(git -C "$project_dir" config --get remote.origin.url) || return 1
   local wk_project_path="$remote_url"
 
@@ -417,7 +433,7 @@ function wt_done() {
 
   local redirect_target="${common_dir%.git}"
   if [ ! -d "$redirect_target" ]; then
-    redirect_target="${REPOS_ROOT:-$HOME}"
+    redirect_target="$repos_root"
   fi
 
   local -a remove_args

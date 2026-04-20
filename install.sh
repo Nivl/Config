@@ -442,16 +442,25 @@ setup_zshrc() {
   local git_clone_user_name
   local git_host
   local dev_root
+  local worktrees_root
+  local repos_root
+  local sdks_root
 
   git_clone_user_name=$(ask_git_org)
   git_host=$(ask_git_host)
   dev_root=$(ask_dev_root)
+  worktrees_root="$dev_root/worktrees"
+  repos_root="$dev_root/repos"
+  sdks_root="$dev_root/sdks"
 
   {
     printf "\nexport GIT_HOST=\"%s\"" "$git_host"
     printf "\nexport GIT_CLONE_USER_NAME=\"%s\"" "$git_clone_user_name"
     printf "\nexport PERSONAL_COMPUTER=\"%s\"" "$PERSONAL_COMPUTER"
     printf "\nexport DEV_ROOT=\"%s\"" "$dev_root"
+    printf "\nexport WORKTREES_ROOT=\"%s\"" "$worktrees_root"
+    printf "\nexport REPOS_ROOT=\"%s\"" "$repos_root"
+    printf "\nexport SDKS_ROOT=\"%s\"" "$sdks_root"
     printf "\n"
     printf "source \"\$HOME/.melvin/config/base.zshrc\""
     printf "\n"
@@ -593,12 +602,17 @@ main() {
 
   # Setup GitHub
   setup_github
-
+ 
   # Update last check timestamp
   date +%s > "$CONFIG_DIR/.last_update_check"
 
   # Print remaining manual tasks
   print_remaining_tasks
+  reload_zshrc
+}
+
+reload_zshrc() {
+  source "$HOME/.zshrc"
 }
 
 # Run main function

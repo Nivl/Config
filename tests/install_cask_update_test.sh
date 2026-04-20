@@ -105,6 +105,10 @@ print_remaining_tasks() {
   :
 }
 
+reload_zshrc() {
+  :
+}
+
 is_installed_cask() {
   case "$1" in
     docker|warp) return 0 ;;

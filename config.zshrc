@@ -1,13 +1,13 @@
 #!/bin/env zsh
 
-local dev_root="${DEV_ROOT:-"$HOME/dev"}"
-mkdir -p "$dev_root"
-local repos_root="${REPOS_ROOT:-"$dev_root/repos"}"
-mkdir -p "$repos_root"
-local worktrees_root="${WORKTREES_ROOT:-"$HOME/worktrees"}"
-mkdir -p "$worktrees_root"
-local sdks_root="${SDKS_ROOT:-"$HOME/sdks"}"
-mkdir -p "$sdks_root"
+export DEV_ROOT="${DEV_ROOT:-"$HOME/dev"}"
+mkdir -p "$DEV_ROOT"
+export WORKTREES_ROOT="${WORKTREES_ROOT:-"$DEV_ROOT/worktrees"}"
+mkdir -p "$WORKTREES_ROOT"
+export REPOS_ROOT="${REPOS_ROOT:-"$DEV_ROOT/repos"}"
+mkdir -p "$REPOS_ROOT"
+export SDKS_ROOT="${SDKS_ROOT:-"$DEV_ROOT/sdks"}"
+mkdir -p "$SDKS_ROOT"
 
 # Shared
 export PATH=$HOME/.bin-remote:$PATH
@@ -26,8 +26,8 @@ for package in $brew_installed; do
 done
 
 # Go
-mkdir -p "$sdks_root/go"
-export GOPATH="$sdks_root/go"
+mkdir -p "$SDKS_ROOT/go"
+export GOPATH="$SDKS_ROOT/go"
 export PATH=$PATH:$GOPATH/bin
 
 # GNU grep
@@ -39,18 +39,18 @@ fi
 # https://cloud.google.com/sdk/docs/install
 
 # The next line updates PATH for the Google Cloud SDK.
-if [ -f "$sdks_root/google-cloud-sdk/path.zsh.inc" ]; then 
-  . "$sdks_root/google-cloud-sdk/path.zsh.inc";
+if [ -f "$SDKS_ROOT/google-cloud-sdk/path.zsh.inc" ]; then 
+  . "$SDKS_ROOT/google-cloud-sdk/path.zsh.inc";
 fi
 
 # The next line enables shell command completion for gcloud.
-if [ -f "$sdks_root/google-cloud-sdk/completion.zsh.inc" ]; then
-  . "$sdks_root/google-cloud-sdk/completion.zsh.inc";
+if [ -f "$SDKS_ROOT/google-cloud-sdk/completion.zsh.inc" ]; then
+  . "$SDKS_ROOT/google-cloud-sdk/completion.zsh.inc";
 fi
 
 # Node
-mkdir -p "$sdks_root/nvm"
-export NVM_DIR="$sdks_root/nvm"
+mkdir -p "$SDKS_ROOT/nvm"
+export NVM_DIR="$SDKS_ROOT/nvm"
 if [ -e "$(brew --prefix nvm)/nvm.sh" ]; then
   source $(brew --prefix nvm)/nvm.sh
 fi
@@ -254,7 +254,7 @@ function cl() {
         clone_url="${host}:${user}/${repo_name}.git"
     fi
 
-    local dest="$repos_root/${local_path}"
+    local dest="$REPOS_ROOT/${local_path}"
 
     if [ -d "$dest" ]; then
         echo "Repository already exists at ${dest}, skipping clone."
@@ -325,7 +325,7 @@ function wt() {
 
   # We put the worktree in a folder named after the repo's origin URL,
   # to avoid conflicts between repos with the same name.
-  local wk_root="$worktrees_root"
+  local wk_root="$WORKTREES_ROOT"
   local remote_url=$(git -C "$project_dir" config --get remote.origin.url) || return 1
   local wk_project_path="$remote_url"
 
@@ -433,7 +433,7 @@ function wt_done() {
 
   local redirect_target="${common_dir%.git}"
   if [ ! -d "$redirect_target" ]; then
-    redirect_target="$repos_root"
+    redirect_target="$REPOS_ROOT"
   fi
 
   local -a remove_args

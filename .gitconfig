@@ -2,6 +2,26 @@
 	diff = auto
 	status = auto
 	branch = auto
+[push]
+	default = simple
+	autoSetupRemote = true
+[branch]
+	autoSetupMerge = simple
+[commit]
+	gpgsign = true
+[rebase]
+	autosquash = true
+[merge]
+	conflictstyle = diff3
+[core]
+	pager = diff-so-fancy | less --tabs=4 -RFX
+	ignorecase = false
+[init]
+	defaultBranch = main
+[pull]
+	rebase = false
+[tag]
+	sort = -version:refname
 [alias]
 	main-branch = "!f() { git symbolic-ref --quiet refs/remotes/origin/HEAD > /dev/null && echo $(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@') || (git show-ref --verify --quiet refs/heads/main && echo main || echo master); }; f"
 
@@ -106,25 +126,6 @@
 
 	# worktrees
 	wtl = "worktree list"
-[push]
-	default = simple
-	autoSetupRemote = true
-[branch]
-	autoSetupMerge = simple
-[commit]
-	gpgsign = true
-[rebase]
-	autosquash = true
-[merge]
-	conflictstyle = diff3
-[core]
-	pager = diff-so-fancy | less --tabs=4 -RFX
-[init]
-	defaultBranch = main
-[pull]
-	rebase = false
-[tag]
-	sort = -version:refname
 
 # Add the following to base config if missing
 # This is removed because it cannot be overriden easily and

@@ -6,18 +6,23 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-SOURCE_REPO="$TMP_DIR/source-repo"
 WORKTREES_ROOT="$TMP_DIR/worktrees"
 TEST_HOME="$TMP_DIR/home"
 
-mkdir -p "$SOURCE_REPO" "$WORKTREES_ROOT" "$TEST_HOME"
+mkdir -p "$WORKTREES_ROOT" "$TEST_HOME"
 
-git -C "$SOURCE_REPO" init >/dev/null
-git -C "$SOURCE_REPO" config user.name "Test User"
-git -C "$SOURCE_REPO" config user.email "test@example.com"
-git -C "$SOURCE_REPO" remote add origin "https://github.com/example/project.git"
+init_source_repo() {
+  local source_repo="$1"
+  local remote_url="$2"
 
-cat > "$SOURCE_REPO/.gitignore" <<'EOF'
+  mkdir -p "$source_repo"
+
+  git -C "$source_repo" init >/dev/null
+  git -C "$source_repo" config user.name "Test User"
+  git -C "$source_repo" config user.email "test@example.com"
+  git -C "$source_repo" remote add origin "$remote_url"
+
+  cat > "$source_repo/.gitignore" <<'EOF'
 .env
 .env.*
 node_modules/
@@ -28,35 +33,40 @@ dist/
 .next/
 EOF
 
-mkdir -p \
-  "$SOURCE_REPO/node_modules/package" \
-  "$SOURCE_REPO/nested/node_modules/tool" \
-  "$SOURCE_REPO/nested/service" \
-  "$SOURCE_REPO/.venv/bin" \
-  "$SOURCE_REPO/.cache" \
-  "$SOURCE_REPO/dist" \
-  "$SOURCE_REPO/.next/cache"
+  mkdir -p \
+    "$source_repo/node_modules/package" \
+    "$source_repo/nested/node_modules/tool" \
+    "$source_repo/nested/service" \
+    "$source_repo/.venv/bin" \
+    "$source_repo/.cache" \
+    "$source_repo/dist" \
+    "$source_repo/.next/cache"
 
-printf 'tracked\n' > "$SOURCE_REPO/README.md"
-printf 'DATABASE_URL=postgres://local\n' > "$SOURCE_REPO/.env"
-printf 'ROOT_SECRET=value\n' > "$SOURCE_REPO/.env.local"
-printf 'module.exports = 1;\n' > "$SOURCE_REPO/node_modules/package/index.js"
-printf 'console.log("nested");\n' > "$SOURCE_REPO/nested/node_modules/tool/bin.js"
-printf 'SERVICE_TOKEN=abc123\n' > "$SOURCE_REPO/nested/service/.env.local"
-printf '#!/bin/sh\n' > "$SOURCE_REPO/.venv/bin/python"
-printf 'skip-me\n' > "$SOURCE_REPO/.cache/cache.txt"
-printf 'compiled\n' > "$SOURCE_REPO/dist/app.js"
-printf '{"cached":true}\n' > "$SOURCE_REPO/.next/cache/data.json"
+  printf 'tracked\n' > "$source_repo/README.md"
+  printf 'DATABASE_URL=postgres://local\n' > "$source_repo/.env"
+  printf 'ROOT_SECRET=value\n' > "$source_repo/.env.local"
+  printf 'module.exports = 1;\n' > "$source_repo/node_modules/package/index.js"
+  printf 'console.log("nested");\n' > "$source_repo/nested/node_modules/tool/bin.js"
+  printf 'SERVICE_TOKEN=abc123\n' > "$source_repo/nested/service/.env.local"
+  printf '#!/bin/sh\n' > "$source_repo/.venv/bin/python"
+  printf 'skip-me\n' > "$source_repo/.cache/cache.txt"
+  printf 'compiled\n' > "$source_repo/dist/app.js"
+  printf '{"cached":true}\n' > "$source_repo/.next/cache/data.json"
 
-git -C "$SOURCE_REPO" add .gitignore README.md
-git -C "$SOURCE_REPO" commit -m "init" >/dev/null
+  git -C "$source_repo" add .gitignore README.md
+  git -C "$source_repo" commit -m "init" >/dev/null
+}
 
-TEST_RESULT="$(
+run_wt() {
+  local source_repo="$1"
+  local feature_name="$2"
+
   REPO_ROOT="$REPO_ROOT" \
-  SOURCE_REPO="$SOURCE_REPO" \
+  SOURCE_REPO="$source_repo" \
   WORKTREES_ROOT="$WORKTREES_ROOT" \
   TEST_HOME="$TEST_HOME" \
   TEST_TMP_DIR="$TMP_DIR" \
+  FEATURE_NAME="$feature_name" \
   zsh <<'EOF'
 set -euo pipefail
 
@@ -80,9 +90,9 @@ code() {
 }
 
 cd "$SOURCE_REPO"
-WORKTREES_ROOT="$WORKTREES_ROOT" wt feature-copy
+WORKTREES_ROOT="$WORKTREES_ROOT" wt "$FEATURE_NAME"
 EOF
-)"
+}
 
 EXPECTED_WORKTREE="$WORKTREES_ROOT/github.com/example/project/feature-copy"
 
@@ -112,20 +122,37 @@ assert_file_contains() {
   fi
 }
 
-assert_file_contains "$EXPECTED_WORKTREE/.env" 'DATABASE_URL=postgres://local'
-assert_file_contains "$EXPECTED_WORKTREE/.env.local" 'ROOT_SECRET=value'
-assert_file_contains "$EXPECTED_WORKTREE/nested/service/.env.local" 'SERVICE_TOKEN=abc123'
-assert_exists "$EXPECTED_WORKTREE/node_modules/package/index.js"
-assert_exists "$EXPECTED_WORKTREE/nested/node_modules/tool/bin.js"
-assert_exists "$EXPECTED_WORKTREE/.venv/bin/python"
-assert_not_exists "$EXPECTED_WORKTREE/.cache/cache.txt"
-assert_not_exists "$EXPECTED_WORKTREE/dist/app.js"
-assert_not_exists "$EXPECTED_WORKTREE/.next/cache/data.json"
+assert_wt_result() {
+  local expected_worktree="$1"
+  local test_result="$2"
 
-case "$TEST_RESULT" in
-  *"Ready to work"* ) ;;
-  *)
-    printf 'Expected wt output to mention Ready to work, got:\n%s\n' "$TEST_RESULT" >&2
-    exit 1
-    ;;
-esac
+  assert_file_contains "$expected_worktree/.env" 'DATABASE_URL=postgres://local'
+  assert_file_contains "$expected_worktree/.env.local" 'ROOT_SECRET=value'
+  assert_file_contains "$expected_worktree/nested/service/.env.local" 'SERVICE_TOKEN=abc123'
+  assert_exists "$expected_worktree/node_modules/package/index.js"
+  assert_exists "$expected_worktree/nested/node_modules/tool/bin.js"
+  assert_exists "$expected_worktree/.venv/bin/python"
+  assert_not_exists "$expected_worktree/.cache/cache.txt"
+  assert_not_exists "$expected_worktree/dist/app.js"
+  assert_not_exists "$expected_worktree/.next/cache/data.json"
+
+  case "$test_result" in
+    *"Ready to work"* ) ;;
+    *)
+      printf 'Expected wt output to mention Ready to work, got:\n%s\n' "$test_result" >&2
+      exit 1
+      ;;
+  esac
+}
+
+HTTPS_SOURCE_REPO="$TMP_DIR/source-repo-https"
+SSH_SOURCE_REPO="$TMP_DIR/source-repo-ssh"
+
+init_source_repo "$HTTPS_SOURCE_REPO" "https://github.com/example/project.git"
+init_source_repo "$SSH_SOURCE_REPO" "git@github.com:Nivl/next-themes.git"
+
+HTTPS_TEST_RESULT="$(run_wt "$HTTPS_SOURCE_REPO" feature-copy)"
+SSH_TEST_RESULT="$(run_wt "$SSH_SOURCE_REPO" feature-ssh)"
+
+assert_wt_result "$WORKTREES_ROOT/github.com/example/project/feature-copy" "$HTTPS_TEST_RESULT"
+assert_wt_result "$WORKTREES_ROOT/github.com/Nivl/next-themes/feature-ssh" "$SSH_TEST_RESULT"

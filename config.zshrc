@@ -328,6 +328,7 @@ function wt() {
   local wk_root="$WORKTREES_ROOT"
   local remote_url=$(git -C "$project_dir" config --get remote.origin.url) || return 1
   local wk_project_path="$remote_url"
+  local path_separator="/"
 
   case "$wk_project_path" in
     https://*|http://*)
@@ -336,7 +337,7 @@ function wt() {
       ;;
     git@*:* )
       wk_project_path="${wk_project_path#git@}"
-      wk_project_path="${wk_project_path/:/\/}"
+      wk_project_path="${wk_project_path/:/$path_separator}"
       ;;
   esac
 

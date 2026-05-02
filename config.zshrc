@@ -356,28 +356,53 @@ function wt() {
 
   # Define the full path of the new worktree folder
   local worktree_path="${worktree_parent}/${feature_name}"
+  local existing_worktree_path
+  existing_worktree_path="$(
+    git -C "$project_dir" worktree list --porcelain | awk -v branch="refs/heads/$feature_name" '
+      $1 == "worktree" {
+        path = substr($0, 10)
+        next
+      }
 
-  # Create the worktree and the branch
-  git -C "$project_dir" worktree add -b "$feature_name" "$worktree_path"
+      $1 == "branch" {
+        if (substr($0, 8) == branch) {
+          print path
+          exit
+        }
+      }
+    '
+  )" || return 1
 
-  local ignored_path
-  while IFS= read -r ignored_path; do
-    local relative_path="${ignored_path%/}"
+  if [ -n "$existing_worktree_path" ]; then
+    worktree_path="$existing_worktree_path"
+    echo "Using existing worktree '$worktree_path'."
+  # Reuse an existing local branch when available; otherwise create it.
+  elif git -C "$project_dir" show-ref --verify --quiet "refs/heads/$feature_name"; then
+    git -C "$project_dir" worktree add "$worktree_path" "$feature_name"
+  else
+    git -C "$project_dir" worktree add -b "$feature_name" "$worktree_path"
+  fi
 
-    [ -n "$relative_path" ] || continue
+  if [ -z "$existing_worktree_path" ]; then
+    local ignored_path
+    while IFS= read -r ignored_path; do
+      local relative_path="${ignored_path%/}"
 
-    if ! _should_copy_wt_ignored_path "$relative_path"; then
-      continue
-    fi
+      [ -n "$relative_path" ] || continue
 
-    echo "Copying '$relative_path' to worktree..."
-    (
-      cd "$project_dir" || exit 1
-      rsync -aR -- "$relative_path" "$worktree_path"
-    ) || return 1
-  done < <(
-    git -C "$project_dir" ls-files --others --ignored --exclude-standard --directory --no-empty-directory
-  )
+      if ! _should_copy_wt_ignored_path "$relative_path"; then
+        continue
+      fi
+
+      echo "Copying '$relative_path' to worktree..."
+      (
+        cd "$project_dir" || exit 1
+        rsync -aR -- "$relative_path" "$worktree_path"
+      ) || return 1
+    done < <(
+      git -C "$project_dir" ls-files --others --ignored --exclude-standard --directory --no-empty-directory
+    )
+  fi
 
   cd "$worktree_path"
   code . &
@@ -402,6 +427,29 @@ function _confirm_wt_done_delete() {
         ;;
       *)
         echo "Please type 'continue' or 'cancel'."
+        ;;
+    esac
+  done
+}
+
+function _cleanup_wt_worktree_dirs() {
+  local worktree_path="$1"
+  local branch_name="$2"
+  local current_path="$worktree_path"
+  local remaining_branch="$branch_name"
+
+  while true; do
+    if [ -e "$current_path" ]; then
+      rmdir "$current_path" 2>/dev/null || break
+    fi
+
+    case "$remaining_branch" in
+      */*)
+        remaining_branch="${remaining_branch%/*}"
+        current_path="${current_path%/*}"
+        ;;
+      *)
+        break
         ;;
     esac
   done
@@ -456,6 +504,7 @@ function wt_done() {
   cd "$redirect_target" || return 1
   git --git-dir="$common_dir" worktree remove "${remove_args[@]}" "$project_dir" || return 1
   git --git-dir="$common_dir" branch -D "$branch_name" || return 1
+  _cleanup_wt_worktree_dirs "$project_dir" "$branch_name"
 
   echo "Deleted worktree '$project_dir' and branch '$branch_name'."
 }

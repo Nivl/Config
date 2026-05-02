@@ -91,6 +91,37 @@ code() {
 
 cd "$SOURCE_REPO"
 WORKTREES_ROOT="$WORKTREES_ROOT" wt "$FEATURE_NAME"
+pwd
+EOF
+}
+
+run_wt_done() {
+  local worktree_repo="$1"
+
+  REPO_ROOT="$REPO_ROOT" \
+  WORKTREE_REPO="$worktree_repo" \
+  TEST_HOME="$TEST_HOME" \
+  TEST_TMP_DIR="$TMP_DIR" \
+  zsh <<'EOF'
+set -euo pipefail
+
+brew() {
+  if [ "${1:-}" = "--prefix" ]; then
+    local prefix="$TEST_TMP_DIR/brew-prefix/${2:-default}"
+    mkdir -p "$prefix"
+    printf '%s\n' "$prefix"
+    return 0
+  fi
+
+  printf 'unexpected brew call: %s\n' "$*" >&2
+  return 1
+}
+
+HOME="$TEST_HOME"
+source "$REPO_ROOT/config.zshrc"
+
+cd "$WORKTREE_REPO"
+wt_done
 EOF
 }
 
@@ -122,6 +153,45 @@ assert_file_contains() {
   fi
 }
 
+assert_branch_name() {
+  local repo_path="$1"
+  local expected_branch="$2"
+  local actual_branch
+
+  actual_branch="$(git -C "$repo_path" symbolic-ref --quiet --short HEAD)"
+  if [ "$actual_branch" != "$expected_branch" ]; then
+    printf 'Expected branch %s, got %s\n' "$expected_branch" "$actual_branch" >&2
+    exit 1
+  fi
+}
+
+assert_output_contains() {
+  local haystack="$1"
+  local needle="$2"
+
+  case "$haystack" in
+    *"$needle"* ) ;;
+    *)
+      printf 'Expected output to contain %s, got:\n%s\n' "$needle" "$haystack" >&2
+      exit 1
+      ;;
+  esac
+}
+
+assert_output_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+
+  case "$haystack" in
+    *"$needle"* )
+      printf 'Expected output not to contain %s, got:\n%s\n' "$needle" "$haystack" >&2
+      exit 1
+      ;;
+    *)
+      ;;
+  esac
+}
+
 assert_wt_result() {
   local expected_worktree="$1"
   local test_result="$2"
@@ -147,12 +217,51 @@ assert_wt_result() {
 
 HTTPS_SOURCE_REPO="$TMP_DIR/source-repo-https"
 SSH_SOURCE_REPO="$TMP_DIR/source-repo-ssh"
+CLEANUP_SOURCE_REPO="$TMP_DIR/source-repo-cleanup"
+CLEANUP_REMOTE_REPO="$TMP_DIR/source-repo-cleanup-remote.git"
+REUSE_SOURCE_REPO="$TMP_DIR/source-repo-reuse"
 
 init_source_repo "$HTTPS_SOURCE_REPO" "https://github.com/example/project.git"
 init_source_repo "$SSH_SOURCE_REPO" "git@github.com:Nivl/next-themes.git"
+init_source_repo "$REUSE_SOURCE_REPO" "https://github.com/Nivl/melvin.la.git"
+git init --bare "$CLEANUP_REMOTE_REPO" >/dev/null
+init_source_repo "$CLEANUP_SOURCE_REPO" "$CLEANUP_REMOTE_REPO"
+git -C "$CLEANUP_SOURCE_REPO" push -u origin HEAD >/dev/null
+git -C "$HTTPS_SOURCE_REPO" branch feature-existing
+REUSED_BRANCH="renovate/design-system"
+REUSED_WORKTREE="$WORKTREES_ROOT/github.com/Nivl/melvin.la/$REUSED_BRANCH"
+mkdir -p "$(dirname "$REUSED_WORKTREE")"
+git -C "$REUSE_SOURCE_REPO" worktree add -b "$REUSED_BRANCH" "$REUSED_WORKTREE" >/dev/null
 
 HTTPS_TEST_RESULT="$(run_wt "$HTTPS_SOURCE_REPO" feature-copy)"
 SSH_TEST_RESULT="$(run_wt "$SSH_SOURCE_REPO" feature-ssh)"
+EXISTING_BRANCH_TEST_RESULT="$(run_wt "$HTTPS_SOURCE_REPO" feature-existing)"
+REUSED_WORKTREE_RESULT="$(run_wt "$REUSE_SOURCE_REPO" "$REUSED_BRANCH")"
 
 assert_wt_result "$WORKTREES_ROOT/github.com/example/project/feature-copy" "$HTTPS_TEST_RESULT"
 assert_wt_result "$WORKTREES_ROOT/github.com/Nivl/next-themes/feature-ssh" "$SSH_TEST_RESULT"
+assert_wt_result "$WORKTREES_ROOT/github.com/example/project/feature-existing" "$EXISTING_BRANCH_TEST_RESULT"
+assert_branch_name "$WORKTREES_ROOT/github.com/example/project/feature-existing" "feature-existing"
+assert_output_contains "$REUSED_WORKTREE_RESULT" "$REUSED_WORKTREE"
+assert_output_not_contains "$REUSED_WORKTREE_RESULT" "Copying '"
+assert_output_not_contains "$REUSED_WORKTREE_RESULT" "fatal:"
+
+CLEANUP_BRANCH="a/b/c/d/e"
+CLEANUP_WORKTREE="$WORKTREES_ROOT/cleanup-repo/$CLEANUP_BRANCH"
+mkdir -p "$(dirname "$CLEANUP_WORKTREE")"
+git -C "$CLEANUP_SOURCE_REPO" worktree add -b "$CLEANUP_BRANCH" "$CLEANUP_WORKTREE" >/dev/null
+git -C "$CLEANUP_WORKTREE" push -u origin "$CLEANUP_BRANCH" >/dev/null
+
+WT_DONE_RESULT="$(run_wt_done "$CLEANUP_WORKTREE")"
+
+assert_not_exists "$CLEANUP_WORKTREE"
+assert_not_exists "$WORKTREES_ROOT/cleanup-repo/a"
+assert_exists "$WORKTREES_ROOT/cleanup-repo"
+
+case "$WT_DONE_RESULT" in
+  *"Deleted worktree"* ) ;;
+  *)
+    printf 'Expected wt_done output to mention Deleted worktree, got:\n%s\n' "$WT_DONE_RESULT" >&2
+    exit 1
+    ;;
+esac

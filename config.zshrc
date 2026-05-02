@@ -55,6 +55,14 @@ if [ -e "$(brew --prefix nvm)/nvm.sh" ]; then
   source $(brew --prefix nvm)/nvm.sh
 fi
 
+# pnpm
+export PNPM_HOME="$SDKS_ROOT/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end
+
 alias emacs='\emacs -nw'
 alias cd..='cd ..'
 alias lss='less'

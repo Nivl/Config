@@ -49,13 +49,17 @@ if [ -f "$SDKS_ROOT/google-cloud-sdk/completion.zsh.inc" ]; then
 fi
 
 # Node
-mkdir -p "$SDKS_ROOT/nvm"
 export NVM_DIR="$SDKS_ROOT/nvm"
+mkdir -p "$NVM_DIR"
 if [ -e "$(brew --prefix nvm)/nvm.sh" ]; then
   source $(brew --prefix nvm)/nvm.sh
 fi
 
-# pnpm
+# NPM
+YARN_CACHE_FOLDER="$SDKS_ROOT/yarn/cache"
+mkdir -p "$YARN_CACHE_FOLDER"
+NPM_CONFIG_CACHE="$SDKS_ROOT/npm"
+
 export PNPM_HOME="$SDKS_ROOT/pnpm"
 case ":$PATH:" in
   *":$PNPM_HOME:"*) ;;
@@ -314,7 +318,7 @@ function _should_copy_wt_ignored_path() {
     out|out/*|*/out|*/out/*)
       return 1
       ;;
-    tmp|tmp/*|*/tmp|*/tmp/*|temp|temp/*|*/temp|*/temp/*)
+    tmp|tmp/*|*/tmp|*/tmp/*) #"temps" is used by Rush to store the node_module
       return 1
       ;;
   esac

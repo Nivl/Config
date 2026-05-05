@@ -1,2 +1,13 @@
 .emacs.d/auto-save-list/*
 .last_update_check
+.claude/.sync-state/
+.claude/settings.local.json
+.claude/backups/
+.claude/cache/
+.claude/history.jsonl
+.claude/plugins/
+.claude/policy-limits.json
+.claude/projects/
+.claude/shell-snapshots/
+.claude/sessions/
+.claude/file-history/

@@ -44,3 +44,14 @@ jobs:
 
       - name: Run wt
         run: bash tests/wt_ignored_copy_test.sh
+
+  claude-sync:
+    name: Claude config sync test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run claude sync test
+        run: bash tests/claude_sync_test.sh

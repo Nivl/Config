@@ -245,7 +245,7 @@ install_packages() {
   brew install go golangci-lint go-task/tap/go-task nvm pnpm
 
   # AI
-  brew install copilot-cli claude-code
+  brew install copilot-cli claude-code rtk
 
   # Common apps
   install_casks "${common_casks[@]}"

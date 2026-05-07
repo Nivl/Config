@@ -1,5 +1,18 @@
 {
   "model": "opus",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rtk hook claude"
+          }
+        ]
+      }
+    ]
+  },
   "enabledPlugins": {
     "warp@claude-code-warp": true,
     "amplitude@claude-plugins-official": true,
@@ -42,19 +55,5 @@
       }
     }
   },
-  "effortLevel": "xhigh",
-  "theme": "auto",
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "rtk hook claude"
-          }
-        ]
-      }
-    ]
-  }
+  "theme": "auto"
 }

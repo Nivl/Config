@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 set -e  # Exit on error
 
@@ -193,14 +193,14 @@ print_skipped_cask_updates() {
 }
 
 print_failed_cask_updates() {
-  local i=0
+  local i
 
   if [ "${#FAILED_CASK_UPDATES[@]}" -eq 0 ]; then
     return
   fi
 
   printf "\nFailed cask installs or upgrades:\n"
-  for i in "${!FAILED_CASK_UPDATES[@]}"; do
+  for ((i = 1; i <= ${#FAILED_CASK_UPDATES[@]}; i++)); do
     printf "\t- %s: %s\n" "${FAILED_CASK_UPDATES[$i]}" "${FAILED_CASK_FAILURE_REASONS[$i]}"
   done
 }
@@ -612,13 +612,13 @@ EOF
 
 # Write a timestamped copy of $1 next to itself: <path>.YYYYMMDDHHMMSS.bkp
 claude_backup_file() {
-  local path="$1"
-  if [ ! -e "$path" ]; then
+  local file_path="$1"
+  if [ ! -e "$file_path" ]; then
     return 0
   fi
   local stamp
   stamp=$(date +%Y%m%d%H%M%S)
-  cp -p "$path" "$path.$stamp.bkp"
+  cp -p "$file_path" "$file_path.$stamp.bkp"
   return 0
 }
 
@@ -905,27 +905,27 @@ claude_merge_settings() {
   count=$(jq 'length' <<< "$decisions")
   local i=0
   while [ "$i" -lt "$count" ]; do
-    local entry path action
+    local entry json_path action
     entry=$(jq -c ".[$i]" <<< "$decisions")
-    path=$(jq -c '.path' <<< "$entry")
+    json_path=$(jq -c '.path' <<< "$entry")
     action=$(jq -r '.decision.action' <<< "$entry")
 
     case "$action" in
       "take-remote")
         local value
         value=$(jq -c '.decision.value' <<< "$entry")
-        jq -nc --argjson p "$path" --argjson v "$value" '{path: $p, value: $v}' >> "$ops_file"
+        jq -nc --argjson p "$json_path" --argjson v "$value" '{path: $p, value: $v}' >> "$ops_file"
         ;;
       "remote-delete")
-        jq -nc --argjson p "$path" '{path: $p, delete: true}' >> "$ops_file"
+        jq -nc --argjson p "$json_path" '{path: $p, delete: true}' >> "$ops_file"
         ;;
       "keep-local")
         : # disk already has the right value
         ;;
       "conflict")
         local key filter header
-        key="$path"  # canonical compact-JSON key for the cache
-        filter=$(claude_path_to_filter "$path")
+        key="$json_path"  # canonical compact-JSON key for the cache
+        filter=$(claude_path_to_filter "$json_path")
         header="Conflict in settings.json at $filter"
 
         CLAUDE_CONFLICT_BASE_REPR=$(jq -r 'if .decision.base   == null then "<absent>" else (.decision.base.value   | tojson) end' <<< "$entry")
@@ -941,9 +941,9 @@ claude_merge_settings() {
             if [ "$r_present" = "true" ]; then
               local r_value
               r_value=$(jq -c '.decision.remote.value' <<< "$entry")
-              jq -nc --argjson p "$path" --argjson v "$r_value" '{path: $p, value: $v}' >> "$ops_file"
+              jq -nc --argjson p "$json_path" --argjson v "$r_value" '{path: $p, value: $v}' >> "$ops_file"
             else
-              jq -nc --argjson p "$path" '{path: $p, delete: true}' >> "$ops_file"
+              jq -nc --argjson p "$json_path" '{path: $p, delete: true}' >> "$ops_file"
             fi
             ;;
           "skip") : ;;
@@ -1223,7 +1223,7 @@ main() {
       PERSONAL_COMPUTER="$PERSONAL_COMPUTER" \
       SKIP_CONFIG_FILE_SETUP="$SKIP_CONFIG_FILE_SETUP" \
       SKIP_CLAUDE_MERGE_PROMPTS="$SKIP_CLAUDE_MERGE_PROMPTS" \
-      bash "$CONFIG_DIR/install.sh"
+      zsh "$CONFIG_DIR/install.sh"
   fi
 
   # Install dependencies

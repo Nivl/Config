@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/zsh
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -128,27 +128,27 @@ EOF
 EXPECTED_WORKTREE="$WORKTREES_ROOT/github.com/example/project/feature-copy"
 
 assert_exists() {
-  local path="$1"
-  if [ ! -e "$path" ]; then
-    printf 'Expected path to exist: %s\n' "$path" >&2
+  local target_path="$1"
+  if [ ! -e "$target_path" ]; then
+    printf 'Expected path to exist: %s\n' "$target_path" >&2
     exit 1
   fi
 }
 
 assert_not_exists() {
-  local path="$1"
-  if [ -e "$path" ]; then
-    printf 'Expected path to be absent: %s\n' "$path" >&2
+  local target_path="$1"
+  if [ -e "$target_path" ]; then
+    printf 'Expected path to be absent: %s\n' "$target_path" >&2
     exit 1
   fi
 }
 
 assert_file_contains() {
-  local path="$1"
+  local target_path="$1"
   local needle="$2"
-  assert_exists "$path"
-  if ! grep -Fq "$needle" "$path"; then
-    printf 'Expected %s to contain %s\n' "$path" "$needle" >&2
+  assert_exists "$target_path"
+  if ! grep -Fq "$needle" "$target_path"; then
+    printf 'Expected %s to contain %s\n' "$target_path" "$needle" >&2
     exit 1
   fi
 }

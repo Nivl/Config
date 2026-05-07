@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/zsh
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -231,7 +231,7 @@ SCENARIO="fresh-install"
 SCENARIO_DIR="$TMP_DIR/$SCENARIO"
 mkdir -p "$SCENARIO_DIR"
 
-output="$(TEST_TMP_DIR="$SCENARIO_DIR" REPO_ROOT="$REPO_ROOT" bash "$TMP_DIR/harness.sh")"
+output="$(TEST_TMP_DIR="$SCENARIO_DIR" REPO_ROOT="$REPO_ROOT" zsh "$TMP_DIR/harness.sh")"
 
 brew_log="$(cat "$SCENARIO_DIR/brew.log")"
 first_brew_call="$(printf '%s\n' "$brew_log" | sed -n '1p')"
@@ -264,7 +264,7 @@ mkdir -p "$SCENARIO_DIR"
 
 output="$(TEST_TMP_DIR="$SCENARIO_DIR" REPO_ROOT="$REPO_ROOT" \
   MOCK_CONFIG_EXISTS=1 MOCK_UPDATE_RETURN=0 \
-  bash "$TMP_DIR/harness.sh")"
+  zsh "$TMP_DIR/harness.sh")"
 
 brew_log="$(cat "$SCENARIO_DIR/brew.log")"
 
@@ -301,7 +301,7 @@ FAKE
 output="$(TEST_TMP_DIR="$SCENARIO_DIR" REPO_ROOT="$REPO_ROOT" \
   MOCK_CONFIG_EXISTS=1 MOCK_UPDATE_RETURN=1 \
   MOCK_REEXEC_SCRIPT="$FAKE_INSTALL" \
-  bash "$TMP_DIR/harness.sh")"
+  zsh "$TMP_DIR/harness.sh")"
 
 brew_log="$(cat "$SCENARIO_DIR/brew.log")"
 
@@ -329,7 +329,7 @@ mkdir -p "$SCENARIO_DIR"
 
 output="$(TEST_TMP_DIR="$SCENARIO_DIR" REPO_ROOT="$REPO_ROOT" \
   SKIP_CONFIG_FILE_SETUP=true \
-  bash "$TMP_DIR/harness.sh")"
+  zsh "$TMP_DIR/harness.sh")"
 
 brew_log="$(cat "$SCENARIO_DIR/brew.log")"
 

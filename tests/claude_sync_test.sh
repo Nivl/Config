@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/zsh
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -28,20 +28,20 @@ assert_eq() {
 }
 
 assert_file_exists() {
-  local label="$1" path="$2"
-  if [ ! -e "$path" ]; then fail "$label: file not found: $path"; fi
+  local label="$1" target_path="$2"
+  if [ ! -e "$target_path" ]; then fail "$label: file not found: $target_path"; fi
 }
 
 assert_file_absent() {
-  local label="$1" path="$2"
-  if [ -e "$path" ]; then fail "$label: file unexpectedly present: $path"; fi
+  local label="$1" target_path="$2"
+  if [ -e "$target_path" ]; then fail "$label: file unexpectedly present: $target_path"; fi
 }
 
 assert_symlink_to() {
-  local label="$1" path="$2" target="$3"
-  if [ ! -L "$path" ]; then fail "$label: not a symlink: $path"; fi
+  local label="$1" link_path="$2" target="$3"
+  if [ ! -L "$link_path" ]; then fail "$label: not a symlink: $link_path"; fi
   local actual
-  actual=$(readlink "$path")
+  actual=$(readlink "$link_path")
   if [ "$actual" != "$target" ]; then
     fail "$label: symlink points to '$actual', expected '$target'"
   fi

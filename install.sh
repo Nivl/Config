@@ -579,6 +579,7 @@ CLAUDE_LAST_SYNC_FILE=""
 CLAUDE_DECISIONS_FILE=""
 CLAUDE_HAD_SKIPS=0
 CLAUDE_DIR_NAMES=("skills" "agents" "commands")
+CLAUDE_TOP_FILES=("CLAUDE.md" "RTK.md")
 
 claude_init_paths() {
   CLAUDE_REPO_DIR="$CONFIG_DIR/.claude"
@@ -968,9 +969,9 @@ claude_merge_settings() {
   rm -f "$tmp_base" "$tmp_local" "$ops_file"
 }
 
-# Symlink mode: ~/.claude/{settings.json,skills,agents,commands} -> repo copies.
+# Symlink mode: ~/.claude/{settings.json,CLAUDE.md,RTK.md,skills,agents,commands} -> repo copies.
 claude_install_symlink() {
-  local items=("settings.json" "${CLAUDE_DIR_NAMES[@]}")
+  local items=("settings.json" "${CLAUDE_TOP_FILES[@]}" "${CLAUDE_DIR_NAMES[@]}")
   local item source target
   for item in "${items[@]}"; do
     source="$CLAUDE_REPO_DIR/$item"
@@ -998,8 +999,9 @@ claude_install_symlink() {
   return 0
 }
 
-# Conflict-detail callback for skill/agent/command file conflicts.
-# Globals set by claude_merge_dir_file before invoking the resolver.
+# Conflict-detail callback for non-JSON file conflicts (top-level files and
+# skill/agent/command files). Globals set by claude_merge_file before invoking
+# the resolver.
 CLAUDE_DIR_CONFLICT_TYPE=""
 CLAUDE_DIR_CONFLICT_LOCAL_PATH=""
 CLAUDE_DIR_CONFLICT_REMOTE_PATH=""
@@ -1036,23 +1038,23 @@ claude_dir_conflict_details() {
   fi
 }
 
-# Merge a single file inside skills/agents/commands.
-# Resolves the file-level truth table and applies the chosen action,
-# always backing up local content before any destructive change.
-claude_merge_dir_file() {
-  local dir_name="$1" rel="$2"
-  local L="$CLAUDE_HOME_DIR/$dir_name/$rel"
-  local R="$CLAUDE_REPO_DIR/$dir_name/$rel"
+# Merge a single file by its path within .claude/ (e.g. "CLAUDE.md" or
+# "skills/foo.md"). Resolves the file-level truth table and applies the chosen
+# action, always backing up local content before any destructive change.
+claude_merge_file() {
+  local rel="$1"
+  local L="$CLAUDE_HOME_DIR/$rel"
+  local R="$CLAUDE_REPO_DIR/$rel"
 
   local has_L=0 has_R=0 has_B=0
   if [ -e "$L" ]; then has_L=1; fi
   if [ -e "$R" ]; then has_R=1; fi
 
   local tmp_base=""
-  if claude_base_has "$dir_name/$rel"; then
+  if claude_base_has "$rel"; then
     has_B=1
     tmp_base=$(mktemp)
-    claude_show_base "$dir_name/$rel" > "$tmp_base" 2>/dev/null
+    claude_show_base "$rel" > "$tmp_base" 2>/dev/null
   fi
 
   local L_eq_B=0 R_eq_B=0 L_eq_R=0
@@ -1099,8 +1101,8 @@ claude_merge_dir_file() {
       rm -f "$L"
       ;;
     "conflict")
-      local key="$dir_name/$rel"
-      local header="Conflict in $dir_name/$rel ($conflict_type)"
+      local key="$rel"
+      local header="Conflict in $rel ($conflict_type)"
 
       CLAUDE_DIR_CONFLICT_TYPE="$conflict_type"
       CLAUDE_DIR_CONFLICT_LOCAL_PATH=""
@@ -1171,14 +1173,19 @@ claude_merge_dir() {
 
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
-    claude_merge_dir_file "$dir_name" "$rel"
+    claude_merge_file "$dir_name/$rel"
   done <<< "$rels"
 }
 
-# Copy mode entry point: settings.json merge + each directory merge, then
-# advance last-sync-commit (only if no conflicts were skipped).
+# Copy mode entry point: settings.json merge + each top-level file merge +
+# each directory merge, then advance last-sync-commit (only if no conflicts
+# were skipped).
 claude_install_or_merge_copy() {
   claude_merge_settings
+  local f
+  for f in "${CLAUDE_TOP_FILES[@]}"; do
+    claude_merge_file "$f"
+  done
   local d
   for d in "${CLAUDE_DIR_NAMES[@]}"; do
     claude_merge_dir "$d"

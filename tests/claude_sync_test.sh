@@ -161,6 +161,18 @@ scenario_personal_symlink_existing_skipped() {
   assert_json_eq "existing local settings preserved" "$CLAUDE_HOME_DIR/settings.json" '.model' '"sonnet"'
 }
 
+scenario_personal_symlink_top_files_fresh() {
+  load_helpers
+  PERSONAL_COMPUTER=true
+  SKIP_CONFIG_FILE_SETUP=true
+  printf '{}'                > "$CLAUDE_REPO_DIR/settings.json"
+  printf '@RTK.md\n'         > "$CLAUDE_REPO_DIR/CLAUDE.md"
+  printf 'rtk docs\n'        > "$CLAUDE_REPO_DIR/RTK.md"
+  claude_setup
+  assert_symlink_to "CLAUDE.md symlinked" "$CLAUDE_HOME_DIR/CLAUDE.md" "$CLAUDE_REPO_DIR/CLAUDE.md"
+  assert_symlink_to "RTK.md symlinked"    "$CLAUDE_HOME_DIR/RTK.md"    "$CLAUDE_REPO_DIR/RTK.md"
+}
+
 # =============================================================================
 # Scenarios — copy mode, settings merge
 # =============================================================================
@@ -300,6 +312,20 @@ scenario_skill_remote_add_no_prompt() {
   assert_eq "skill content matches" "new skill content" "$(cat "$CLAUDE_HOME_DIR/skills/new-skill.md")"
 }
 
+scenario_top_file_remote_add_no_prompt() {
+  load_helpers
+  PERSONAL_COMPUTER=false
+  printf '{}' > "$CLAUDE_REPO_DIR/settings.json"
+  git_commit_in_repo "v1"
+  test_repo_head > "$CLAUDE_LAST_SYNC_FILE"
+  # Repo adds a top-level CLAUDE.md
+  printf '@RTK.md\n## My rules\n' > "$CLAUDE_REPO_DIR/CLAUDE.md"
+  git_commit_in_repo "add CLAUDE.md"
+  claude_setup < /dev/null
+  assert_file_exists "top-level CLAUDE.md copied" "$CLAUDE_HOME_DIR/CLAUDE.md"
+  assert_eq "CLAUDE.md content matches" "$(printf '@RTK.md\n## My rules\n')" "$(cat "$CLAUDE_HOME_DIR/CLAUDE.md")"
+}
+
 scenario_skill_remote_delete_clean_no_prompt() {
   load_helpers
   PERSONAL_COMPUTER=false
@@ -396,6 +422,7 @@ main() {
 
   run_scenario personal_symlink_fresh                  scenario_personal_symlink_fresh
   run_scenario personal_symlink_existing_skipped       scenario_personal_symlink_existing_skipped
+  run_scenario personal_symlink_top_files_fresh        scenario_personal_symlink_top_files_fresh
   run_scenario copy_fresh_no_base                      scenario_copy_fresh_no_base
   run_scenario update_remote_add_plugin_no_prompt      scenario_update_remote_add_plugin_no_prompt
   run_scenario update_local_add_plugin_no_prompt       scenario_update_local_add_plugin_no_prompt
@@ -405,6 +432,7 @@ main() {
   run_scenario update_cached_decision                  scenario_update_cached_decision
   run_scenario skipped_conflict_does_not_advance       scenario_skipped_conflict_does_not_advance
   run_scenario skill_remote_add_no_prompt              scenario_skill_remote_add_no_prompt
+  run_scenario top_file_remote_add_no_prompt           scenario_top_file_remote_add_no_prompt
   run_scenario skill_remote_delete_clean_no_prompt     scenario_skill_remote_delete_clean_no_prompt
   run_scenario skill_modify_modify_conflict_with_bkp   scenario_skill_modify_modify_conflict_with_backup
   run_scenario skill_take_remote_creates_backup        scenario_skill_take_remote_creates_backup

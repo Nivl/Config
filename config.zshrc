@@ -15,11 +15,11 @@ export PATH=$HOME/.bin-remote:$PATH
 # All the stuff installed by brew, that needs their bin directories
 # to be added to PATH
 brew_installed=(
-    'rustup' # rust
-    # libpq conflicts with the package postgres.
-    # libpq only has client tools (psql, pq_dump, etc) while postgres
-    # has everything
-    'libpq'
+  'rustup' # rust
+  # libpq conflicts with the package postgres.
+  # libpq only has client tools (psql, pq_dump, etc) while postgres
+  # has everything
+  'libpq'
 )
 for package in $brew_installed; do
   export PATH="$(brew --prefix $package)/bin:$PATH"
@@ -32,20 +32,20 @@ export PATH=$PATH:$GOPATH/bin
 
 # GNU grep
 if [ -d "$(brew --prefix grep)" ]; then
-    export PATH="$(brew --prefix grep)/libexec/gnubin:$PATH"
+  export PATH="$(brew --prefix grep)/libexec/gnubin:$PATH"
 fi
 
 # google cloud
 # https://cloud.google.com/sdk/docs/install
 
 # The next line updates PATH for the Google Cloud SDK.
-if [ -f "$SDKS_ROOT/google-cloud-sdk/path.zsh.inc" ]; then 
-  . "$SDKS_ROOT/google-cloud-sdk/path.zsh.inc";
+if [ -f "$SDKS_ROOT/google-cloud-sdk/path.zsh.inc" ]; then
+  . "$SDKS_ROOT/google-cloud-sdk/path.zsh.inc"
 fi
 
 # The next line enables shell command completion for gcloud.
 if [ -f "$SDKS_ROOT/google-cloud-sdk/completion.zsh.inc" ]; then
-  . "$SDKS_ROOT/google-cloud-sdk/completion.zsh.inc";
+  . "$SDKS_ROOT/google-cloud-sdk/completion.zsh.inc"
 fi
 
 # Node
@@ -62,8 +62,8 @@ NPM_CONFIG_CACHE="$SDKS_ROOT/npm"
 
 export PNPM_HOME="$SDKS_ROOT/pnpm"
 case ":$PATH:" in
-  *":$PNPM_HOME:"*) ;;
-  *) export PATH="$PNPM_HOME:$PATH" ;;
+*":$PNPM_HOME:"*) ;;
+*) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 # pnpm end
 
@@ -92,235 +92,234 @@ export CLICOLOR=1
 
 # record terminal to file
 function rec {
-    local dir="$HOME/Documents/term_rec"
+  local dir="$HOME/Documents/term_rec"
 
-    if [ -z "$1" ]; then
-        echo "usage: rec [-adkpqr] [-F pipe] [-t time] output-file-name"
-    fi
+  if [ -z "$1" ]; then
+    echo "usage: rec [-adkpqr] [-F pipe] [-t time] output-file-name"
+  fi
 
-    local flags
-    local outfile=$1
+  local flags
+  local outfile=$1
 
-    if [ "${#@[*]}" -gt "1" ]; then
-        flags="${@:1:$#@-1}"
-        outfile=${*:$#}
-    fi
+  if [ "${#@[*]}" -gt "1" ]; then
+    flags="${@:1:$#@-1}"
+    outfile=${*:$#}
+  fi
 
-    mkdir -p "$dir"
+  mkdir -p "$dir"
 
-    script $flags "$dir/$outfile"
+  script $flags "$dir/$outfile"
 }
 
 function findport {
-    if [ -z "$1" ]; then
-        echo "usage: findport port-number"
-    fi
+  if [ -z "$1" ]; then
+    echo "usage: findport port-number"
+  fi
 
-    lsof -nP -i4TCP:$1 | grep LISTEN
+  lsof -nP -i4TCP:$1 | grep LISTEN
 }
 
 function erase {
-    if [ -z "$1" ]; then
-        echo "usage: erase _directory_"
-    fi
+  if [ -z "$1" ]; then
+    echo "usage: erase _directory_"
+  fi
 
-    mkdir -p trash
+  mkdir -p trash
 
-    # mkdir -p trash ; rsync -a --delete trash/ "$1" && rmdir trash
-    for dir in "$@"
-    do
-       rsync -aP --delete trash/ "$dir"
-       rmdir "$dir"
-    done
+  # mkdir -p trash ; rsync -a --delete trash/ "$1" && rmdir trash
+  for dir in "$@"; do
+    rsync -aP --delete trash/ "$dir"
+    rmdir "$dir"
+  done
 
-    rm -rf trash
+  rm -rf trash
 }
 
 function code {
-    if [[ "$(command -v code)" == /* ]]; then
-        command code "$@"
-    else
-        code-insiders "$@"
-    fi
+  if [[ "$(command -v code)" == /* ]]; then
+    command code "$@"
+  else
+    code-insiders "$@"
+  fi
 }
 
 function is-go-repo {
-    return $(test -e "go.mod")
+  return $(test -e "go.mod")
 }
 
 # TODO(melvin): figure out a clean not-too-hacky way to clean that up
 function run {
-    if [ -e ".nvmrc" ]; then
-        nvm install
-    fi
+  if [ -e ".nvmrc" ]; then
+    nvm install
+  fi
 
-    if [ -e "yarn.lock" ]; then
-        yarn "$@"
-    elif [ -e "pnpm-lock.yaml" ]; then
-        pnpm "$@"
-    elif [ -e "nx.json" ]; then
-        nx "$@"
-    elif [ -e "bun.lock" ]; then
-        bun run "$@"
-    elif [ -e "package-lock.json" ]; then
-        npm run "$@"
-    elif [ -e "Makefile" ]; then
-        make "$@"
-    elif is-go-repo; then
-        task "$@"
-    elif [ -e "manage.py" ]; then
-        python manage.py "$@"
-    else
-        echo "Nothing to run"
-        return 1
-    fi
+  if [ -e "yarn.lock" ]; then
+    yarn "$@"
+  elif [ -e "pnpm-lock.yaml" ]; then
+    pnpm "$@"
+  elif [ -e "nx.json" ]; then
+    nx "$@"
+  elif [ -e "bun.lock" ]; then
+    bun run "$@"
+  elif [ -e "package-lock.json" ]; then
+    npm run "$@"
+  elif [ -e "Makefile" ]; then
+    make "$@"
+  elif is-go-repo; then
+    task "$@"
+  elif [ -e "manage.py" ]; then
+    python manage.py "$@"
+  else
+    echo "Nothing to run"
+    return 1
+  fi
 }
 
 function add {
-    if [ -e "yarn.lock" ]; then
-        yarn add "$@"
-    elif [ -e "pnpm-lock.yaml" ]; then
-        pnpm add "$@"
-    elif [ -e "bun.lock" ]; then
-        bun add "$@"
-    elif [ -e "package-lock.json" ]; then
-        npm install "$@"
-    elif is-go-repo; then
-        go get "$@"
-    elif [ -d ".venv" ]; then
-        pip install "$@"
-        pip freeze > requirements.txt
-    else
-        echo "Nothing to run"
-        return 1
-    fi
+  if [ -e "yarn.lock" ]; then
+    yarn add "$@"
+  elif [ -e "pnpm-lock.yaml" ]; then
+    pnpm add "$@"
+  elif [ -e "bun.lock" ]; then
+    bun add "$@"
+  elif [ -e "package-lock.json" ]; then
+    npm install "$@"
+  elif is-go-repo; then
+    go get "$@"
+  elif [ -d ".venv" ]; then
+    pip install "$@"
+    pip freeze >requirements.txt
+  else
+    echo "Nothing to run"
+    return 1
+  fi
 }
 
 function install {
-    if [ -e "yarn.lock" ]; then
-        yarn install
-    elif [ -e "pnpm-lock.yaml" ]; then
-        pnpm install
-    elif [ -e "bun.lock" ]; then
-        bun install
-    elif [ -e "package-lock.json" ]; then
-        npm install
-    elif [ -e "go.mod" ]; then
-        go mod tidy
-    elif [ -d ".venv" ]; then
-        pip freeze > requirements.txt
-    else
-        echo "Nothing to run"
-        return 1
-    fi
+  if [ -e "yarn.lock" ]; then
+    yarn install
+  elif [ -e "pnpm-lock.yaml" ]; then
+    pnpm install
+  elif [ -e "bun.lock" ]; then
+    bun install
+  elif [ -e "package-lock.json" ]; then
+    npm install
+  elif [ -e "go.mod" ]; then
+    go mod tidy
+  elif [ -d ".venv" ]; then
+    pip freeze >requirements.txt
+  else
+    echo "Nothing to run"
+    return 1
+  fi
 }
 
 function lint {
-    if [ -e "Makefile" ]; then
-        make lint "$@"
-    elif is-go-repo; then
-        golangci-lint run ./... "$@"
-    else
-        run lint "$@"
-    fi
+  if [ -e "Makefile" ]; then
+    make lint "$@"
+  elif is-go-repo; then
+    golangci-lint run ./... "$@"
+  else
+    run lint "$@"
+  fi
 }
 
 function cl() {
-    if [ -z "$1" ]; then
-        echo "cl <repo-name | user/repo-name | git@host:user/repo-name.git | https://host/user/repo-name.git>"
-        return 1
-    fi
+  if [ -z "$1" ]; then
+    echo "cl <repo-name | user/repo-name | git@host:user/repo-name.git | https://host/user/repo-name.git>"
+    return 1
+  fi
 
-    local default_host="${GIT_HOST:-git@github.com}"
-    local default_user="${GIT_CLONE_USER_NAME:-Nivl}"
+  local default_host="${GIT_HOST:-git@github.com}"
+  local default_user="${GIT_CLONE_USER_NAME:-Nivl}"
 
-    local host user repo_name local_path clone_url
+  local host user repo_name local_path clone_url
 
-    if [[ "$1" =~ '^git@([^:]+):([^/]+)/(.+)\.git$' ]]; then
-        # Case: git@github.com:Nivl/Config.git
-        host="git@${match[1]}"
-        user="${match[2]}"
-        repo_name="${match[3]}"
-        clone_url="$1"
-        local_path="${match[1]}/${user}/${repo_name}"
-    elif [[ "$1" =~ '^https://([^/]+)/([^/]+)/([^/]+)$' ]]; then
-        # Case: https://gitlab.com/user/repo.git
-        host="git@${match[1]}"
-        user="${match[2]}"
-        repo_name="${match[3]%.git}"
-        clone_url="$1"
-        local_path="${match[1]}/${user}/${repo_name}"
-    elif [[ "$1" =~ '/' ]]; then
-        # Case: user/repo
-        user="${1%%/*}"
-        repo_name="${1#*/}"
-        host="$default_host"
-        local_path="${default_host#git@}/${user}/${repo_name}"
-        clone_url="${host}:${user}/${repo_name}.git"
-    else
-        # Case: repo-name only
-        user="$default_user"
-        repo_name="$1"
-        host="$default_host"
-        local_path="${default_host#git@}/${user}/${repo_name}"
-        clone_url="${host}:${user}/${repo_name}.git"
-    fi
+  if [[ "$1" =~ '^git@([^:]+):([^/]+)/(.+)\.git$' ]]; then
+    # Case: git@github.com:Nivl/Config.git
+    host="git@${match[1]}"
+    user="${match[2]}"
+    repo_name="${match[3]}"
+    clone_url="$1"
+    local_path="${match[1]}/${user}/${repo_name}"
+  elif [[ "$1" =~ '^https://([^/]+)/([^/]+)/([^/]+)$' ]]; then
+    # Case: https://gitlab.com/user/repo.git
+    host="git@${match[1]}"
+    user="${match[2]}"
+    repo_name="${match[3]%.git}"
+    clone_url="$1"
+    local_path="${match[1]}/${user}/${repo_name}"
+  elif [[ "$1" =~ '/' ]]; then
+    # Case: user/repo
+    user="${1%%/*}"
+    repo_name="${1#*/}"
+    host="$default_host"
+    local_path="${default_host#git@}/${user}/${repo_name}"
+    clone_url="${host}:${user}/${repo_name}.git"
+  else
+    # Case: repo-name only
+    user="$default_user"
+    repo_name="$1"
+    host="$default_host"
+    local_path="${default_host#git@}/${user}/${repo_name}"
+    clone_url="${host}:${user}/${repo_name}.git"
+  fi
 
-    local dest="$REPOS_ROOT/${local_path}"
+  local dest="$REPOS_ROOT/${local_path}"
 
-    if [ -d "$dest" ]; then
-        echo "Repository already exists at ${dest}, skipping clone."
-    else
-        mkdir -p "$dest"
-        git clone "$clone_url" "$dest"
-    fi
+  if [ -d "$dest" ]; then
+    echo "Repository already exists at ${dest}, skipping clone."
+  else
+    mkdir -p "$dest"
+    git clone "$clone_url" "$dest"
+  fi
 
-    cd "$dest"
+  cd "$dest"
 }
 
 function keygen() {
-    local size="${1:-32}"
+  local size="${1:-32}"
 
-    print $(cat /dev/urandom | LC_ALL=C tr -dc 'a-zA-Z0-9' | fold -w "$size" | head -n 1)
+  print $(cat /dev/urandom | LC_ALL=C tr -dc 'a-zA-Z0-9' | fold -w "$size" | head -n 1)
 }
 
 function _should_copy_wt_ignored_path() {
   local path="${1%/}"
 
   case "$path" in
-    .git|.git/*|*/.git|*/.git/*)
-      return 1
-      ;;
-    .cache|.cache/*|*/.cache|*/.cache/*)
-      return 1
-      ;;
-    .next|.next/*|*/.next|*/.next/*)
-      return 1
-      ;;
-    .turbo|.turbo/*|*/.turbo|*/.turbo/*)
-      return 1
-      ;;
-    .pnpm-store|.pnpm-store/*|*/.pnpm-store|*/.pnpm-store/*)
-      return 1
-      ;;
-    .yarn/cache|.yarn/cache/*|*/.yarn/cache|*/.yarn/cache/*)
-      return 1
-      ;;
-    coverage|coverage/*|*/coverage|*/coverage/*)
-      return 1
-      ;;
-    dist|dist/*|*/dist|*/dist/*)
-      return 1
-      ;;
-    build|build/*|*/build|*/build/*)
-      return 1
-      ;;
-    out|out/*|*/out|*/out/*)
-      return 1
-      ;;
-    tmp|tmp/*|*/tmp|*/tmp/*) #"temps" is used by Rush to store the node_module
-      return 1
-      ;;
+  .git | .git/* | */.git | */.git/*)
+    return 1
+    ;;
+  .cache | .cache/* | */.cache | */.cache/*)
+    return 1
+    ;;
+  .next | .next/* | */.next | */.next/*)
+    return 1
+    ;;
+  .turbo | .turbo/* | */.turbo | */.turbo/*)
+    return 1
+    ;;
+  .pnpm-store | .pnpm-store/* | */.pnpm-store | */.pnpm-store/*)
+    return 1
+    ;;
+  .yarn/cache | .yarn/cache/* | */.yarn/cache | */.yarn/cache/*)
+    return 1
+    ;;
+  coverage | coverage/* | */coverage | */coverage/*)
+    return 1
+    ;;
+  dist | dist/* | */dist | */dist/*)
+    return 1
+    ;;
+  build | build/* | */build | */build/*)
+    return 1
+    ;;
+  out | out/* | */out | */out/*)
+    return 1
+    ;;
+  tmp | tmp/* | */tmp | */tmp/*) #"temps" is used by Rush to store the node_module
+    return 1
+    ;;
   esac
 
   return 0
@@ -328,8 +327,8 @@ function _should_copy_wt_ignored_path() {
 
 function wt() {
   if [ -z "$1" ]; then
-      echo "wt <feature-name>"
-      return 1
+    echo "wt <feature-name>"
+    return 1
   fi
 
   local feature_name="$1"
@@ -343,14 +342,14 @@ function wt() {
   local path_separator="/"
 
   case "$wk_project_path" in
-    https://*|http://*)
-      wk_project_path="${wk_project_path#https://}"
-      wk_project_path="${wk_project_path#http://}"
-      ;;
-    git@*:* )
-      wk_project_path="${wk_project_path#git@}"
-      wk_project_path="${wk_project_path/:/$path_separator}"
-      ;;
+  https://* | http://*)
+    wk_project_path="${wk_project_path#https://}"
+    wk_project_path="${wk_project_path#http://}"
+    ;;
+  git@*:*)
+    wk_project_path="${wk_project_path#git@}"
+    wk_project_path="${wk_project_path/:/$path_separator}"
+    ;;
   esac
 
   wk_project_path="${wk_project_path%.git}"
@@ -422,16 +421,16 @@ function _confirm_wt_done_delete() {
     read "answer?Type 'continue' to force delete or 'cancel' to abort: "
 
     case "$answer" in
-      continue)
-        return 0
-        ;;
-      cancel|"")
-        echo "Canceled wt-done."
-        return 1
-        ;;
-      *)
-        echo "Please type 'continue' or 'cancel'."
-        ;;
+    continue)
+      return 0
+      ;;
+    cancel | "")
+      echo "Canceled wt-done."
+      return 1
+      ;;
+    *)
+      echo "Please type 'continue' or 'cancel'."
+      ;;
     esac
   done
 }
@@ -448,13 +447,13 @@ function _cleanup_wt_worktree_dirs() {
     fi
 
     case "$remaining_branch" in
-      */*)
-        remaining_branch="${remaining_branch%/*}"
-        current_path="${current_path%/*}"
-        ;;
-      *)
-        break
-        ;;
+    */*)
+      remaining_branch="${remaining_branch%/*}"
+      current_path="${current_path%/*}"
+      ;;
+    *)
+      break
+      ;;
     esac
   done
 }
@@ -490,7 +489,6 @@ function wt_done() {
   else
     has_unpushed=true
   fi
-
 
   local redirect_target="${common_dir%.git}"
   if [ ! -d "$redirect_target" ]; then

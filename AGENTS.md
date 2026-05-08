@@ -118,4 +118,5 @@ Test scripts use `set -euo pipefail`, so unbound-variable bugs in `install.sh` s
 - **Symlink, don't copy**: shared assets stay as the source of truth in this repo. The materialized exceptions are files that need machine-specific values (`~/.zshrc`, `~/.gitconfig`, `~/.zprofile`, `~/.gnupg/gpg-agent.conf`).
 - **Layered shell**: machine setup in `install.sh`, shell startup in `base.zshrc`, day-to-day helpers in `config.zshrc`. Don't blur the layers.
 - **`set -e` only in install.sh**: the script deliberately uses `set -e` (not `-u`). CI adds `-u` on top via the test harness. If you reference an env var that may be unset, default it (`${VAR:-}`) or initialize it at the top of `install.sh`.
+- **Format shell files with `shfmt`**: after modifying any shell file (`*.sh`, `*.zsh`, `*.zshrc`, `.gitmessage`-style snippets, etc.), run `shfmt -w <file>` to normalize formatting. `shfmt` honors the repo's `.editorconfig` (2-space indent, LF, trailing newline), so no extra flags are needed. `shfmt` is installed via Homebrew by `install.sh`.
 - **`.oh-my-zsh/` and `.emacs.d/`**: tracked payloads. Targeted edits are fine; broad refactors there are risky and rarely worth it.

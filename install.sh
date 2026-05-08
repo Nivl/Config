@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-set -e  # Exit on error
+set -e # Exit on error
 
 # =============================================================================
 # Configuration
@@ -24,9 +24,9 @@ ask_yes_no() {
     printf "%s (y/n)? " "$prompt"
     read -r answer
     case ${answer:0:1} in
-      "y"|"Y") return 0 ;;
-      "n"|"N") return 1 ;;
-      *) printf "Invalid value\n" ;;
+    "y" | "Y") return 0 ;;
+    "n" | "N") return 1 ;;
+    *) printf "Invalid value\n" ;;
     esac
   done
 }
@@ -58,7 +58,7 @@ setup_personal_computer_flag() {
   if ask_yes_no "Is this for a personal computer"; then
     PERSONAL_COMPUTER=true
   fi
-  printf "\nexport PERSONAL_COMPUTER=%s" "$PERSONAL_COMPUTER" > "$HOME/.zprofile"
+  printf "\nexport PERSONAL_COMPUTER=%s" "$PERSONAL_COMPUTER" >"$HOME/.zprofile"
 }
 
 setup_skip_existing_flag() {
@@ -82,7 +82,10 @@ install_homebrew() {
   fi
 
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  (echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> "$HOME/.zprofile"
+  (
+    echo
+    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"'
+  ) >>"$HOME/.zprofile"
   eval "$(/opt/homebrew/bin/brew shellenv)"
 }
 
@@ -105,7 +108,7 @@ list_cask_apps() {
 is_app_running() {
   local app_name="$1"
 
-  if pgrep -ix "$app_name" > /dev/null 2>&1; then
+  if pgrep -ix "$app_name" >/dev/null 2>&1; then
     return 0
   fi
 
@@ -151,7 +154,7 @@ install_cask() {
   local brew_stderr_file=""
   local failure_reason=""
 
-  if brew list --cask "$cask" > /dev/null 2>&1 && is_cask_running "$cask"; then
+  if brew list --cask "$cask" >/dev/null 2>&1 && is_cask_running "$cask"; then
     printf "Skipping cask update for %s because its app is running\n" "$cask"
     SKIPPED_CASK_UPDATES+=("$cask")
     return
@@ -236,7 +239,7 @@ install_packages() {
   FAILED_CASK_FAILURE_REASONS=()
 
   # Core utilities
-  brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd gh 
+  brew install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck shfmt lsd gh
 
   # Fonts
   brew install font-fira-code-nerd-font
@@ -278,7 +281,7 @@ setup_ssh() {
   fi
 
   if [ ! -e "$HOME/.ssh/config" ]; then
-    echo "IdentityFile $HOME/.ssh/default" > "$HOME/.ssh/config"
+    echo "IdentityFile $HOME/.ssh/default" >"$HOME/.ssh/config"
   fi
 }
 
@@ -339,24 +342,24 @@ handle_existing_file() {
     read -r answer
 
     case ${answer:0:1} in
-      "1")
-        [ -e "$target.bpk" ] && rm -rf "$target.bpk"
-        mv "$target" "$target.bpk"
-        ln -s "$source" "$target"
-        break
-        ;;
-      "2")
-        rm -rf "$target"
-        ln -s "$source" "$target"
-        break
-        ;;
-      "3")
-        printf "Skipping\n"
-        break
-        ;;
-      *)
-        printf "Invalid value\n"
-        ;;
+    "1")
+      [ -e "$target.bpk" ] && rm -rf "$target.bpk"
+      mv "$target" "$target.bpk"
+      ln -s "$source" "$target"
+      break
+      ;;
+    "2")
+      rm -rf "$target"
+      ln -s "$source" "$target"
+      break
+      ;;
+    "3")
+      printf "Skipping\n"
+      break
+      ;;
+    *)
+      printf "Invalid value\n"
+      ;;
     esac
   done
 }
@@ -427,14 +430,23 @@ ask_git_host() {
     read -r answer
 
     case ${answer:0:1} in
-      "1") echo "git@github.com"; return ;;
-      "2") echo "git@bitbucket.org"; return ;;
-      "3") echo "git@gitlab.com"; return ;;
-      "4")
-        ask_input "Type the URL of the git server (usually in the form of git@github.com):"
-        return
-        ;;
-      *) printf "Invalid value\n" >&2 ;;
+    "1")
+      echo "git@github.com"
+      return
+      ;;
+    "2")
+      echo "git@bitbucket.org"
+      return
+      ;;
+    "3")
+      echo "git@gitlab.com"
+      return
+      ;;
+    "4")
+      ask_input "Type the URL of the git server (usually in the form of git@github.com):"
+      return
+      ;;
+    *) printf "Invalid value\n" >&2 ;;
     esac
   done
 }
@@ -469,7 +481,7 @@ setup_zshrc() {
     printf "\n"
     printf "source \"\$HOME/.melvin/config/base.zshrc\""
     printf "\n"
-  } > "$ZSHRC"
+  } >"$ZSHRC"
 }
 
 # =============================================================================
@@ -504,7 +516,7 @@ setup_gitconfig() {
       printf "\n\n[commit]"
       printf "\n\tgpgsign = false"
     fi
-  } > "$GITCFG"
+  } >"$GITCFG"
 }
 
 # =============================================================================
@@ -519,7 +531,7 @@ setup_gpg() {
 
   mkdir -p "$HOME/.gnupg"
   local pinentry_path="$HOMEBREW_PREFIX/bin/pinentry-mac"
-  echo "pinentry-program $pinentry_path" > "$HOME/.gnupg/gpg-agent.conf"
+  echo "pinentry-program $pinentry_path" >"$HOME/.gnupg/gpg-agent.conf"
   killall gpg-agent
   gpg-agent --daemon
 }
@@ -538,7 +550,7 @@ setup_github() {
 
   if ask_yes_no "Setup Github"; then
     SETUP_GITHUB=true
-    gh auth login -w  # will ask to upload the previously generated SSH key to Github
+    gh auth login -w # will ask to upload the previously generated SSH key to Github
   fi
 }
 
@@ -553,7 +565,7 @@ print_remaining_tasks() {
     printf "\t* Upload %s/.ssh/default to your Cloud VCS: 'pbcopy < %s/.ssh/default.pub'\n" "$HOME" "$HOME"
   fi
 
-  if ! mdfind "kMDItemKind == 'Application'" | grep -iF "EasyRes" > /dev/null 2>&1; then
+  if ! mdfind "kMDItemKind == 'Application'" | grep -iF "EasyRes" >/dev/null 2>&1; then
     printf "\t* (optional) Install EasyRes if needed: http://easyresapp.com\n"
   fi
 
@@ -593,7 +605,7 @@ claude_init_paths() {
 claude_ensure_state_dir() {
   mkdir -p "$CLAUDE_STATE_DIR"
   if [ ! -e "$CLAUDE_STATE_DIR/README.md" ]; then
-    cat > "$CLAUDE_STATE_DIR/README.md" <<'EOF'
+    cat >"$CLAUDE_STATE_DIR/README.md" <<'EOF'
 This directory is gitignored and managed by install.sh.
 
 - last-sync-commit : repo SHA at last successful Claude config sync. Used as
@@ -607,7 +619,7 @@ next time install.sh runs.
 EOF
   fi
   if [ ! -e "$CLAUDE_DECISIONS_FILE" ]; then
-    printf '%s\n' '{"version":1,"settings":{},"files":{}}' > "$CLAUDE_DECISIONS_FILE"
+    printf '%s\n' '{"version":1,"settings":{},"files":{}}' >"$CLAUDE_DECISIONS_FILE"
   fi
 }
 
@@ -645,7 +657,7 @@ claude_set_decision() {
   tmp=$(mktemp)
   jq --arg kind "$kind" --arg k "$key" --arg v "$choice" '
     .[$kind] = ((.[$kind] // {}) | .[$k] = $v)
-  ' "$CLAUDE_DECISIONS_FILE" > "$tmp" && mv "$tmp" "$CLAUDE_DECISIONS_FILE"
+  ' "$CLAUDE_DECISIONS_FILE" >"$tmp" && mv "$tmp" "$CLAUDE_DECISIONS_FILE"
 }
 
 # Resolve a setting/file conflict via env override, decisions cache, or
@@ -661,16 +673,37 @@ claude_resolve_conflict() {
   CLAUDE_LAST_CHOICE=""
 
   case "$SKIP_CLAUDE_MERGE_PROMPTS" in
-    keep-local)  printf "%s -> keep-local (env)\n"  "$header" >&2; CLAUDE_LAST_CHOICE="keep-local";  return 0 ;;
-    take-remote) printf "%s -> take-remote (env)\n" "$header" >&2; CLAUDE_LAST_CHOICE="take-remote"; return 0 ;;
-    skip)        printf "%s -> skip (env)\n"        "$header" >&2; CLAUDE_HAD_SKIPS=1; CLAUDE_LAST_CHOICE="skip"; return 0 ;;
+  keep-local)
+    printf "%s -> keep-local (env)\n" "$header" >&2
+    CLAUDE_LAST_CHOICE="keep-local"
+    return 0
+    ;;
+  take-remote)
+    printf "%s -> take-remote (env)\n" "$header" >&2
+    CLAUDE_LAST_CHOICE="take-remote"
+    return 0
+    ;;
+  skip)
+    printf "%s -> skip (env)\n" "$header" >&2
+    CLAUDE_HAD_SKIPS=1
+    CLAUDE_LAST_CHOICE="skip"
+    return 0
+    ;;
   esac
 
   local cached=""
   cached=$(claude_get_decision "$kind" "$key")
   case "$cached" in
-    local)  printf "%s -> keep-local (remembered)\n"  "$header" >&2; CLAUDE_LAST_CHOICE="keep-local";  return 0 ;;
-    remote) printf "%s -> take-remote (remembered)\n" "$header" >&2; CLAUDE_LAST_CHOICE="take-remote"; return 0 ;;
+  local)
+    printf "%s -> keep-local (remembered)\n" "$header" >&2
+    CLAUDE_LAST_CHOICE="keep-local"
+    return 0
+    ;;
+  remote)
+    printf "%s -> take-remote (remembered)\n" "$header" >&2
+    CLAUDE_LAST_CHOICE="take-remote"
+    return 0
+    ;;
   esac
 
   while true; do
@@ -689,13 +722,31 @@ claude_resolve_conflict() {
     local answer=""
     read -r answer
     case ${answer:0:1} in
-      "1") CLAUDE_LAST_CHOICE="keep-local";  return 0 ;;
-      "2") CLAUDE_LAST_CHOICE="take-remote"; return 0 ;;
-      "3") "$details_fn" diff >&2 ;;
-      "4") claude_set_decision "$kind" "$key" "local";  CLAUDE_LAST_CHOICE="keep-local";  return 0 ;;
-      "5") claude_set_decision "$kind" "$key" "remote"; CLAUDE_LAST_CHOICE="take-remote"; return 0 ;;
-      "6") CLAUDE_HAD_SKIPS=1; CLAUDE_LAST_CHOICE="skip"; return 0 ;;
-      *)   printf "Invalid value\n" >&2 ;;
+    "1")
+      CLAUDE_LAST_CHOICE="keep-local"
+      return 0
+      ;;
+    "2")
+      CLAUDE_LAST_CHOICE="take-remote"
+      return 0
+      ;;
+    "3") "$details_fn" diff >&2 ;;
+    "4")
+      claude_set_decision "$kind" "$key" "local"
+      CLAUDE_LAST_CHOICE="keep-local"
+      return 0
+      ;;
+    "5")
+      claude_set_decision "$kind" "$key" "remote"
+      CLAUDE_LAST_CHOICE="take-remote"
+      return 0
+      ;;
+    "6")
+      CLAUDE_HAD_SKIPS=1
+      CLAUDE_LAST_CHOICE="skip"
+      return 0
+      ;;
+    *) printf "Invalid value\n" >&2 ;;
     esac
   done
 }
@@ -734,7 +785,7 @@ claude_advance_sync_commit() {
     printf "claude_setup: leaving last-sync-commit unchanged due to skipped conflicts\n" >&2
     return 0
   fi
-  git -C "$CONFIG_DIR" rev-parse HEAD > "$CLAUDE_LAST_SYNC_FILE"
+  git -C "$CONFIG_DIR" rev-parse HEAD >"$CLAUDE_LAST_SYNC_FILE"
   return 0
 }
 
@@ -746,7 +797,7 @@ claude_path_to_filter() {
                  then ".\(k)"
                  else ".[\(k | tojson)]" end;
     map(step(.)) | join("")
-  ' <<< "$1"
+  ' <<<"$1"
 }
 
 # Compute merge decisions for settings.json. Reads $1 (base), $2 (local),
@@ -762,8 +813,8 @@ claude_path_to_filter() {
 claude_compute_settings_decisions() {
   local base_file="$1" local_file="$2" remote_file="$3"
   jq -nc \
-    --slurpfile base   "$base_file" \
-    --slurpfile local  "$local_file" \
+    --slurpfile base "$base_file" \
+    --slurpfile local "$local_file" \
     --slurpfile remote "$remote_file" '
     def lookup($obj; $p):
       if ($p | length) == 0 then {present: true, value: $obj}
@@ -830,9 +881,9 @@ claude_settings_conflict_details() {
   local mode="${1:-summary}"
   if [ "$mode" = "diff" ]; then
     diff -u <(printf '%s\n' "$CLAUDE_CONFLICT_BASE_REPR") \
-            <(printf '%s\n' "$CLAUDE_CONFLICT_LOCAL_REPR") | sed 's/^/    /' || true
+      <(printf '%s\n' "$CLAUDE_CONFLICT_LOCAL_REPR") | sed 's/^/    /' || true
     diff -u <(printf '%s\n' "$CLAUDE_CONFLICT_LOCAL_REPR") \
-            <(printf '%s\n' "$CLAUDE_CONFLICT_REMOTE_REPR") | sed 's/^/    /' || true
+      <(printf '%s\n' "$CLAUDE_CONFLICT_REMOTE_REPR") | sed 's/^/    /' || true
   else
     printf "  base   (sha %s): %s\n" "${CLAUDE_CONFLICT_BASE_SHA:-none}" "$CLAUDE_CONFLICT_BASE_REPR"
     printf "  local                : %s\n" "$CLAUDE_CONFLICT_LOCAL_REPR"
@@ -875,10 +926,10 @@ claude_merge_settings() {
 
   # Resolve base: prefer git, fall back to empty object on first sync or
   # when last-sync-commit references a SHA we can't read.
-  if claude_show_base "settings.json" > "$tmp_base" 2>/dev/null && [ -s "$tmp_base" ] && jq empty "$tmp_base" 2>/dev/null; then
+  if claude_show_base "settings.json" >"$tmp_base" 2>/dev/null && [ -s "$tmp_base" ] && jq empty "$tmp_base" 2>/dev/null; then
     :
   else
-    printf '{}' > "$tmp_base"
+    printf '{}' >"$tmp_base"
     if [ -e "$CLAUDE_LAST_SYNC_FILE" ]; then
       printf "claude_merge_settings: cannot read settings.json at last-sync-commit, treating base as empty\n" >&2
     fi
@@ -887,7 +938,7 @@ claude_merge_settings() {
   if [ -e "$local_file" ]; then
     cp "$local_file" "$tmp_local"
   else
-    printf '{}' > "$tmp_local"
+    printf '{}' >"$tmp_local"
   fi
 
   CLAUDE_CONFLICT_BASE_SHA=""
@@ -903,53 +954,53 @@ claude_merge_settings() {
   }
 
   local count
-  count=$(jq 'length' <<< "$decisions")
+  count=$(jq 'length' <<<"$decisions")
   local i=0
   while [ "$i" -lt "$count" ]; do
     local entry json_path action
-    entry=$(jq -c ".[$i]" <<< "$decisions")
-    json_path=$(jq -c '.path' <<< "$entry")
-    action=$(jq -r '.decision.action' <<< "$entry")
+    entry=$(jq -c ".[$i]" <<<"$decisions")
+    json_path=$(jq -c '.path' <<<"$entry")
+    action=$(jq -r '.decision.action' <<<"$entry")
 
     case "$action" in
+    "take-remote")
+      local value
+      value=$(jq -c '.decision.value' <<<"$entry")
+      jq -nc --argjson p "$json_path" --argjson v "$value" '{path: $p, value: $v}' >>"$ops_file"
+      ;;
+    "remote-delete")
+      jq -nc --argjson p "$json_path" '{path: $p, delete: true}' >>"$ops_file"
+      ;;
+    "keep-local")
+      : # disk already has the right value
+      ;;
+    "conflict")
+      local key filter header
+      key="$json_path" # canonical compact-JSON key for the cache
+      filter=$(claude_path_to_filter "$json_path")
+      header="Conflict in settings.json at $filter"
+
+      CLAUDE_CONFLICT_BASE_REPR=$(jq -r 'if .decision.base   == null then "<absent>" else (.decision.base.value   | tojson) end' <<<"$entry")
+      CLAUDE_CONFLICT_LOCAL_REPR=$(jq -r 'if .decision.local  == null then "<absent>" else (.decision.local.value  | tojson) end' <<<"$entry")
+      CLAUDE_CONFLICT_REMOTE_REPR=$(jq -r 'if .decision.remote == null then "<absent>" else (.decision.remote.value | tojson) end' <<<"$entry")
+
+      claude_resolve_conflict "settings" "$key" "$header" claude_settings_conflict_details
+      case "$CLAUDE_LAST_CHOICE" in
+      "keep-local") ;;
       "take-remote")
-        local value
-        value=$(jq -c '.decision.value' <<< "$entry")
-        jq -nc --argjson p "$json_path" --argjson v "$value" '{path: $p, value: $v}' >> "$ops_file"
+        local r_present
+        r_present=$(jq -r '.decision.remote != null' <<<"$entry")
+        if [ "$r_present" = "true" ]; then
+          local r_value
+          r_value=$(jq -c '.decision.remote.value' <<<"$entry")
+          jq -nc --argjson p "$json_path" --argjson v "$r_value" '{path: $p, value: $v}' >>"$ops_file"
+        else
+          jq -nc --argjson p "$json_path" '{path: $p, delete: true}' >>"$ops_file"
+        fi
         ;;
-      "remote-delete")
-        jq -nc --argjson p "$json_path" '{path: $p, delete: true}' >> "$ops_file"
-        ;;
-      "keep-local")
-        : # disk already has the right value
-        ;;
-      "conflict")
-        local key filter header
-        key="$json_path"  # canonical compact-JSON key for the cache
-        filter=$(claude_path_to_filter "$json_path")
-        header="Conflict in settings.json at $filter"
-
-        CLAUDE_CONFLICT_BASE_REPR=$(jq -r 'if .decision.base   == null then "<absent>" else (.decision.base.value   | tojson) end' <<< "$entry")
-        CLAUDE_CONFLICT_LOCAL_REPR=$(jq -r 'if .decision.local  == null then "<absent>" else (.decision.local.value  | tojson) end' <<< "$entry")
-        CLAUDE_CONFLICT_REMOTE_REPR=$(jq -r 'if .decision.remote == null then "<absent>" else (.decision.remote.value | tojson) end' <<< "$entry")
-
-        claude_resolve_conflict "settings" "$key" "$header" claude_settings_conflict_details
-        case "$CLAUDE_LAST_CHOICE" in
-          "keep-local") ;;
-          "take-remote")
-            local r_present
-            r_present=$(jq -r '.decision.remote != null' <<< "$entry")
-            if [ "$r_present" = "true" ]; then
-              local r_value
-              r_value=$(jq -c '.decision.remote.value' <<< "$entry")
-              jq -nc --argjson p "$json_path" --argjson v "$r_value" '{path: $p, value: $v}' >> "$ops_file"
-            else
-              jq -nc --argjson p "$json_path" '{path: $p, delete: true}' >> "$ops_file"
-            fi
-            ;;
-          "skip") : ;;
-        esac
-        ;;
+      "skip") : ;;
+      esac
+      ;;
     esac
 
     i=$((i + 1))
@@ -962,7 +1013,7 @@ claude_merge_settings() {
       reduce $ops[] as $op (.;
         if ($op | has("delete")) then delpaths([$op.path])
         else setpath($op.path; $op.value) end)
-    ' "$tmp_local" > "$out_tmp"
+    ' "$tmp_local" >"$out_tmp"
     mv "$out_tmp" "$local_file"
   fi
 
@@ -1011,25 +1062,25 @@ claude_dir_conflict_details() {
   local sha_label="${CLAUDE_CONFLICT_BASE_SHA:-none}"
   if [ "$mode" = "diff" ]; then
     local lhs="/dev/null" rhs="/dev/null"
-    [ -n "$CLAUDE_DIR_CONFLICT_LOCAL_PATH"  ] && lhs="$CLAUDE_DIR_CONFLICT_LOCAL_PATH"
+    [ -n "$CLAUDE_DIR_CONFLICT_LOCAL_PATH" ] && lhs="$CLAUDE_DIR_CONFLICT_LOCAL_PATH"
     [ -n "$CLAUDE_DIR_CONFLICT_REMOTE_PATH" ] && rhs="$CLAUDE_DIR_CONFLICT_REMOTE_PATH"
     diff -u "$lhs" "$rhs" | sed 's/^/    /' || true
   else
     local sz
     if [ -n "$CLAUDE_DIR_CONFLICT_BASE_PATH" ]; then
-      sz=$(wc -c < "$CLAUDE_DIR_CONFLICT_BASE_PATH" 2>/dev/null | tr -d ' ' || echo "?")
+      sz=$(wc -c <"$CLAUDE_DIR_CONFLICT_BASE_PATH" 2>/dev/null | tr -d ' ' || echo "?")
       printf "  base   (sha %s): present (%s bytes)\n" "$sha_label" "$sz"
     else
       printf "  base   (sha %s): absent\n" "$sha_label"
     fi
     if [ -n "$CLAUDE_DIR_CONFLICT_LOCAL_PATH" ]; then
-      sz=$(wc -c < "$CLAUDE_DIR_CONFLICT_LOCAL_PATH" 2>/dev/null | tr -d ' ' || echo "?")
+      sz=$(wc -c <"$CLAUDE_DIR_CONFLICT_LOCAL_PATH" 2>/dev/null | tr -d ' ' || echo "?")
       printf "  local                : present (%s bytes)\n" "$sz"
     else
       printf "  local                : absent\n"
     fi
     if [ -n "$CLAUDE_DIR_CONFLICT_REMOTE_PATH" ]; then
-      sz=$(wc -c < "$CLAUDE_DIR_CONFLICT_REMOTE_PATH" 2>/dev/null | tr -d ' ' || echo "?")
+      sz=$(wc -c <"$CLAUDE_DIR_CONFLICT_REMOTE_PATH" 2>/dev/null | tr -d ' ' || echo "?")
       printf "  remote               : present (%s bytes)\n" "$sz"
     else
       printf "  remote               : absent\n"
@@ -1054,80 +1105,95 @@ claude_merge_file() {
   if claude_base_has "$rel"; then
     has_B=1
     tmp_base=$(mktemp)
-    claude_show_base "$rel" > "$tmp_base" 2>/dev/null
+    claude_show_base "$rel" >"$tmp_base" 2>/dev/null
   fi
 
   local L_eq_B=0 R_eq_B=0 L_eq_R=0
   if [ "$has_L" = "1" ] && [ "$has_B" = "1" ] && cmp -s "$L" "$tmp_base"; then L_eq_B=1; fi
   if [ "$has_R" = "1" ] && [ "$has_B" = "1" ] && cmp -s "$R" "$tmp_base"; then R_eq_B=1; fi
-  if [ "$has_L" = "1" ] && [ "$has_R" = "1" ] && cmp -s "$L" "$R";        then L_eq_R=1; fi
+  if [ "$has_L" = "1" ] && [ "$has_R" = "1" ] && cmp -s "$L" "$R"; then L_eq_R=1; fi
 
   local action="noop" conflict_type=""
 
   if [ "$has_L" = 1 ] && [ "$has_R" = 1 ] && [ "$has_B" = 1 ]; then
-    if   [ "$L_eq_B" = 1 ] && [ "$R_eq_B" = 1 ]; then action="noop"
-    elif [ "$L_eq_B" = 1 ];                       then action="copy-r-to-l"
-    elif [ "$R_eq_B" = 1 ];                       then action="noop"
-    elif [ "$L_eq_R" = 1 ];                       then action="noop"
-    else action="conflict"; conflict_type="modify-modify"
+    if [ "$L_eq_B" = 1 ] && [ "$R_eq_B" = 1 ]; then
+      action="noop"
+    elif [ "$L_eq_B" = 1 ]; then
+      action="copy-r-to-l"
+    elif [ "$R_eq_B" = 1 ]; then
+      action="noop"
+    elif [ "$L_eq_R" = 1 ]; then
+      action="noop"
+    else
+      action="conflict"
+      conflict_type="modify-modify"
     fi
   elif [ "$has_L" = 1 ] && [ "$has_R" = 1 ] && [ "$has_B" = 0 ]; then
-    if [ "$L_eq_R" = 1 ]; then action="noop"
-    else action="conflict"; conflict_type="add-add-diff"
+    if [ "$L_eq_R" = 1 ]; then
+      action="noop"
+    else
+      action="conflict"
+      conflict_type="add-add-diff"
     fi
   elif [ "$has_L" = 1 ] && [ "$has_R" = 0 ] && [ "$has_B" = 1 ]; then
-    if [ "$L_eq_B" = 1 ]; then action="rm-l"
-    else action="conflict"; conflict_type="modify-delete"
+    if [ "$L_eq_B" = 1 ]; then
+      action="rm-l"
+    else
+      action="conflict"
+      conflict_type="modify-delete"
     fi
   elif [ "$has_L" = 1 ] && [ "$has_R" = 0 ] && [ "$has_B" = 0 ]; then
-    action="noop"  # local-add (only on disk, never seen by repo)
+    action="noop" # local-add (only on disk, never seen by repo)
   elif [ "$has_L" = 0 ] && [ "$has_R" = 1 ] && [ "$has_B" = 1 ]; then
-    if [ "$R_eq_B" = 1 ]; then action="noop"  # local-delete clean
-    else action="conflict"; conflict_type="delete-modify"
+    if [ "$R_eq_B" = 1 ]; then
+      action="noop" # local-delete clean
+    else
+      action="conflict"
+      conflict_type="delete-modify"
     fi
   elif [ "$has_L" = 0 ] && [ "$has_R" = 1 ] && [ "$has_B" = 0 ]; then
-    action="copy-r-to-l"  # remote-add
+    action="copy-r-to-l" # remote-add
   fi
 
   case "$action" in
-    "noop") : ;;
-    "copy-r-to-l")
-      if [ -e "$L" ]; then claude_backup_file "$L"; fi
-      mkdir -p "$(dirname "$L")"
-      cp -p "$R" "$L"
-      ;;
-    "rm-l")
-      claude_backup_file "$L"
-      rm -f "$L"
-      ;;
-    "conflict")
-      local key="$rel"
-      local header="Conflict in $rel ($conflict_type)"
+  "noop") : ;;
+  "copy-r-to-l")
+    if [ -e "$L" ]; then claude_backup_file "$L"; fi
+    mkdir -p "$(dirname "$L")"
+    cp -p "$R" "$L"
+    ;;
+  "rm-l")
+    claude_backup_file "$L"
+    rm -f "$L"
+    ;;
+  "conflict")
+    local key="$rel"
+    local header="Conflict in $rel ($conflict_type)"
 
-      CLAUDE_DIR_CONFLICT_TYPE="$conflict_type"
-      CLAUDE_DIR_CONFLICT_LOCAL_PATH=""
-      CLAUDE_DIR_CONFLICT_REMOTE_PATH=""
-      CLAUDE_DIR_CONFLICT_BASE_PATH="$tmp_base"
-      if [ "$has_L" = 1 ]; then CLAUDE_DIR_CONFLICT_LOCAL_PATH="$L"; fi
-      if [ "$has_R" = 1 ]; then CLAUDE_DIR_CONFLICT_REMOTE_PATH="$R"; fi
+    CLAUDE_DIR_CONFLICT_TYPE="$conflict_type"
+    CLAUDE_DIR_CONFLICT_LOCAL_PATH=""
+    CLAUDE_DIR_CONFLICT_REMOTE_PATH=""
+    CLAUDE_DIR_CONFLICT_BASE_PATH="$tmp_base"
+    if [ "$has_L" = 1 ]; then CLAUDE_DIR_CONFLICT_LOCAL_PATH="$L"; fi
+    if [ "$has_R" = 1 ]; then CLAUDE_DIR_CONFLICT_REMOTE_PATH="$R"; fi
 
-      claude_resolve_conflict "files" "$key" "$header" claude_dir_conflict_details
-      case "$CLAUDE_LAST_CHOICE" in
-        "keep-local") ;;
-        "take-remote")
-          # "Take remote" means: make L look like R (may be absent → delete)
-          if [ "$has_R" = 1 ]; then
-            if [ -e "$L" ]; then claude_backup_file "$L"; fi
-            mkdir -p "$(dirname "$L")"
-            cp -p "$R" "$L"
-          else
-            if [ -e "$L" ]; then claude_backup_file "$L"; fi
-            rm -f "$L"
-          fi
-          ;;
-        "skip") : ;;
-      esac
+    claude_resolve_conflict "files" "$key" "$header" claude_dir_conflict_details
+    case "$CLAUDE_LAST_CHOICE" in
+    "keep-local") ;;
+    "take-remote")
+      # "Take remote" means: make L look like R (may be absent → delete)
+      if [ "$has_R" = 1 ]; then
+        if [ -e "$L" ]; then claude_backup_file "$L"; fi
+        mkdir -p "$(dirname "$L")"
+        cp -p "$R" "$L"
+      else
+        if [ -e "$L" ]; then claude_backup_file "$L"; fi
+        rm -f "$L"
+      fi
       ;;
+    "skip") : ;;
+    esac
+    ;;
   esac
 
   if [ -n "$tmp_base" ]; then rm -f "$tmp_base"; fi
@@ -1148,18 +1214,18 @@ claude_merge_dir() {
   tmp_files=$(mktemp)
 
   if [ -d "$remote_dir" ]; then
-    ( cd "$remote_dir" && find . -type f ! -name .gitkeep | sed 's|^\./||' ) >> "$tmp_files"
+    (cd "$remote_dir" && find . -type f ! -name .gitkeep | sed 's|^\./||') >>"$tmp_files"
   fi
   if [ -d "$local_dir" ]; then
-    ( cd "$local_dir"  && find . -type f ! -name .gitkeep | sed 's|^\./||' ) >> "$tmp_files"
+    (cd "$local_dir" && find . -type f ! -name .gitkeep | sed 's|^\./||') >>"$tmp_files"
   fi
   if [ -e "$CLAUDE_LAST_SYNC_FILE" ]; then
     local sha
     sha=$(cat "$CLAUDE_LAST_SYNC_FILE")
     if [ -n "$sha" ]; then
-      git -C "$CONFIG_DIR" ls-tree -r --name-only "$sha" -- ".claude/$dir_name" 2>/dev/null \
-        | sed "s|^\\.claude/$dir_name/||" \
-        | grep -v '^\.gitkeep$' >> "$tmp_files" || true
+      git -C "$CONFIG_DIR" ls-tree -r --name-only "$sha" -- ".claude/$dir_name" 2>/dev/null |
+        sed "s|^\\.claude/$dir_name/||" |
+        grep -v '^\.gitkeep$' >>"$tmp_files" || true
     fi
   fi
 
@@ -1174,7 +1240,7 @@ claude_merge_dir() {
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
     claude_merge_file "$dir_name/$rel"
-  done <<< "$rels"
+  done <<<"$rels"
 }
 
 # Copy mode entry point: settings.json merge + each top-level file merge +
@@ -1194,8 +1260,14 @@ claude_install_or_merge_copy() {
 }
 
 claude_setup() {
-  command -v jq  >/dev/null 2>&1 || { printf "claude_setup: jq not found, skipping\n"  >&2; return 0; }
-  command -v git >/dev/null 2>&1 || { printf "claude_setup: git not found, skipping\n" >&2; return 0; }
+  command -v jq >/dev/null 2>&1 || {
+    printf "claude_setup: jq not found, skipping\n" >&2
+    return 0
+  }
+  command -v git >/dev/null 2>&1 || {
+    printf "claude_setup: git not found, skipping\n" >&2
+    return 0
+  }
 
   claude_init_paths
 
@@ -1262,9 +1334,9 @@ main() {
 
   # Setup GitHub
   setup_github
- 
+
   # Update last check timestamp
-  date +%s > "$CONFIG_DIR/.last_update_check"
+  date +%s >"$CONFIG_DIR/.last_update_check"
 
   # Print remaining manual tasks
   print_remaining_tasks

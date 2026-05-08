@@ -30,6 +30,19 @@ assert_not_contains() {
   fi
 }
 
+# Assert each core-utility formula was passed to brew install. Each needle is
+# prefixed with a space so short names (e.g. `gh`) don't match inside longer
+# tokens like `zsh-syntax-highlighting`.
+assert_core_formulae_installed() {
+  local label="$1"
+  local haystack="$2"
+  local f
+  for f in gnupg diff-so-fancy emacs pinentry-mac jq less grep \
+    zsh-syntax-highlighting shellcheck shfmt lsd gh; do
+    assert_contains "$label" " $f" "$haystack"
+  done
+}
+
 # =============================================================================
 # Shared harness template — written once, reused across scenarios
 # =============================================================================
@@ -237,7 +250,7 @@ brew_log="$(cat "$SCENARIO_DIR/brew.log")"
 first_brew_call="$(printf '%s\n' "$brew_log" | sed -n '1p')"
 
 assert_contains     "$SCENARIO" 'upgrade:upgrade'                    "$brew_log"
-assert_contains     "$SCENARIO" 'install-formula:install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd gh' "$brew_log"
+assert_core_formulae_installed "$SCENARIO" "$brew_log"
 assert_contains     "$SCENARIO" 'install-cask:zoom'                  "$brew_log"
 assert_contains     "$SCENARIO" 'install-cask:warp'                  "$brew_log"
 assert_contains     "$SCENARIO" 'install-cask:keka'                  "$brew_log"
@@ -269,7 +282,7 @@ output="$(TEST_TMP_DIR="$SCENARIO_DIR" REPO_ROOT="$REPO_ROOT" \
 brew_log="$(cat "$SCENARIO_DIR/brew.log")"
 
 assert_contains     "$SCENARIO" 'upgrade:upgrade'                    "$brew_log"
-assert_contains     "$SCENARIO" 'install-formula:install gnupg diff-so-fancy emacs pinentry-mac jq less grep zsh-syntax-highlighting shellcheck lsd gh' "$brew_log"
+assert_core_formulae_installed "$SCENARIO" "$brew_log"
 assert_contains     "$SCENARIO" 'install-cask:zoom'                  "$brew_log"
 assert_contains     "$SCENARIO" 'install-cask:warp'                  "$brew_log"
 assert_contains     "$SCENARIO" 'install-cask:keka'                  "$brew_log"

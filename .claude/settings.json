@@ -1,66 +1,8 @@
 {
-  "model": "opus",
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "rtk hook claude"
-          }
-        ]
-      }
-    ]
-  },
-  "enabledPlugins": {
-    "warp@claude-code-warp": true,
-    "amplitude@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true,
-    "code-review@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true,
-    "skill-creator@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true,
-    "claude-md-management@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true,
-    "security-guidance@claude-plugins-official": true,
-    "claude-code-setup@claude-plugins-official": true,
-    "vercel@claude-plugins-official": true,
-    "pr-review-toolkit@claude-plugins-official": true,
-    "serena@claude-plugins-official": true,
-    "hookify@claude-plugins-official": true,
-    "learning-output-style@claude-plugins-official": true,
-    "gopls-lsp@claude-plugins-official": true,
-    "stripe@claude-plugins-official": true,
-    "greenfield@prime-radiant-marketplace": true,
-    "superpowers@claude-plugins-official": true
-  },
-  "extraKnownMarketplaces": {
-    "claude-code-warp": {
-      "source": {
-        "source": "github",
-        "repo": "warpdotdev/claude-code-warp"
-      }
-    },
-    "prime-radiant-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "prime-radiant-inc/prime-radiant-marketplace"
-      }
-    },
-    "superpowers-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "obra/superpowers-marketplace"
-      }
-    }
-  },
   "permissions": {
-    "defaultMode": "acceptEdits",
     "allow": [
       "Bash(* --help *)",
       "Bash(* --version)",
-
       "Bash(git show *)",
       "Bash(rtk git show *)",
       "Bash(git log *)",
@@ -97,7 +39,6 @@
       "Bash(rtk git merge origin/main *)",
       "Bash(git pull *)",
       "Bash(rtk git pull *)",
-
       "Bash(head *)",
       "Bash(rtk head *)",
       "Bash(tail *)",
@@ -119,7 +60,6 @@
       "Bash(diff)",
       "Bash(rtk diff)",
       "Bash(/bin/ls *)",
-
       "Bash(gh pr list *)",
       "Bash(rtk gh pr list *)",
       "Bash(gh pr checks *)",
@@ -134,7 +74,6 @@
       "Bash(rtk gh issue list *)",
       "Bash(gh issue view *)",
       "Bash(rtk gh issue view *)",
-
       "Bash(docker ps *)",
       "Bash(rtk docker ps *)",
       "Bash(docker compose *)",
@@ -145,12 +84,10 @@
       "Bash(rtk docker inspect *)",
       "Bash(docker build *)",
       "Bash(rtk docker build *)",
-
       "Bash(acli jira workitem view *)",
       "Bash(rtk acli jira workitem view *)",
       "Bash(acli jira workitem comment list *)",
       "Bash(rtk acli jira workitem comment list *)",
-
       "Bash(pnpm run lint *)",
       "Bash(rtk pnpm run lint *)",
       "Bash(pnpm run test*)",
@@ -164,7 +101,11 @@
       "Bash(npm test *)",
       "Bash(rtk npm test *)"
     ],
-    "deny": ["Bash(* .env *)", "Read(.env)", "Bash(* ~/.ssh/*)"],
+    "deny": [
+      "Bash(* .env *)",
+      "Read(.env)",
+      "Bash(* ~/.ssh/*)"
+    ],
     "ask": [
       "Bash(find *)",
       "Bash(rtk find *)",
@@ -180,7 +121,67 @@
       "Bash(rtk wget *)",
       "Bash(gh api *)",
       "Bash(rtk gh api *)"
+    ],
+    "defaultMode": "acceptEdits"
+  },
+  "model": "opus",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rtk hook claude"
+          }
+        ]
+      }
     ]
+  },
+  "enabledPlugins": {
+    "warp@claude-code-warp": true,
+    "amplitude@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "claude-code-setup@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true,
+    "pr-review-toolkit@claude-plugins-official": true,
+    "serena@claude-plugins-official": true,
+    "hookify@claude-plugins-official": true,
+    "learning-output-style@claude-plugins-official": true,
+    "gopls-lsp@claude-plugins-official": true,
+    "stripe@claude-plugins-official": true,
+    "greenfield@prime-radiant-marketplace": true,
+    "superpowers@claude-plugins-official": true,
+    "superpowers@superpowers-marketplace": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-code-warp": {
+      "source": {
+        "source": "github",
+        "repo": "warpdotdev/claude-code-warp"
+      }
+    },
+    "prime-radiant-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "prime-radiant-inc/prime-radiant-marketplace"
+      },
+      "autoUpdate": true
+    },
+    "superpowers-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "obra/superpowers-marketplace"
+      },
+      "autoUpdate": true
+    }
   },
   "theme": "auto"
 }

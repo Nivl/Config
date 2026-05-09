@@ -149,7 +149,11 @@
       "Bash(rtk npm test *)",
       "Bash(rtk proxy npm test *)"
     ],
-    "deny": ["Bash(* .env *)", "Read(.env)", "Bash(* ~/.ssh/*)"],
+    "deny": [
+      "Bash(* .env *)",
+      "Read(.env)",
+      "Bash(* ~/.ssh/*)"
+    ],
     "ask": [
       "Bash(find *)",
       "Bash(rtk find *)",
@@ -175,7 +179,7 @@
     ],
     "defaultMode": "acceptEdits"
   },
-  "model": "opus",
+  "model": "opus[1m]",
   "hooks": {
     "PreToolUse": [
       {

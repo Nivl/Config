@@ -824,8 +824,48 @@ claude_compute_settings_decisions() {
     def equal($x; $y):
       ($x.present == $y.present)
       and (($x.present | not) or ($x.value == $y.value));
+
+    # A value qualifies as a primitive array iff it is an array AND every
+    # element is a JSON primitive (not object, not array). Empty arrays qualify.
+    def is_prim_array($v):
+      ($v | type) == "array"
+      and ($v | all(type | . != "object" and . != "array"));
+
+    # Treat absent value as the empty set, present primitive array as a set.
+    def as_set($x):
+      if ($x.present | not) then []
+      else ($x.value | unique)
+      end;
+
+    # 3-way set merge: (B ∪ L_adds ∪ R_adds) − L_removes − R_removes.
+    def set_merge($b; $l; $r):
+      ((as_set($l) + as_set($r)) | unique) as $union
+      | ((as_set($b)) - (as_set($l))) as $l_removes
+      | ((as_set($b)) - (as_set($r))) as $r_removes
+      | $union - $l_removes - $r_removes
+      | sort;
+
+    # decide_set: emits noop if merged set equals local-as-set, else take-remote.
+    # Marks the decision with kind:"set" so the caller can render a summary log
+    # line instead of treating it like a normal modification.
+    def decide_set($b; $l; $r):
+      set_merge($b; $l; $r) as $m
+      | (as_set($l)) as $ls
+      | if $m == $ls then {action: "noop"}
+        else {action: "take-remote", kind: "set",
+              value: $m,
+              adds:    ($m - $ls | length),
+              removes: ($ls - $m | length),
+              total:   ($m | length)}
+        end;
+
     def decide($b; $l; $r):
-      if equal($b; $l) and equal($b; $r) then {action: "noop"}
+      # Set-merge branch: at least one present value, and every present value
+      # is a primitive array.
+      if ([$b, $l, $r] | map(select(.present))
+          | (length > 0 and all(is_prim_array(.value))))
+      then decide_set($b; $l; $r)
+      elif equal($b; $l) and equal($b; $r) then {action: "noop"}
       elif equal($b; $l) then
         if $r.present then {action: "take-remote", value: $r.value}
         else {action: "remote-delete"} end
@@ -964,9 +1004,19 @@ claude_merge_settings() {
 
     case "$action" in
     "take-remote")
-      local value
+      local value kind
       value=$(jq -c '.decision.value' <<<"$entry")
+      kind=$(jq -r '.decision.kind // "value"' <<<"$entry")
       jq -nc --argjson p "$json_path" --argjson v "$value" '{path: $p, value: $v}' >>"$ops_file"
+      if [ "$kind" = "set" ]; then
+        local adds removes total filter_str
+        adds=$(jq -r '.decision.adds' <<<"$entry")
+        removes=$(jq -r '.decision.removes' <<<"$entry")
+        total=$(jq -r '.decision.total' <<<"$entry")
+        filter_str=$(claude_path_to_filter "$json_path")
+        printf "settings.json: %s merged: +%d -%d (now %d items)\n" \
+          "$filter_str" "$adds" "$removes" "$total" >&2
+      fi
       ;;
     "remote-delete")
       jq -nc --argjson p "$json_path" '{path: $p, delete: true}' >>"$ops_file"
@@ -1018,6 +1068,49 @@ claude_merge_settings() {
   fi
 
   rm -f "$tmp_base" "$tmp_local" "$ops_file"
+}
+
+# Symlink .git/hooks/pre-commit to the versioned .githooks/pre-commit script.
+# Idempotent: no-op if the symlink already points to our target.
+# Refuses to clobber an existing regular file or foreign symlink.
+install_claude_precommit_hook() {
+  local hooks_dir hooks_raw target relative existing
+  if ! git -C "$CONFIG_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+    printf "install_claude_precommit_hook: %s is not a git repo, skipping\n" "$CONFIG_DIR" >&2
+    return 0
+  fi
+  # `git rev-parse --git-path hooks` returns a relative path for normal repos
+  # and an absolute path inside linked worktrees / bare repos. Normalize.
+  hooks_raw="$(git -C "$CONFIG_DIR" rev-parse --git-path hooks)"
+  case "$hooks_raw" in
+  /*) hooks_dir="$hooks_raw" ;;
+  *) hooks_dir="$CONFIG_DIR/$hooks_raw" ;;
+  esac
+  mkdir -p "$hooks_dir"
+  target="$hooks_dir/pre-commit"
+  relative="../../.githooks/pre-commit"
+
+  # Defensive: ensure the versioned hook is executable (git preserves the bit,
+  # but a zip download or chmod-stripping copy might lose it).
+  if [ -f "$CONFIG_DIR/.githooks/pre-commit" ] && [ ! -x "$CONFIG_DIR/.githooks/pre-commit" ]; then
+    chmod +x "$CONFIG_DIR/.githooks/pre-commit"
+  fi
+
+  if [ -L "$target" ]; then
+    existing="$(readlink "$target")"
+    if [ "$existing" = "$relative" ]; then
+      return 0 # already correct
+    fi
+    printf "install_claude_precommit_hook: existing pre-commit symlink points elsewhere (%s), leaving alone\n" "$existing" >&2
+    return 0
+  fi
+
+  if [ -e "$target" ]; then
+    printf "install_claude_precommit_hook: existing pre-commit hook found at %s, leaving alone\n" "$target" >&2
+    return 0
+  fi
+
+  ln -s "$relative" "$target"
 }
 
 # Symlink mode: ~/.claude/{settings.json,CLAUDE.md,RTK.md,skills,agents,commands} -> repo copies.
@@ -1277,6 +1370,8 @@ claude_setup() {
   fi
 
   mkdir -p "$CLAUDE_HOME_DIR"
+
+  install_claude_precommit_hook
 
   if [ "$PERSONAL_COMPUTER" = "true" ]; then
     claude_install_symlink

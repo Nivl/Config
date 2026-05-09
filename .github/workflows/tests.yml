@@ -55,3 +55,25 @@ jobs:
 
       - name: Run claude sync test
         run: bash tests/claude_sync_test.sh
+
+  canonicalize:
+    name: Canonicalize.jq filter test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run canonicalize test
+        run: bash tests/canonicalize_test.sh
+
+  claude-precommit-hook:
+    name: Claude pre-commit hook test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run pre-commit hook test
+        run: bash tests/claude_precommit_hook_test.sh

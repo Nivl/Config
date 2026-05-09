@@ -8,7 +8,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 # install.sh sources its functions; we strip the trailing `main` call so that
 # sourcing only defines functions instead of running the full installer.
-sed '$d' "$REPO_ROOT/install.sh" > "$TMP_DIR/install_funcs.sh"
+sed '$d' "$REPO_ROOT/install.sh" >"$TMP_DIR/install_funcs.sh"
 
 # =============================================================================
 # Assertions
@@ -79,11 +79,11 @@ scenario_setup() {
   rm -rf "$TEST_DIR"
   mkdir -p "$TEST_HOME"
   mkdir -p "$TEST_REPO/.claude/skills" "$TEST_REPO/.claude/agents" "$TEST_REPO/.claude/commands"
-  ( cd "$TEST_REPO" && \
-      git init -q && \
-      git config user.email t@t.com && \
-      git config user.name t && \
-      git config commit.gpgsign false )
+  (cd "$TEST_REPO" &&
+    git init -q &&
+    git config user.email t@t.com &&
+    git config user.name t &&
+    git config commit.gpgsign false)
 }
 
 # Source install.sh helpers in the current shell with the right CONFIG_DIR/HOME.
@@ -103,7 +103,7 @@ load_helpers() {
 }
 
 git_commit_in_repo() {
-  ( cd "$TEST_REPO" && git add -A . && git commit -q --allow-empty -m "$1" )
+  (cd "$TEST_REPO" && git add -A . && git commit -q --allow-empty -m "$1")
 }
 
 # Returns the current HEAD SHA of the test repo
@@ -122,7 +122,7 @@ run_scenario() {
     set -e
     scenario_setup "$name"
     "$@"
-  ) > "$logfile" 2>&1; then
+  ) >"$logfile" 2>&1; then
     printf 'PASS\n'
   else
     printf 'FAIL\n'
@@ -139,20 +139,20 @@ scenario_personal_symlink_fresh() {
   load_helpers
   PERSONAL_COMPUTER=true
   SKIP_CONFIG_FILE_SETUP=true
-  printf '{"model":"opus"}' > "$CLAUDE_REPO_DIR/settings.json"
+  printf '{"model":"opus"}' >"$CLAUDE_REPO_DIR/settings.json"
   claude_setup
   assert_symlink_to "settings.json symlinked" "$CLAUDE_HOME_DIR/settings.json" "$CLAUDE_REPO_DIR/settings.json"
-  assert_symlink_to "skills symlinked"        "$CLAUDE_HOME_DIR/skills"        "$CLAUDE_REPO_DIR/skills"
-  assert_symlink_to "agents symlinked"        "$CLAUDE_HOME_DIR/agents"        "$CLAUDE_REPO_DIR/agents"
-  assert_symlink_to "commands symlinked"      "$CLAUDE_HOME_DIR/commands"      "$CLAUDE_REPO_DIR/commands"
+  assert_symlink_to "skills symlinked" "$CLAUDE_HOME_DIR/skills" "$CLAUDE_REPO_DIR/skills"
+  assert_symlink_to "agents symlinked" "$CLAUDE_HOME_DIR/agents" "$CLAUDE_REPO_DIR/agents"
+  assert_symlink_to "commands symlinked" "$CLAUDE_HOME_DIR/commands" "$CLAUDE_REPO_DIR/commands"
 }
 
 scenario_personal_symlink_existing_skipped() {
   load_helpers
   PERSONAL_COMPUTER=true
   SKIP_CONFIG_FILE_SETUP=true
-  printf '{"model":"opus"}'   > "$CLAUDE_REPO_DIR/settings.json"
-  printf '{"model":"sonnet"}' > "$CLAUDE_HOME_DIR/settings.json"
+  printf '{"model":"opus"}' >"$CLAUDE_REPO_DIR/settings.json"
+  printf '{"model":"sonnet"}' >"$CLAUDE_HOME_DIR/settings.json"
   claude_setup
   # SKIP_CONFIG_FILE_SETUP=true should leave the existing real file alone
   if [ -L "$CLAUDE_HOME_DIR/settings.json" ]; then
@@ -165,12 +165,12 @@ scenario_personal_symlink_top_files_fresh() {
   load_helpers
   PERSONAL_COMPUTER=true
   SKIP_CONFIG_FILE_SETUP=true
-  printf '{}'                > "$CLAUDE_REPO_DIR/settings.json"
-  printf '@RTK.md\n'         > "$CLAUDE_REPO_DIR/CLAUDE.md"
-  printf 'rtk docs\n'        > "$CLAUDE_REPO_DIR/RTK.md"
+  printf '{}' >"$CLAUDE_REPO_DIR/settings.json"
+  printf '@RTK.md\n' >"$CLAUDE_REPO_DIR/CLAUDE.md"
+  printf 'rtk docs\n' >"$CLAUDE_REPO_DIR/RTK.md"
   claude_setup
   assert_symlink_to "CLAUDE.md symlinked" "$CLAUDE_HOME_DIR/CLAUDE.md" "$CLAUDE_REPO_DIR/CLAUDE.md"
-  assert_symlink_to "RTK.md symlinked"    "$CLAUDE_HOME_DIR/RTK.md"    "$CLAUDE_REPO_DIR/RTK.md"
+  assert_symlink_to "RTK.md symlinked" "$CLAUDE_HOME_DIR/RTK.md" "$CLAUDE_REPO_DIR/RTK.md"
 }
 
 # =============================================================================
@@ -181,21 +181,21 @@ scenario_personal_symlink_top_files_fresh() {
 # "last-sync-commit" so subsequent edits to the repo are visible as "remote".
 seed_repo_and_record_base() {
   local content="$1"
-  printf '%s' "$content" > "$CLAUDE_REPO_DIR/settings.json"
+  printf '%s' "$content" >"$CLAUDE_REPO_DIR/settings.json"
   git_commit_in_repo "v1"
-  test_repo_head > "$CLAUDE_LAST_SYNC_FILE"
+  test_repo_head >"$CLAUDE_LAST_SYNC_FILE"
 }
 
 scenario_copy_fresh_no_base() {
   load_helpers
   PERSONAL_COMPUTER=false
-  printf '{"model":"opus","enabledPlugins":{"a":true}}' > "$CLAUDE_REPO_DIR/settings.json"
+  printf '{"model":"opus","enabledPlugins":{"a":true}}' >"$CLAUDE_REPO_DIR/settings.json"
   git_commit_in_repo "v1"
   # No local file yet, no last-sync-commit
   rm -f "$CLAUDE_LAST_SYNC_FILE"
   claude_setup
   assert_file_exists "settings.json copied" "$CLAUDE_HOME_DIR/settings.json"
-  assert_json_eq "model copied"   "$CLAUDE_HOME_DIR/settings.json" '.model' '"opus"'
+  assert_json_eq "model copied" "$CLAUDE_HOME_DIR/settings.json" '.model' '"opus"'
   assert_json_eq "plugin a copied" "$CLAUDE_HOME_DIR/settings.json" '.enabledPlugins.a' 'true'
   assert_file_exists "last-sync-commit written" "$CLAUDE_LAST_SYNC_FILE"
   assert_eq "last-sync-commit matches HEAD" "$(test_repo_head)" "$(cat "$CLAUDE_LAST_SYNC_FILE")"
@@ -207,11 +207,11 @@ scenario_update_remote_add_plugin_no_prompt() {
   seed_repo_and_record_base '{"model":"opus","enabledPlugins":{"a":true}}'
   cp "$CLAUDE_REPO_DIR/settings.json" "$CLAUDE_HOME_DIR/settings.json"
   # Repo adds plugin b
-  printf '{"model":"opus","enabledPlugins":{"a":true,"b":true}}' > "$CLAUDE_REPO_DIR/settings.json"
+  printf '{"model":"opus","enabledPlugins":{"a":true,"b":true}}' >"$CLAUDE_REPO_DIR/settings.json"
   git_commit_in_repo "add b"
   # Run merge with no env override — must not prompt because no real conflict
-  claude_setup < /dev/null
-  assert_json_eq "plugin a kept"  "$CLAUDE_HOME_DIR/settings.json" '.enabledPlugins.a' 'true'
+  claude_setup </dev/null
+  assert_json_eq "plugin a kept" "$CLAUDE_HOME_DIR/settings.json" '.enabledPlugins.a' 'true'
   assert_json_eq "plugin b added" "$CLAUDE_HOME_DIR/settings.json" '.enabledPlugins.b' 'true'
 }
 
@@ -220,10 +220,10 @@ scenario_update_local_add_plugin_no_prompt() {
   PERSONAL_COMPUTER=false
   seed_repo_and_record_base '{"enabledPlugins":{"a":true}}'
   # Disk has the user-added plugin x; repo unchanged
-  printf '{"enabledPlugins":{"a":true,"x":true}}' > "$CLAUDE_HOME_DIR/settings.json"
-  claude_setup < /dev/null
+  printf '{"enabledPlugins":{"a":true,"x":true}}' >"$CLAUDE_HOME_DIR/settings.json"
+  claude_setup </dev/null
   assert_json_eq "user-added plugin x kept" "$CLAUDE_HOME_DIR/settings.json" '.enabledPlugins.x' 'true'
-  assert_json_eq "plugin a still there"     "$CLAUDE_HOME_DIR/settings.json" '.enabledPlugins.a' 'true'
+  assert_json_eq "plugin a still there" "$CLAUDE_HOME_DIR/settings.json" '.enabledPlugins.a' 'true'
 }
 
 scenario_update_smart_remote_modify_no_prompt() {
@@ -232,9 +232,9 @@ scenario_update_smart_remote_modify_no_prompt() {
   seed_repo_and_record_base '{"model":"opus"}'
   cp "$CLAUDE_REPO_DIR/settings.json" "$CLAUDE_HOME_DIR/settings.json"
   # Repo bumps model to sonnet; disk still matches base — smart auto-update.
-  printf '{"model":"sonnet"}' > "$CLAUDE_REPO_DIR/settings.json"
+  printf '{"model":"sonnet"}' >"$CLAUDE_REPO_DIR/settings.json"
   git_commit_in_repo "bump model"
-  claude_setup < /dev/null
+  claude_setup </dev/null
   assert_json_eq "model auto-updated by smart rule" "$CLAUDE_HOME_DIR/settings.json" '.model' '"sonnet"'
 }
 
@@ -243,10 +243,10 @@ scenario_update_true_conflict_keep_local() {
   PERSONAL_COMPUTER=false
   SKIP_CLAUDE_MERGE_PROMPTS=keep-local
   seed_repo_and_record_base '{"model":"opus"}'
-  printf '{"model":"sonnet"}' > "$CLAUDE_HOME_DIR/settings.json"
-  printf '{"model":"haiku"}'  > "$CLAUDE_REPO_DIR/settings.json"
+  printf '{"model":"sonnet"}' >"$CLAUDE_HOME_DIR/settings.json"
+  printf '{"model":"haiku"}' >"$CLAUDE_REPO_DIR/settings.json"
   git_commit_in_repo "bump model differently"
-  claude_setup < /dev/null
+  claude_setup </dev/null
   assert_json_eq "local model preserved" "$CLAUDE_HOME_DIR/settings.json" '.model' '"sonnet"'
 }
 
@@ -255,10 +255,10 @@ scenario_update_true_conflict_take_remote() {
   PERSONAL_COMPUTER=false
   SKIP_CLAUDE_MERGE_PROMPTS=take-remote
   seed_repo_and_record_base '{"model":"opus"}'
-  printf '{"model":"sonnet"}' > "$CLAUDE_HOME_DIR/settings.json"
-  printf '{"model":"haiku"}'  > "$CLAUDE_REPO_DIR/settings.json"
+  printf '{"model":"sonnet"}' >"$CLAUDE_HOME_DIR/settings.json"
+  printf '{"model":"haiku"}' >"$CLAUDE_REPO_DIR/settings.json"
   git_commit_in_repo "bump model differently"
-  claude_setup < /dev/null
+  claude_setup </dev/null
   assert_json_eq "remote model adopted" "$CLAUDE_HOME_DIR/settings.json" '.model' '"haiku"'
 }
 
@@ -266,15 +266,15 @@ scenario_update_cached_decision() {
   load_helpers
   PERSONAL_COMPUTER=false
   seed_repo_and_record_base '{"model":"opus"}'
-  printf '{"model":"sonnet"}' > "$CLAUDE_HOME_DIR/settings.json"
-  printf '{"model":"haiku"}'  > "$CLAUDE_REPO_DIR/settings.json"
+  printf '{"model":"sonnet"}' >"$CLAUDE_HOME_DIR/settings.json"
+  printf '{"model":"haiku"}' >"$CLAUDE_REPO_DIR/settings.json"
   git_commit_in_repo "bump model differently"
   # Pre-seed decision cache: always keep local for ["model"].
   # NOTE: pass the JSON via %s to avoid printf eating the \" escapes.
-  printf '%s' '{"version":1,"settings":{"[\"model\"]":"local"},"files":{}}' > "$CLAUDE_DECISIONS_FILE"
+  printf '%s' '{"version":1,"settings":{"[\"model\"]":"local"},"files":{}}' >"$CLAUDE_DECISIONS_FILE"
   # No env override; should auto-resolve via cache.
   SKIP_CLAUDE_MERGE_PROMPTS=""
-  claude_setup < /dev/null
+  claude_setup </dev/null
   assert_json_eq "cached decision honored" "$CLAUDE_HOME_DIR/settings.json" '.model' '"sonnet"'
 }
 
@@ -285,10 +285,10 @@ scenario_skipped_conflict_does_not_advance() {
   seed_repo_and_record_base '{"model":"opus"}'
   local original_sha
   original_sha=$(test_repo_head)
-  printf '{"model":"sonnet"}' > "$CLAUDE_HOME_DIR/settings.json"
-  printf '{"model":"haiku"}'  > "$CLAUDE_REPO_DIR/settings.json"
+  printf '{"model":"sonnet"}' >"$CLAUDE_HOME_DIR/settings.json"
+  printf '{"model":"haiku"}' >"$CLAUDE_REPO_DIR/settings.json"
   git_commit_in_repo "bump model differently"
-  claude_setup < /dev/null
+  claude_setup </dev/null
   # Local file untouched; last-sync-commit must NOT advance
   assert_json_eq "local untouched" "$CLAUDE_HOME_DIR/settings.json" '.model' '"sonnet"'
   assert_eq "last-sync-commit did not advance" "$original_sha" "$(cat "$CLAUDE_LAST_SYNC_FILE")"
@@ -301,13 +301,13 @@ scenario_skipped_conflict_does_not_advance() {
 scenario_skill_remote_add_no_prompt() {
   load_helpers
   PERSONAL_COMPUTER=false
-  printf '{}' > "$CLAUDE_REPO_DIR/settings.json"
+  printf '{}' >"$CLAUDE_REPO_DIR/settings.json"
   git_commit_in_repo "v1"
-  test_repo_head > "$CLAUDE_LAST_SYNC_FILE"
+  test_repo_head >"$CLAUDE_LAST_SYNC_FILE"
   # Repo adds a new skill file
-  echo "new skill content" > "$CLAUDE_REPO_DIR/skills/new-skill.md"
+  echo "new skill content" >"$CLAUDE_REPO_DIR/skills/new-skill.md"
   git_commit_in_repo "add new-skill"
-  claude_setup < /dev/null
+  claude_setup </dev/null
   assert_file_exists "remote-added skill copied" "$CLAUDE_HOME_DIR/skills/new-skill.md"
   assert_eq "skill content matches" "new skill content" "$(cat "$CLAUDE_HOME_DIR/skills/new-skill.md")"
 }
@@ -315,13 +315,13 @@ scenario_skill_remote_add_no_prompt() {
 scenario_top_file_remote_add_no_prompt() {
   load_helpers
   PERSONAL_COMPUTER=false
-  printf '{}' > "$CLAUDE_REPO_DIR/settings.json"
+  printf '{}' >"$CLAUDE_REPO_DIR/settings.json"
   git_commit_in_repo "v1"
-  test_repo_head > "$CLAUDE_LAST_SYNC_FILE"
+  test_repo_head >"$CLAUDE_LAST_SYNC_FILE"
   # Repo adds a top-level CLAUDE.md
-  printf '@RTK.md\n## My rules\n' > "$CLAUDE_REPO_DIR/CLAUDE.md"
+  printf '@RTK.md\n## My rules\n' >"$CLAUDE_REPO_DIR/CLAUDE.md"
   git_commit_in_repo "add CLAUDE.md"
-  claude_setup < /dev/null
+  claude_setup </dev/null
   assert_file_exists "top-level CLAUDE.md copied" "$CLAUDE_HOME_DIR/CLAUDE.md"
   assert_eq "CLAUDE.md content matches" "$(printf '@RTK.md\n## My rules\n')" "$(cat "$CLAUDE_HOME_DIR/CLAUDE.md")"
 }
@@ -329,16 +329,16 @@ scenario_top_file_remote_add_no_prompt() {
 scenario_skill_remote_delete_clean_no_prompt() {
   load_helpers
   PERSONAL_COMPUTER=false
-  printf '{}' > "$CLAUDE_REPO_DIR/settings.json"
-  echo "v1 content" > "$CLAUDE_REPO_DIR/skills/foo.md"
+  printf '{}' >"$CLAUDE_REPO_DIR/settings.json"
+  echo "v1 content" >"$CLAUDE_REPO_DIR/skills/foo.md"
   git_commit_in_repo "v1"
-  test_repo_head > "$CLAUDE_LAST_SYNC_FILE"
+  test_repo_head >"$CLAUDE_LAST_SYNC_FILE"
   # Disk has the v1 content unchanged
-  echo "v1 content" > "$CLAUDE_HOME_DIR/skills/foo.md"
+  echo "v1 content" >"$CLAUDE_HOME_DIR/skills/foo.md"
   # Repo removes the skill
   rm "$CLAUDE_REPO_DIR/skills/foo.md"
   git_commit_in_repo "remove foo"
-  claude_setup < /dev/null
+  claude_setup </dev/null
   assert_file_absent "skill deleted from disk" "$CLAUDE_HOME_DIR/skills/foo.md"
 }
 
@@ -346,15 +346,15 @@ scenario_skill_modify_modify_conflict_with_backup() {
   load_helpers
   PERSONAL_COMPUTER=false
   SKIP_CLAUDE_MERGE_PROMPTS=keep-local
-  printf '{}' > "$CLAUDE_REPO_DIR/settings.json"
-  echo "base content" > "$CLAUDE_REPO_DIR/skills/foo.md"
+  printf '{}' >"$CLAUDE_REPO_DIR/settings.json"
+  echo "base content" >"$CLAUDE_REPO_DIR/skills/foo.md"
   git_commit_in_repo "v1"
-  test_repo_head > "$CLAUDE_LAST_SYNC_FILE"
+  test_repo_head >"$CLAUDE_LAST_SYNC_FILE"
   mkdir -p "$CLAUDE_HOME_DIR/skills"
-  echo "local edit" > "$CLAUDE_HOME_DIR/skills/foo.md"
-  echo "remote edit" > "$CLAUDE_REPO_DIR/skills/foo.md"
+  echo "local edit" >"$CLAUDE_HOME_DIR/skills/foo.md"
+  echo "remote edit" >"$CLAUDE_REPO_DIR/skills/foo.md"
   git_commit_in_repo "remote edit"
-  claude_setup < /dev/null
+  claude_setup </dev/null
   assert_eq "local kept" "local edit" "$(cat "$CLAUDE_HOME_DIR/skills/foo.md")"
   # keep-local does NOT touch the file → no backup expected for keep-local.
   # Verify with take-remote variant separately.
@@ -364,15 +364,15 @@ scenario_skill_take_remote_creates_backup() {
   load_helpers
   PERSONAL_COMPUTER=false
   SKIP_CLAUDE_MERGE_PROMPTS=take-remote
-  printf '{}' > "$CLAUDE_REPO_DIR/settings.json"
-  echo "base content"   > "$CLAUDE_REPO_DIR/skills/foo.md"
+  printf '{}' >"$CLAUDE_REPO_DIR/settings.json"
+  echo "base content" >"$CLAUDE_REPO_DIR/skills/foo.md"
   git_commit_in_repo "v1"
-  test_repo_head > "$CLAUDE_LAST_SYNC_FILE"
+  test_repo_head >"$CLAUDE_LAST_SYNC_FILE"
   mkdir -p "$CLAUDE_HOME_DIR/skills"
-  echo "local edit"  > "$CLAUDE_HOME_DIR/skills/foo.md"
-  echo "remote edit" > "$CLAUDE_REPO_DIR/skills/foo.md"
+  echo "local edit" >"$CLAUDE_HOME_DIR/skills/foo.md"
+  echo "remote edit" >"$CLAUDE_REPO_DIR/skills/foo.md"
   git_commit_in_repo "remote edit"
-  claude_setup < /dev/null
+  claude_setup </dev/null
   assert_eq "remote adopted" "remote edit" "$(cat "$CLAUDE_HOME_DIR/skills/foo.md")"
   local backup
   backup=$(ls "$CLAUDE_HOME_DIR/skills/" | grep '^foo\.md\.[0-9]\{14\}\.bkp$' || true)
@@ -389,13 +389,13 @@ scenario_skill_take_remote_creates_backup() {
 scenario_stale_last_sync_recovery() {
   load_helpers
   PERSONAL_COMPUTER=false
-  printf '{"model":"opus"}' > "$CLAUDE_REPO_DIR/settings.json"
+  printf '{"model":"opus"}' >"$CLAUDE_REPO_DIR/settings.json"
   git_commit_in_repo "v1"
-  printf '{"model":"opus"}' > "$CLAUDE_HOME_DIR/settings.json"
+  printf '{"model":"opus"}' >"$CLAUDE_HOME_DIR/settings.json"
   # Pretend last-sync-commit references an unreachable SHA
-  echo "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" > "$CLAUDE_LAST_SYNC_FILE"
+  echo "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" >"$CLAUDE_LAST_SYNC_FILE"
   # Should not crash; falls back to base=empty
-  claude_setup < /dev/null
+  claude_setup </dev/null
   assert_json_eq "settings still valid after stale-sha recovery" \
     "$CLAUDE_HOME_DIR/settings.json" '.model' '"opus"'
 }
@@ -403,14 +403,190 @@ scenario_stale_last_sync_recovery() {
 scenario_invalid_json_skips_settings() {
   load_helpers
   PERSONAL_COMPUTER=false
-  printf '{"model":"opus"}' > "$CLAUDE_REPO_DIR/settings.json"
-  echo "not valid json {{{" > "$CLAUDE_HOME_DIR/settings.json"
+  printf '{"model":"opus"}' >"$CLAUDE_REPO_DIR/settings.json"
+  echo "not valid json {{{" >"$CLAUDE_HOME_DIR/settings.json"
   git_commit_in_repo "v1"
-  test_repo_head > "$CLAUDE_LAST_SYNC_FILE"
+  test_repo_head >"$CLAUDE_LAST_SYNC_FILE"
   # Should refuse to merge settings, NOT crash, and not modify the broken file.
-  claude_setup < /dev/null
+  claude_setup </dev/null
   assert_eq "broken settings.json untouched" \
     "not valid json {{{" "$(cat "$CLAUDE_HOME_DIR/settings.json")"
+}
+
+# =============================================================================
+# Scenarios — pre-commit hook installation
+# =============================================================================
+
+scenario_hook_installed_in_symlink_mode() {
+  load_helpers
+  PERSONAL_COMPUTER=true
+  seed_repo_and_record_base '{}'
+  # Ensure no pre-existing hook in the test repo's .git/hooks
+  rm -f "$CONFIG_DIR/.git/hooks/pre-commit"
+  claude_setup </dev/null
+  hooks_dir_abs="$CONFIG_DIR/$(git -C "$CONFIG_DIR" rev-parse --git-path hooks)"
+  [ -L "$hooks_dir_abs/pre-commit" ] ||
+    {
+      echo "expected symlink at $hooks_dir_abs/pre-commit (symlink mode)" >&2
+      exit 1
+    }
+  [ "$(readlink "$hooks_dir_abs/pre-commit")" = "../../.githooks/pre-commit" ] ||
+    {
+      echo "symlink target wrong" >&2
+      exit 1
+    }
+}
+
+scenario_hook_installed_in_copy_mode() {
+  load_helpers
+  PERSONAL_COMPUTER=false
+  seed_repo_and_record_base '{}'
+  rm -f "$CONFIG_DIR/.git/hooks/pre-commit"
+  claude_setup </dev/null
+  hooks_dir_abs="$CONFIG_DIR/$(git -C "$CONFIG_DIR" rev-parse --git-path hooks)"
+  [ -L "$hooks_dir_abs/pre-commit" ] ||
+    {
+      echo "expected symlink at $hooks_dir_abs/pre-commit (copy mode)" >&2
+      exit 1
+    }
+  [ "$(readlink "$hooks_dir_abs/pre-commit")" = "../../.githooks/pre-commit" ] ||
+    {
+      echo "symlink target wrong (copy mode)" >&2
+      exit 1
+    }
+}
+
+# =============================================================================
+# Scenarios — primitive-array set merge
+# =============================================================================
+
+# helper: run merge with no env override and capture stderr
+run_silent_merge() { claude_setup </dev/null 2>"$TEST_DIR/merge.stderr"; }
+
+scenario_set_merge_pure_reorder_noop() {
+  load_helpers
+  PERSONAL_COMPUTER=false
+  seed_repo_and_record_base '{"permissions":{"allow":["A","B","C"]}}'
+  printf '%s' '{"permissions":{"allow":["B","A","C"]}}' >"$CLAUDE_HOME_DIR/settings.json"
+  printf '%s' '{"permissions":{"allow":["C","A","B"]}}' >"$CLAUDE_REPO_DIR/settings.json"
+  git_commit_in_repo "reorder remote"
+  before="$(cat "$CLAUDE_HOME_DIR/settings.json")"
+  run_silent_merge
+  after="$(cat "$CLAUDE_HOME_DIR/settings.json")"
+  [[ "$before" == "$after" ]] || {
+    echo "expected local file untouched" >&2
+    exit 1
+  }
+}
+
+scenario_set_merge_remote_adds() {
+  load_helpers
+  PERSONAL_COMPUTER=false
+  seed_repo_and_record_base '{"permissions":{"allow":["A","B"]}}'
+  cp "$CLAUDE_REPO_DIR/settings.json" "$CLAUDE_HOME_DIR/settings.json"
+  printf '%s' '{"permissions":{"allow":["A","B","C"]}}' >"$CLAUDE_REPO_DIR/settings.json"
+  git_commit_in_repo "remote adds C"
+  run_silent_merge
+  assert_json_eq "C present" "$CLAUDE_HOME_DIR/settings.json" '.permissions.allow' '["A","B","C"]'
+  log="$(cat "$TEST_DIR/merge.stderr")"
+  [[ "$log" == *"permissions.allow"*"+1"*"-0"*"now 3 items"* ]] ||
+    {
+      echo "expected log line about merge, got: $log" >&2
+      exit 1
+    }
+}
+
+scenario_set_merge_local_adds_remote_unchanged() {
+  load_helpers
+  PERSONAL_COMPUTER=false
+  seed_repo_and_record_base '{"permissions":{"allow":["A","B"]}}'
+  printf '%s' '{"permissions":{"allow":["A","B","C"]}}' >"$CLAUDE_HOME_DIR/settings.json"
+  before="$(cat "$CLAUDE_HOME_DIR/settings.json")"
+  run_silent_merge
+  after="$(cat "$CLAUDE_HOME_DIR/settings.json")"
+  [[ "$before" == "$after" ]] || {
+    echo "local-only adds should not rewrite local" >&2
+    exit 1
+  }
+}
+
+scenario_set_merge_both_add_disjoint() {
+  load_helpers
+  PERSONAL_COMPUTER=false
+  seed_repo_and_record_base '{"permissions":{"allow":["A","B"]}}'
+  printf '%s' '{"permissions":{"allow":["A","B","X"]}}' >"$CLAUDE_HOME_DIR/settings.json"
+  printf '%s' '{"permissions":{"allow":["A","B","Y"]}}' >"$CLAUDE_REPO_DIR/settings.json"
+  git_commit_in_repo "remote adds Y"
+  run_silent_merge
+  assert_json_eq "X and Y both present" "$CLAUDE_HOME_DIR/settings.json" \
+    '.permissions.allow' '["A","B","X","Y"]'
+}
+
+scenario_set_merge_both_add_same_item() {
+  load_helpers
+  PERSONAL_COMPUTER=false
+  seed_repo_and_record_base '{"permissions":{"allow":["A"]}}'
+  printf '%s' '{"permissions":{"allow":["A","Z"]}}' >"$CLAUDE_HOME_DIR/settings.json"
+  printf '%s' '{"permissions":{"allow":["A","Z"]}}' >"$CLAUDE_REPO_DIR/settings.json"
+  git_commit_in_repo "remote adds Z"
+  run_silent_merge
+  assert_json_eq "Z appears once" "$CLAUDE_HOME_DIR/settings.json" \
+    '.permissions.allow' '["A","Z"]'
+}
+
+scenario_set_merge_local_removes() {
+  load_helpers
+  PERSONAL_COMPUTER=false
+  # Discriminating shape: local removes B, remote adds D. Old logic would have
+  # produced a conflict (l != b, r != b, l != r). New set merge drops B and
+  # keeps D without prompting.
+  seed_repo_and_record_base '{"permissions":{"allow":["A","B","C"]}}'
+  printf '%s' '{"permissions":{"allow":["A","C"]}}' >"$CLAUDE_HOME_DIR/settings.json"
+  printf '%s' '{"permissions":{"allow":["A","B","C","D"]}}' >"$CLAUDE_REPO_DIR/settings.json"
+  git_commit_in_repo "remote adds D"
+  run_silent_merge
+  assert_json_eq "B dropped, D added" "$CLAUDE_HOME_DIR/settings.json" \
+    '.permissions.allow' '["A","C","D"]'
+}
+
+scenario_set_merge_remote_removes() {
+  load_helpers
+  PERSONAL_COMPUTER=false
+  # Discriminating shape: local adds X, remote removes B. Old logic would have
+  # produced a conflict. New set merge drops B and keeps X without prompting.
+  seed_repo_and_record_base '{"permissions":{"allow":["A","B","C"]}}'
+  printf '%s' '{"permissions":{"allow":["A","B","C","X"]}}' >"$CLAUDE_HOME_DIR/settings.json"
+  printf '%s' '{"permissions":{"allow":["A","C"]}}' >"$CLAUDE_REPO_DIR/settings.json"
+  git_commit_in_repo "remote drops B"
+  run_silent_merge
+  assert_json_eq "B dropped, X kept" "$CLAUDE_HOME_DIR/settings.json" \
+    '.permissions.allow' '["A","C","X"]'
+}
+
+scenario_set_merge_both_remove_same_item() {
+  load_helpers
+  PERSONAL_COMPUTER=false
+  seed_repo_and_record_base '{"permissions":{"allow":["A","B","C"]}}'
+  printf '%s' '{"permissions":{"allow":["A","C"]}}' >"$CLAUDE_HOME_DIR/settings.json"
+  printf '%s' '{"permissions":{"allow":["A","C"]}}' >"$CLAUDE_REPO_DIR/settings.json"
+  git_commit_in_repo "remote drops B too"
+  run_silent_merge
+  assert_json_eq "B dropped, no error" "$CLAUDE_HOME_DIR/settings.json" \
+    '.permissions.allow' '["A","C"]'
+}
+
+scenario_set_merge_array_of_objects_falls_back() {
+  load_helpers
+  PERSONAL_COMPUTER=false
+  seed_repo_and_record_base '{"hooks":[{"name":"x"}]}'
+  printf '%s' '{"hooks":[{"name":"x"},{"name":"y"}]}' >"$CLAUDE_HOME_DIR/settings.json"
+  printf '%s' '{"hooks":[{"name":"x"},{"name":"z"}]}' >"$CLAUDE_REPO_DIR/settings.json"
+  git_commit_in_repo "remote adds z"
+  # Both sides modified arrays-of-objects → existing logic produces a conflict.
+  # With SKIP_CLAUDE_MERGE_PROMPTS=keep-local we should keep local unchanged.
+  SKIP_CLAUDE_MERGE_PROMPTS=keep-local claude_setup </dev/null
+  assert_json_eq "kept local hooks" "$CLAUDE_HOME_DIR/settings.json" \
+    '.hooks' '[{"name":"x"},{"name":"y"}]'
 }
 
 # =============================================================================
@@ -420,24 +596,36 @@ scenario_invalid_json_skips_settings() {
 main() {
   printf 'Running claude_sync_test.sh...\n'
 
-  run_scenario personal_symlink_fresh                  scenario_personal_symlink_fresh
-  run_scenario personal_symlink_existing_skipped       scenario_personal_symlink_existing_skipped
-  run_scenario personal_symlink_top_files_fresh        scenario_personal_symlink_top_files_fresh
-  run_scenario copy_fresh_no_base                      scenario_copy_fresh_no_base
-  run_scenario update_remote_add_plugin_no_prompt      scenario_update_remote_add_plugin_no_prompt
-  run_scenario update_local_add_plugin_no_prompt       scenario_update_local_add_plugin_no_prompt
-  run_scenario update_smart_remote_modify_no_prompt    scenario_update_smart_remote_modify_no_prompt
-  run_scenario update_true_conflict_keep_local         scenario_update_true_conflict_keep_local
-  run_scenario update_true_conflict_take_remote        scenario_update_true_conflict_take_remote
-  run_scenario update_cached_decision                  scenario_update_cached_decision
-  run_scenario skipped_conflict_does_not_advance       scenario_skipped_conflict_does_not_advance
-  run_scenario skill_remote_add_no_prompt              scenario_skill_remote_add_no_prompt
-  run_scenario top_file_remote_add_no_prompt           scenario_top_file_remote_add_no_prompt
-  run_scenario skill_remote_delete_clean_no_prompt     scenario_skill_remote_delete_clean_no_prompt
-  run_scenario skill_modify_modify_conflict_with_bkp   scenario_skill_modify_modify_conflict_with_backup
-  run_scenario skill_take_remote_creates_backup        scenario_skill_take_remote_creates_backup
-  run_scenario stale_last_sync_recovery                scenario_stale_last_sync_recovery
-  run_scenario invalid_json_skips_settings             scenario_invalid_json_skips_settings
+  run_scenario personal_symlink_fresh scenario_personal_symlink_fresh
+  run_scenario personal_symlink_existing_skipped scenario_personal_symlink_existing_skipped
+  run_scenario personal_symlink_top_files_fresh scenario_personal_symlink_top_files_fresh
+  run_scenario copy_fresh_no_base scenario_copy_fresh_no_base
+  run_scenario update_remote_add_plugin_no_prompt scenario_update_remote_add_plugin_no_prompt
+  run_scenario update_local_add_plugin_no_prompt scenario_update_local_add_plugin_no_prompt
+  run_scenario update_smart_remote_modify_no_prompt scenario_update_smart_remote_modify_no_prompt
+  run_scenario update_true_conflict_keep_local scenario_update_true_conflict_keep_local
+  run_scenario update_true_conflict_take_remote scenario_update_true_conflict_take_remote
+  run_scenario update_cached_decision scenario_update_cached_decision
+  run_scenario skipped_conflict_does_not_advance scenario_skipped_conflict_does_not_advance
+  run_scenario skill_remote_add_no_prompt scenario_skill_remote_add_no_prompt
+  run_scenario top_file_remote_add_no_prompt scenario_top_file_remote_add_no_prompt
+  run_scenario skill_remote_delete_clean_no_prompt scenario_skill_remote_delete_clean_no_prompt
+  run_scenario skill_modify_modify_conflict_with_bkp scenario_skill_modify_modify_conflict_with_backup
+  run_scenario skill_take_remote_creates_backup scenario_skill_take_remote_creates_backup
+  run_scenario stale_last_sync_recovery scenario_stale_last_sync_recovery
+  run_scenario invalid_json_skips_settings scenario_invalid_json_skips_settings
+  run_scenario hook_installed_in_symlink_mode scenario_hook_installed_in_symlink_mode
+  run_scenario hook_installed_in_copy_mode scenario_hook_installed_in_copy_mode
+
+  run_scenario set_merge_pure_reorder_noop scenario_set_merge_pure_reorder_noop
+  run_scenario set_merge_remote_adds scenario_set_merge_remote_adds
+  run_scenario set_merge_local_adds_remote_unchanged scenario_set_merge_local_adds_remote_unchanged
+  run_scenario set_merge_both_add_disjoint scenario_set_merge_both_add_disjoint
+  run_scenario set_merge_both_add_same_item scenario_set_merge_both_add_same_item
+  run_scenario set_merge_local_removes scenario_set_merge_local_removes
+  run_scenario set_merge_remote_removes scenario_set_merge_remote_removes
+  run_scenario set_merge_both_remove_same_item scenario_set_merge_both_remove_same_item
+  run_scenario set_merge_array_of_objects_falls_back scenario_set_merge_array_of_objects_falls_back
 
   printf '\nAll scenarios passed.\n'
 }

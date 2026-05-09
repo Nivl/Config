@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# managed-by: claude-config install.sh
+# Canonicalizes staged JSON files under .claude/ using .githooks/canonicalize.jq.
+# Sorts and dedupes any array of primitives. Idempotent.
+#
+# Note: when a file is partially staged via `git add -p`, this hook re-stages
+# the canonical full file, overwriting the partial stage. Acceptable because
+# canonicalization only sorts/dedupes primitive arrays — the user's intended
+# hunks are preserved in content (just possibly reordered within those arrays).
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+FILTER="$REPO_ROOT/.githooks/canonicalize.jq"
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "pre-commit: jq not found. Run install.sh to install dependencies." >&2
+  exit 1
+fi
+
+if [ ! -f "$FILTER" ]; then
+  echo "pre-commit: $FILTER missing — run install.sh." >&2
+  exit 1
+fi
+
+while IFS= read -r file; do
+  staged="$(git show ":$file")"
+  if ! jq empty <<<"$staged" 2>/dev/null; then
+    echo "pre-commit: $file is not valid JSON, aborting commit." >&2
+    exit 1
+  fi
+  current_canonical="$(jq -c . <<<"$staged")"
+  new_canonical="$(jq -cf "$FILTER" <<<"$staged")"
+  if [ "$current_canonical" != "$new_canonical" ]; then
+    jq -f "$FILTER" <<<"$staged" >"$REPO_ROOT/$file"
+    git add "$REPO_ROOT/$file"
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACM | grep -E '^\.claude/.*\.json$' || true)

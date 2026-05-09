@@ -34,6 +34,7 @@ There's no application code and no compiled artifacts. The "build" is `bash inst
 | `.emacs.d/` | Tracked emacs config, symlinked to `~/.emacs.d`. |
 | `.bin-remote/` | Scripts, symlinked to `~/.bin-remote`. |
 | `.claude/` | Curated Claude Code config: `settings.json` + `skills/` + `agents/` + `commands/`. Synced into `~/.claude/` per the [Claude Code config sync](#claude-code-config-sync) flow. Runtime subdirs (`projects/`, `sessions/`, `plugins/`, …) are gitignored. |
+| `.githooks/` | Versioned git hooks installed by `install_claude_precommit_hook` (install.sh) into `.git/hooks/` as a relative symlink. Currently holds `pre-commit` (canonicalizes staged JSON files under `.claude/`) and `canonicalize.jq` (the shared jq filter that sorts+dedupes any array of primitives). |
 | `.github/workflows/` | CI definitions. |
 | `.github/skills/` | Skills used by GitHub-side agent automation. |
 | `skills/` | Local skills consumed by other Claude/agent surfaces. |
@@ -67,6 +68,10 @@ There's no application code and no compiled artifacts. The "build" is `bash inst
 
 - **Personal computer (`PERSONAL_COMPUTER=true`)**: `claude_install_symlink` makes `~/.claude/<item>` a symlink to the repo copy. `~/.claude/` itself is a real directory because Claude Code writes runtime state there — only the four curated items become symlinks.
 - **Otherwise**: `claude_install_or_merge_copy` copies + 3-way merges. Base = repo content at the SHA in `.claude/.sync-state/last-sync-commit`. Local = `~/.claude/<file>`. Remote = current repo HEAD. Only true conflicts (both sides diverged differently from base) prompt the user.
+
+In **both** modes, `claude_setup` first calls `install_claude_precommit_hook` to symlink `.git/hooks/pre-commit` → `../../.githooks/pre-commit`. The hook canonicalizes staged JSON files under `.claude/` at commit time so the repo copy stays in stable form (sorted+deduped primitive arrays). Idempotent and refuses to clobber a pre-existing regular file or foreign symlink.
+
+Inside the merge engine, `claude_compute_settings_decisions` (install.sh) treats merge units where every present value is a primitive array (e.g. `permissions.allow|ask|deny`) as **sets** rather than ordered sequences. Equality is set-equality, so reorders alone never trigger conflicts; adds and removes from each side are 3-way set-merged silently with `(B ∪ L_adds ∪ R_adds) − L_removes − R_removes`. Decisions emitted from this branch carry `kind: "set"` plus `adds`/`removes`/`total` counts, which `claude_merge_settings` renders as a one-line stderr summary on real changes (`settings.json: <path> merged: +N -M (now K items)`). Pure-reorder noops are silent — the local file is not touched. Arrays containing objects fall back to the existing equality-based merge.
 
 Three persistent state files live in `.claude/.sync-state/` (gitignored):
 
@@ -108,8 +113,10 @@ CI workflow at `.github/workflows/tests.yml` runs on `pull_request` and pushes t
 | `install-regression` | `bash tests/install_cask_update_test.sh` |
 | `worktrees` | `bash tests/wt_ignored_copy_test.sh` |
 | `claude-sync` | `bash tests/claude_sync_test.sh` |
+| `canonicalize` | `bash tests/canonicalize_test.sh` |
+| `claude-precommit-hook` | `bash tests/claude_precommit_hook_test.sh` |
 
-Test scripts use `set -euo pipefail`, so unbound-variable bugs in `install.sh` surface here even though `install.sh` itself only sets `-e`. The install regression test sources `install.sh` minus its trailing `main` call, stubs side-effecting functions, and exercises four scenarios: fresh install, update with no new commits, re-exec after pull, and `SKIP_CONFIG_FILE_SETUP` preset. Run any of them locally with `bash tests/<script>.sh`.
+Test scripts use `set -euo pipefail`, so unbound-variable bugs in `install.sh` surface here even though `install.sh` itself only sets `-e`. Several test files share assertion helpers via `tests/test_helpers.sh` (sourced — no shebang, no `set` directive). The install regression test sources `install.sh` minus its trailing `main` call, stubs side-effecting functions, and exercises four scenarios: fresh install, update with no new commits, re-exec after pull, and `SKIP_CONFIG_FILE_SETUP` preset. Run any of them locally with `bash tests/<script>.sh`.
 
 ## Conventions
 

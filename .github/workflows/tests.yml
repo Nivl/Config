@@ -19,20 +19,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run shell syntax checks
+        # Three separate `zsh -n` invocations — a single command like
+        # `zsh -n a b c` treats b and c as positional args ($1, $2) of
+        # script a rather than syntax-checking them, so the missing
+        # zshrcs would silently pass (and any real syntax error in
+        # them would slip through CI). Also: base.zshrc and
+        # config.zshrc moved into shared_config/ in this PR.
         run: |
-          bash -n install.sh
-          zsh -n base.zshrc config.zshrc
-
-  install-regression:
-    name: Install regression test
-    runs-on: macos-latest
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Run install regression test
-        run: bash tests/install_cask_update_test.sh
+          zsh -n install.bootstrap.sh
+          zsh -n shared_config/base.zshrc
+          zsh -n shared_config/config.zshrc
 
   worktrees:
     name: Worktrees test
@@ -45,17 +41,6 @@ jobs:
       - name: Run wt
         run: bash tests/wt_ignored_copy_test.sh
 
-  claude-sync:
-    name: Claude config sync test
-    runs-on: macos-latest
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Run claude sync test
-        run: bash tests/claude_sync_test.sh
-
   canonicalize:
     name: Canonicalize.jq filter test
     runs-on: macos-latest
@@ -67,13 +52,76 @@ jobs:
       - name: Run canonicalize test
         run: bash tests/canonicalize_test.sh
 
-  claude-precommit-hook:
-    name: Claude pre-commit hook test
+  go-unit:
+    name: Go unit tests
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/nivl/service-images-go-dev:sha-f614fc3
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run unit tests
+        run: go test ./internal/... ./cmd/...
+
+      - name: Run golangci-lint
+        run: golangci-lint run --timeout=5m
+
+      - name: Run golangci-lint (darwin build tag)
+        # The default lint pass is GOOS=linux and skips files behind
+        # //go:build darwin (e.g. internal/brew/runner_darwin.go). Cross-
+        # lint them here so darwin-only code can't merge unlinted.
+        env:
+          GOOS: darwin
+        run: golangci-lint run --timeout=5m
+
+  go-darwin:
+    name: Go darwin-tagged tests
     runs-on: macos-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Run pre-commit hook test
-        run: bash tests/claude_precommit_hook_test.sh
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run darwin-tagged tests
+        run: go test -tags darwin ./internal/brew/...
+
+  go-integration:
+    name: Go fake-brew integration tests
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run integration tests
+        run: go test -run 'FakeBinarySubprocess' ./internal/brew/...
+
+  go-integration-configgen:
+    name: Go configgen integration tests
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run integration tests
+        run: go test -tags integration ./internal/configgen/...

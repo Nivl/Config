@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# managed-by: claude-config install.sh
+# managed-by: melvin-config setup
 # Canonicalizes staged JSON files under .claude/ using .githooks/canonicalize.jq.
 # Sorts and dedupes any array of primitives. Idempotent.
 #
@@ -13,12 +13,12 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 FILTER="$REPO_ROOT/.githooks/canonicalize.jq"
 
 if ! command -v jq >/dev/null 2>&1; then
-  echo "pre-commit: jq not found. Run install.sh to install dependencies." >&2
+  echo "pre-commit: jq not found. Run \`melvin-config setup\` to install it." >&2
   exit 1
 fi
 
 if [ ! -f "$FILTER" ]; then
-  echo "pre-commit: $FILTER missing — run install.sh." >&2
+  echo "pre-commit: $FILTER missing — re-pull the config repo or run \`melvin-config setup\`." >&2
   exit 1
 fi
 
@@ -34,4 +34,4 @@ while IFS= read -r file; do
     jq -f "$FILTER" <<<"$staged" >"$REPO_ROOT/$file"
     git add "$REPO_ROOT/$file"
   fi
-done < <(git diff --cached --name-only --diff-filter=ACM | grep -E '^\.claude/.*\.json$' || true)
+done < <(git diff --cached --name-only --diff-filter=ACM | grep -E '^(\.claude|shared_config/\.claude)/.*\.json$' || true)

@@ -9,94 +9,138 @@ When you make a change that matches a row below, update the named section in the
 | If you change… | Update this section |
 |---|---|
 | Top-level layout (new/removed dir or top-level dotfile) | [Layout](#layout) |
-| `install.sh` setup phase, subsystem, or env-var contract | [Bootstrap flow](#bootstrap-flow) + [Env vars](#env-vars) |
+| `melvin-config setup` order, a subsystem package, or an env-var contract | [Bootstrap flow](#bootstrap-flow) + [Env vars + flags](#env-vars--flags) |
 | Claude config sync semantics (base SHA, decisions cache, merge strategy, sync-state files) | [Claude Code config sync](#claude-code-config-sync) |
 | `tests/*.sh` added/removed/renamed, or `.github/workflows/*.yml` jobs | [Tests & CI](#tests--ci) |
 | Top-level helper in `config.zshrc` (the `run`/`add`/`install`/`lint`/`wt`/`cl` family) | [Shell config](#shell-config) |
-| Symlinked dotfile set in `copy_config_files` (array at install.sh:365-370) | [Layout](#layout) + [Bootstrap flow](#bootstrap-flow) |
+| Symlinked dotfile set in `dotfiles.CopyConfigFiles` (`dotfileItems` constant in `internal/dotfiles/dotfiles.go`) | [Layout](#layout) + [Bootstrap flow](#bootstrap-flow) |
+| Go package added/renamed/removed under `internal/` | [Go packages](#go-packages) + [Bootstrap flow](#bootstrap-flow) + [Env vars + flags](#env-vars--flags) |
+| Top-level `melvin-config` subcommand added/renamed/removed | [Go packages](#go-packages) (`internal/cmd` row) |
+| Convention/idiom established or changed (error wrapping, doc comments, resolve helpers, test sub-packages, etc.) | [Conventions](#conventions) |
 
 ## What this repo is
 
-A personal dotfiles + macOS bootstrap repository. The source of truth is this repo at `~/.melvin/config`; `$HOME` gets thin symlinks back into it, plus a small set of materialized config files (`~/.zshrc`, `~/.gitconfig`, `~/.zprofile`) generated on first install.
+A personal dotfiles + macOS bootstrap repository. The source of truth is this repo at `~/.melvin/config`; `$HOME` gets thin symlinks back into it, plus a small set of materialized config files (`~/.zshrc`, `~/.gitconfig`, `~/.zprofile`) whose repo-relative content is managed via a sentinel-fenced block that gets re-checked on every setup run.
 
-There's no application code and no compiled artifacts. The "build" is `bash install.sh`.
+The runtime is a Go binary (`cmd/melvin-config`) backed by the packages under `internal/`. The user-facing entrypoint is `install.bootstrap.sh`, which resolves prereqs (brew, git, go), clones/pulls the repo, builds the `melvin-config` binary, and execs `melvin-config setup`. See [Go packages](#go-packages) for what each package owns.
 
 ## Layout
 
 | Path | What it is |
 |---|---|
-| `install.sh` | Bootstrap entrypoint. Idempotent — handles first install and updates. |
-| `base.zshrc` | Stable shell entrypoint sourced from generated `~/.zshrc`. Oh My Zsh + theme + the periodic update prompt. |
-| `config.zshrc` | Day-to-day aliases and helper functions. Sourced from `base.zshrc`. |
-| `.gitconfig` / `.gitmessage` | Canonical git config. `~/.gitconfig` is materialized to `[include]` this file. |
-| `.golangci.yml` / `lsd.yaml` | Tool configs. `.golangci.yml` is symlinked into `$HOME`; `lsd.yaml` is passed to `lsd` via the `lsd` alias in config.zshrc. |
-| `.oh-my-zsh/` | Tracked OMZ payload, symlinked to `~/.oh-my-zsh`. |
-| `.emacs.d/` | Tracked emacs config, symlinked to `~/.emacs.d`. |
-| `.bin-remote/` | Scripts, symlinked to `~/.bin-remote`. |
-| `.claude/` | Curated Claude Code config: `settings.json` + `skills/` + `agents/` + `commands/`. Synced into `~/.claude/` per the [Claude Code config sync](#claude-code-config-sync) flow. Runtime subdirs (`projects/`, `sessions/`, `plugins/`, …) are gitignored. |
-| `.githooks/` | Versioned git hooks installed by `install_claude_precommit_hook` (install.sh) into `.git/hooks/` as a relative symlink. Currently holds `pre-commit` (canonicalizes staged JSON files under `.claude/`) and `canonicalize.jq` (the shared jq filter that sorts+dedupes any array of primitives). |
+| `install.bootstrap.sh` | User-facing entrypoint. Resolves prereqs (brew, git, go), clones/pulls the repo, builds the `melvin-config` binary, then execs `melvin-config setup`. The only bash file in the runtime — the chicken-and-egg shim for installing Go itself. |
+| `shared_config/` | The shared user-facing config payload — files that get installed into `$HOME` (symlinked or `[include]`-d) or injected in the environment. Add new user-visible files here, not at the repo root. Subdirs called out below. |
+| `shared_config/base.zshrc` | Stable shell entrypoint sourced from generated `~/.zshrc`. Oh My Zsh + theme + `PATH` baseline + `melvin-config check-update` startup hook. Sources `config.zshrc` at the end. |
+| `shared_config/config.zshrc` | Day-to-day aliases and helper functions. Sourced from `shared_config/base.zshrc`. |
+| `shared_config/.gitconfig` + `shared_config/.gitmessage` | Canonical git config. `~/.gitconfig` is materialized to `[include]` this file. |
+| `shared_config/.golangci.yml` + `shared_config/lsd.yaml` | Tool configs. `.golangci.yml` is symlinked into `$HOME`; `lsd.yaml` is passed to `lsd` via the `lsd` alias in `shared_config/config.zshrc`. |
+| `shared_config/.oh-my-zsh/` | Tracked OMZ payload, injected through the env. |
+| `shared_config/.emacs.d/` | Tracked emacs config, symlinked to `~/.emacs.d`. |
+| `shared_config/.bin-remote/` | Build output for the `melvin-config` binary. Gitignored except the `.keep` sentinel that tracks the empty dir. Prepended to `PATH` by `base.zshrc`. |
+| `shared_config/.claude/` | Curated Claude Code config: `settings.json` + `skills/` + `agents/` + `commands/`. Synced into `~/.claude/` per the [Claude Code config sync](#claude-code-config-sync) flow. Runtime subdirs (`projects/`, `sessions/`, `plugins/`, …) are gitignored. `permissions.{allow,ask,deny}` in `settings.json` is mutated via `melvin-config claude perms {allow\|ask\|deny} {add\|remove} [--bash X] [--read X] [--fetch X] [--force] [--dry-run]` — auto-expands `--bash` values to rtk/rtk-proxy variants (6 for git commands, 3 otherwise). |
+| `cmd/melvin-config/` | Cobra CLI binary entrypoint. `main.go` is a thin shell around `internal/cmd`. |
+| `internal/` | Go runtime packages. See [Go packages](#go-packages) for what each owns. |
+| `go.mod` / `go.sum` | Go module manifest pinning the dep graph that builds `melvin-config`. CI lookup via `go-version-file: go.mod`. |
+| `.golangci.yml` (repo root) | The project lint config picked up automatically by `golangci-lint` when invoked at the repo root. Mirrors the content of `shared_config/.golangci.yml` (which is the file symlinked into `$HOME` for user-level use). |
+| `.githooks/` | Versioned git hooks installed by `internal/claude/sync/precommit.InstallPrecommitHook` into `.git/hooks/` as a relative symlink. Currently holds `pre-commit` (canonicalizes staged JSON files under `.claude/`) and `canonicalize.jq` (the shared jq filter that sorts+dedupes any array of primitives). |
 | `.github/workflows/` | CI definitions. |
-| `.github/skills/` | Skills used by GitHub-side agent automation. |
-| `skills/` | Local skills consumed by other Claude/agent surfaces. |
 | `tests/` | Bash test scripts run by CI and locally. |
-| `.ai/plans/` | Persisted plan markdown (planning agents). |
 | `.vscode/` | Editor settings. |
-| `README.md` | Just the curl-bootstrap one-liner. |
+| `README.md` | The curl-bootstrap one-liner and its `--dry-run` sibling. |
 
 ## Bootstrap flow
 
-`install.sh` runs `main` (install.sh:1214) in this order:
+Two layers: `install.bootstrap.sh` (bash; the chicken-and-egg shim) then `melvin-config setup` (Go; the runtime).
 
-1. `setup_personal_computer_flag` / `setup_skip_existing_flag` — capture the two interactive flags.
-2. **If `~/.melvin/config` already exists:** `update_config_repo` does a `git pull`. If new commits were fetched, the script `exec`s into the freshly-pulled `install.sh`, propagating `PERSONAL_COMPUTER`, `SKIP_CONFIG_FILE_SETUP`, and `SKIP_CLAUDE_MERGE_PROMPTS` (install.sh:1222-1226). The original process is replaced — brew install does **not** run twice.
-3. `install_homebrew` → `upgrade_homebrew_packages` → `install_packages`. Formulae + common casks always; `personal_casks` array gated on `PERSONAL_COMPUTER`.
-4. `setup_ssh` — creates `~/.ssh/default` ed25519 keypair if missing.
-5. `gh auth status` → populates `GH_STATUS` / `GH_ACCOUNT` for downstream branches.
-6. `clone_config_repo` — only if `$CONFIG_DIR` does not exist.
-7. `copy_config_files` — symlinks `.oh-my-zsh`, `.emacs.d`, `.bin-remote`, `.golangci.yml` into `$HOME`, then calls `claude_setup`.
-8. `setup_zshrc` / `setup_gitconfig` / `setup_gpg` — first-install only; each guards on the destination existing.
-9. `setup_github` — `gh auth login -w` if not already authenticated.
-10. Stamp `.last_update_check`, `print_remaining_tasks`, `reload_zshrc`.
+**`install.bootstrap.sh`** runs in this order:
 
-### Cask install resilience
+1. **`PERSONAL_COMPUTER` prompt (interactive):** if the env var is unset, prompt the user (y/n) and persist the answer to `~/.zprofile`. Must happen here — *before* the Go handoff — because `packages.Install` reads the env var to decide whether to install `PersonalCasks`. `userinput.Personal` is the in-process fallback when the bootstrap is skipped.
+2. **Brew + Go bootstrap (shell-only):** install Homebrew if missing, then `brew install git go`. Must stay in shell because the Go binary doesn't yet exist.
+3. **Clone or update `$CONFIG_DIR`:** `git clone` if absent; `git pull` otherwise. If new commits were fetched, `exec` into the freshly-pulled `install.bootstrap.sh`, propagating `PERSONAL_COMPUTER`, `CLAUDE_MERGE_RESOLUTION`, `MELVIN_DRY_RUN`, and the internal `_MELVIN_REEXECED=1` guard.
+4. **Build the Go binary:** `go build -o $CONFIG_DIR/shared_config/.bin-remote/melvin-config ./cmd/melvin-config`. Go's per-package cache makes incremental builds sub-100ms. The output dir is added to `PATH` by `shared_config/base.zshrc` so the binary is reachable without the user having `~/.local/bin` on `PATH`.
+5. **Exec `melvin-config setup`:** the Go binary owns the rest.
 
-`install_cask` (install.sh:149) treats casks whose app is currently running as "skip, don't fail", and collects per-cask failures into `SKIPPED_CASK_UPDATES` / `FAILED_CASK_UPDATES` arrays. `print_skipped_cask_updates` and `print_failed_cask_updates` summarize at the end. Don't replace this with `set -e` failures — the install is intentionally allowed to limp and report.
+**`melvin-config setup`** (Go) runs, in order:
+
+- **Resolve user inputs** (`internal/userinput`) — `Personal`, `DevRoot`, `GitOrg`, `GitHost`. Each takes a pre-resolved `prearg` (flag → env wins handled by the cmd layer); if `prearg` is empty, the prompt fires.
+- **Install packages** (`internal/packages` + `internal/brew`) — formula + cask install with cask-running guard and per-cask error containment.
+- **Claude Code config sync** (`internal/claude/sync`) — symlink mode (`PERSONAL_COMPUTER=true`) or copy mode (3-way merge). Precommit hook install runs in both modes.
+- **Dotfile copy + config generation** (`internal/dotfiles` + `internal/configgen` + `internal/managedblock`) — symlinks 2 curated dotfiles (via `internal/symlinkfs.Install`; existing targets that aren't already the right symlink get auto-backed-up as `<name>.<YYYYMMDDHHMMSS>.bkp` then replaced) + creates `~/.emacs-saves`; materializes `~/.zshrc`, `~/.gitconfig`, and `~/.gnupg/gpg-agent.conf`. The repo-relative `source` / `[include]` / `pinentry-program` lines inside those materialized files live in a sentinel-fenced managed block that gets re-checked and rewritten on every `setup` run — user customizations outside the block are preserved.
+- **Final application setup** (`internal/appsetup`) — `SetupSSH` (ed25519 keypair if missing) + `SetupGitHub` (gh auth status probe + optional `gh auth login -w`).
+- **Success stamp write** — `<configDir>/.last_update_check` gets the current Unix timestamp. Consumed by `melvin-config check-update`, invoked from `base.zshrc` on shell startup to gate the 14-day update prompt.
+- **Post-install reminder + zshrc-reload hint** — `PrintRemainingTasks` lists optional follow-ups (SSH-key upload if not authenticated, EasyRes, PGP import); the stderr hint tells the user to `source ~/.zshrc`.
+
+**Dry-run mode** (`--dry-run` / `MELVIN_DRY_RUN=true`): the `melvin-config setup` phase emits per-file unified diffs to stderr describing every change it *would* make, then exits without writing anything. Bootstrap prereq steps (brew install, go install, repo clone, binary build) run for real regardless — they're user-invisible scaffolding, not config decisions. Dry-run also covers `claude perms add`/`remove` (settings.json mutation + git commit are previewed but never executed).
+
+**`melvin-config update`** is the post-install entrypoint into the same flow. It `syscall.Exec`s into `install.bootstrap.sh` so the running binary's process image is gone before `go build -o $BIN` rewrites the file on disk — no risk of the old binary clinging to anything. Args after `update` (e.g. `--dry-run`, `--personal`) forward verbatim through to `setup`. `melvin-config check-update` is the shell-startup hook called from `base.zshrc`; it stamps `.last_update_check`, prompts only on a real TTY, then hands off to the same `syscall.Exec` path.
+
+### Go packages
+
+Each package has a single clear responsibility. The cmd layer (`internal/cmd`) owns config resolution + cobra wiring; the leaf packages own behavior and never read env or flags directly.
+
+| Package | Owns |
+|---|---|
+| `internal/cmd` | Cobra subcommand graph: `setup`, `update`, `check-update`, `claude sync`, `claude perms {allow\|ask\|deny} {add\|remove}`, `install packages`, `version`. `appConfig` holds shared deps + `iox.Streams`. Hosts `resolveBool` / `resolveString` / `resolveBoolAsString` — the single boundary that reads `os.Getenv` for config knobs. `update` re-execs into `install.bootstrap.sh` via `syscall.Exec` (no race with in-place binary rewrite); `check-update` reads `.last_update_check`, no-ops if <14 days, otherwise stamps + prompts (only on a real TTY — `term.IsTerminal`, not `ModeCharDevice`, so `/dev/null` isn't treated as interactive). |
+| `internal/iox` | `Streams{In, Out, Err}` value type + `System()` factory. The only sanctioned spot to touch process-global `os.Stdin/Stdout/Stderr` outside `main`. |
+| `internal/appsetup` | SSH key gen, GitHub auth, post-install reminders. `CmdRunner` inherits stdio so interactive subprocess flows (ssh-keygen passphrase, gh browser login) work. |
+| `internal/brew` | Sole owner of `exec.Command("brew", …)`. Real `Runner` shells out; fakes for tests live in `internal/brew/brewtest`. |
+| `internal/claude/sync` | Top-level `Sync` + symlink mode + precommit hook install + last-sync-commit advance. Sub-packages: `state` (paths, git wrapper, decisions cache, atomic file writes), `prompt` (3-tier conflict resolver), `settings` (settings.json merge with set semantics for `permissions.*`), `files` (per-file + per-dir 3-way merge). |
+| `internal/claude/perms` | Mutates `permissions.{allow,ask,deny}` in `shared_config/.claude/settings.json` for the `melvin-config claude perms` command. Pure `Variants(kind, value)` fan-out (3- or 6-rule rtk/git-`-C` expansion), `Settings` JSON round-trip preserving unknown top-level + `permissions.*` keys via `json.RawMessage` (with `json.Indent` normalization pass), `Add`/`Remove` with cross-list conflict detection (errors without `--force`; `--force` removes from every other list). Personal-computer-only — `cmd` enforces. |
+| `internal/configgen` | Materializes `~/.zshrc`, `~/.gitconfig`, `~/.gnupg/gpg-agent.conf`; re-checks and rewrites the sentinel-fenced managed block (via `internal/managedblock`) on every setup run. `~/.gnupg` uses `0o700` (gpg's expectation); `killall gpg-agent` exit code 1 ("no such process") is ignored rather than treated as an error. |
+| `internal/dotfiles` | `CopyConfigFiles` symlinks `.emacs.d`, `.golangci.yml` into `$HOME` and creates `~/.emacs-saves`. Collisions are handled by `internal/symlinkfs` (no prompt). |
+| `internal/dryrun` | `Reporter` interface for dry-run output. `NullReporter` for production (silent), `NewReporter(out io.Writer)` for `--dry-run` mode (writes unified diffs via go-udiff). Consumed at every side-effecting chokepoint. |
+| `internal/errutil` | `RunAndSetError` cleanup-helper. Keeps cleanup-error handling out of the main flow. |
+| `internal/managedblock` | `Upsert(path, payload, priorLine *regexp.Regexp) error` — installs / refreshes / migrates a sentinel-fenced managed block inside an existing text file. Idempotent (mtime preserved on no-op), atomic (tempfile + rename), fails loud on malformed marker state. Consumed only by `internal/configgen`. |
+| `internal/packages` | `packages.Install` orchestrates brew upgrade + per-group formula install + per-cask install with limp-and-report semantics. The curated lists (`Formulae`, `CommonCasks`, `BetaCasks`, `PersonalCasks`, `Fonts`, `DevTools`, `AI`) live here. |
+| `internal/symlinkfs` | `Install(source, target, now)` — symlink-aware idempotent installer. Existing target that's already a symlink to `source` is a no-op; anything else gets renamed to `<target>.<YYYYMMDDHHMMSS>.bkp` and replaced. Shared by `dotfiles` and `claude/sync` symlink mode. |
+| `internal/userinput` | Four interactive prompts (Personal, DevRoot, GitHost, GitOrg). Each prompt takes a `prearg string` first arg; non-empty means "skip the prompt." This package never reads env directly. |
+
+Most packages with a public interface also expose a test sub-package (`<pkg>test`) holding a testify-mock-backed fake. Production builds never transitively pull in testify — that's the whole point of the split. See [Conventions](#conventions).
 
 ### Claude Code config sync
 
-`claude_setup` (install.sh:1189) syncs the four curated items (`settings.json`, `skills/`, `agents/`, `commands/`) from the repo's `.claude/` into `~/.claude/`. Two modes:
+`internal/claude/sync` (entrypoint: `Sync` in `sync.go`) syncs the six curated items (`settings.json`, `CLAUDE.md`, `RTK.md`, `skills/`, `agents/`, `commands/`) from the repo's `shared_config/.claude/` into `~/.claude/`. The in-repo path is hardcoded as `state.RepoSubdir`. Two modes:
 
-- **Personal computer (`PERSONAL_COMPUTER=true`)**: `claude_install_symlink` makes `~/.claude/<item>` a symlink to the repo copy. `~/.claude/` itself is a real directory because Claude Code writes runtime state there — only the four curated items become symlinks.
-- **Otherwise**: `claude_install_or_merge_copy` copies + 3-way merges. Base = repo content at the SHA in `.claude/.sync-state/last-sync-commit`. Local = `~/.claude/<file>`. Remote = current repo HEAD. Only true conflicts (both sides diverged differently from base) prompt the user.
+- **Personal computer (`PERSONAL_COMPUTER=true`)**: `internal/claude/sync/symlink.go` makes `~/.claude/<item>` a symlink to the repo copy. `~/.claude/` itself is a real directory because Claude Code writes runtime state there — only the six curated items become symlinks.
+- **Otherwise**: `internal/claude/sync/files` copies + 3-way merges. Base = repo content at the SHA in `<RepoDir>/.sync-state/last-sync-commit`. Local = `~/.claude/<file>`. Remote = current repo HEAD. Only true conflicts (both sides diverged differently from base) prompt the user.
 
-In **both** modes, `claude_setup` first calls `install_claude_precommit_hook` to symlink `.git/hooks/pre-commit` → `../../.githooks/pre-commit`. The hook canonicalizes staged JSON files under `.claude/` at commit time so the repo copy stays in stable form (sorted+deduped primitive arrays). Idempotent and refuses to clobber a pre-existing regular file or foreign symlink.
+In **both** modes, `Sync` first calls `internal/claude/sync/precommit.InstallPrecommitHook` to symlink `.git/hooks/pre-commit` → `../../.githooks/pre-commit`. The hook canonicalizes staged JSON files under `shared_config/.claude/` (and the transitional `.claude/` at the repo root) at commit time so the repo copy stays in stable form (sorted+deduped primitive arrays). Idempotent and refuses to clobber a pre-existing regular file or foreign symlink.
 
-Inside the merge engine, `claude_compute_settings_decisions` (install.sh) treats merge units where every present value is a primitive array (e.g. `permissions.allow|ask|deny`) as **sets** rather than ordered sequences. Equality is set-equality, so reorders alone never trigger conflicts; adds and removes from each side are 3-way set-merged silently with `(B ∪ L_adds ∪ R_adds) − L_removes − R_removes`. Decisions emitted from this branch carry `kind: "set"` plus `adds`/`removes`/`total` counts, which `claude_merge_settings` renders as a one-line stderr summary on real changes (`settings.json: <path> merged: +N -M (now K items)`). Pure-reorder noops are silent — the local file is not touched. Arrays containing objects fall back to the existing equality-based merge.
+Inside the merge engine, `internal/claude/sync/settings` treats merge units where every present value is a primitive array (e.g. `permissions.allow|ask|deny`) as **sets** rather than ordered sequences. Equality is set-equality, so reorders alone never trigger conflicts; adds and removes from each side are 3-way set-merged silently with `(B ∪ L_adds ∪ R_adds) − L_removes − R_removes`. Decisions emitted from this branch carry `kind: "set"` plus `adds`/`removes`/`total` counts, which `settings.Merge` renders as a one-line stderr summary on real changes (`settings.json: <path> merged: +N -M (now K items)`). Pure-reorder noops are silent — the local file is not touched. Arrays containing objects fall back to the existing equality-based merge.
 
-Three persistent state files live in `.claude/.sync-state/` (gitignored):
+Three persistent state files live in `shared_config/.claude/.sync-state/` (gitignored):
 
-- `last-sync-commit` — anchor SHA for the merge base. Only advanced after a fully-clean sync (no skipped conflicts); see `claude_advance_sync_commit` (install.sh:731).
+- `last-sync-commit` — anchor SHA for the merge base. Only advanced after a fully-clean sync (no skipped conflicts); see `internal/claude/sync/advance.go` (`AdvanceLastSyncCommit`).
 - `decisions.json` — remembered "always keep local" / "always take remote" choices per conflict path.
 - `README.md` — explains the directory to humans who poke at it.
 
-Non-interactive override: `SKIP_CLAUDE_MERGE_PROMPTS=keep-local|take-remote|skip` (install.sh:662). The `skip` value sets `CLAUDE_HAD_SKIPS=1`, which holds `last-sync-commit` in place so unresolved conflicts re-surface on the next run.
+Non-interactive override: `CLAUDE_MERGE_RESOLUTION=keep-local|take-remote|skip` (decoded by `parseMergeResolution` in `internal/claude/sync/prompt/envoverride.go`), or the equivalent `--merge-resolution` flag on `claude sync` / `setup`. The `skip` value flips the in-process `HadSkips` flag, which gates `AdvanceLastSyncCommit` so `last-sync-commit` is held in place and unresolved conflicts re-surface on the next run.
 
-### Env vars
+### Env vars + flags
 
-| Var | Read by | Effect |
+Every gating env var has a matching flag on the subcommand(s) that read it. Resolution chain in `internal/cmd/root.go` (`resolveBool` / `resolveString` / `resolveBoolAsString`):
+
+> **flag (when `.Changed` is true) → env var → fallback / prompt (setup only) / zero value**
+
+The cmd layer resolves the value once in each subcommand's `RunE`, then threads it down through a `*Params` struct (`installPackagesParams`, `claudeSyncParams`, `setupParams`). Business-logic packages (`internal/userinput`, `internal/dotfiles`, `internal/claude/sync`, `internal/claude/sync/prompt`, `internal/configgen`) **never read env or cobra directly** — they take pre-resolved values as parameters. For bool flags, `.Changed` is required so `--personal=false` can win over `PERSONAL_COMPUTER=true`. For string flags, an empty value is treated as "unset" to prevent cobra defaults from clobbering env values. Fallback closures (e.g., `brewPrefixFallback`) run only when neither flag nor env is set, so expensive operations like a `$(brew --prefix)` shellout never run unnecessarily.
+
+| Var | Flag (on commands) | Effect |
 |---|---|---|
-| `PERSONAL_COMPUTER` | install.sh | Gates personal casks, gpg signing, default git org, and Claude sync mode. Persisted via `~/.zprofile`. |
-| `SKIP_CONFIG_FILE_SETUP` | install.sh | Skip-don't-prompt on dotfile collisions. From interactive prompt or set explicitly. |
-| `SKIP_CLAUDE_MERGE_PROMPTS` | install.sh (Claude sync) | `keep-local` / `take-remote` / `skip` — bypass merge prompts. Initialized to empty at the top of install.sh so `set -u` test harnesses don't trip on the re-exec branch. |
-| `GH_STATUS` / `GH_ACCOUNT` | install.sh | Parsed from `gh auth status --json`. Gates auto-running `omz update` on the owner account, plus `setup_github`. |
-| `DEV_ROOT` / `WORKTREES_ROOT` / `REPOS_ROOT` / `SDKS_ROOT` | shell + `wt` helpers | Written to `~/.zshrc` during `setup_zshrc`. |
-| `GIT_HOST` / `GIT_CLONE_USER_NAME` | shell helpers (`cl`, `wt`) | Written to `~/.zshrc` during `setup_zshrc`. |
+| `PERSONAL_COMPUTER` | `--personal` (install packages, claude sync, setup) | Gates personal casks, gpg signing, default git org, and Claude sync mode. `install.bootstrap.sh` prompts first if unset and persists to `~/.zprofile`; `userinput.Personal` is the in-process fallback when no prearg is supplied. |
+| `DEV_ROOT` | `--dev-root` (setup) | `melvin-config setup` prompts via `userinput.DevRoot` (default `$HOME/dev`). Threaded into `configgen.SetupZshrc` → written to `~/.zshrc`. |
+| `GIT_HOST` | `--git-host` (setup) | `melvin-config setup` prompts via `userinput.GitHost` (4-option menu). Threaded into `configgen.SetupZshrc` → written to `~/.zshrc`. |
+| `GIT_CLONE_USER_NAME` | `--git-org` (setup) | `melvin-config setup` prompts via `userinput.GitOrg` (returns `Nivl` when `PERSONAL_COMPUTER=true`, else free-text). Threaded into `configgen.SetupZshrc` → written to `~/.zshrc`. |
+| `CLAUDE_MERGE_RESOLUTION` | `--merge-resolution` (claude sync, setup) | `keep-local` / `take-remote` / `skip` — pre-resolves merge conflicts. Resolved value flows into `prompt.NewPrompter(..., mergeResolution)` and is decoded by `parseMergeResolution`. Validated against the closed set in `validateMergeResolution` before the business logic runs. |
+| `HOMEBREW_PREFIX` | `--homebrew-prefix` (setup) | Determines the path to `pinentry-mac` written into `~/.gnupg/gpg-agent.conf`. Lazy fallback in `brewPrefixFallback` shells `$(brew --prefix)` when neither flag nor env is set; if brew itself errors, setup surfaces a wrapped error pointing at the flag + env. |
+| `MELVIN_DRY_RUN` | `--dry-run` (setup) | Preview every file write, symlink decision, and side-effecting shellout via unified diffs to stderr without performing any of them. Bootstrap's own prereq install/clone/build is unaffected. |
+| `WORKTREES_ROOT` / `REPOS_ROOT` / `SDKS_ROOT` | — | shell + `wt` helpers. Written to `~/.zshrc` by `configgen.SetupZshrc`; default to `$DEV_ROOT/{worktrees,repos,sdks}`. No flag — set in `~/.zshrc` only. |
+| `_MELVIN_REEXECED` | — | `install.bootstrap.sh` internal guard set by the re-exec-after-pull branch; prevents infinite loop if `git pull` runs twice. |
 
-When you read a new env var inside `main` *before* the re-exec branch (install.sh:1222), add it to the `exec env` propagation list — otherwise the post-pull process will lose it.
+When you add a new env-backed config knob: define the flag in the subcommand's `newXxxCmd`, resolve it in `RunE` via `resolveBool` / `resolveString` (passing a fallback closure if a lazy default makes sense), and thread the resolved value down via the `*Params` struct. Don't read env or call `os.Setenv` in business-logic packages — the cmd layer is the only owner of that boundary. If the env var also flows through `install.bootstrap.sh`'s re-exec branch, add it to the propagation site.
 
 ## Shell config
 
-- `base.zshrc` — Oh My Zsh setup, theme `nivl`, plugin list, `PATH` baseline, `zsh-syntax-highlighting`, and `_melvin_check_update` (a 14-day prompt that re-runs `install.sh`). Sources `config.zshrc` at the end.
+- `base.zshrc` — Oh My Zsh setup, theme `nivl`, plugin list, `PATH` baseline, `zsh-syntax-highlighting`, and a one-line `melvin-config check-update` hook on shell startup (the 14-day stamp/prompt/exec logic lives in `internal/cmd/update.go`). Sources `config.zshrc` at the end.
 - `config.zshrc` — marker-based dispatch helpers + utility functions. When adding a new "this means different things in different repo types" helper, follow the existing style (test for marker files, then dispatch):
   - **Project dispatchers**: `run`, `add`, `install`, `lint` — pick behavior from markers (`yarn.lock`, `pnpm-lock.yaml`, `go.mod`, `manage.py`, …).
   - **`cl`** — clone any repo into `$REPOS_ROOT/<host>/<org>/<repo>` regardless of where you are.
@@ -105,25 +149,49 @@ When you read a new env var inside `main` *before* the re-exec branch (install.s
 
 ## Tests & CI
 
-CI workflow at `.github/workflows/tests.yml` runs on `pull_request` and pushes to `main`. All jobs run on `macos-latest`:
+CI workflow at `.github/workflows/tests.yml` runs on `pull_request` and pushes to `main`. Most jobs run on `macos-latest`; `go-unit` runs on `ubuntu-latest` inside a `ghcr.io/nivl/service-images-go-dev` container:
 
 | Job | Command |
 |---|---|
-| `shell-syntax` | `bash -n install.sh && zsh -n base.zshrc config.zshrc` |
-| `install-regression` | `bash tests/install_cask_update_test.sh` |
+| `shell-syntax` | three separate `zsh -n` invocations against `install.bootstrap.sh`, `shared_config/base.zshrc`, `shared_config/config.zshrc` (one script per `zsh -n` so missing files / syntax errors don't slip past as ignored positional args). |
 | `worktrees` | `bash tests/wt_ignored_copy_test.sh` |
-| `claude-sync` | `bash tests/claude_sync_test.sh` |
 | `canonicalize` | `bash tests/canonicalize_test.sh` |
-| `claude-precommit-hook` | `bash tests/claude_precommit_hook_test.sh` |
+| `go-unit` | `go test ./internal/... ./cmd/...` + `golangci-lint run` (in service-images-go-dev container on ubuntu-latest) |
+| `go-darwin` | `go test -tags darwin ./internal/brew/...` (macos-latest, Go version from `go.mod`) |
+| `go-integration` | `go test -run 'FakeBinarySubprocess' ./internal/brew/...` (macos-latest, Go version from `go.mod`) |
+| `go-integration-configgen` | `go test -tags integration ./internal/configgen/...` (macos-latest, Go version from `go.mod`) |
 
-Test scripts use `set -euo pipefail`, so unbound-variable bugs in `install.sh` surface here even though `install.sh` itself only sets `-e`. Several test files share assertion helpers via `tests/test_helpers.sh` (sourced — no shebang, no `set` directive). The install regression test sources `install.sh` minus its trailing `main` call, stubs side-effecting functions, and exercises four scenarios: fresh install, update with no new commits, re-exec after pull, and `SKIP_CONFIG_FILE_SETUP` preset. Run any of them locally with `bash tests/<script>.sh`.
+Test scripts use `set -euo pipefail`. Several test files share assertion helpers via `tests/test_helpers.sh` (sourced — no shebang, no `set` directive). Run any of them locally with `bash tests/<script>.sh`. The runtime is Go; test coverage for every subsystem lives under `internal/`.
 
 ## Conventions
 
-- **Idempotent**: `install.sh` must handle first install and repeated updates. Every destination check (`if [ -e "$ZSHRC" ]; then return; fi`) exists for a reason.
-- **Interactive but scriptable**: prompts loop until valid input; non-interactive overrides exist for the gating decisions (`PERSONAL_COMPUTER`, `SKIP_CONFIG_FILE_SETUP`, `SKIP_CLAUDE_MERGE_PROMPTS`). New gates should follow the same shape: env-var fast-path, prompt as fallback.
+### Runtime + UX
+
+- **Idempotent**: `melvin-config setup` must handle first install and repeated updates. Every destination check and idempotency guard (e.g., `managedblock.Upsert`'s mtime-preserving no-op, `symlinkfs.Install`'s existing-symlink short-circuit) exists for a reason.
+- **Interactive but scriptable**: prompts loop until valid input; every gating decision has both a flag and an env-var fallback (see *Env vars + flags*). New gates should follow the same shape: flag (`.Changed` wins) → env → prompt fallback.
 - **Symlink, don't copy**: shared assets stay as the source of truth in this repo. The materialized exceptions are files that need machine-specific values (`~/.zshrc`, `~/.gitconfig`, `~/.zprofile`, `~/.gnupg/gpg-agent.conf`).
-- **Layered shell**: machine setup in `install.sh`, shell startup in `base.zshrc`, day-to-day helpers in `config.zshrc`. Don't blur the layers.
-- **`set -e` only in install.sh**: the script deliberately uses `set -e` (not `-u`). CI adds `-u` on top via the test harness. If you reference an env var that may be unset, default it (`${VAR:-}`) or initialize it at the top of `install.sh`.
-- **Format shell files with `shfmt`**: after modifying any shell file (`*.sh`, `*.zsh`, `*.zshrc`, `.gitmessage`-style snippets, etc.), run `shfmt -w <file>` to normalize formatting. `shfmt` honors the repo's `.editorconfig` (2-space indent, LF, trailing newline), so no extra flags are needed. `shfmt` is installed via Homebrew by `install.sh`.
-- **`.oh-my-zsh/` and `.emacs.d/`**: tracked payloads. Targeted edits are fine; broad refactors there are risky and rarely worth it.
+- **Layered runtime**: bootstrap shim (`install.bootstrap.sh`), main runtime (Go: `melvin-config setup`), shell startup (`base.zshrc`), day-to-day helpers (`config.zshrc`). Don't blur the layers.
+
+### Go: I/O + config
+
+- **I/O streams flow through `iox.Streams`**, not `os.Stdin/Stdout/Stderr`. `iox.System()` (and `cmd/melvin-config/main.go`) is the only place that touches the process-global streams. Every subsystem takes the bundle (or just the writer it needs) as a parameter.
+- **`os.Getenv` lives only in `internal/cmd/root.go`** (the `resolve*` helpers). Business-logic packages take pre-resolved values via their `*Params` struct (`installPackagesParams`, `claudeSyncParams`, `setupParams`) or constructor args. `os.Setenv` is not called anywhere in production code.
+- **Subcommand wiring shape**: `newXxxCmd` declares flags, `RunE` resolves them to a `*Params` struct, then calls the body function which takes `(ctx, cfg, params)`. The body is decoupled from cobra and env.
+
+### Go: errors
+
+- **Wrap every error return with `fmt.Errorf("<callee action>: %w", err)`**. The wrap message describes the function being called, not the function doing the wrapping — so the chain reads top-to-bottom (e.g. `setup: skip existing: yes-no prompt: read input: <cause>`). Don't re-wrap with the current function's own identity; that's redundant.
+- **Don't double-wrap.** If the inner already self-describes the failed operation, propagate it unchanged.
+- **`ctxErr`** branches wrap with the same prefix as the parallel non-ctx branch (e.g. both `brew upgrade: <cause>`), so `errors.Is(err, context.Canceled)` still works through the chain.
+
+### Go: testing + packaging
+
+- **Doc comment on every declaration.** Exported and unexported. Types, functions, methods, constants. The repo lints for this implicitly via review; keep new code consistent.
+- **Test-only deps stay out of production builds.** A package's testify-mock-backed fake lives in a sibling `<pkg>test/` sub-package (`brewtest`, `appsetuptest`, `configgentest`, `userinputtest`, `statetest`, `prompttest`). Production files do not import `github.com/stretchr/testify/...`. Confirm with `go list -deps ./cmd/melvin-config | grep testify` — should be empty.
+- **Comments describe current behavior, not history.** No references to retired bash code, migration step numbers, or spec citations. If a behavior is non-obvious, explain *why* it's that way; don't anchor it to historical context.
+
+### Shell
+
+- **`set -e` in `install.bootstrap.sh`**: the script deliberately uses `set -e` (not `-u`). If you reference an env var that may be unset, default it (`${VAR:-}`).
+- **Format shell files with `shfmt`**: after modifying any shell file (`*.sh`, `*.zsh`, `*.zshrc`, `.gitmessage`-style snippets, etc.), run `shfmt -w <file>` to normalize formatting. `shfmt` honors the repo's `.editorconfig` (2-space indent, LF, trailing newline), so no extra flags are needed. `shfmt` is installed via Homebrew by the `packages` Go subsystem.
+- **`.emacs.d/`**: tracked payloads. Targeted edits are fine; broad refactors there are risky and rarely worth it.

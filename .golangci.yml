@@ -57,6 +57,65 @@ linters:
         - github.com/golang-migrate/migrate/v4/database/postgres\.Config$
         - github.com/sethvargo/go-envconfig\.Config$
         - github.com/ashwanthkumar/slack-go-webhook\.Payload$
+        - github.com/spf13/cobra\.Command$
+        - github.com/Nivl/config/internal/brew\.CaskOutcome$
+        - github.com/Nivl/config/internal/brew/brewtest\.FakeRunner$
+        - github.com/Nivl/config/internal/packages\.Summary$
+        - github.com/Nivl/config/internal/packages\.FailedCask$
+        - github.com/Nivl/config/internal/packages\.Opts$
+        - github.com/Nivl/config/internal/claude/sync/state\.Paths$
+        - github.com/Nivl/config/internal/claude/sync/state\.Decisions$
+        - github.com/Nivl/config/internal/claude/sync/state/statetest\.FakeGit$
+        - github.com/Nivl/config/internal/claude/sync/prompt\.Request$
+        - github.com/Nivl/config/internal/claude/sync/prompt/prompttest\.FakePrompter$
+        - github.com/Nivl/config/internal/claude/sync/prompt\.stubRenderer$
+        - github.com/Nivl/config/internal/claude/sync/prompt\.fakeReporter$
+        - github.com/Nivl/config/internal/claude/sync/prompt\.fakeFileChange$
+        - github.com/Nivl/config/internal/claude/sync/settings\.Decision$
+        - github.com/Nivl/config/internal/claude/sync/settings\.presence$
+        - github.com/Nivl/config/internal/claude/sync/settings\.Result$
+        - github.com/Nivl/config/internal/claude/sync/settings\.Options$
+        - github.com/Nivl/config/internal/claude/sync/settings\.conflictRenderer$
+        - github.com/Nivl/config/internal/claude/sync/settings\.fakeReporter$
+        - github.com/Nivl/config/internal/claude/sync/settings\.fakeFileChange$
+        - github.com/Nivl/config/internal/claude/sync/files\.Decision$
+        - github.com/Nivl/config/internal/claude/sync/files\.Presence$
+        - github.com/Nivl/config/internal/claude/sync/files\.Equality$
+        - github.com/Nivl/config/internal/claude/sync/files\.FileResult$
+        - github.com/Nivl/config/internal/claude/sync/files\.fileConflictRenderer$
+        - github.com/Nivl/config/internal/claude/sync/files\.DirResult$
+        - github.com/Nivl/config/internal/claude/sync/files\.Options$
+        - github.com/Nivl/config/internal/claude/sync/files\.fakeReporter$
+        - github.com/Nivl/config/internal/claude/sync/files\.fakeFileChange$
+        - github.com/Nivl/config/internal/claude/sync\.Summary$
+        - github.com/Nivl/config/internal/claude/sync\.Options$
+        - github.com/Nivl/config/internal/claude/sync\.fakeReporter$
+        - github.com/Nivl/config/internal/claude/sync\.fakeFileChange$
+        - github.com/Nivl/config/internal/claude/sync\.fakeSymlink$
+        - github.com/Nivl/config/internal/configgen\.ZshrcOpts$
+        - github.com/Nivl/config/internal/configgen/configgentest\.FakeCmdRunner$
+        - github.com/Nivl/config/internal/appsetup/appsetuptest\.FakeCmdRunner$
+        - github.com/Nivl/config/internal/appsetup/appsetuptest\.FakeYesNoPrompter$
+        - github.com/Nivl/config/internal/cmd\.appConfig$
+        - github.com/Nivl/config/internal/cmd\.claudeSyncParams$
+        - github.com/Nivl/config/internal/cmd\.setupParams$
+        - github.com/Nivl/config/internal/iox\.Streams$
+        - github.com/Nivl/config/internal/dryrun\.realReporter$
+        - github.com/Nivl/config/internal/claude/perms\.Diff$
+        - github.com/Nivl/config/internal/cmd\.permsFlags$
+        - github.com/Nivl/config/internal/cmd\.addAction$
+        - github.com/Nivl/config/internal/cmd\.readerHook$
+        - github.com/Nivl/config/internal/cmd\.bootstrapCall$
+        - github.com/Nivl/config/internal/cmd\.recordingSetupReporter$
+        - github.com/Nivl/config/internal/managedblock\.UpsertOpts$
+        - github.com/Nivl/config/internal/managedblock\.fakeReporter$
+        - github.com/Nivl/config/internal/symlinkfs\.InstallOpts$
+        - github.com/Nivl/config/internal/symlinkfs\.fakeReporter$
+        - github.com/Nivl/config/internal/brew\.fakeRunner$
+        - github.com/Nivl/config/internal/brew\.fakeReporter$
+        - github.com/Nivl/config/internal/brew\.fakeShellout$
+        - github.com/Nivl/config/internal/appsetup\.fakeReporter$
+        - github.com/Nivl/config/internal/appsetup\.fakeShellout$
     gocritic:
       disabled-checks:
         - sloppyReassign
@@ -98,6 +157,10 @@ linters:
         path: secret/secret\.go #we have this one in almost all our projects
 
       - linters:
+          - gofumpt # gofumpt conflicts with goimports local-prefixes grouping; golangci-lint v2 fmt/run are inconsistent
+        path: (internal/(brew|claude/sync|errutil|packages|secret)|cmd/melvin-config)/
+
+      - linters:
           - err113
           - errcheck
           - forcetypeassert
@@ -113,6 +176,47 @@ linters:
           - maintidx
         path: testutil/
 
+      - linters:
+          - errcheck # fmt.Fprint* to io.Writer — write errors are intentionally ignored (progress output)
+        path: internal/packages/
+        text: "fmt\\.F(print|printf|println)"
+
+      - linters:
+          - errcheck # fmt.Fprint* to io.Writer — write errors are intentionally ignored (progress output)
+        path: internal/claude/sync/prompt/
+        text: "fmt\\.F(print|printf|println)"
+
+      - linters:
+          - errcheck # fmt.Fprint* to io.Writer — write errors are intentionally ignored (progress output)
+        path: internal/userinput/existingfile\.go
+        text: "fmt\\.F(print|printf|println)"
+
+      - linters:
+          - errcheck # fmt.Fprint* to io.Writer — write errors are intentionally ignored (progress output)
+        path: internal/claude/sync/settings/
+        text: "fmt\\.F(print|printf|println)"
+
+      - linters:
+          - errcheck # fmt.Fprint* to io.Writer — write errors are intentionally ignored (progress output)
+        path: internal/claude/sync/files/
+        text: "fmt\\.F(print|printf|println)"
+
+      - linters:
+          - gosec # G204: /usr/bin/diff subprocess call is intentional for diff rendering
+        path: internal/claude/sync/files/
+
+      - linters:
+          - gosec # G204: subprocess calls are intentional; brew is the only shell-out package
+        path: internal/brew/
+
+      - linters:
+          - forcetypeassert # FakeRunner delegates to mock.Arguments; panics are intentional test failures
+        path: internal/brew/runner_fake\.go
+
+      - linters:
+          - forcetypeassert # FakePrompter delegates to mock.Arguments; panics are intentional test failures
+        path: internal/claude/sync/prompt/prompt_fake\.go
+
       - path: _test\.go
         text: "fieldalignment: struct"
 
@@ -124,5 +228,9 @@ formatters:
   enable:
     - gofumpt
     - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/Nivl/config
   exclusions:
     generated: lax

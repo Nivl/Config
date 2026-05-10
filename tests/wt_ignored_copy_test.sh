@@ -83,7 +83,7 @@ brew() {
 }
 
 HOME="$TEST_HOME"
-source "$REPO_ROOT/config.zshrc"
+source "$REPO_ROOT/shared_config/config.zshrc"
 
 code() {
   :
@@ -118,7 +118,7 @@ brew() {
 }
 
 HOME="$TEST_HOME"
-source "$REPO_ROOT/config.zshrc"
+source "$REPO_ROOT/shared_config/config.zshrc"
 
 cd "$WORKTREE_REPO"
 wt_done

@@ -1,0 +1,2 @@
+;; Generated package description from flycheck.el  -*- no-byte-compile: t; lexical-binding:t -*-
+(define-package "flycheck" "36.0" "On-the-fly syntax checking" '((emacs "27.1") (seq "2.24")) :commit "ebddfd89b1eea91b8590f542908672569942fb82" :authors '(("Sebastian Wiesner" . "swiesner@lunaryorn.com")) :maintainer '(("Clément Pit-Claudel" . "clement.pitclaudel@live.com") ("fmdkdd" . "fmdkdd@gmail.com") ("Bozhidar Batsov" . "bozhidar@batsov.dev")) :keywords '("convenience" "languages" "tools") :url "https://github.com/flycheck/flycheck")

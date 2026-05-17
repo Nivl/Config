@@ -42,17 +42,48 @@ up to a maximum of 10 iterations.
 
 ### Determining the review method
 
-Before launching the review sub-agent, check whether the `code-review` skill is available by invoking the `skill` tool with `skill: "code-review"`.
+Option A uses the `code-review` skill, which is PR-oriented (it shells `gh pr view` / `gh pr comment` against a specific PR number). Option B is a built-in sub-agent that reads `git log` / `git diff` and doesn't need a PR. Both can review the same commits; Option A is preferred when applicable because it tends to be higher-quality.
 
-- **If the `code-review` skill is available:** Use it as the review mechanism (see "Option A" below).
-- **If the `code-review` skill is NOT available:** Ask the user whether they want to install it using the `ask_user` tool with the following message:
+#### Mandatory detection — run BOTH commands every iteration
 
-  > The `code-review` skill is not installed. It provides higher-quality reviews. Would you like to install it?
-  > It is available in the Copilot marketplace. To install, run:
-  > `/plugin install code-review@claude-code-plugins` from `anthropics/claude-code`
+**Do not guess. Do not infer from conversation context.** Even if the conversation feels like "the user is reviewing local commits" or "there can't be a PR open," run the detection. The most likely failure mode of this skill is skipping these checks and back-rationalizing the choice — branches under review routinely have PRs open that the conversation never mentions.
 
-  - If the user accepts → stop the current skill, let them install it, and ask them to re-run `review-and-fix` afterwards.
-  - If the user declines → proceed with Option B (the built-in sub-agent review).
+1. **PR existence** — capture the exit code:
+   ```
+   gh pr view --json number,state,url
+   ```
+   Exit 0 with `"state": "OPEN"` → there is an open PR for the current branch. Note the PR number for the announcement.
+   Any other outcome (non-zero exit, closed/merged state, "no pull requests found") → no usable PR.
+
+2. **Skill availability** — check whether `code-review` (or `code-review:code-review` etc.) appears in the available-skills list, or test-invoke it via the `skill` tool.
+
+#### Routing table
+
+| skill available? | open PR? | Action |
+|---|---|---|
+| yes | yes | **Option A** |
+| yes | no | **Option B** |
+| no | yes | Offer to install `code-review` (see below). If declined, **Option B**. |
+| no | no | **Option B** (no install offer — the skill wouldn't apply anyway) |
+
+#### Mandatory announcement
+
+Your first user-facing message of the iteration must state both detection results and the chosen route. Format:
+
+> Iter N: detected PR #X (open) / no PR for this branch; code-review skill available / unavailable. Using Option A / B.
+
+Citing the evidence keeps the route falsifiable. If you find yourself about to announce "Option B" without an accompanying PR-detection line, you skipped the check — go run it.
+
+#### Install offer (skill missing + PR open)
+
+Use the `ask_user` tool with:
+
+> The `code-review` skill is not installed. It provides higher-quality reviews. Would you like to install it?
+> It is available in the Copilot marketplace. To install, run:
+> `/plugin install code-review@claude-code-plugins` from `anthropics/claude-code`
+
+- If the user accepts → stop the current skill, let them install it, and ask them to re-run `review-and-fix` afterwards.
+- If the user declines → proceed with Option B.
 
 ---
 

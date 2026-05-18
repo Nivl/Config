@@ -4,6 +4,12 @@ zstyle ':completion:*' special-dirs true
 zstyle ':omz:update' mode disabled # Updates should be done manually
 
 export ZSH="$HOME/.melvin/config/shared_config/.oh-my-zsh"
+# ZSH_CUSTOM points OUTSIDE the OMZ submodule so user customizations
+# (e.g. the nivl theme) survive `git submodule update --remote`
+# bumps. Upstream OMZ's .gitignore excludes `custom/`, so anything
+# placed inside $ZSH/custom would also be ignored — keeping our
+# customizations as a sibling dir is the canonical OMZ pattern.
+export ZSH_CUSTOM="$HOME/.melvin/config/shared_config/.oh-my-zsh-custom"
 ZSH_THEME="nivl"
 HIST_STAMPS="mm/dd/yyyy"
 DISABLE_LS_COLORS="false"

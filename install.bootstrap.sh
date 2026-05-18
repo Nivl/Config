@@ -121,7 +121,10 @@ done
 
 if [ ! -d "$CONFIG_DIR" ]; then
   mkdir -p "$(dirname "$CONFIG_DIR")"
-  git clone git@github.com:Nivl/Config.git "$CONFIG_DIR"
+  # --recurse-submodules pulls in shared_config/.oh-my-zsh on first
+  # clone; without this the submodule path is empty and base.zshrc
+  # would fail to source $ZSH/oh-my-zsh.sh.
+  git clone --recurse-submodules git@github.com:Nivl/Config.git "$CONFIG_DIR"
 else
   if [ -z "${_MELVIN_REEXECED:-}" ]; then
     cd "$CONFIG_DIR"
@@ -134,6 +137,22 @@ else
     else
       before=$(git rev-parse HEAD)
       git pull
+      # Make sure the OMZ submodule worktree matches whatever SHA
+      # the parent repo just pulled (so a co-worker's bump from
+      # another machine is honored), then on personal machines
+      # advance to upstream HEAD and auto-commit+push if it moved.
+      # The owner-only auto-refresh keeps the pre-Go-migration
+      # behaviour: one machine pulls fresh OMZ, the rest get the
+      # bump on their next pull.
+      git submodule update --init --recursive
+      if [ "${PERSONAL_COMPUTER:-}" = "true" ]; then
+        git submodule update --remote shared_config/.oh-my-zsh
+        if [ -n "$(git status --porcelain shared_config/.oh-my-zsh)" ]; then
+          git add shared_config/.oh-my-zsh
+          git commit -m "chore(omz): refresh shared_config/.oh-my-zsh to upstream HEAD"
+          git push
+        fi
+      fi
       after=$(git rev-parse HEAD)
     fi
     if [ "$before" != "$after" ]; then

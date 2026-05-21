@@ -375,6 +375,8 @@
       "Bash(xxd *)",
       "Read(*)",
       "Skill(code-review:code-review)",
+      "WebFetch(domain:docs.stripe.com)",
+      "WebFetch(domain:github.com)",
       "WebFetch(domain:go.dev)",
       "WebFetch(domain:heroui.com)",
       "WebFetch(domain:nextjs.org)",

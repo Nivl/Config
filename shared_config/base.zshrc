@@ -13,7 +13,10 @@ export ZSH_CUSTOM="$HOME/.melvin/config/shared_config/.oh-my-zsh-custom"
 ZSH_THEME="nivl"
 HIST_STAMPS="mm/dd/yyyy"
 DISABLE_LS_COLORS="false"
-plugins=(brew history extract npm docker docker-compose pod encode64 urltools)
+# Skip OMZ's compaudit security check on every shell. Saves ~20-50ms.
+# Re-enable temporarily if you suspect a completion file has bad perms.
+ZSH_DISABLE_COMPFIX=true
+plugins=(brew history extract encode64 urltools)
 DEFAULT_USER=melvin
 # enable command auto-correction (annoying because of "git co" being corrected as "git ci", etc.)
 # ENABLE_CORRECTION="true"

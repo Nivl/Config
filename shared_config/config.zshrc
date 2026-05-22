@@ -22,7 +22,7 @@ brew_installed=(
   'libpq'
 )
 for package in $brew_installed; do
-  export PATH="$(brew --prefix $package)/bin:$PATH"
+  export PATH="$HOMEBREW_PREFIX/opt/$package/bin:$PATH"
 done
 
 # Go
@@ -31,8 +31,8 @@ export GOPATH="$SDKS_ROOT/go"
 export PATH=$PATH:$GOPATH/bin
 
 # GNU grep
-if [ -d "$(brew --prefix grep)" ]; then
-  export PATH="$(brew --prefix grep)/libexec/gnubin:$PATH"
+if [ -d "$HOMEBREW_PREFIX/opt/grep" ]; then
+  export PATH="$HOMEBREW_PREFIX/opt/grep/libexec/gnubin:$PATH"
 fi
 
 # google cloud
@@ -51,8 +51,10 @@ fi
 # Node
 export NVM_DIR="$SDKS_ROOT/nvm"
 mkdir -p "$NVM_DIR"
-if [ -e "$(brew --prefix nvm)/nvm.sh" ]; then
-  source $(brew --prefix nvm)/nvm.sh
+# --no-use skips nvm_auto on shell load (~1.4s win). Run `nvm use` manually
+# when entering a Node project, or add a chpwd hook if you want .nvmrc auto-switch.
+if [ -e "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ]; then
+  source "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" --no-use
 fi
 
 # NPM

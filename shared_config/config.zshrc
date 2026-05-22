@@ -320,7 +320,10 @@ function _should_copy_wt_ignored_path() {
   out | out/* | */out | */out/*)
     return 1
     ;;
-  tmp | tmp/* | */tmp | */tmp/*) #"temps" is used by Rush to store the node_module
+  tmp | tmp/* | */tmp | */tmp/* | */temp | */temp/*)
+    return 1
+    ;;
+  *.log | *-logs)
     return 1
     ;;
   esac

@@ -7,9 +7,10 @@ description: >
   OWASP Top 10 security, error handling, test coverage), then scores each finding 0–100 for
   confidence, filters anything below 70, and deduplicates. Returns the surviving findings.
   Never writes to GitHub.
-  Used as the shared review primitive by `review-and-fix` (which spawns 3 of these per
-  iteration and adds a fix/commit loop) and `pr-review` (which spawns 5 of these and posts a
-  single PR review with inline + global comments).
+  Used as one of two parallel review primitives (the other being `gh-style-review`) by
+  `review-and-fix` (which spawns 3 of each per iteration and adds a fix/commit loop) and
+  `pr-review` (which spawns 5 of each, merges them into one flat pool, and posts a single
+  PR review with inline + global comments).
   Use this skill when the user asks for "in-depth review", "deep review", "thorough review",
   "code review without fixing", or invokes it directly to get a one-shot review report.
 ---

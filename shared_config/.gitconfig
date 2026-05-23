@@ -9,6 +9,7 @@
 	autoSetupMerge = simple
 [commit]
 	gpgsign = true
+  template = ./.gitmessage
 [rebase]
 	autosquash = true
 [merge]

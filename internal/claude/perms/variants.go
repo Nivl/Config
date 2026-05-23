@@ -8,9 +8,28 @@ package perms
 import (
 	"errors"
 	"fmt"
+	"os/exec"
 	"strings"
 	"unicode"
 )
+
+// lookPath resolves a bash command's leading token to an absolute path
+// (via exec.LookPath). Held in a package var so tests in this package
+// — and in callers like the cmd package — can substitute a
+// deterministic stub via SetLookPath. Production code never reads or
+// writes this var directly.
+var lookPath = exec.LookPath //nolint:gochecknoglobals // testing seam, swapped via SetLookPath
+
+// SetLookPath replaces the PATH-resolution function used by Variants
+// and returns a closure that restores the previous one. Intended for
+// tests in other packages that need deterministic Bash() rule
+// expansion regardless of the test machine's PATH; production code
+// must not call it.
+func SetLookPath(f func(string) (string, error)) (restore func()) {
+	prev := lookPath
+	lookPath = f
+	return func() { lookPath = prev }
+}
 
 // Kind selects which rule-shape Variants expands a raw value into.
 // The four kinds correspond to the four flags on `claude perms`:
@@ -40,10 +59,18 @@ const (
 // Variants returns the canonical permission-rule strings that should
 // be added or removed for one user-supplied (kind, value) pair.
 //
-// Bash rules: a non-git command `X` ships as the single rule Bash(X).
-// Git commands additionally get the `git -C /* <rest>` cwd-bypass
-// form (used when operating on a worktree from a different cwd) so
-// they ship as two rules.
+// Bash rules: a non-git command `X` ships as Bash(X), plus a second
+// Bash(<absolute-path> <rest>) variant when the first token resolves
+// via PATH (e.g. `mv *` → also `Bash(/bin/mv *)`). Git commands
+// additionally get the `git -C /* <rest>` cwd-bypass form, and — when
+// resolution succeeds — the absolute-path version of that form too,
+// for a total of up to four rules.
+//
+// Path resolution is silently skipped when the command isn't found
+// (shell builtins like `cd`, compound expressions, intentionally-fake
+// commands) or when the resolved path equals the input first token
+// (already-absolute input, e.g. `/bin/mv *`). The original Bash(value)
+// is always emitted.
 //
 // Returned rules preserve insertion order. Upstream layers (apply.go
 // and settings.go) dedupe and sort before persisting, so callers can
@@ -68,10 +95,13 @@ func Variants(kind Kind, value string) ([]string, error) {
 	}
 }
 
-// bashVariants expands a bash value into the one- or two-rule list
-// described on Variants. The git-detection trigger is "first
-// whitespace-separated token is exactly git" — `git-foo`, `mygit`,
-// and `cd /repo && git ...` all fall back to the single-variant path.
+// bashVariants expands a bash value into the rule list described on
+// Variants. The git-detection trigger is "first whitespace-separated
+// token is exactly git" — `git-foo`, `mygit`, and `cd /repo && git
+// ...` all fall back to the non-git path. After the unresolved
+// variants are emitted, lookPath is consulted on the first token; on
+// success (path differs from the input first token), the resolved-
+// path twin(s) are appended.
 func bashVariants(value string) []string {
 	first, rest := splitFirstToken(value)
 	out := []string{
@@ -79,6 +109,16 @@ func bashVariants(value string) []string {
 	}
 	if first == "git" {
 		out = append(out, "Bash(git -C /* "+rest+")")
+	}
+	if resolved, err := lookPath(first); err == nil && resolved != first {
+		resolvedValue := resolved
+		if rest != "" {
+			resolvedValue = resolved + " " + rest
+		}
+		out = append(out, "Bash("+resolvedValue+")")
+		if first == "git" {
+			out = append(out, "Bash("+resolved+" -C /* "+rest+")")
+		}
 	}
 	return out
 }

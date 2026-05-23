@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -24,8 +25,13 @@ import (
 // path with `shared_config/.claude/settings.json` pre-populated, then
 // returns a perms-ready appConfig pointing at it. Used by every test
 // in this file so they don't reach into the user's real config dir.
+// Also disables PATH resolution in perms.Variants so Bash() rule
+// assertions stay deterministic regardless of the test machine's PATH.
 func setupPermsTestRepo(t *testing.T) (configDir string, cfg *appConfig, stderr *bytes.Buffer) {
 	t.Helper()
+	t.Cleanup(perms.SetLookPath(func(string) (string, error) {
+		return "", errors.New("disabled in test")
+	}))
 	configDir = t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(configDir, "shared_config", ".claude"), 0o755))
 	require.NoError(t, os.WriteFile(

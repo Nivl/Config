@@ -9,9 +9,13 @@ import (
 )
 
 // freshSettings returns a Settings backed by a fresh tempdir path so
-// every test gets an isolated empty starting state.
+// every test gets an isolated empty starting state. Also disables
+// PATH resolution in Variants so Bash() rule assertions stay
+// deterministic regardless of the test machine's PATH; individual
+// tests can still call stubLookPath to opt back into resolution.
 func freshSettings(t *testing.T) *Settings {
 	t.Helper()
+	disablePathResolution(t)
 	s, err := Load(filepath.Join(t.TempDir(), "settings.json"))
 	require.NoError(t, err)
 	return s

@@ -54,7 +54,7 @@ You can also re-run the curl-bash install command — it does a `git pull` inste
 
 ## Managing Claude permissions
 
-`melvin-config claude perms` mutates `shared_config/.claude/settings.json` and commits the change. Each `--bash` value auto-expands to its rtk + rtk-proxy variants; git commands additionally get the `git -C /*` cwd-bypass forms (6 variants total).
+`melvin-config claude perms` mutates `shared_config/.claude/settings.json` and commits the change. Each `--bash` value auto-expands to its full path variants; git commands additionally get the `git -C /*` cwd-bypass forms (6 variants total).
 
 Add multiple rules in one invocation — `--bash` / `--read` / `--fetch` are each repeatable AND comma-separable:
 

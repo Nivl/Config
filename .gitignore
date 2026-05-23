@@ -2,6 +2,7 @@ docs/superpowers/
 .last_update_check
 .vscode
 /.claude/
+.serena/
 shared_config/.emacs.d/auto-save-list/*
 shared_config/.claude/.sync-state/
 shared_config/.claude/settings.local.json

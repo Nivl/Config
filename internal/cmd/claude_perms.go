@@ -37,8 +37,8 @@ func newPermsCmd(cfg *appConfig) *cobra.Command {
 		Long: `Add or remove entries in permissions.{allow,ask,deny} of
 shared_config/.claude/settings.json, then commit the change.
 
-Each --bash value expands to the rtk + rtk-proxy variants automatically;
-git commands additionally get the ` + "`git -C /*`" + ` cwd-bypass variants.
+Each --bash value produces a single Bash() rule; git commands
+additionally get the ` + "`git -C /*`" + ` cwd-bypass variant.
 --read, --fetch, and --skill each produce a single rule.
 The command only runs on a personal computer (PERSONAL_COMPUTER=true).`,
 	}
@@ -79,7 +79,7 @@ type permsFlags struct {
 // struct for fluent use at the call site.
 func (f *permsFlags) register(cmd *cobra.Command) {
 	cmd.Flags().StringSliceVar(&f.bash, "bash", nil,
-		"Bash rule to add/remove (repeatable, comma-separated; auto-expands to rtk variants)")
+		"Bash rule to add/remove (repeatable, comma-separated; git commands also get a `git -C /*` variant)")
 	cmd.Flags().StringSliceVar(&f.read, "read", nil,
 		"Read rule to add/remove (repeatable, comma-separated)")
 	cmd.Flags().StringSliceVar(&f.fetch, "fetch", nil,

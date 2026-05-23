@@ -7,46 +7,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestVariants_BashNonGit — a non-git bash command gets the 3-variant
-// rtk/rtk-proxy expansion and nothing else.
+// TestVariants_BashNonGit — a non-git bash command produces a single
+// Bash(value) rule and nothing else.
 func TestVariants_BashNonGit(t *testing.T) {
 	got, err := Variants(KindBash, "col *")
 	require.NoError(t, err)
-	assert.Equal(t, []string{
-		"Bash(col *)",
-		"Bash(rtk col *)",
-		"Bash(rtk proxy col *)",
-	}, got)
+	assert.Equal(t, []string{"Bash(col *)"}, got)
 }
 
-// TestVariants_BashGit — a git command gets all 6 variants, including
-// the `git -C /*` cwd-bypass forms for git, rtk-git, and rtk-proxy-git.
+// TestVariants_BashGit — a git command gets two variants: the raw
+// form and the `git -C /*` cwd-bypass form.
 func TestVariants_BashGit(t *testing.T) {
 	got, err := Variants(KindBash, "git status *")
 	require.NoError(t, err)
 	assert.Equal(t, []string{
 		"Bash(git status *)",
 		"Bash(git -C /* status *)",
-		"Bash(rtk git status *)",
-		"Bash(rtk git -C /* status *)",
-		"Bash(rtk proxy git status *)",
-		"Bash(rtk proxy git -C /* status *)",
 	}, got)
 }
 
 // TestVariants_BashGitLookalikesAreNotGit — only an exact first-token
-// match of "git" triggers the 6-variant treatment; `git-foo`, `mygit`,
-// and compound commands fall back to the 3-variant path.
+// match of "git" triggers the cwd-bypass variant; `git-foo`, `mygit`,
+// and compound commands fall back to the single-variant path.
 func TestVariants_BashGitLookalikesAreNotGit(t *testing.T) {
 	for _, value := range []string{"git-foo bar", "mygit status", "cd /repo && git status"} {
 		got, err := Variants(KindBash, value)
 		require.NoError(t, err)
-		assert.Len(t, got, 3, "value %q should produce 3 variants", value)
+		assert.Len(t, got, 1, "value %q should produce 1 variant", value)
 	}
 }
 
 // TestVariants_BashSingleTokenGit — `git` with no arguments is still
-// the git command (rest becomes ""). The rendered rules tolerate the
+// the git command (rest becomes ""). The rendered rule tolerates the
 // empty rest by emitting "git -C /* " with a trailing space — that's
 // fine for the matcher, which treats trailing whitespace as nothing.
 func TestVariants_BashSingleTokenGit(t *testing.T) {
@@ -55,10 +47,6 @@ func TestVariants_BashSingleTokenGit(t *testing.T) {
 	assert.Equal(t, []string{
 		"Bash(git)",
 		"Bash(git -C /* )",
-		"Bash(rtk git)",
-		"Bash(rtk git -C /* )",
-		"Bash(rtk proxy git)",
-		"Bash(rtk proxy git -C /* )",
 	}, got)
 }
 
@@ -115,11 +103,11 @@ func TestVariants_TrimsSurroundingWhitespace(t *testing.T) {
 // a user pastes a value with a non-ASCII whitespace separator (e.g.
 // a literal tab, vertical tab, or newline from a shell heredoc),
 // splitFirstToken still recognizes the first token as "git" and
-// emits the 6-variant expansion. Aligning with the upstream
+// emits the 2-variant expansion. Aligning with the upstream
 // strings.TrimSpace (which uses unicode.IsSpace) keeps these
 // boundaries consistent.
 func TestVariants_BashGitWithNonAsciiSpaceStillTriggersGitVariants(t *testing.T) {
 	got, err := Variants(KindBash, "git\tstatus *")
 	require.NoError(t, err)
-	assert.Len(t, got, 6, "tab separator should not break git-detection")
+	assert.Len(t, got, 2, "tab separator should not break git-detection")
 }

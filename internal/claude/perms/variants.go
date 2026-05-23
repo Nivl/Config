@@ -19,10 +19,10 @@ type Kind int
 
 const (
 	// KindBash expands a value into Bash() rules. A value whose first
-	// whitespace-separated token is "git" gets six variants (covering
-	// `git`, `git -C /*`, and the rtk/rtk-proxy wrappers of each);
-	// any other value gets three (the raw command plus rtk and
-	// rtk-proxy wrappers).
+	// whitespace-separated token is "git" gets two variants — the raw
+	// command and the `git -C /*` cwd-bypass form used when operating
+	// on a worktree from a different cwd. Any other value gets just
+	// the single raw variant.
 	KindBash Kind = iota
 	// KindRead expands a value into a single Read(<value>) rule.
 	KindRead
@@ -40,15 +40,15 @@ const (
 // Variants returns the canonical permission-rule strings that should
 // be added or removed for one user-supplied (kind, value) pair.
 //
-// Bash rules account for melvin's RTK proxy: any non-git bash command
-// `X` ships as three rules — Bash(X), Bash(rtk X), Bash(rtk proxy X)
-// — because the same operation can hit the permission engine through
-// any of those entry points. Git commands additionally need the
-// `git -C /* <rest>` form (used when operating on a worktree from a
-// different cwd) so they get six variants total.
+// Bash rules: a non-git command `X` ships as the single rule Bash(X).
+// Git commands additionally get the `git -C /* <rest>` cwd-bypass
+// form (used when operating on a worktree from a different cwd) so
+// they ship as two rules.
 //
-// Returned rules are deduplicated but preserve insertion order so
-// callers can use the result as a stable sequence for reporting.
+// Returned rules preserve insertion order. Upstream layers (apply.go
+// and settings.go) dedupe and sort before persisting, so callers can
+// rely on the slice as a stable reporting sequence even when the
+// underlying expansion overlaps.
 func Variants(kind Kind, value string) ([]string, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -68,10 +68,10 @@ func Variants(kind Kind, value string) ([]string, error) {
 	}
 }
 
-// bashVariants expands a bash value into the three- or six-rule list
+// bashVariants expands a bash value into the one- or two-rule list
 // described on Variants. The git-detection trigger is "first
 // whitespace-separated token is exactly git" — `git-foo`, `mygit`,
-// and `cd /repo && git ...` all get the three-variant treatment.
+// and `cd /repo && git ...` all fall back to the single-variant path.
 func bashVariants(value string) []string {
 	first, rest := splitFirstToken(value)
 	out := []string{
@@ -79,14 +79,6 @@ func bashVariants(value string) []string {
 	}
 	if first == "git" {
 		out = append(out, "Bash(git -C /* "+rest+")")
-	}
-	out = append(out, "Bash(rtk "+value+")")
-	if first == "git" {
-		out = append(out, "Bash(rtk git -C /* "+rest+")")
-	}
-	out = append(out, "Bash(rtk proxy "+value+")")
-	if first == "git" {
-		out = append(out, "Bash(rtk proxy git -C /* "+rest+")")
 	}
 	return out
 }

@@ -94,9 +94,9 @@ func gitLogBody(t *testing.T, configDir string) string {
 }
 
 // TestRunPermsCmd_AddBashGitExpandsAndCommits — the happy path: a
-// single `--bash 'git status *'` add ends up writing all 6 variants
-// into permissions.allow AND producing a git commit with the
-// expected subject and body.
+// single `--bash 'git status *'` add ends up writing both variants
+// (raw + cwd-bypass) into permissions.allow AND producing a git
+// commit with the expected subject and body.
 func TestRunPermsCmd_AddBashGitExpandsAndCommits(t *testing.T) {
 	configDir, cfg, _ := setupPermsTestRepo(t)
 	err := runPermsCmd(
@@ -109,12 +109,8 @@ func TestRunPermsCmd_AddBashGitExpandsAndCommits(t *testing.T) {
 	allow := readPermsList(t, configDir, perms.ListAllow)
 	assert.Contains(t, allow, "Bash(git status *)")
 	assert.Contains(t, allow, "Bash(git -C /* status *)")
-	assert.Contains(t, allow, "Bash(rtk git status *)")
-	assert.Contains(t, allow, "Bash(rtk git -C /* status *)")
-	assert.Contains(t, allow, "Bash(rtk proxy git status *)")
-	assert.Contains(t, allow, "Bash(rtk proxy git -C /* status *)")
 
-	assert.Equal(t, "feat(claude,perms): add 6 allow rules (Bash)", gitLogSubject(t, configDir))
+	assert.Equal(t, "feat(claude,perms): add 2 allow rules (Bash)", gitLogSubject(t, configDir))
 	assert.Contains(t, gitLogBody(t, configDir), "+ Bash(git -C /* status *)")
 }
 
@@ -162,7 +158,7 @@ func TestRunPermsCmd_RemoveExisting(t *testing.T) {
 	))
 
 	assert.Empty(t, readPermsList(t, configDir, perms.ListAllow))
-	assert.Equal(t, "feat(claude,perms): remove 3 allow rules (Bash)", gitLogSubject(t, configDir))
+	assert.Equal(t, "feat(claude,perms): remove 1 allow rule (Bash)", gitLogSubject(t, configDir))
 }
 
 // TestRunPermsCmd_CrossListConflictWithoutForceErrors — adding a
@@ -377,7 +373,7 @@ func TestRunPermsCmd_DryRunAddPrintsWouldVerbs(t *testing.T) {
 	// loosely on the substring after `git -C <configDir>` so the test
 	// doesn't depend on the temp-dir path.
 	assert.Contains(t, out, "add "+settingsRelPath, "would-be git add shellout missing")
-	assert.Contains(t, out, "feat(claude,perms): add 3 allow rules (Bash)", "would-be commit subject missing")
+	assert.Contains(t, out, "feat(claude,perms): add 1 allow rule (Bash)", "would-be commit subject missing")
 }
 
 // TestRunPermsCmd_DryRunNoOpStaysQuiet — when the add would be a

@@ -258,6 +258,25 @@
     ],
     "defaultMode": "acceptEdits"
   },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
+            "if": "Bash(gh api *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
+            "if": "Bash(/opt/homebrew/bin/gh api *)"
+          }
+        ]
+      }
+    ]
+  },
   "model": "opus[1m]",
   "enabledPlugins": {
     "amplitude@claude-plugins-official": true,

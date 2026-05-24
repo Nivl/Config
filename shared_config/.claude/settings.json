@@ -1,78 +1,8 @@
 {
-  "enabledPlugins": {
-    "amplitude@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true,
-    "code-review@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true,
-    "skill-creator@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true,
-    "claude-md-management@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true,
-    "security-guidance@claude-plugins-official": true,
-    "claude-code-setup@claude-plugins-official": true,
-    "vercel@claude-plugins-official": true,
-    "pr-review-toolkit@claude-plugins-official": true,
-    "serena@claude-plugins-official": true,
-    "hookify@claude-plugins-official": true,
-    "learning-output-style@claude-plugins-official": true,
-    "gopls-lsp@claude-plugins-official": true,
-    "stripe@claude-plugins-official": true,
-    "greenfield@prime-radiant-marketplace": true,
-    "superpowers@claude-plugins-official": false,
-    "superpowers@superpowers-marketplace": true,
-    "warp@claude-code-warp": true
-  },
-  "extraKnownMarketplaces": {
-    "prime-radiant-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "prime-radiant-inc/prime-radiant-marketplace"
-      },
-      "autoUpdate": true
-    },
-    "superpowers-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "obra/superpowers-marketplace"
-      },
-      "autoUpdate": true
-    },
-    "claude-code-warp": {
-      "source": {
-        "source": "github",
-        "repo": "warpdotdev/claude-code-warp"
-      },
-      "autoUpdate": true
-    }
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
-            "if": "Bash(gh api *)"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
-            "if": "Bash(/opt/homebrew/bin/gh api *)"
-          }
-        ]
-      }
-    ]
-  },
-  "model": "opus[1m]",
   "permissions": {
     "allow": [
       "Bash(* --help *)",
       "Bash(* --version)",
-      "Bash(/Users/melvin/.melvin/config/shared_config/.bin-remote/melvin-config *)",
-      "Bash(/Users/melvin/dev/sdks/go/bin/gofumpt *)",
-      "Bash(/Users/melvin/dev/sdks/go/bin/goimports *)",
-      "Bash(/Users/melvin/dev/sdks/go/bin/golangci-lint *)",
       "Bash(/bin/cat *)",
       "Bash(/bin/echo *)",
       "Bash(/bin/ls *)",
@@ -318,7 +248,13 @@
       "WebFetch(domain:nextjs.org)",
       "WebFetch(domain:oxc.rs)",
       "WebFetch(domain:pkg.go.dev)",
-      "WebFetch(domain:react.dev)"
+      "WebFetch(domain:react.dev)",
+      "Write(/tmp/*)"
+    ],
+    "deny": [
+      "Bash(* .env *)",
+      "Bash(* ~/.ssh/*)",
+      "Read(.env)"
     ],
     "ask": [
       "Bash(/bin/mv *)",
@@ -350,13 +286,81 @@
       "Bash(sed -i*)",
       "Bash(wget *)"
     ],
-    "defaultMode": "acceptEdits",
-    "deny": [
-      "Bash(* .env *)",
-      "Bash(* ~/.ssh/*)",
-      "Read(.env)"
+    "defaultMode": "acceptEdits"
+  },
+  "model": "opus[1m]",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
+            "if": "Bash(gh api *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
+            "if": "Bash(/opt/homebrew/bin/gh api *)"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/write-under-roots.py"
+          }
+        ]
+      }
     ]
   },
-  "skipAutoPermissionPrompt": true,
-  "theme": "auto"
+  "enabledPlugins": {
+    "amplitude@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "claude-code-setup@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true,
+    "pr-review-toolkit@claude-plugins-official": true,
+    "serena@claude-plugins-official": false,
+    "hookify@claude-plugins-official": true,
+    "learning-output-style@claude-plugins-official": true,
+    "gopls-lsp@claude-plugins-official": true,
+    "stripe@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": false,
+    "superpowers@superpowers-marketplace": true,
+    "warp@claude-code-warp": true
+  },
+  "extraKnownMarketplaces": {
+    "prime-radiant-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "prime-radiant-inc/prime-radiant-marketplace"
+      },
+      "autoUpdate": true
+    },
+    "superpowers-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "obra/superpowers-marketplace"
+      },
+      "autoUpdate": true
+    },
+    "claude-code-warp": {
+      "source": {
+        "source": "github",
+        "repo": "warpdotdev/claude-code-warp"
+      }
+    }
+  },
+  "theme": "auto",
+  "skipAutoPermissionPrompt": true
 }

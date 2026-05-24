@@ -1,4 +1,70 @@
 {
+  "enabledPlugins": {
+    "amplitude@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "claude-code-setup@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true,
+    "pr-review-toolkit@claude-plugins-official": true,
+    "serena@claude-plugins-official": true,
+    "hookify@claude-plugins-official": true,
+    "learning-output-style@claude-plugins-official": true,
+    "gopls-lsp@claude-plugins-official": true,
+    "stripe@claude-plugins-official": true,
+    "greenfield@prime-radiant-marketplace": true,
+    "superpowers@claude-plugins-official": false,
+    "superpowers@superpowers-marketplace": true,
+    "warp@claude-code-warp": true
+  },
+  "extraKnownMarketplaces": {
+    "prime-radiant-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "prime-radiant-inc/prime-radiant-marketplace"
+      },
+      "autoUpdate": true
+    },
+    "superpowers-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "obra/superpowers-marketplace"
+      },
+      "autoUpdate": true
+    },
+    "claude-code-warp": {
+      "source": {
+        "source": "github",
+        "repo": "warpdotdev/claude-code-warp"
+      },
+      "autoUpdate": true
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
+            "if": "Bash(gh api *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
+            "if": "Bash(/opt/homebrew/bin/gh api *)"
+          }
+        ]
+      }
+    ]
+  },
+  "model": "opus[1m]",
   "permissions": {
     "allow": [
       "Bash(* --help *)",
@@ -60,11 +126,16 @@
       "Bash(/usr/bin/git -C /* ls-tree *)",
       "Bash(/usr/bin/git -C /* merge origin/main *)",
       "Bash(/usr/bin/git -C /* merge origin/master *)",
+      "Bash(/usr/bin/git -C /* mv *)",
       "Bash(/usr/bin/git -C /* pull *)",
       "Bash(/usr/bin/git -C /* remote show *)",
       "Bash(/usr/bin/git -C /* rev-list *)",
       "Bash(/usr/bin/git -C /* rev-parse *)",
+      "Bash(/usr/bin/git -C /* rm *)",
       "Bash(/usr/bin/git -C /* show *)",
+      "Bash(/usr/bin/git -C /* stash *)",
+      "Bash(/usr/bin/git -C /* stash apply *)",
+      "Bash(/usr/bin/git -C /* stash apply)",
       "Bash(/usr/bin/git -C /* stash list *)",
       "Bash(/usr/bin/git -C /* status *)",
       "Bash(/usr/bin/git add *)",
@@ -81,11 +152,16 @@
       "Bash(/usr/bin/git ls-tree *)",
       "Bash(/usr/bin/git merge origin/main *)",
       "Bash(/usr/bin/git merge origin/master *)",
+      "Bash(/usr/bin/git mv *)",
       "Bash(/usr/bin/git pull *)",
       "Bash(/usr/bin/git remote show *)",
       "Bash(/usr/bin/git rev-list *)",
       "Bash(/usr/bin/git rev-parse *)",
+      "Bash(/usr/bin/git rm *)",
       "Bash(/usr/bin/git show *)",
+      "Bash(/usr/bin/git stash *)",
+      "Bash(/usr/bin/git stash apply *)",
+      "Bash(/usr/bin/git stash apply)",
       "Bash(/usr/bin/git stash list *)",
       "Bash(/usr/bin/git status *)",
       "Bash(/usr/bin/grep *)",
@@ -145,11 +221,16 @@
       "Bash(git -C /* ls-tree *)",
       "Bash(git -C /* merge origin/main *)",
       "Bash(git -C /* merge origin/master *)",
+      "Bash(git -C /* mv *)",
       "Bash(git -C /* pull *)",
       "Bash(git -C /* remote show *)",
       "Bash(git -C /* rev-list *)",
       "Bash(git -C /* rev-parse *)",
+      "Bash(git -C /* rm *)",
       "Bash(git -C /* show *)",
+      "Bash(git -C /* stash *)",
+      "Bash(git -C /* stash apply *)",
+      "Bash(git -C /* stash apply)",
       "Bash(git -C /* stash list *)",
       "Bash(git -C /* status *)",
       "Bash(git add *)",
@@ -166,11 +247,16 @@
       "Bash(git ls-tree *)",
       "Bash(git merge origin/main *)",
       "Bash(git merge origin/master *)",
+      "Bash(git mv *)",
       "Bash(git pull *)",
       "Bash(git remote show *)",
       "Bash(git rev-list *)",
       "Bash(git rev-parse *)",
+      "Bash(git rm *)",
       "Bash(git show *)",
+      "Bash(git stash *)",
+      "Bash(git stash apply *)",
+      "Bash(git stash apply)",
       "Bash(git stash list *)",
       "Bash(git status *)",
       "Bash(go build *)",
@@ -218,11 +304,6 @@
       "WebFetch(domain:pkg.go.dev)",
       "WebFetch(domain:react.dev)"
     ],
-    "deny": [
-      "Bash(* .env *)",
-      "Bash(* ~/.ssh/*)",
-      "Read(.env)"
-    ],
     "ask": [
       "Bash(/bin/mv *)",
       "Bash(/bin/rm *)",
@@ -256,74 +337,13 @@
       "Bash(sed -i*)",
       "Bash(wget *)"
     ],
-    "defaultMode": "acceptEdits"
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
-            "if": "Bash(gh api *)"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
-            "if": "Bash(/opt/homebrew/bin/gh api *)"
-          }
-        ]
-      }
+    "defaultMode": "acceptEdits",
+    "deny": [
+      "Bash(* .env *)",
+      "Bash(* ~/.ssh/*)",
+      "Read(.env)"
     ]
   },
-  "model": "opus[1m]",
-  "enabledPlugins": {
-    "amplitude@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true,
-    "code-review@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true,
-    "skill-creator@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true,
-    "claude-md-management@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true,
-    "security-guidance@claude-plugins-official": true,
-    "claude-code-setup@claude-plugins-official": true,
-    "vercel@claude-plugins-official": true,
-    "pr-review-toolkit@claude-plugins-official": true,
-    "serena@claude-plugins-official": true,
-    "hookify@claude-plugins-official": true,
-    "learning-output-style@claude-plugins-official": true,
-    "gopls-lsp@claude-plugins-official": true,
-    "stripe@claude-plugins-official": true,
-    "greenfield@prime-radiant-marketplace": true,
-    "superpowers@claude-plugins-official": false,
-    "superpowers@superpowers-marketplace": true,
-    "warp@claude-code-warp": true
-  },
-  "extraKnownMarketplaces": {
-    "prime-radiant-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "prime-radiant-inc/prime-radiant-marketplace"
-      },
-      "autoUpdate": true
-    },
-    "superpowers-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "obra/superpowers-marketplace"
-      },
-      "autoUpdate": true
-    },
-    "claude-code-warp": {
-      "source": {
-        "source": "github",
-        "repo": "warpdotdev/claude-code-warp"
-      },
-      "autoUpdate": true
-    }
-  },
-  "theme": "auto",
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "theme": "auto"
 }

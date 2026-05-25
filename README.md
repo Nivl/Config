@@ -54,9 +54,14 @@ You can also re-run the curl-bash install command — it does a `git pull` inste
 
 ## Managing Claude permissions
 
-`melvin-config claude perms` mutates `shared_config/.claude/settings.json` and commits the change. Each `--bash` value auto-expands to its full path variants; git commands additionally get the `git -C /*` cwd-bypass forms (6 variants total).
+`melvin-config claude perms` mutates either `shared_config/.claude/settings.json` or `shared_config/.claude/hooks/git-safe-subcommands.py` (or both) and commits the change. Routing depends on the rule kind:
 
-Add multiple rules in one invocation — `--bash` / `--read` / `--fetch` are each repeatable AND comma-separable:
+- **Non-git `--bash`, `--read`, `--fetch`, `--skill`** land in `settings.json`. Each `--bash` value also gets its PATH-resolved twin (e.g. `Bash(ls *)` adds `Bash(/bin/ls *)` too) so the rule matches whichever form Claude Code emits.
+- **Git `--bash`** (any value whose first token is `git` or an absolute path ending in `/git`) lands in the Python hook file as a prefix tuple in `ALLOW_PREFIXES` / `ASK_PREFIXES` / `DENY_PREFIXES`. The hook then evaluates every `git …` command against those tables (deny > ask > allow) and emits a `permissionDecision` accordingly — independent of `-C <path>` or which absolute git binary was invoked.
+
+Git rules **must** end with a trailing `*` (e.g. `git show *`, not `git show`). The hook always allows trailing args after a matched prefix, so exact-match rules don't fit the shape — for those, hand-edit `git-safe-subcommands.py`.
+
+Add multiple rules in one invocation — `--bash` / `--read` / `--fetch` / `--skill` are each repeatable AND comma-separable. A mixed batch stages both files in one commit:
 
 ```bash
 melvin-config claude perms allow add \

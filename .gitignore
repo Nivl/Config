@@ -21,3 +21,5 @@ shared_config/.claude/scheduled_tasks.lock
 # Go build artifacts (the binary is built fresh by install.bootstrap.sh)
 /melvin-config
 shared_config/.bin-remote/melvin-config
+
+__pycache__

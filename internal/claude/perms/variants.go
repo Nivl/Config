@@ -123,6 +123,73 @@ func bashVariants(value string) []string {
 	return out
 }
 
+// ParseGitPrefix examines a Bash command value and, when it's a git
+// command in canonical hook-rule form, returns its prefix tokens —
+// the subcommand path that the Python hook matches against the
+// post-`git` args.
+//
+// Three return modes:
+//
+//   - non-git input (e.g. `ls *`)            → (nil, false, nil)
+//   - git input in canonical form            → (prefix, true, nil)
+//   - git input missing the trailing `*`     → (nil, true, error)
+//
+// Canonical form means: `git [subcmd-tokens...] *`, optionally
+// prefixed by an absolute path to a git binary (`/usr/bin/git`,
+// etc.) and/or by a `-C /*` cwd-bypass marker. Everything between
+// `git` and the trailing `*` becomes the returned prefix slice.
+//
+// The trailing `*` is mandatory because the hook always allows
+// trailing args after a matched prefix — an exact-match rule like
+// `git branch --show-current` doesn't fit that shape, so we
+// reject it loudly rather than silently broadening to `git branch
+// --show-current <anything>`. Callers wanting exact-match
+// semantics must hand-edit the hook.
+func ParseGitPrefix(value string) (prefix []string, isGit bool, err error) {
+	tokens := strings.Fields(strings.TrimSpace(value))
+	if len(tokens) == 0 {
+		return nil, false, nil
+	}
+	if !isGitExecutable(tokens[0]) {
+		return nil, false, nil
+	}
+	args := tokens[1:]
+	// Strip the `-C /*` cwd-bypass marker if present. This is the
+	// shape produced by bashVariants() for git rules, so users who
+	// paste a generated rule back through `claude perms` get the
+	// same prefix as the bare form.
+	if len(args) >= 2 && args[0] == "-C" && args[1] == "/*" {
+		args = args[2:]
+	}
+	if len(args) == 0 {
+		return nil, true, errors.New("git rule must include a subcommand and a trailing `*` (e.g. `git show *`)")
+	}
+	if args[len(args)-1] != "*" {
+		return nil, true, errors.New("git rule must have a trailing `*` to be added to the hook prefix list (exact-match rules must be hand-edited in git-safe-subcommands.py)")
+	}
+	prefix = args[:len(args)-1]
+	if len(prefix) == 0 {
+		return nil, true, errors.New("git rule needs at least one subcommand token before the trailing `*`")
+	}
+	return prefix, true, nil
+}
+
+// isGitExecutable reports whether token is the literal `git` or an
+// absolute path whose basename is `git`. The Python hook is
+// stricter (an explicit KNOWN_GIT_PATHS allowlist), but for input
+// canonicalization here we accept any absolute-path form — the
+// resulting prefix is the same regardless of which binary path the
+// user pasted.
+func isGitExecutable(token string) bool {
+	if token == "git" {
+		return true
+	}
+	if !strings.HasPrefix(token, "/") {
+		return false
+	}
+	return strings.HasSuffix(token, "/git")
+}
+
 // splitFirstToken splits s at the first run of whitespace and returns
 // (first-token, rest). When s has no whitespace the rest is "".
 //

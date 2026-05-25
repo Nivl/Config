@@ -17,6 +17,13 @@ type Op struct {
 // The cmd layer prints these to stderr so the user sees every rule
 // that was added, removed, skipped (already in the right state), or
 // moved (re-categorized via --force).
+//
+// Settings-store changes (Added/Removed/Skipped/Moved) and git-hook
+// changes (HookAdded/HookRemoved/HookSkipped/HookMoved) are
+// reported separately so the cmd layer knows which file(s) to
+// stage. Hook entries are rendered as human-readable rule strings
+// (e.g. "Bash(git show *)") for diff output, even though they're
+// stored on disk as Python prefix tuples.
 type Diff struct {
 	// Added lists rules that were new to the target list.
 	Added []string
@@ -29,6 +36,18 @@ type Diff struct {
 	// Moved lists rules that were re-categorized via --force
 	// (removed from one list and added to the target list).
 	Moved []MovedRule
+
+	// HookAdded lists git hook prefixes that were new to the target
+	// list, rendered as readable rule strings.
+	HookAdded []string
+	// HookRemoved lists git hook prefixes that were taken out of
+	// the target list, rendered as readable rule strings.
+	HookRemoved []string
+	// HookSkipped lists git hook prefixes already in the desired
+	// state, rendered as readable rule strings.
+	HookSkipped []string
+	// HookMoved lists git hook prefixes re-categorized via --force.
+	HookMoved []MovedRule
 }
 
 // MovedRule describes one rule that --force re-categorized between
@@ -42,7 +61,20 @@ type MovedRule struct {
 // Empty reports whether the Diff records no on-disk changes — Save
 // is a no-op in that case, so the cmd layer can skip the git commit.
 func (d Diff) Empty() bool {
-	return len(d.Added) == 0 && len(d.Removed) == 0 && len(d.Moved) == 0
+	return !d.SettingsChanged() && !d.HookChanged()
+}
+
+// SettingsChanged reports whether the settings.json file would be
+// modified by this diff. Independent of HookChanged so the cmd
+// layer can stage one or both files as appropriate.
+func (d Diff) SettingsChanged() bool {
+	return len(d.Added) > 0 || len(d.Removed) > 0 || len(d.Moved) > 0
+}
+
+// HookChanged reports whether the git hook file would be modified
+// by this diff. Independent of SettingsChanged.
+func (d Diff) HookChanged() bool {
+	return len(d.HookAdded) > 0 || len(d.HookRemoved) > 0 || len(d.HookMoved) > 0
 }
 
 // Add expands ops into rule strings and adds each to target.

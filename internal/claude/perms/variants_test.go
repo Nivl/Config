@@ -203,3 +203,98 @@ func TestVariants_BashGitWithNonAsciiSpaceStillTriggersGitVariants(t *testing.T)
 	require.NoError(t, err)
 	assert.Len(t, got, 2, "tab separator should not break git-detection")
 }
+
+// TestParseGitPrefix_NonGitReturnsFalse — values whose first token
+// isn't a git executable produce (nil, false, nil); the caller
+// routes these to settings.json as today.
+func TestParseGitPrefix_NonGitReturnsFalse(t *testing.T) {
+	for _, value := range []string{"ls *", "git-foo bar", "mygit status", ""} {
+		prefix, isGit, err := ParseGitPrefix(value)
+		require.NoError(t, err, value)
+		assert.False(t, isGit, value)
+		assert.Nil(t, prefix, value)
+	}
+}
+
+// TestParseGitPrefix_BareGit — the simplest canonical form yields a
+// single-token prefix matching the post-`git` subcommand.
+func TestParseGitPrefix_BareGit(t *testing.T) {
+	prefix, isGit, err := ParseGitPrefix("git show *")
+	require.NoError(t, err)
+	assert.True(t, isGit)
+	assert.Equal(t, []string{"show"}, prefix)
+}
+
+// TestParseGitPrefix_MultiTokenPrefix — multi-token subcommand
+// chains like `git remote show *` yield a multi-token prefix
+// preserving order.
+func TestParseGitPrefix_MultiTokenPrefix(t *testing.T) {
+	prefix, isGit, err := ParseGitPrefix("git remote show *")
+	require.NoError(t, err)
+	assert.True(t, isGit)
+	assert.Equal(t, []string{"remote", "show"}, prefix)
+}
+
+// TestParseGitPrefix_StripsAbsolutePath — pasting a generated rule
+// with an absolute-path git binary canonicalises to the same
+// prefix as the bare `git ...` form. The hook itself handles
+// binary-path matching, so the prefix is binary-agnostic.
+func TestParseGitPrefix_StripsAbsolutePath(t *testing.T) {
+	for _, value := range []string{
+		"/usr/bin/git show *",
+		"/opt/homebrew/bin/git show *",
+	} {
+		prefix, isGit, err := ParseGitPrefix(value)
+		require.NoError(t, err, value)
+		assert.True(t, isGit, value)
+		assert.Equal(t, []string{"show"}, prefix, value)
+	}
+}
+
+// TestParseGitPrefix_StripsCwdBypass — `-C /*` is the cwd-bypass
+// marker bashVariants emits for git rules. Pasting it back through
+// the parser yields the same prefix as the bare form.
+func TestParseGitPrefix_StripsCwdBypass(t *testing.T) {
+	prefix, isGit, err := ParseGitPrefix("git -C /* show *")
+	require.NoError(t, err)
+	assert.True(t, isGit)
+	assert.Equal(t, []string{"show"}, prefix)
+}
+
+// TestParseGitPrefix_StripsBothAbsolutePathAndCwdBypass — the
+// fully-decorated bashVariants output also canonicalises down.
+func TestParseGitPrefix_StripsBothAbsolutePathAndCwdBypass(t *testing.T) {
+	prefix, isGit, err := ParseGitPrefix("/usr/bin/git -C /* merge origin/main *")
+	require.NoError(t, err)
+	assert.True(t, isGit)
+	assert.Equal(t, []string{"merge", "origin/main"}, prefix)
+}
+
+// TestParseGitPrefix_MissingTrailingStarErrors — strict mode: a
+// git command without the trailing `*` is rejected so callers
+// can't silently broaden an exact-match rule. Hand-edit the hook
+// file for those.
+func TestParseGitPrefix_MissingTrailingStarErrors(t *testing.T) {
+	for _, value := range []string{
+		"git status",
+		"git branch --show-current",
+		"git worktree list",
+	} {
+		prefix, isGit, err := ParseGitPrefix(value)
+		assert.True(t, isGit, value)
+		assert.Nil(t, prefix, value)
+		require.Error(t, err, value)
+		assert.Contains(t, err.Error(), "trailing `*`")
+	}
+}
+
+// TestParseGitPrefix_BareGitOnlyErrors — `git`, `git *`, or
+// `git -C /* *` (no subcommand) is rejected; the hook needs at
+// least one prefix token to match against.
+func TestParseGitPrefix_BareGitOnlyErrors(t *testing.T) {
+	for _, value := range []string{"git", "git *", "git -C /* *"} {
+		_, isGit, err := ParseGitPrefix(value)
+		assert.True(t, isGit, value)
+		require.Error(t, err, value)
+	}
+}

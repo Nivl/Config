@@ -121,7 +121,6 @@
       "Bash(acli jira workitem comment list *)",
       "Bash(acli jira workitem view *)",
       "Bash(cat *)",
-      "Bash(cd *)",
       "Bash(col *)",
       "Bash(command -v *)",
       "Bash(diff *)",
@@ -271,6 +270,7 @@
       "Bash(/usr/bin/find *-ok rm*)",
       "Bash(/usr/bin/sed * -i*)",
       "Bash(/usr/bin/sed -i*)",
+      "Bash(cd *)",
       "Bash(curl *)",
       "Bash(find *-delete*)",
       "Bash(find *-exec rm*)",
@@ -303,6 +303,11 @@
             "type": "command",
             "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
             "if": "Bash(/opt/homebrew/bin/gh api *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/cd-under-roots.py",
+            "if": "Bash(cd *)"
           }
         ]
       },

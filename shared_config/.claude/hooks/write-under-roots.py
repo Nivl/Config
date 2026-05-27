@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
-# PreToolUse hook: auto-allow Write to paths under any of the configured roots.
+# PreToolUse hook: auto-allow Write/Edit to paths under any configured root.
 # Each root entry is (env_var, optional_subpath); the env var must be set to a
 # non-empty value for the root to be honored. Paths are canonicalized via
 # realpath before the boundary check, so symlinks and `..` segments can't be
 # used to slip past the root.
+#
+# Relative file_path handling: the Write tool is supposed to send an absolute
+# path, but a subagent can send a relative one. A relative path is relative to
+# the session's working directory, which the hook input provides as `cwd` —
+# resolving against the hook process's own getcwd() would be wrong whenever the
+# two differ (e.g. a subagent running from another directory), which silently
+# dropped the rule and forced a prompt. Prefer the input cwd; fall back to
+# getcwd() only when it's absent.
 
 import json
 import os
@@ -25,6 +33,10 @@ def main() -> None:
     file_path = (data.get("tool_input") or {}).get("file_path") or ""
     if not file_path:
         return
+
+    if not os.path.isabs(file_path):
+        base = (data.get("cwd") or "").strip() or os.getcwd()
+        file_path = os.path.join(base, file_path)
 
     roots = []
     for var, sub in ROOT_SPECS:

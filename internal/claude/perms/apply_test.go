@@ -21,17 +21,16 @@ func freshSettings(t *testing.T) *Settings {
 	return s
 }
 
-// TestAdd_BashGitExpandsToTwoVariants — a single git op produces the
-// 2 expected rule strings (raw + cwd-bypass), both flowing through to
-// the target list.
-func TestAdd_BashGitExpandsToTwoVariants(t *testing.T) {
+// TestAdd_BashGitIsSingleVariant — git is no longer special-cased, so
+// a git op produces just the one raw rule (path resolution disabled).
+// The `git -C` cwd-bypass form is denied at the hook layer, not
+// allow-listed here.
+func TestAdd_BashGitIsSingleVariant(t *testing.T) {
 	s := freshSettings(t)
 	diff, err := Add(s, ListAllow, []Op{{Kind: KindBash, Value: "git status *"}}, false)
 	require.NoError(t, err)
-	assert.Len(t, diff.Added, 2)
+	assert.Equal(t, []string{"Bash(git status *)"}, diff.Added)
 	assert.Empty(t, diff.Skipped)
-	assert.Contains(t, s.List(ListAllow), "Bash(git status *)")
-	assert.Contains(t, s.List(ListAllow), "Bash(git -C /* status *)")
 }
 
 // TestAdd_AlreadyPresentIsSkipped — adding a rule that's already in
@@ -46,18 +45,20 @@ func TestAdd_AlreadyPresentIsSkipped(t *testing.T) {
 	assert.Len(t, diff.Skipped, 1, "the single variant already exists; it should be skipped")
 }
 
-// TestAdd_PartiallyPresentDedupesPerVariant — when one of a git
-// command's two variants is already present, Add adds just the
-// missing one and skips the present one.
+// TestAdd_PartiallyPresentDedupesPerVariant — when one of a command's
+// two variants (raw + PATH-resolved) is already present, Add adds just
+// the missing one and skips the present one. Uses a resolved-path
+// command since that's now the only source of multi-variant expansion.
 func TestAdd_PartiallyPresentDedupesPerVariant(t *testing.T) {
 	s := freshSettings(t)
-	// Pre-seed only the raw variant; the cwd-bypass form is missing.
-	s.SetList(ListAllow, []string{"Bash(git status *)"})
+	stubLookPath(t, map[string]string{"mv": "/bin/mv"})
+	// Pre-seed only the raw variant; the resolved-path form is missing.
+	s.SetList(ListAllow, []string{"Bash(mv *)"})
 
-	diff, err := Add(s, ListAllow, []Op{{Kind: KindBash, Value: "git status *"}}, false)
+	diff, err := Add(s, ListAllow, []Op{{Kind: KindBash, Value: "mv *"}}, false)
 	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{"Bash(git -C /* status *)"}, diff.Added)
-	assert.ElementsMatch(t, []string{"Bash(git status *)"}, diff.Skipped)
+	assert.ElementsMatch(t, []string{"Bash(/bin/mv *)"}, diff.Added)
+	assert.ElementsMatch(t, []string{"Bash(mv *)"}, diff.Skipped)
 }
 
 // TestAdd_CrossListConflictErrorsWithoutForce — a rule that already
@@ -157,18 +158,19 @@ func TestAdd_ForceMovesRuleFromOtherList(t *testing.T) {
 }
 
 // TestRemove_DropsExistingRules — Remove deletes target-list entries
-// that match the expanded variants and reports them in Removed. Using
-// a git command exercises the 2-variant expansion.
+// that match the expanded variants and reports them in Removed. Uses a
+// resolved-path command to exercise the 2-variant expansion.
 func TestRemove_DropsExistingRules(t *testing.T) {
 	s := freshSettings(t)
+	stubLookPath(t, map[string]string{"mv": "/bin/mv"})
 	s.SetList(ListAllow, []string{
-		"Bash(git status *)", "Bash(git -C /* status *)", "Bash(keep)",
+		"Bash(mv *)", "Bash(/bin/mv *)", "Bash(keep)",
 	})
 
-	diff, err := Remove(s, ListAllow, []Op{{Kind: KindBash, Value: "git status *"}})
+	diff, err := Remove(s, ListAllow, []Op{{Kind: KindBash, Value: "mv *"}})
 	require.NoError(t, err)
 	assert.ElementsMatch(t,
-		[]string{"Bash(git status *)", "Bash(git -C /* status *)"},
+		[]string{"Bash(mv *)", "Bash(/bin/mv *)"},
 		diff.Removed)
 	assert.Equal(t, []string{"Bash(keep)"}, s.List(ListAllow))
 }

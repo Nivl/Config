@@ -37,11 +37,12 @@ func SetLookPath(f func(string) (string, error)) (restore func()) {
 type Kind int
 
 const (
-	// KindBash expands a value into Bash() rules. A value whose first
-	// whitespace-separated token is "git" gets two variants — the raw
-	// command and the `git -C /*` cwd-bypass form used when operating
-	// on a worktree from a different cwd. Any other value gets just
-	// the single raw variant.
+	// KindBash expands a value into Bash() rules: the raw command, plus
+	// a PATH-resolved absolute-path twin when the first token resolves
+	// (e.g. `mv *` → also `Bash(/bin/mv *)`). git is treated like any
+	// other command — the `git -C` cwd-bypass form is intentionally NOT
+	// generated, since the git-deny-dash-c.py hook denies `git -C`
+	// outright (cd into the repo first, then run plain git).
 	KindBash Kind = iota
 	// KindRead expands a value into a single Read(<value>) rule.
 	KindRead
@@ -59,12 +60,11 @@ const (
 // Variants returns the canonical permission-rule strings that should
 // be added or removed for one user-supplied (kind, value) pair.
 //
-// Bash rules: a non-git command `X` ships as Bash(X), plus a second
+// Bash rules: a command `X` ships as Bash(X), plus a second
 // Bash(<absolute-path> <rest>) variant when the first token resolves
-// via PATH (e.g. `mv *` → also `Bash(/bin/mv *)`). Git commands
-// additionally get the `git -C /* <rest>` cwd-bypass form, and — when
-// resolution succeeds — the absolute-path version of that form too,
-// for a total of up to four rules.
+// via PATH (e.g. `mv *` → also `Bash(/bin/mv *)`). git is no longer
+// special-cased — the `git -C` cwd-bypass form is not generated,
+// because git-deny-dash-c.py denies `git -C` at the hook layer.
 //
 // Path resolution is silently skipped when the command isn't found
 // (shell builtins like `cd`, compound expressions, intentionally-fake
@@ -96,19 +96,15 @@ func Variants(kind Kind, value string) ([]string, error) {
 }
 
 // bashVariants expands a bash value into the rule list described on
-// Variants. The git-detection trigger is "first whitespace-separated
-// token is exactly git" — `git-foo`, `mygit`, and `cd /repo && git
-// ...` all fall back to the non-git path. After the unresolved
-// variants are emitted, lookPath is consulted on the first token; on
-// success (path differs from the input first token), the resolved-
-// path twin(s) are appended.
+// Variants: the raw `Bash(value)`, plus a resolved-path twin when
+// lookPath resolves the first token to a different absolute path. No
+// command (git included) gets special treatment — the `git -C`
+// cwd-bypass form is handled by deny at the hook layer, not by
+// allow-listing here.
 func bashVariants(value string) []string {
 	first, rest := splitFirstToken(value)
 	out := []string{
 		"Bash(" + value + ")",
-	}
-	if first == "git" {
-		out = append(out, "Bash(git -C /* "+rest+")")
 	}
 	if resolved, err := lookPath(first); err == nil && resolved != first {
 		resolvedValue := resolved
@@ -116,78 +112,8 @@ func bashVariants(value string) []string {
 			resolvedValue = resolved + " " + rest
 		}
 		out = append(out, "Bash("+resolvedValue+")")
-		if first == "git" {
-			out = append(out, "Bash("+resolved+" -C /* "+rest+")")
-		}
 	}
 	return out
-}
-
-// ParseGitPrefix examines a Bash command value and, when it's a git
-// command in canonical hook-rule form, returns its prefix tokens —
-// the subcommand path that the Python hook matches against the
-// post-`git` args.
-//
-// Three return modes:
-//
-//   - non-git input (e.g. `ls *`)            → (nil, false, nil)
-//   - git input in canonical form            → (prefix, true, nil)
-//   - git input missing the trailing `*`     → (nil, true, error)
-//
-// Canonical form means: `git [subcmd-tokens...] *`, optionally
-// prefixed by an absolute path to a git binary (`/usr/bin/git`,
-// etc.) and/or by a `-C /*` cwd-bypass marker. Everything between
-// `git` and the trailing `*` becomes the returned prefix slice.
-//
-// The trailing `*` is mandatory because the hook always allows
-// trailing args after a matched prefix — an exact-match rule like
-// `git branch --show-current` doesn't fit that shape, so we
-// reject it loudly rather than silently broadening to `git branch
-// --show-current <anything>`. Callers wanting exact-match
-// semantics must hand-edit the hook.
-func ParseGitPrefix(value string) (prefix []string, isGit bool, err error) {
-	tokens := strings.Fields(strings.TrimSpace(value))
-	if len(tokens) == 0 {
-		return nil, false, nil
-	}
-	if !isGitExecutable(tokens[0]) {
-		return nil, false, nil
-	}
-	args := tokens[1:]
-	// Strip the `-C /*` cwd-bypass marker if present. This is the
-	// shape produced by bashVariants() for git rules, so users who
-	// paste a generated rule back through `claude perms` get the
-	// same prefix as the bare form.
-	if len(args) >= 2 && args[0] == "-C" && args[1] == "/*" {
-		args = args[2:]
-	}
-	if len(args) == 0 {
-		return nil, true, errors.New("git rule must include a subcommand and a trailing `*` (e.g. `git show *`)")
-	}
-	if args[len(args)-1] != "*" {
-		return nil, true, errors.New("git rule must have a trailing `*` to be added to the hook prefix list (exact-match rules must be hand-edited in git-safe-subcommands.py)")
-	}
-	prefix = args[:len(args)-1]
-	if len(prefix) == 0 {
-		return nil, true, errors.New("git rule needs at least one subcommand token before the trailing `*`")
-	}
-	return prefix, true, nil
-}
-
-// isGitExecutable reports whether token is the literal `git` or an
-// absolute path whose basename is `git`. The Python hook is
-// stricter (an explicit KNOWN_GIT_PATHS allowlist), but for input
-// canonicalization here we accept any absolute-path form — the
-// resulting prefix is the same regardless of which binary path the
-// user pasted.
-func isGitExecutable(token string) bool {
-	if token == "git" {
-		return true
-	}
-	if !strings.HasPrefix(token, "/") {
-		return false
-	}
-	return strings.HasSuffix(token, "/git")
 }
 
 // splitFirstToken splits s at the first run of whitespace and returns

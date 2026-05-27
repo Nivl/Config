@@ -22,12 +22,6 @@ import (
 // edit and as the path passed to `git add` so commits stay scoped.
 const settingsRelPath = "shared_config/.claude/settings.json"
 
-// gitHookRelPath is the location of the Python git-safe-subcommands.py
-// hook inside the config repo, relative to the repo root. Hosts the
-// three prefix tables (ALLOW/ASK/DENY) that `claude perms` mutates
-// for git-shaped Bash rules.
-const gitHookRelPath = "shared_config/.claude/hooks/git-safe-subcommands.py"
-
 // newPermsCmd builds the `melvin-config claude perms` parent
 // command. It has no body — only the three list-subcommands
 // (allow/ask/deny). Each list subcommand has add/remove children.
@@ -43,9 +37,9 @@ func newPermsCmd(cfg *appConfig) *cobra.Command {
 		Long: `Add or remove entries in permissions.{allow,ask,deny} of
 shared_config/.claude/settings.json, then commit the change.
 
-Each --bash value produces a single Bash() rule; git commands
-additionally get the ` + "`git -C /*`" + ` cwd-bypass variant.
---read, --fetch, and --skill each produce a single rule.
+Each --bash value produces a Bash() rule plus a PATH-resolved
+absolute-path twin when the command resolves. --read, --fetch, and
+--skill each produce a single rule.
 The command only runs on a personal computer (PERSONAL_COMPUTER=true).`,
 	}
 	cmd.PersistentFlags().Bool("dry-run", false,
@@ -85,7 +79,7 @@ type permsFlags struct {
 // struct for fluent use at the call site.
 func (f *permsFlags) register(cmd *cobra.Command) {
 	cmd.Flags().StringSliceVar(&f.bash, "bash", nil,
-		"Bash rule to add/remove (repeatable, comma-separated; git commands also get a `git -C /*` variant)")
+		"Bash rule to add/remove (repeatable, comma-separated; also gets a PATH-resolved absolute-path variant)")
 	cmd.Flags().StringSliceVar(&f.read, "read", nil,
 		"Read rule to add/remove (repeatable, comma-separated)")
 	cmd.Flags().StringSliceVar(&f.fetch, "fetch", nil,
@@ -183,27 +177,26 @@ func applyDryRunFromFlags(cobraCmd *cobra.Command, cfg *appConfig) error {
 }
 
 // permsAction is the strategy interface for "what does this command
-// do to the Settings + hook file?" — Add and Remove differ only in
-// (a) the perms.Apply ApplyAction passed through and (b) the verb in
-// the commit message.
+// do to the Settings?" — Add and Remove differ only in (a) the
+// perms call and (b) the verb in the commit message.
 type permsAction interface {
-	apply(s *perms.Settings, h *perms.GitHookFile, target perms.ListName, ops []perms.Op) (perms.Diff, error)
+	apply(s *perms.Settings, target perms.ListName, ops []perms.Op) (perms.Diff, error)
 	verb() string
 }
 
-// addAction wraps perms.Apply with ApplyAdd and the user's --force choice.
+// addAction wraps perms.Add with the user's --force choice.
 type addAction struct{ force bool }
 
-func (a addAction) apply(s *perms.Settings, h *perms.GitHookFile, target perms.ListName, ops []perms.Op) (perms.Diff, error) {
-	return perms.Apply(s, h, target, ops, perms.ApplyAdd, a.force)
+func (a addAction) apply(s *perms.Settings, target perms.ListName, ops []perms.Op) (perms.Diff, error) {
+	return perms.Add(s, target, ops, a.force)
 }
 func (addAction) verb() string { return "add" }
 
-// removeAction wraps perms.Apply with ApplyRemove.
+// removeAction wraps perms.Remove.
 type removeAction struct{}
 
-func (removeAction) apply(s *perms.Settings, h *perms.GitHookFile, target perms.ListName, ops []perms.Op) (perms.Diff, error) {
-	return perms.Apply(s, h, target, ops, perms.ApplyRemove, false)
+func (removeAction) apply(s *perms.Settings, target perms.ListName, ops []perms.Op) (perms.Diff, error) {
+	return perms.Remove(s, target, ops)
 }
 func (removeAction) verb() string { return "remove" }
 
@@ -233,18 +226,13 @@ func runPermsCmd(ctx context.Context, cfg *appConfig, list perms.ListName, ops [
 		return err
 	}
 	settingsPath := filepath.Join(configDir, settingsRelPath)
-	hookPath := filepath.Join(configDir, gitHookRelPath)
 
 	settings, err := perms.Load(settingsPath)
 	if err != nil {
 		return fmt.Errorf("load settings: %w", err)
 	}
-	hook, err := perms.LoadGitHook(hookPath)
-	if err != nil {
-		return fmt.Errorf("load git hook: %w", err)
-	}
 
-	diff, err := action.apply(settings, hook, list, ops)
+	diff, err := action.apply(settings, list, ops)
 	if err != nil {
 		return formatPermsError(err)
 	}
@@ -259,17 +247,10 @@ func runPermsCmd(ctx context.Context, cfg *appConfig, list perms.ListName, ops [
 		reportDryRunCommit(cfg.reporter, configDir, list, action.verb(), diff)
 		return nil
 	}
-	if diff.SettingsChanged() {
-		if err := settings.Save(settingsPath); err != nil {
-			return fmt.Errorf("save settings: %w", err)
-		}
+	if err := settings.Save(settingsPath); err != nil {
+		return fmt.Errorf("save settings: %w", err)
 	}
-	if diff.HookChanged() {
-		if err := hook.Save(hookPath); err != nil {
-			return fmt.Errorf("save git hook: %w", err)
-		}
-	}
-	if err := gitCommitChanges(ctx, cfg, configDir, list, action.verb(), diff); err != nil {
+	if err := gitCommitSettings(ctx, cfg, configDir, list, action.verb(), diff); err != nil {
 		return fmt.Errorf("git commit: %w", err)
 	}
 	return nil
@@ -279,32 +260,15 @@ func runPermsCmd(ctx context.Context, cfg *appConfig, list perms.ListName, ops [
 // shellouts via the dry-run reporter so the preview output is
 // self-contained — the user sees both the semantic changes (from
 // printDiff) and the underlying subprocess invocations that would
-// run. Stages only the file(s) the diff actually modified so the
-// dry-run preview matches the real commit's scope.
+// run. No file or process is touched.
 func reportDryRunCommit(reporter dryrun.Reporter, configDir string, list perms.ListName, verb string, diff perms.Diff) {
 	subject := buildCommitSubject(list, verb, diff)
-	for _, path := range changedRelPaths(diff) {
-		reporter.Shellout("git",
-			[]string{"-C", configDir, "add", path},
-			"stage "+path)
-	}
+	reporter.Shellout("git",
+		[]string{"-C", configDir, "add", settingsRelPath},
+		"stage settings change")
 	reporter.Shellout("git",
 		[]string{"-C", configDir, "commit", "-m", subject},
-		"commit perms change")
-}
-
-// changedRelPaths returns the repo-relative paths of every file the
-// diff modified, in deterministic order (settings before hook). The
-// commit + dry-run report stages this exact set.
-func changedRelPaths(diff perms.Diff) []string {
-	var paths []string
-	if diff.SettingsChanged() {
-		paths = append(paths, settingsRelPath)
-	}
-	if diff.HookChanged() {
-		paths = append(paths, gitHookRelPath)
-	}
-	return paths
+		"commit settings change")
 }
 
 // requirePersonalComputer enforces the personal-only restriction.
@@ -353,11 +317,6 @@ func formatPermsError(err error) error {
 // (e.g. `add --bash X --read Y`) reads top-to-bottom. Under dryRun
 // the action verbs flip to their "would" forms so the listing reads
 // as a preview rather than a record of work done.
-//
-// Settings entries and git-hook entries are interleaved (settings
-// first within each section) and rendered with the same shape, so
-// the user reads "added/removed/moved/skipped" without caring
-// which file the rule physically lives in.
 func printDiff(out io.Writer, diff perms.Diff, list perms.ListName, verb string, dryRun bool) {
 	addedLabel, removedLabel, movedLabel := "added  ", "removed", "moved  "
 	if dryRun {
@@ -366,42 +325,24 @@ func printDiff(out io.Writer, diff perms.Diff, list perms.ListName, verb string,
 	for _, rule := range diff.Added {
 		_, _ = fmt.Fprintf(out, "%s %s -> %s\n", addedLabel, list, rule)
 	}
-	for _, rule := range diff.HookAdded {
-		_, _ = fmt.Fprintf(out, "%s %s -> %s\n", addedLabel, list, rule)
-	}
 	for _, rule := range diff.Removed {
-		_, _ = fmt.Fprintf(out, "%s %s <- %s\n", removedLabel, list, rule)
-	}
-	for _, rule := range diff.HookRemoved {
 		_, _ = fmt.Fprintf(out, "%s %s <- %s\n", removedLabel, list, rule)
 	}
 	for _, moved := range diff.Moved {
 		_, _ = fmt.Fprintf(out, "%s %s: %s -> %s\n", movedLabel, moved.Rule, moved.From, list)
 	}
-	for _, moved := range diff.HookMoved {
-		_, _ = fmt.Fprintf(out, "%s %s: %s -> %s\n", movedLabel, moved.Rule, moved.From, list)
-	}
 	for _, rule := range diff.Skipped {
-		_, _ = fmt.Fprintf(out, "skipped (%s already in correct state): %s\n", verb, rule)
-	}
-	for _, rule := range diff.HookSkipped {
 		_, _ = fmt.Fprintf(out, "skipped (%s already in correct state): %s\n", verb, rule)
 	}
 }
 
-// gitCommitChanges stages every file the diff actually touched
-// (settings.json, the git-hook .py, or both) and creates a single
-// commit covering the batch. Subject follows the compact format the
-// user picked: `feat(claude,perms): <verb> N <list> rules (<kinds>)`.
-// The body lists every rule so the commit message stays auditable
-// for big batches.
-func gitCommitChanges(ctx context.Context, cfg *appConfig, configDir string, list perms.ListName, verb string, diff perms.Diff) error {
-	paths := changedRelPaths(diff)
-	if len(paths) == 0 {
-		return nil
-	}
-	addArgs := append([]string{"add"}, paths...)
-	if err := runGit(ctx, cfg, configDir, addArgs...); err != nil {
+// gitCommitSettings stages just the settings file and creates a
+// commit. Subject follows the compact format the user picked:
+// `feat(claude,perms): <verb> N <list> rules (<kinds>)`. The body lists every
+// rule so the commit message stays auditable for big batches.
+func gitCommitSettings(ctx context.Context, cfg *appConfig, configDir string, list perms.ListName, verb string, diff perms.Diff) error {
+	relPath := settingsRelPath
+	if err := runGit(ctx, cfg, configDir, "add", relPath); err != nil {
 		return err
 	}
 
@@ -416,18 +357,16 @@ func gitCommitChanges(ctx context.Context, cfg *appConfig, configDir string, lis
 
 // buildCommitSubject produces a compact 1-line subject summarizing
 // the operation. Example: `feat(claude,perms): add 3 allow rules (Bash, Read)`.
-// Excludes the Skipped counts from the subject — skipped rules don't
+// Excludes the Skipped count from the subject — skipped rules don't
 // contribute to the file diff, so they shouldn't influence what the
-// commit log claims happened. Settings and hook entries contribute
-// equally to the count; the kind-summary handles both because hook
-// entries render as `Bash(git ...)` strings.
+// commit log claims happened.
 func buildCommitSubject(list perms.ListName, verb string, diff perms.Diff) string {
 	var changedCount int
 	switch verb {
 	case "add":
-		changedCount = len(diff.Added) + len(diff.Moved) + len(diff.HookAdded) + len(diff.HookMoved)
+		changedCount = len(diff.Added) + len(diff.Moved)
 	case "remove":
-		changedCount = len(diff.Removed) + len(diff.HookRemoved)
+		changedCount = len(diff.Removed)
 	}
 	kinds := summarizeKinds(diff)
 	subject := fmt.Sprintf("feat(claude,perms): %s %d %s rule", verb, changedCount, list)
@@ -443,27 +382,16 @@ func buildCommitSubject(list perms.ListName, verb string, diff perms.Diff) strin
 // buildCommitBody lists every rule the operation touched, one per
 // line, grouped by action (added → moved → removed). Skipped rules
 // are intentionally omitted from the body — they didn't change the
-// file, so they don't belong in the commit message either. Settings
-// and hook entries are interleaved within each section so the body
-// reads as a unified change-list.
+// file, so they don't belong in the commit message either.
 func buildCommitBody(diff perms.Diff) string {
 	var b strings.Builder
 	for _, rule := range diff.Added {
 		fmt.Fprintf(&b, "+ %s\n", rule)
 	}
-	for _, rule := range diff.HookAdded {
-		fmt.Fprintf(&b, "+ %s\n", rule)
-	}
 	for _, moved := range diff.Moved {
 		fmt.Fprintf(&b, "~ %s (from %s)\n", moved.Rule, moved.From)
 	}
-	for _, moved := range diff.HookMoved {
-		fmt.Fprintf(&b, "~ %s (from %s)\n", moved.Rule, moved.From)
-	}
 	for _, rule := range diff.Removed {
-		fmt.Fprintf(&b, "- %s\n", rule)
-	}
-	for _, rule := range diff.HookRemoved {
 		fmt.Fprintf(&b, "- %s\n", rule)
 	}
 	return strings.TrimRight(b.String(), "\n")
@@ -494,15 +422,6 @@ func summarizeKinds(diff perms.Diff) string {
 		add(r)
 	}
 	for _, m := range diff.Moved {
-		add(m.Rule)
-	}
-	for _, r := range diff.HookAdded {
-		add(r)
-	}
-	for _, r := range diff.HookRemoved {
-		add(r)
-	}
-	for _, m := range diff.HookMoved {
 		add(m.Rule)
 	}
 	if len(seen) == 0 {

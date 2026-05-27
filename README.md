@@ -54,14 +54,11 @@ You can also re-run the curl-bash install command — it does a `git pull` inste
 
 ## Managing Claude permissions
 
-`melvin-config claude perms` mutates either `shared_config/.claude/settings.json` or `shared_config/.claude/hooks/git-safe-subcommands.py` (or both) and commits the change. Routing depends on the rule kind:
+`melvin-config claude perms` mutates `shared_config/.claude/settings.json` and commits the change. Each `--bash` value gets a raw rule plus a PATH-resolved twin (e.g. `Bash(ls *)` also adds `Bash(/bin/ls *)`) so the rule matches whichever form Claude Code emits; `--read` / `--fetch` / `--skill` each produce a single rule.
 
-- **Non-git `--bash`, `--read`, `--fetch`, `--skill`** land in `settings.json`. Each `--bash` value also gets its PATH-resolved twin (e.g. `Bash(ls *)` adds `Bash(/bin/ls *)` too) so the rule matches whichever form Claude Code emits.
-- **Git `--bash`** (any value whose first token is `git` or an absolute path ending in `/git`) lands in the Python hook file as a prefix tuple in `ALLOW_PREFIXES` / `ASK_PREFIXES` / `DENY_PREFIXES`. The hook then evaluates every `git …` command against those tables (deny > ask > allow) and emits a `permissionDecision` accordingly — independent of `-C <path>` or which absolute git binary was invoked.
+Git is not special-cased here — `git -C <path>` is denied at the hook layer (`hooks/git-deny-dash-c.py`): cd into the repo first (its own Bash call), then run plain git. So allow-listing a git command (`--bash 'git status *'`) just adds the normal `Bash(git status *)` rule.
 
-Git rules **must** end with a trailing `*` (e.g. `git show *`, not `git show`). The hook always allows trailing args after a matched prefix, so exact-match rules don't fit the shape — for those, hand-edit `git-safe-subcommands.py`.
-
-Add multiple rules in one invocation — `--bash` / `--read` / `--fetch` / `--skill` are each repeatable AND comma-separable. A mixed batch stages both files in one commit:
+Add multiple rules in one invocation — `--bash` / `--read` / `--fetch` / `--skill` are each repeatable AND comma-separable:
 
 ```bash
 melvin-config claude perms allow add \

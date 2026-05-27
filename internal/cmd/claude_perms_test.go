@@ -33,7 +33,7 @@ func setupPermsTestRepo(t *testing.T) (configDir string, cfg *appConfig, stderr 
 		return "", errors.New("disabled in test")
 	}))
 	configDir = t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(configDir, "shared_config", ".claude", "hooks"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(configDir, "shared_config", ".claude"), 0o755))
 	require.NoError(t, os.WriteFile(
 		filepath.Join(configDir, "shared_config", ".claude", "settings.json"),
 		[]byte(`{
@@ -43,19 +43,6 @@ func setupPermsTestRepo(t *testing.T) (configDir string, cfg *appConfig, stderr 
     "deny": []
   }
 }
-`), 0o644))
-	require.NoError(t, os.WriteFile(
-		filepath.Join(configDir, "shared_config", ".claude", "hooks", "git-safe-subcommands.py"),
-		[]byte(`#!/usr/bin/env python3
-# Minimal test fixture: just the three prefix tables runPermsCmd
-# expects. Production-shape file has more scaffolding (helpers, the
-# main function); the parser doesn't care about anything outside the
-# three blocks.
-ALLOW_PREFIXES = ()
-
-ASK_PREFIXES = ()
-
-DENY_PREFIXES = ()
 `), 0o644))
 
 	for _, args := range [][]string{
@@ -112,28 +99,12 @@ func gitLogBody(t *testing.T, configDir string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// gitLogChangedFiles returns the repo-relative paths touched by
-// HEAD's commit. Used to verify that mixed-store changes only stage
-// the file(s) the diff actually touched.
-func gitLogChangedFiles(t *testing.T, configDir string) []string {
-	t.Helper()
-	out, err := exec.CommandContext(t.Context(), "git", "-C", configDir, "show", "--name-only", "--pretty=", "HEAD").CombinedOutput()
-	require.NoError(t, err, "git show: %s", out)
-	var paths []string
-	for line := range strings.SplitSeq(strings.TrimSpace(string(out)), "\n") {
-		if line != "" {
-			paths = append(paths, line)
-		}
-	}
-	return paths
-}
-
-// TestRunPermsCmd_AddBashGitRoutesToHook — `--bash 'git status *'`
-// now routes to git-safe-subcommands.py instead of settings.json.
-// settings.json stays empty; the hook's ALLOW_PREFIXES gains a
-// ("status",) entry; the commit covers the .py file with the
-// user-facing rule string in the body.
-func TestRunPermsCmd_AddBashGitRoutesToHook(t *testing.T) {
+// TestRunPermsCmd_AddBashGitSingleVariantAndCommits — a single
+// `--bash 'git status *'` add writes just the raw rule into
+// permissions.allow (git is no longer special-cased; the `git -C`
+// form is denied at the hook layer) AND produces a git commit with
+// the expected subject and body.
+func TestRunPermsCmd_AddBashGitSingleVariantAndCommits(t *testing.T) {
 	configDir, cfg, _ := setupPermsTestRepo(t)
 	err := runPermsCmd(
 		context.Background(), cfg, perms.ListAllow,
@@ -142,23 +113,13 @@ func TestRunPermsCmd_AddBashGitRoutesToHook(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// settings.json is untouched.
-	assert.Empty(t, readPermsList(t, configDir, perms.ListAllow),
-		"git rules must not leak into settings.json")
+	allow := readPermsList(t, configDir, perms.ListAllow)
+	assert.Contains(t, allow, "Bash(git status *)")
+	assert.NotContains(t, allow, "Bash(git -C /* status *)",
+		"git -C variant must not be generated anymore")
 
-	// Hook file picked up the prefix.
-	hook, err := perms.LoadGitHook(filepath.Join(configDir, gitHookRelPath))
-	require.NoError(t, err)
-	assert.True(t, hook.Has(perms.GitHookAllow, []string{"status"}),
-		"ALLOW_PREFIXES should contain (\"status\",)")
-
-	// Commit covers the hook file and shows the canonical rule string.
 	assert.Equal(t, "feat(claude,perms): add 1 allow rule (Bash)", gitLogSubject(t, configDir))
 	assert.Contains(t, gitLogBody(t, configDir), "+ Bash(git status *)")
-	committedFiles := gitLogChangedFiles(t, configDir)
-	assert.Contains(t, committedFiles, gitHookRelPath)
-	assert.NotContains(t, committedFiles, settingsRelPath,
-		"settings.json should not be in the commit when only the hook changed")
 }
 
 // TestRunPermsCmd_NoOpAddDoesNotCommit — adding rules that already
@@ -588,123 +549,4 @@ func TestApplyDryRunFromFlags_NeitherFlagNorEnv(t *testing.T) {
 	assert.False(t, cfg.dryRun)
 	assert.Equal(t, initialReporter, cfg.reporter,
 		"reporter must not be re-swapped when dry-run is false")
-}
-
-// TestRunPermsCmd_AddBashGitToDenyList — the routing covers all
-// three lists, not just allow. A `--bash 'git push --force *'` add
-// to deny lands in DENY_PREFIXES and only stages the hook file.
-func TestRunPermsCmd_AddBashGitToDenyList(t *testing.T) {
-	configDir, cfg, _ := setupPermsTestRepo(t)
-	require.NoError(t, runPermsCmd(
-		context.Background(), cfg, perms.ListDeny,
-		[]perms.Op{{Kind: perms.KindBash, Value: "git push --force *"}},
-		addAction{},
-	))
-
-	hook, err := perms.LoadGitHook(filepath.Join(configDir, gitHookRelPath))
-	require.NoError(t, err)
-	assert.True(t, hook.Has(perms.GitHookDeny, []string{"push", "--force"}))
-	assert.Equal(t, "feat(claude,perms): add 1 deny rule (Bash)", gitLogSubject(t, configDir))
-}
-
-// TestRunPermsCmd_MixedBatchStagesBothFiles — a single invocation
-// mixing one settings rule (Read) and one git rule (Bash) ends up
-// with both files modified and both staged in one commit.
-func TestRunPermsCmd_MixedBatchStagesBothFiles(t *testing.T) {
-	configDir, cfg, _ := setupPermsTestRepo(t)
-	require.NoError(t, runPermsCmd(
-		context.Background(), cfg, perms.ListAllow,
-		[]perms.Op{
-			{Kind: perms.KindRead, Value: "file.txt"},
-			{Kind: perms.KindBash, Value: "git fetch *"},
-		},
-		addAction{},
-	))
-
-	// Settings file has the Read rule.
-	assert.Contains(t, readPermsList(t, configDir, perms.ListAllow), "Read(file.txt)")
-	// Hook file has the prefix.
-	hook, err := perms.LoadGitHook(filepath.Join(configDir, gitHookRelPath))
-	require.NoError(t, err)
-	assert.True(t, hook.Has(perms.GitHookAllow, []string{"fetch"}))
-
-	// Both files in the single commit.
-	files := gitLogChangedFiles(t, configDir)
-	assert.Contains(t, files, settingsRelPath)
-	assert.Contains(t, files, gitHookRelPath)
-	// Subject counts both, kinds summary covers both.
-	assert.Equal(t, "feat(claude,perms): add 2 allow rules (Bash, Read)", gitLogSubject(t, configDir))
-}
-
-// TestRunPermsCmd_GitRuleWithoutTrailingStarErrors — `git status`
-// (no wildcard) is rejected at the SplitOpsByBackend layer; neither
-// file changes, no commit is produced, and the error message points
-// the user at the trailing-`*` requirement.
-func TestRunPermsCmd_GitRuleWithoutTrailingStarErrors(t *testing.T) {
-	configDir, cfg, _ := setupPermsTestRepo(t)
-	headBefore, err := exec.CommandContext(t.Context(), "git", "-C", configDir, "rev-parse", "HEAD").Output()
-	require.NoError(t, err)
-
-	err = runPermsCmd(
-		context.Background(), cfg, perms.ListAllow,
-		[]perms.Op{{Kind: perms.KindBash, Value: "git status"}},
-		addAction{},
-	)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "trailing `*`")
-
-	headAfter, err := exec.CommandContext(t.Context(), "git", "-C", configDir, "rev-parse", "HEAD").Output()
-	require.NoError(t, err)
-	assert.Equal(t, string(headBefore), string(headAfter),
-		"parse error must not produce a commit")
-}
-
-// TestRunPermsCmd_RemoveGitRuleFromHook — `perms allow remove
-// --bash 'git status *'` strips the prefix from the hook file
-// without touching settings.json. Verifies the remove path
-// mirrors the add path's routing.
-func TestRunPermsCmd_RemoveGitRuleFromHook(t *testing.T) {
-	configDir, cfg, _ := setupPermsTestRepo(t)
-	require.NoError(t, runPermsCmd(
-		context.Background(), cfg, perms.ListAllow,
-		[]perms.Op{{Kind: perms.KindBash, Value: "git status *"}},
-		addAction{},
-	))
-
-	require.NoError(t, runPermsCmd(
-		context.Background(), cfg, perms.ListAllow,
-		[]perms.Op{{Kind: perms.KindBash, Value: "git status *"}},
-		removeAction{},
-	))
-
-	hook, err := perms.LoadGitHook(filepath.Join(configDir, gitHookRelPath))
-	require.NoError(t, err)
-	assert.False(t, hook.Has(perms.GitHookAllow, []string{"status"}))
-	assert.Equal(t, "feat(claude,perms): remove 1 allow rule (Bash)", gitLogSubject(t, configDir))
-}
-
-// TestRunPermsCmd_DryRunHookOpDoesNotTouchFile — dry-run with a
-// git op preview the prefix change without writing the hook file.
-// The would-add line still prints to stderr; the file stays as it
-// was on disk.
-func TestRunPermsCmd_DryRunHookOpDoesNotTouchFile(t *testing.T) {
-	configDir, cfg, stderr := setupPermsTestRepo(t)
-	cfg.dryRun = true
-	cfg.reporter = dryrun.NewReporter(stderr)
-
-	require.NoError(t, runPermsCmd(
-		context.Background(), cfg, perms.ListAllow,
-		[]perms.Op{{Kind: perms.KindBash, Value: "git status *"}},
-		addAction{},
-	))
-
-	// File on disk unchanged — no `status` prefix yet.
-	hook, err := perms.LoadGitHook(filepath.Join(configDir, gitHookRelPath))
-	require.NoError(t, err)
-	assert.False(t, hook.Has(perms.GitHookAllow, []string{"status"}),
-		"dry-run must not write to the hook file")
-
-	// Preview still showed the would-add line.
-	assert.Contains(t, stderr.String(), "would add")
-	assert.Contains(t, stderr.String(), "Bash(git status *)")
 }

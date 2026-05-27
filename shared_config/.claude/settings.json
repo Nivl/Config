@@ -249,10 +249,7 @@
       "WebFetch(domain:react.dev)",
       "Write(/tmp/*)"
     ],
-    "deny": [
-      "Bash(* .env *)",
-      "Bash(* ~/.ssh/*)"
-    ],
+    "deny": ["Bash(* .env *)", "Bash(* ~/.ssh/*)"],
     "ask": [
       "Bash(/bin/mv *)",
       "Bash(/bin/rm *)",
@@ -283,8 +280,7 @@
       "Bash(sed * -i*)",
       "Bash(sed -i*)",
       "Bash(wget *)"
-    ],
-    "defaultMode": "acceptEdits"
+    ]
   },
   "model": "opus[1m]",
   "hooks": {

@@ -38,7 +38,6 @@ var DevTools = []string{
 var AI = []string{
 	"copilot-cli",
 	"claude-code",
-	"rtk",
 }
 
 // CommonCasks is the always-installed cask set.

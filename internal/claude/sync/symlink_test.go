@@ -31,7 +31,7 @@ func newSymlinkEnv(t *testing.T) state.Paths {
 		[]byte(`{}`), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(p.RepoDir, "CLAUDE.md"),
 		[]byte("c\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(p.RepoDir, "RTK.md"),
+	require.NoError(t, os.WriteFile(filepath.Join(p.RepoDir, "AGENTS.md"),
 		[]byte("r\n"), 0o644))
 	require.NoError(t, os.MkdirAll(filepath.Join(p.RepoDir, "skills"), 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(p.RepoDir, "agents"), 0o755))
@@ -46,7 +46,7 @@ func TestInstallSymlinks_FreshAllItemsCreated(t *testing.T) {
 
 	require.NoError(t, InstallSymlinks(context.Background(), p, &bytes.Buffer{}, symlinkfs.InstallOpts{Reporter: dryrun.NewNullReporter()}))
 
-	for _, item := range []string{"settings.json", "CLAUDE.md", "RTK.md",
+	for _, item := range []string{"settings.json", "CLAUDE.md", "AGENTS.md",
 		"skills", "agents", "commands"} {
 		target := filepath.Join(p.HomeDir, item)
 		link, err := os.Readlink(target)
@@ -60,14 +60,14 @@ func TestInstallSymlinks_FreshAllItemsCreated(t *testing.T) {
 // item produces no link and no output.
 func TestInstallSymlinks_SourceMissingSkipsSilently(t *testing.T) {
 	p := newSymlinkEnv(t)
-	require.NoError(t, os.Remove(filepath.Join(p.RepoDir, "RTK.md")))
+	require.NoError(t, os.Remove(filepath.Join(p.RepoDir, "AGENTS.md")))
 
 	var out bytes.Buffer
 	require.NoError(t, InstallSymlinks(context.Background(), p, &out, symlinkfs.InstallOpts{Reporter: dryrun.NewNullReporter()}))
 
-	_, err := os.Lstat(filepath.Join(p.HomeDir, "RTK.md"))
+	_, err := os.Lstat(filepath.Join(p.HomeDir, "AGENTS.md"))
 	assert.True(t, os.IsNotExist(err), "missing source must not produce a link")
-	assert.NotContains(t, out.String(), "RTK.md", "skip is silent")
+	assert.NotContains(t, out.String(), "AGENTS.md", "skip is silent")
 }
 
 // TestInstallSymlinks_IdempotentReinstall — a second run is a no-op
@@ -78,7 +78,7 @@ func TestInstallSymlinks_IdempotentReinstall(t *testing.T) {
 
 	require.NoError(t, InstallSymlinks(context.Background(), p, &bytes.Buffer{}, symlinkfs.InstallOpts{Reporter: dryrun.NewNullReporter()}))
 
-	for _, item := range symlinkItems {
+	for _, item := range curatedItems() {
 		link, err := os.Readlink(filepath.Join(p.HomeDir, item))
 		require.NoError(t, err)
 		assert.Equal(t, filepath.Join(p.RepoDir, item), link)

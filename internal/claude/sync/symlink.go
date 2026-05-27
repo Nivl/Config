@@ -13,17 +13,9 @@ import (
 	"github.com/Nivl/config/internal/symlinkfs"
 )
 
-// symlinkItems is the curated list of items installed by symlink mode:
-// settings.json + top files + curated dirs in that exact order.
-var symlinkItems = []string{ //nolint:gochecknoglobals // ordered constant
-	"settings.json",
-	"CLAUDE.md", "RTK.md",
-	"skills", "agents", "commands",
-}
-
 // InstallSymlinks installs absolute-target symlinks from
 // $HOME/.claude/<item> to <RepoDir>/<item> for each item in
-// symlinkItems.
+// curatedItems() (the set shared with copy mode).
 //
 // Behavior:
 //   - Source missing -> silent skip.
@@ -39,7 +31,7 @@ var symlinkItems = []string{ //nolint:gochecknoglobals // ordered constant
 // the symlinkfs.Install reporter.
 func InstallSymlinks(_ context.Context, paths state.Paths, out io.Writer, installOpts symlinkfs.InstallOpts) error {
 	now := time.Now()
-	for _, item := range symlinkItems {
+	for _, item := range curatedItems() {
 		source := filepath.Join(paths.RepoDir, item)
 		target := filepath.Join(paths.HomeDir, item)
 

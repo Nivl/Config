@@ -100,7 +100,7 @@ Most packages with a public interface also expose a test sub-package (`<pkg>test
 
 ### Claude Code config sync
 
-`internal/claude/sync` (entrypoint: `Sync` in `sync.go`) syncs the six curated items (`settings.json`, `CLAUDE.md`, `RTK.md`, `skills/`, `agents/`, `commands/`) from the repo's `shared_config/.claude/` into `~/.claude/`. The in-repo path is hardcoded as `state.RepoSubdir`. Two modes:
+`internal/claude/sync` (entrypoint: `Sync` in `sync.go`) syncs the six curated items (`settings.json`, `CLAUDE.md`, `AGENTS.md`, `skills/`, `agents/`, `commands/`) from the repo's `shared_config/.claude/` into `~/.claude/`. The in-repo path is hardcoded as `state.RepoSubdir`. Two modes:
 
 - **Personal computer (`PERSONAL_COMPUTER=true`)**: `internal/claude/sync/symlink.go` makes `~/.claude/<item>` a symlink to the repo copy. `~/.claude/` itself is a real directory because Claude Code writes runtime state there — only the six curated items become symlinks.
 - **Otherwise**: `internal/claude/sync/files` copies + 3-way merges. Base = repo content at the SHA in `<RepoDir>/.sync-state/last-sync-commit`. Local = `~/.claude/<file>`. Remote = current repo HEAD. Only true conflicts (both sides diverged differently from base) prompt the user.

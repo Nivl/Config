@@ -208,10 +208,29 @@ func Sync(ctx context.Context, paths state.Paths, opts Options) (Summary, error)
 	return Summary{HadSkips: hadSkips}, nil
 }
 
-// topFiles and dirNames are the curated top-level files and
-// per-subsystem directories merged in copy mode. Order matters for
-// stderr progress determinism.
+// settingsFile, topFiles, and dirNames are the single source of truth
+// for the curated set synced from shared_config/.claude/. Order
+// matters for stderr progress determinism. Copy mode handles each
+// category differently — settings.json gets a JSON 3-way merge,
+// topFiles a per-file merge, dirNames a tree merge — while symlink
+// mode links the flat set from curatedItems(). Both modes draw from
+// these same names, so the two paths can't drift.
+const settingsFile = "settings.json"
+
 var (
-	topFiles = []string{"CLAUDE.md", "RTK.md"}          //nolint:gochecknoglobals // ordered constant
+	topFiles = []string{"CLAUDE.md", "AGENTS.md"}       //nolint:gochecknoglobals // ordered constant
 	dirNames = []string{"skills", "agents", "commands"} //nolint:gochecknoglobals // ordered constant
 )
+
+// curatedItems returns every synced member in canonical order:
+// settings.json, then the top-level files, then the curated
+// directories. Symlink mode links these directly; copy mode walks the
+// same names by category. Deriving it from the shared constants is
+// what keeps the two sync modes in lockstep.
+func curatedItems() []string {
+	items := make([]string, 0, 1+len(topFiles)+len(dirNames))
+	items = append(items, settingsFile)
+	items = append(items, topFiles...)
+	items = append(items, dirNames...)
+	return items
+}

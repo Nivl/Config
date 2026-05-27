@@ -238,7 +238,6 @@
       "Bash(which *)",
       "Bash(xargs *)",
       "Bash(xxd *)",
-      "Read(*)",
       "Skill(code-review:code-review)",
       "WebFetch(domain:docs.stripe.com)",
       "WebFetch(domain:github.com)",
@@ -252,8 +251,7 @@
     ],
     "deny": [
       "Bash(* .env *)",
-      "Bash(* ~/.ssh/*)",
-      "Read(.env)"
+      "Bash(* ~/.ssh/*)"
     ],
     "ask": [
       "Bash(/bin/mv *)",
@@ -327,6 +325,15 @@
           {
             "type": "command",
             "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/write-under-roots.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/read-guard.py"
           }
         ]
       }

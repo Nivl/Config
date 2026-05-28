@@ -1,10 +1,10 @@
 ## Git invocation
 
-Use plain `git ...` (e.g. `git status`, `git log`, `git diff`) when the shell's working directory is already inside the target repo — don't prefix with `git -C <path>` as a safety habit. Only use `git -C <path>` when operating on a _different_ repo (a fixture in a temp dir, a worktree at another path, etc.).
+Run plain `git ...` (e.g. `git status`, `git log`, `git diff`) from inside the target repo. To work on a _different_ repo (a worktree, a fixture in a temp dir), `cd` into it first **as its own Bash call** — the Bash tool's CWD persists across calls — then run plain `git`. Do **not** use top-level `git -C <path>`: the `git-deny-dash-c.py` hook denies it. (Subcommand-level `-C` such as `git diff -C` / `git blame -C` for copy detection is fine — only the top-level directory `-C` is blocked.)
 
 ## No redundant `cd`
 
-Never prepend `cd <path> && ...` to a command when `<path>` is already the shell's current working directory. The Bash tool's CWD persists across calls, so the `cd` is pure noise — and worse, it changes the command string enough to miss the user's allowlist and trigger an extra permission prompt. If you genuinely need a different directory, prefer a per-command flag (`git -C`, `make -C`, `npm --prefix`, `pytest --rootdir=`) or run `cd` as its own separate Bash call.
+Never prepend `cd <path> && ...` to a command when `<path>` is already the shell's current working directory. The Bash tool's CWD persists across calls, so the `cd` is pure noise — and worse, it changes the command string enough to miss the user's allowlist and trigger an extra permission prompt. If you genuinely need a different directory, run `cd` as its own separate Bash call, or for non-git tools use a per-command flag (`make -C`, `npm --prefix`, `pytest --rootdir=`). For git, `cd` first — top-level `git -C` is denied by a hook (see "Git invocation").
 
 This holds even when the `cd` is _not_ redundant. Claude Code force-prompts (`cd-compound-redirect`) any compound command that combines `cd` with output redirection — **including `2>&1` and pipes**, e.g. `cd app && rushx lint:typecheck 2>&1 | tail -5`. Run the `cd` as its own Bash call first, then the command separately (`cd app` → `rushx lint:typecheck 2>&1 | tail -5`), so no single command mixes `cd` with a redirect. In a monorepo where you must run from a package subdir (e.g. `rushx`), this is the most common avoidable prompt. Subagents must follow this too.
 

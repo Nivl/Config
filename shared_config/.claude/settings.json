@@ -1,4 +1,101 @@
 {
+  "enabledPlugins": {
+    "amplitude@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "claude-code-setup@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true,
+    "pr-review-toolkit@claude-plugins-official": true,
+    "serena@claude-plugins-official": false,
+    "hookify@claude-plugins-official": true,
+    "learning-output-style@claude-plugins-official": true,
+    "gopls-lsp@claude-plugins-official": true,
+    "stripe@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": false,
+    "superpowers@superpowers-marketplace": true,
+    "warp@claude-code-warp": true
+  },
+  "extraKnownMarketplaces": {
+    "prime-radiant-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "prime-radiant-inc/prime-radiant-marketplace"
+      },
+      "autoUpdate": true
+    },
+    "superpowers-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "obra/superpowers-marketplace"
+      },
+      "autoUpdate": true
+    },
+    "claude-code-warp": {
+      "source": {
+        "source": "github",
+        "repo": "warpdotdev/claude-code-warp"
+      }
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
+            "if": "Bash(gh api *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
+            "if": "Bash(/opt/homebrew/bin/gh api *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/cd-under-roots.py",
+            "if": "Bash(cd *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/git-deny-dash-c.py",
+            "if": "Bash(git *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/git-deny-dash-c.py",
+            "if": "Bash(/usr/bin/git *)"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/write-under-roots.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/read-guard.py"
+          }
+        ]
+      }
+    ]
+  },
+  "model": "opus[1m]",
   "permissions": {
     "allow": [
       "Bash(* --help *)",
@@ -44,7 +141,9 @@
       "Bash(/usr/bin/diff *)",
       "Bash(/usr/bin/du)",
       "Bash(/usr/bin/find *)",
+      "Bash(/usr/bin/git --no-pager log *)",
       "Bash(/usr/bin/git add *)",
+      "Bash(/usr/bin/git apply --check *)",
       "Bash(/usr/bin/git blame *)",
       "Bash(/usr/bin/git branch --show-current)",
       "Bash(/usr/bin/git check-ignore -v *)",
@@ -116,7 +215,9 @@
       "Bash(gh release view *)",
       "Bash(gh run list *)",
       "Bash(gh run view *)",
+      "Bash(git --no-pager log *)",
       "Bash(git add *)",
+      "Bash(git apply --check *)",
       "Bash(git blame *)",
       "Bash(git branch --show-current)",
       "Bash(git check-ignore -v *)",
@@ -191,7 +292,6 @@
       "WebFetch(domain:react.dev)",
       "Write(/tmp/*)"
     ],
-    "deny": ["Bash(* .env *)", "Bash(* ~/.ssh/*)"],
     "ask": [
       "Bash(/bin/mv *)",
       "Bash(/bin/rm *)",
@@ -222,105 +322,12 @@
       "Bash(sed * -i*)",
       "Bash(sed -i*)",
       "Bash(wget *)"
+    ],
+    "deny": [
+      "Bash(* .env *)",
+      "Bash(* ~/.ssh/*)"
     ]
   },
-  "model": "opus[1m]",
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
-            "if": "Bash(gh api *)"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
-            "if": "Bash(/opt/homebrew/bin/gh api *)"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/cd-under-roots.py",
-            "if": "Bash(cd *)"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/git-deny-dash-c.py",
-            "if": "Bash(git *)"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/git-deny-dash-c.py",
-            "if": "Bash(/usr/bin/git *)"
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/write-under-roots.py"
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/read-guard.py"
-          }
-        ]
-      }
-    ]
-  },
-  "enabledPlugins": {
-    "amplitude@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true,
-    "code-review@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true,
-    "skill-creator@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true,
-    "claude-md-management@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true,
-    "security-guidance@claude-plugins-official": true,
-    "claude-code-setup@claude-plugins-official": true,
-    "vercel@claude-plugins-official": true,
-    "pr-review-toolkit@claude-plugins-official": true,
-    "serena@claude-plugins-official": false,
-    "hookify@claude-plugins-official": true,
-    "learning-output-style@claude-plugins-official": true,
-    "gopls-lsp@claude-plugins-official": true,
-    "stripe@claude-plugins-official": true,
-    "superpowers@claude-plugins-official": false,
-    "superpowers@superpowers-marketplace": true,
-    "warp@claude-code-warp": true
-  },
-  "extraKnownMarketplaces": {
-    "prime-radiant-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "prime-radiant-inc/prime-radiant-marketplace"
-      },
-      "autoUpdate": true
-    },
-    "superpowers-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "obra/superpowers-marketplace"
-      },
-      "autoUpdate": true
-    },
-    "claude-code-warp": {
-      "source": {
-        "source": "github",
-        "repo": "warpdotdev/claude-code-warp"
-      }
-    }
-  },
-  "theme": "auto",
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "theme": "auto"
 }

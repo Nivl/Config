@@ -60,7 +60,10 @@ esac`
 	assert.JSONEq(t, `{"model":"opus"}`, string(out))
 }
 
-// TestGit_ShowBase_UnreachableSHA returns ErrNoBase when git exits non-zero.
+// TestGit_ShowBase_UnreachableSHA returns ErrBaseUnreadable (not
+// ErrNoBase) when an anchor SHA is set but git show exits non-zero —
+// the path was absent at that commit, or the SHA is unreachable. This
+// is distinct from the no-anchor first-sync case.
 func TestGit_ShowBase_UnreachableSHA(t *testing.T) {
 	body := `exit 128`
 	dir := fakeGit(t, body)
@@ -69,7 +72,8 @@ func TestGit_ShowBase_UnreachableSHA(t *testing.T) {
 	p := withLastSyncSHA(t, "abcdef")
 	g := NewGit(p, "/repo")
 	_, err := g.ShowBase(context.Background(), "settings.json")
-	assert.ErrorIs(t, err, ErrNoBase)
+	require.ErrorIs(t, err, ErrBaseUnreadable)
+	assert.NotErrorIs(t, err, ErrNoBase)
 }
 
 // TestGit_BaseHas_HappyPath returns true when git cat-file exits 0.

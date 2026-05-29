@@ -125,11 +125,14 @@ func readOptional(path string) (data []byte, exists bool, err error) {
 	return data, true, nil
 }
 
-// readBase materializes the base bytes via git.ShowBase. ErrNoBase
-// collapses to (nil, false, nil) — caller treats has_B=0.
+// readBase materializes the base bytes via git.ShowBase. A missing base
+// — no anchor SHA (ErrNoBase) or an anchor whose commit lacks the file
+// (ErrBaseUnreadable) — collapses to (nil, false, nil), so the caller
+// treats has_B=0. The settings merge surfaces the stale-anchor warning;
+// the file merges only need the base-absent signal.
 func readBase(ctx context.Context, git state.Git, rel string) (data []byte, exists bool, err error) {
 	data, err = git.ShowBase(ctx, rel)
-	if errors.Is(err, state.ErrNoBase) {
+	if errors.Is(err, state.ErrNoBase) || errors.Is(err, state.ErrBaseUnreadable) {
 		return nil, false, nil
 	}
 	if err != nil {

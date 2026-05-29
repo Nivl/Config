@@ -9,10 +9,19 @@ import (
 	"strings"
 )
 
-// ErrNoBase signals "no anchor SHA available" — caller treats base as
-// missing/empty. Returned by ShowBase when LastSyncFile is empty or absent,
-// and by BaseHas in the same case.
+// ErrNoBase signals "no anchor SHA available" — a genuine first sync.
+// Caller treats base as missing/empty. Returned by ShowBase and BaseHas
+// when LastSyncFile is empty or absent.
 var ErrNoBase = errors.New("no anchor SHA")
+
+// ErrBaseUnreadable signals "an anchor SHA is set, but the base file
+// could not be read at it" — git show exited non-zero because the path
+// did not exist at that commit (e.g. the anchor predates a path move) or
+// the commit itself is unreachable. Like ErrNoBase the caller treats the
+// base as empty, but unlike ErrNoBase this is worth warning about: a
+// stale anchor makes diverged keys look like conflicts and can stop
+// last-sync-commit from ever advancing.
+var ErrBaseUnreadable = errors.New("base unreadable at anchor SHA")
 
 // Git wraps the four git subprocess calls the sync engine needs:
 // "show me <repo>/.claude/<rel> at SHA X", "did .claude/<rel> exist at
@@ -20,10 +29,12 @@ var ErrNoBase = errors.New("no anchor SHA")
 // the current HEAD SHA".
 type Git interface {
 	// ShowBase returns the bytes of .claude/<rel> at the SHA in
-	// LastSyncFile. Returns (nil, ErrNoBase) when there is no anchor
-	// SHA (first sync, empty file, missing file). Returns the bytes
-	// and nil on success. Other errors propagate (e.g. git binary
-	// missing).
+	// LastSyncFile. Returns (nil, ErrNoBase) when there is no anchor SHA
+	// (genuine first sync: empty/missing LastSyncFile). Returns
+	// (nil, ErrBaseUnreadable) when an anchor SHA is set but git show
+	// exits non-zero (the path did not exist at that commit, or the SHA
+	// is unreachable). Returns the bytes and nil on success. Other errors
+	// propagate (e.g. git binary missing).
 	ShowBase(ctx context.Context, rel string) ([]byte, error)
 	// BaseHas reports whether .claude/<rel> existed at the anchor SHA.
 	// Returns (false, nil) when there's no anchor SHA — no error for
@@ -72,10 +83,12 @@ func (g *realGit) ShowBase(ctx context.Context, rel string) ([]byte, error) {
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
-			// File didn't exist at that SHA, or SHA itself is unreachable.
-			// Both surface as the same exit-non-zero result; we return
-			// ErrNoBase so the caller treats it uniformly.
-			return nil, ErrNoBase
+			// git show exited non-zero: the file didn't exist at that SHA
+			// (e.g. the anchor predates a path move) or the SHA itself is
+			// unreachable. Both mean "no usable base" but, unlike a true
+			// first sync, an anchor IS set — return ErrBaseUnreadable so the
+			// caller can warn instead of silently treating base as empty.
+			return nil, ErrBaseUnreadable
 		}
 		return nil, fmt.Errorf("git show %s: %w", target, err)
 	}

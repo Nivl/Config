@@ -128,6 +128,30 @@ func TestMergeFile_Row13_RemoteAddCopiesIn(t *testing.T) {
 	assert.Equal(t, "hello\n", string(got))
 }
 
+// TestMergeFile_BaseUnreadableTreatedAsAbsent — a stale-anchor
+// ErrBaseUnreadable must behave like a missing base (has_B=0), not
+// propagate as a fatal error: a file present in the repo but new to
+// local is copied in, same as the ErrNoBase row.
+func TestMergeFile_BaseUnreadableTreatedAsAbsent(t *testing.T) {
+	p := newMergeEnv(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(p.RepoDir, "skills", "sub"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(p.RepoDir, "skills", "sub", "new.md"),
+		[]byte("hello\n"), 0o644))
+	fakeGit := statetest.NewFakeGit()
+	fakeGit.On("ShowBase", mock.Anything, "skills/sub/new.md").
+		Return([]byte(nil), state.ErrBaseUnreadable)
+
+	r, err := MergeFile(context.Background(), p, fakeGit, "skills/sub/new.md", Options{
+		Prompter: prompttest.NewFakePrompter(),
+		Reporter: dryrun.NewNullReporter(),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, ActionCopyRemoteToLocal, r.Decision.Action)
+	got, err := os.ReadFile(filepath.Join(p.HomeDir, "skills", "sub", "new.md"))
+	require.NoError(t, err)
+	assert.Equal(t, "hello\n", string(got))
+}
+
 // TestMergeFile_Row5_ConflictKeepLocalNoBackup — modify-modify
 // resolved keep-local creates NO backup.
 func TestMergeFile_Row5_ConflictKeepLocalNoBackup(t *testing.T) {

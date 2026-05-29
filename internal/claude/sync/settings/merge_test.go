@@ -257,10 +257,13 @@ func TestMerge_GitFailureSilentFirstSync(t *testing.T) {
 		"first-sync no-anchor is silent")
 }
 
-// TestMerge_StaleLastSyncWarnsAndFallsBack — anchor present but git fails.
+// TestMerge_StaleLastSyncWarnsAndFallsBack — an anchor SHA is set but
+// the commit lacks settings.json (ErrBaseUnreadable, the path-move /
+// unreachable case). The merge falls back to an empty base AND warns,
+// including the short SHA and a recovery hint.
 func TestMerge_StaleLastSyncWarnsAndFallsBack(t *testing.T) {
 	p := newMergeEnv(t)
-	// Pre-write a SHA that the FakeGit will fail to resolve.
+	// Pre-write a SHA so baseShortSHA can surface it in the warning.
 	require.NoError(t, os.WriteFile(p.LastSyncFile, []byte("deadbeef\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(p.RepoDir, "settings.json"),
 		[]byte(`{"model":"opus"}`), 0o644))
@@ -269,7 +272,34 @@ func TestMerge_StaleLastSyncWarnsAndFallsBack(t *testing.T) {
 
 	git := statetest.NewFakeGit()
 	git.On("ShowBase", mock.Anything, "settings.json").
-		Return([]byte(nil), errors.New("git: object deadbeef unknown"))
+		Return([]byte(nil), state.ErrBaseUnreadable)
+	fakeP := prompttest.NewFakePrompter()
+
+	var out bytes.Buffer
+	_, err := Merge(context.Background(), p, git, Options{
+		Prompter: fakeP, Out: &out,
+		Reporter: dryrun.NewNullReporter(),
+	})
+	require.NoError(t, err)
+	got := out.String()
+	assert.Contains(t, got, "settings.json not found at last-sync-commit")
+	assert.Contains(t, got, "reset it to HEAD")
+	assert.Contains(t, got, "deadbee", "warning should include the short anchor SHA")
+}
+
+// TestMerge_UnknownGitErrorWarns — a non-sentinel git failure (e.g. the
+// git binary itself misbehaving) still warns generically and falls back
+// to an empty base.
+func TestMerge_UnknownGitErrorWarns(t *testing.T) {
+	p := newMergeEnv(t)
+	require.NoError(t, os.WriteFile(filepath.Join(p.RepoDir, "settings.json"),
+		[]byte(`{"model":"opus"}`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(p.HomeDir, "settings.json"),
+		[]byte(`{"model":"opus"}`), 0o644))
+
+	git := statetest.NewFakeGit()
+	git.On("ShowBase", mock.Anything, "settings.json").
+		Return([]byte(nil), errors.New("git: fatal: not a git repository"))
 	fakeP := prompttest.NewFakePrompter()
 
 	var out bytes.Buffer

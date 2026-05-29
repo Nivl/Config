@@ -93,7 +93,7 @@ func Merge(ctx context.Context, paths state.Paths, git state.Git, opts Options) 
 	}
 
 	// Base resolution with fallback.
-	baseBytes, baseWarning := readBase(ctx, git)
+	baseBytes, baseWarning := readBase(ctx, paths, git)
 	if baseWarning != "" {
 		fmt.Fprint(out, baseWarning)
 	}
@@ -182,14 +182,29 @@ func Merge(ctx context.Context, paths state.Paths, git state.Git, opts Options) 
 // readBase returns the base settings.json bytes and an optional
 // warning string to emit. Fallback is empty-object on missing /
 // unreachable / malformed base.
-func readBase(ctx context.Context, git state.Git) (baseBytes []byte, warning string) {
+//
+// A genuine first sync (ErrNoBase: no anchor SHA yet) is silent. A
+// set-but-unusable anchor (ErrBaseUnreadable: the commit predates the
+// file's current path, or is unreachable) warns with a recovery hint —
+// an empty base makes diverged keys look like conflicts, which can stop
+// last-sync-commit from advancing.
+func readBase(ctx context.Context, paths state.Paths, git state.Git) (baseBytes []byte, warning string) {
 	out, err := git.ShowBase(ctx, "settings.json")
 	switch {
 	case errors.Is(err, state.ErrNoBase):
-		// First-sync silent fallback.
+		// Genuine first sync (no anchor SHA) — silent fallback.
 		return []byte("{}"), ""
+	case errors.Is(err, state.ErrBaseUnreadable):
+		// Anchor SHA is set but settings.json couldn't be read at it.
+		// Warn with the short SHA and a recovery hint so a stale anchor
+		// gets noticed instead of silently wedging the advance.
+		return []byte("{}"),
+			fmt.Sprintf("claude_merge_settings: settings.json not found at last-sync-commit %s "+
+				"(the anchor predates the file's current path, or is unreachable); treating base as "+
+				"empty. Diverged keys will look like conflicts and last-sync-commit may not advance — "+
+				"reset it to HEAD to recover.\n", baseShortSHA(paths))
 	case err != nil:
-		// Anchor exists but unreachable → warn + fallback.
+		// Some other git failure (e.g. git binary problems) → warn + fallback.
 		return []byte("{}"),
 			"claude_merge_settings: cannot read settings.json at last-sync-commit, treating base as empty\n"
 	case len(out) == 0, !validJSON(out):

@@ -23,7 +23,7 @@ ROOT_SPECS = (
     ("REPOS_ROOT", None),
     ("HOME", ".melvin/config"),
 )
-FIXED_ROOTS = ("/tmp",)
+FIXED_ROOTS = ("/tmp", "/private/tmp")
 
 # Look like .env files but carry no real secrets — safe to read, so NOT asked.
 ENV_TEMPLATE_SUFFIXES = (".example", ".sample", ".template", ".dist", ".defaults")
@@ -101,7 +101,9 @@ def main() -> None:
     # 1. Sensitive files ASK regardless of location. Check both the requested
     #    name and the symlink target's name so `read cfg` (cfg -> /x/.env)
     #    can't slip a secret read past the filter.
-    if is_sensitive(os.path.basename(file_path)) or is_sensitive(os.path.basename(target)):
+    if is_sensitive(os.path.basename(file_path)) or is_sensitive(
+        os.path.basename(target)
+    ):
         emit("ask", "sensitive file (may contain secrets) — confirm before reading")
         return
 

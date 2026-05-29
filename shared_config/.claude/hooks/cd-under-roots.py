@@ -36,7 +36,7 @@ ROOT_SPECS = (
     ("REPOS_ROOT", None),
     ("HOME", ".melvin/config"),
 )
-FIXED_ROOTS = ("/tmp",)
+FIXED_ROOTS = ("/tmp", "/private/tmp")
 
 CHAIN_DENY_REASON = (
     "`cd` should not be chained with other commands. The Bash tool's CWD "

@@ -22,6 +22,7 @@ ROOT_SPECS = (
     ("REPOS_ROOT", None),
     ("HOME", ".melvin/config"),
 )
+FIXED_ROOTS = ("/tmp", "/private/tmp")
 
 
 def main() -> None:
@@ -38,7 +39,7 @@ def main() -> None:
         base = (data.get("cwd") or "").strip() or os.getcwd()
         file_path = os.path.join(base, file_path)
 
-    roots = []
+    roots = [os.path.realpath(r) for r in FIXED_ROOTS]
     for var, sub in ROOT_SPECS:
         value = os.environ.get(var, "").strip()
         if not value:

@@ -299,8 +299,7 @@
       "WebFetch(domain:nextjs.org)",
       "WebFetch(domain:oxc.rs)",
       "WebFetch(domain:pkg.go.dev)",
-      "WebFetch(domain:react.dev)",
-      "Write(/tmp/*)"
+      "WebFetch(domain:react.dev)"
     ],
     "ask": [
       "Bash(/bin/mv *)",
@@ -317,7 +316,6 @@
       "Bash(/usr/bin/find *-ok rm*)",
       "Bash(/usr/bin/sed * -i*)",
       "Bash(/usr/bin/sed -i*)",
-      "Bash(cd *)",
       "Bash(curl *)",
       "Bash(find *-delete*)",
       "Bash(find *-exec rm*)",
@@ -333,10 +331,7 @@
       "Bash(sed -i*)",
       "Bash(wget *)"
     ],
-    "deny": [
-      "Bash(* .env *)",
-      "Bash(* ~/.ssh/*)"
-    ]
+    "deny": ["Bash(* .env *)", "Bash(* ~/.ssh/*)"]
   },
   "skipAutoPermissionPrompt": true,
   "theme": "auto"

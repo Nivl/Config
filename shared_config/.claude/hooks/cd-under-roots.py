@@ -12,13 +12,17 @@
 #    separately.
 #
 # 2. ALLOW `cd` into directories under one of the configured roots (/tmp,
-#    $WORKTREES_ROOT, $REPOS_ROOT) when the command is a simple, standalone
-#    `cd <abs-path>`. Otherwise stays silent so the `Bash(cd *)` ask rule
-#    fires.
+#    $WORKTREES_ROOT, $REPOS_ROOT, $HOME/.melvin/config) when the command is
+#    a simple, standalone `cd <path>`. Otherwise stays silent so the
+#    `Bash(cd *)` ask rule fires.
+#
+# Relative targets are resolved against the session cwd from the hook input
+# (Claude Code provides `cwd`), falling back to the hook process's own getcwd()
+# only when absent — matches read-guard.py and write-under-roots.py.
 #
 # Stays silent (falls through to ask) when:
 #   - the target uses unexpanded shell substitution ($var, $(...), `...`)
-#   - the target is a relative path (session cwd isn't reliably available)
+#   - the target is dash-prefixed (e.g. `cd -` for OLDPWD — can't resolve)
 #   - the resolved path doesn't lie under any configured root
 
 import json
@@ -27,7 +31,11 @@ import shlex
 import sys
 
 CHAIN_TOKENS = {";", "&", "&&", "||", "|", "|&"}
-ENV_ROOT_VARS = ("WORKTREES_ROOT", "REPOS_ROOT")
+ROOT_SPECS = (
+    ("WORKTREES_ROOT", None),
+    ("REPOS_ROOT", None),
+    ("HOME", ".melvin/config"),
+)
 FIXED_ROOTS = ("/tmp",)
 
 CHAIN_DENY_REASON = (
@@ -41,10 +49,12 @@ CHAIN_DENY_REASON = (
 
 def allowed_roots():
     roots = [os.path.realpath(r) for r in FIXED_ROOTS]
-    for var in ENV_ROOT_VARS:
+    for var, sub in ROOT_SPECS:
         value = os.environ.get(var, "").strip()
-        if value:
-            roots.append(os.path.realpath(value))
+        if not value:
+            continue
+        path = os.path.join(value, sub) if sub else value
+        roots.append(os.path.realpath(path))
     return roots
 
 
@@ -95,8 +105,15 @@ def main() -> None:
     target = tokens[-1]
     if target.startswith("~"):
         target = os.path.expanduser(target)
-    if not os.path.isabs(target):
+    if target.startswith("-"):
+        # `cd -` (OLDPWD) and other dash-prefixed targets can't be resolved
+        # statically — fall through to the ask prompt.
         return
+    if not os.path.isabs(target):
+        # Resolve against the session cwd from the hook input. Fall back to
+        # the hook process's own getcwd() only when absent.
+        base = (data.get("cwd") or "").strip() or os.getcwd()
+        target = os.path.join(base, target)
     resolved = os.path.realpath(target)
 
     for root in allowed_roots():

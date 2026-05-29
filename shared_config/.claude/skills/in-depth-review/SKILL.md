@@ -2,10 +2,11 @@
 name: in-depth-review
 description: >
   Performs one in-depth multi-perspective code review of either a pull request or a commit
-  range. Launches NINE specialized parallel reviewer roles (AGENTS.md compliance, shallow bug
+  range. Launches up to TEN specialized parallel reviewer roles (AGENTS.md compliance, shallow bug
   scan, git history context, prior PR comments, in-file code comments, database / data-layer,
-  OWASP Top 10 security, error handling, test coverage), then scores each finding 0–100 for
-  confidence, filters anything below 70, and deduplicates. Returns the surviving findings.
+  OWASP Top 10 security, error handling, test coverage, and — unless `--skip-ticket` is
+  passed — ticket intent compliance), then scores each finding 0–100 for confidence, filters
+  anything below 70, and deduplicates. Returns the surviving findings.
   Never writes to GitHub.
   Used as one of two parallel review primitives (the other being `gh-style-review`) by
   `review-and-fix` (which spawns 3 of each per iteration and adds a fix/commit loop) and
@@ -18,17 +19,17 @@ description: >
 # In-Depth Review
 
 This skill performs ONE complete review pass over a target scope (a PR or a commit range)
-using 9 specialized reviewer roles, then scores, filters, and deduplicates findings. It
+using up to ten specialized reviewer roles, then scores, filters, and deduplicates findings. It
 returns the result — it does NOT post anywhere, fix anything, or loop.
 
-The 9-role specialization gives **cross-domain coverage** (style/standards, raw bugs, history,
-prior PR feedback, in-file guidance, DB, security, error handling, tests). Within-role
+The multi-role specialization gives **cross-domain coverage** (style/standards, raw bugs, history,
+prior PR feedback, in-file guidance, DB, security, error handling, tests, ticket intent). Within-role
 triangulation (running the same role multiple times) is the **caller's** responsibility, not
 this skill's — `review-and-fix` runs 3 of these per iteration; `pr-review` runs 5.
 
 ## Argument
 
-Single positional arg. Auto-detects mode:
+Accepts a positional arg plus optional modifier flags (`--raw`, `--skip-ticket`), in any order. Auto-detects mode from the positional arg:
 
 - **PR mode** — arg looks like `123`, `#123`, or a GitHub PR URL. Diff source = `gh pr diff`.
   Prerequisites: open PR (draft PRs are accepted) + `gh` authenticated.
@@ -44,12 +45,17 @@ fallback `main`).
 - `--raw` — skip the internal `< 70` confidence filter. Return ALL scored findings (0–100).
   Callers that want to apply their own threshold (e.g. `pr-review` uses 60, `review-and-fix`
   uses 50) pass this flag.
+- `--skip-ticket` — disable Reviewer Role #10 (ticket intent compliance). By default that
+  role runs: it reads the Jira tickets referenced by the change and checks the code against
+  them. Pass this to skip all ticket reading (no `acli` / Datadog calls, no related prompts).
+  The orchestrators forward this flag from their own `--skip-ticket`.
 
 Example invocations:
 
 ```
 /in-depth-review 1234              # PR mode, default filter (≥ 70)
 /in-depth-review #1234 --raw       # PR mode, no filter (return all scored)
+/in-depth-review 1234 --skip-ticket # PR mode, skip the ticket-intent role
 /in-depth-review origin/main..HEAD # branch mode, default filter
 /in-depth-review                   # branch mode, range = origin/<default-branch>..HEAD
 ```
@@ -68,9 +74,10 @@ caller.
 
 ## Step 0: Resolve scope
 
-1. Parse the argument:
+1. Parse the argument. First split it on whitespace into tokens; classify each token, then apply mode detection to the lone non-flag token:
    - Matches `^#?[0-9]+$` or a GitHub PR URL → **PR mode**; `<PR>` = the number.
    - Matches `^--raw$` → flag (defer until Step 4).
+   - Matches `^--skip-ticket$` → flag; when set, Role #10 is omitted in Step 1.
    - Anything else → **branch mode**; `<RANGE>` = the arg.
    - If no positional arg: branch mode with `<RANGE>` = `origin/<default-branch>..HEAD`.
 
@@ -92,13 +99,14 @@ caller.
 
 4. Save:
    - `<SCOPE_DESCRIPTION>` — human-readable scope (e.g. `PR #1234` or `origin/main..HEAD`)
-   - `<DIFF_COMMAND>` — `gh pr diff <PR>` (PR mode) or `git diff --no-pager <RANGE>` (branch)
-   - `<FILES_COMMAND>` — `gh pr diff <PR> --name-only` or `git diff --name-only <RANGE>`
+   - `<DIFF_COMMAND>` — `gh pr diff <PR>` (PR mode) or `git --no-pager diff <RANGE>` (branch)
+   - `<FILES_COMMAND>` — `gh pr diff <PR> --name-only` or `git --no-pager diff --name-only <RANGE>`
 
-## Step 1: Launch the 9 specialized reviewers in parallel
+## Step 1: Launch the specialized reviewers in parallel
 
-Spawn **9 sub-agents in a single message** (9 concurrent tool-use blocks). Sequential
-launches defeat the purpose of this design — never serialize.
+Spawn the reviewer sub-agents in a single message (concurrent tool-use blocks). Launch
+**10** when ticket review is active (the default), or **9** when `--skip-ticket` was passed
+(omit Role #10). Sequential launches defeat the purpose of this design — never serialize.
 
 ### Common reviewer prompt fragment
 
@@ -111,7 +119,7 @@ Run `<DIFF_COMMAND>` to see all changes.
 Run `<FILES_COMMAND>` if you need just the list of changed files.
 
 [PR mode only] Also run `gh pr view <PR> --json title,body,baseRefName` for PR context.
-[Branch mode] Run `git log --no-pager <RANGE> --oneline` for commit context.
+[Branch mode] Run `git --no-pager log <RANGE> --oneline` for commit context.
 
 Also read the project AGENTS.md and CLAUDE.md files (root + sub-project) relevant to the
 changed files. They contain mandatory quality standards and coding conventions.
@@ -134,7 +142,8 @@ Return a structured list of findings. For each finding include:
 
 If you find NO issues, respond with exactly: "NO_ISSUES_FOUND"
 
-You are one of 9 reviewers running concurrently. Do NOT coordinate with the others.
+You are one of the reviewers running concurrently (9, or 10 when ticket review is active).
+Do NOT coordinate with the others.
 
 IMPORTANT: Do not run `gh pr comment`, `gh pr review`, `gh pr edit`, or any command that
 writes to GitHub. Read-only gh commands (gh pr list / view / diff / search) are permitted
@@ -171,12 +180,12 @@ isn't a real production risk, don't flag it.
 ### Reviewer Role #3 — Git history context
 
 ```
-Your job: for the modified lines, run `git blame --no-pager <SCOPE_OR_RANGE> -- <file>` and
-`git log --no-pager -p -L <line>,<line>:<file>` to understand WHY the original code was written
+Your job: for the modified lines, run `git --no-pager blame <SCOPE_OR_RANGE> -- <file>` and
+`git --no-pager log -p -L <line>,<line>:<file>` to understand WHY the original code was written
 that way.
 
 (In PR mode, use the PR's base ref for blame: `gh pr view <PR> --json baseRefName` then
-`git fetch origin <base>` and `git blame origin/<base> -- <file>`.)
+`git fetch origin <base>` and `git --no-pager blame origin/<base> -- <file>`.)
 
 Flag bugs that are visible only in light of that history. Common patterns:
 - A fix is being reverted (search the log for the commit that introduced the line being deleted)
@@ -329,14 +338,85 @@ Skip "add a test for getter X". Skip "100% coverage" goals. Only flag genuine co
 for non-trivial new behavior, or tests that exist but don't actually test anything.
 ```
 
+### Reviewer Role #10 — Ticket intent compliance
+
+**Skip this role entirely if `--skip-ticket` was passed** — do not launch it. Otherwise it is
+the 10th concurrent reviewer. Unlike the diff-focused roles, this one reads the change's
+tickets and checks the code against them.
+
+```
+Your job: check whether the change implements the work its ticket(s) describe. You compare
+each ticket's stated intent against what the diff actually does.
+
+1. Collect ticket IDs from the change:
+   - Commit messages in scope:
+     - Branch mode: git --no-pager log <RANGE> --format='%s%n%b'
+     - PR mode:     gh pr view <PR> --json commits
+   - PR title and body (PR mode): gh pr view <PR> --json title,body
+   Extract Jira-style IDs matching the regex [A-Z][A-Z0-9]+-[0-9]+ and deduplicate them.
+   Discard obvious non-ticket matches such as encoding or version strings (e.g. UTF-8).
+
+2. If you find NO ticket IDs, respond with exactly "NO_ISSUES_FOUND" and stop. Do NOT call
+   acli. Do NOT trigger any permission prompt. The role is silent when there is nothing to
+   check.
+
+3. Read each ticket, preferring acli: acli jira workitem view <ID>
+   If acli is not installed, or errors because it is not authenticated, fall back to a
+   Jira/Atlassian MCP — search the available tools (e.g. ToolSearch "atlassian jira") for an
+   issue-read tool and use it. Pull the title, description, and acceptance criteria.
+
+   If NEITHER acli (installed + authenticated) NOR a Jira/Atlassian MCP (connected +
+   authenticated) is available, you cannot perform this review. Stop and return exactly:
+   TICKET_REVIEW_UNAVAILABLE: <one-line reason>
+   This is NOT "no issues" — it tells the caller the ticket check did not run, so the caller
+   can warn the user.
+
+   If one specific ticket cannot be read while the tooling works (bad ID, no access), mark
+   just that ticket as unread and continue with the rest.
+
+4. If a ticket references Datadog — a trace ID, a trace or dashboard URL, or a log query —
+   investigate it through the Datadog MCP to understand the actual failure and whether the
+   diff addresses it. Load the relevant Datadog skill first, per that MCP's own instructions.
+   Keep this bounded to what the ticket explicitly references. Do NOT go fishing.
+
+5. Compare intent against implementation. Flag places where the diff does not implement,
+   only partially implements, or contradicts the ticket's stated requirements or acceptance
+   criteria. For each finding, set category to "ticket" and ticket_id to the relevant ID.
+   Anchor the finding to the file and line(s) where the gap shows up (or the file that
+   should have changed but did not).
+
+6. Regardless of whether you found gaps, end your response with one line listing every ticket
+   you examined and its status:
+   TICKETS_EXAMINED: <ID>=ok, <ID>=gaps, <ID>=unread
+   (ok = read, no gaps; gaps = you raised at least one finding for it; unread = tooling worked
+   but this ticket could not be read.) Omit this line only in the no-ticket-IDs case (step 2).
+
+ABORT ON DENIAL: Running acli, MCP, or Datadog tools may prompt the user for permission. If
+any such permission is denied, immediately stop and return exactly:
+TICKET_REVIEW_SKIPPED: access denied
+Do not retry and do not work around it. A denial is the user's signal to ignore this
+reviewer.
+
+DO NOT MASK FAILURE AS SUCCESS: never return NO_ISSUES_FOUND because you could not read the
+tickets. NO_ISSUES_FOUND means "tickets read, code matches" or "no ticket IDs to check".
+Inability to read tickets at all is TICKET_REVIEW_UNAVAILABLE (see step 3).
+
+You are READ-ONLY everywhere: Jira (view only), Datadog (read only), GitHub (read only).
+Never comment on, transition, or otherwise write to a ticket.
+```
+
 ## Step 2: Confidence scoring
 
-After all 9 reviewers return:
+After all reviewers return:
 
-1. Pool every non-clean response. Each response is a list of findings.
+1. Before pooling, scan every reviewer response: if a response begins with
+   `TICKET_REVIEW_UNAVAILABLE:` or `TICKET_REVIEW_SKIPPED:`, set it aside to populate
+   `ticket_review` (Step 4) — it is NOT a finding, so do not pool it or send it to a scorer.
+   Then pool every remaining non-clean response (each is a list of findings). `NO_ISSUES_FOUND`
+   from any role is an empty (clean) response.
 2. **Pre-score deduplication** — group findings that look like duplicates (same file +
    overlapping line range + substantially the same problem). For each group, keep one canonical
-   entry and record the **agreement count** (how many of the 9 role outputs raised it).
+   entry and record the **agreement count** (how many of the role outputs raised it).
    Highest severity in the group wins.
 3. **Launch a scoring sub-agent for each unique finding in parallel** (one Skill call per
    finding, all in a single message). Give each scorer:
@@ -355,11 +435,22 @@ Each scorer returns a number 0–100 with this rubric:
 | 75    | Highly confident — verified, will likely be hit in practice; OR an explicit AGENTS.md violation                                                      |
 | 100   | Absolutely certain — evidence directly confirms it, happens frequently                                                                               |
 
+**Ticket-category findings** (from Role #10) are scored on the same 0–100 scale. The question
+is "how sure are we the code diverges from what the ticket requires?":
+
+- 100 — the ticket explicitly requires X and the diff demonstrably does not-X
+- 75 — the code clearly does not do what the ticket explicitly requires
+- 50 — a gap is plausible but the ticket's requirement is ambiguous, or the divergence may be minor
+- 25 — could not confirm the ticket actually requires this (likely a misread of the ticket)
+- 0 — false positive: the ticket does not require this, or the diff already satisfies it
+
+Score the divergence, not the importance of the ticket.
+
 ## Step 3: Filter and dedup
 
 1. **Filter** — unless invoked with `--raw`, discard findings with `confidence < 70`. The
    70 threshold is slightly more permissive than upstream `code-review`'s default of 80 —
-   intentional, because the 9-role rubric here is wider than upstream's 5 roles and the extra
+   intentional, because the multi-role rubric here is wider than upstream's 5 roles and the extra
    roles (DB, security, error-handling, test coverage) tend to score in the 70-79 band even
    when they're genuinely useful.
 
@@ -396,17 +487,33 @@ Return this exact JSON shape:
       "title": "<one-line description>",
       "file": "<path>",
       "line_range": "<L<start>-L<end>>",
-      "category": "<bug | AGENTS.md | history | prior PR | comment guidance | db | security | error-handling | test coverage>",
+      "category": "<bug | AGENTS.md | history | prior PR | comment guidance | db | security | error-handling | test coverage | ticket>",
+      "ticket_id": "<JIRA-ID this gap traces to, or null for non-ticket findings>",
       "description": "<full text>",
       "suggested_fix": "<text or code snippet>",
       "confidence": <0..100>,
-      "agreement": <1..9>,
+      "agreement": <1..10>,
       "permalink": "<github blob URL with full SHA, if available; null otherwise>"
     }
   ],
+  "tickets_examined": [
+    { "id": "<JIRA-ID>", "gaps": <count of surviving ticket findings for this id>, "status": "ok | gaps | unread" }
+  ],
+  "ticket_review": { "status": "ran | skipped | denied | unavailable", "note": "<reason when denied/unavailable, else null>" },
   "skipped_reason": "<if the skill bailed out early, why; otherwise omit>"
 }
 ```
+
+Populate `ticket_review` from Role #10's response: a findings list or `NO_ISSUES_FOUND` →
+`{ "status": "ran", "note": null }`; `TICKET_REVIEW_SKIPPED: access denied` →
+`{ "status": "denied", "note": "access denied" }`; `TICKET_REVIEW_UNAVAILABLE: <r>` →
+`{ "status": "unavailable", "note": "<r>" }`; `--skip-ticket` passed (role not launched) →
+`{ "status": "skipped", "note": null }`.
+
+Populate `tickets_examined` from Role #10's `TICKETS_EXAMINED:` line: one entry per `<id>=<status>`,
+with `gaps` = number of that ticket's surviving findings. When `--skip-ticket` was passed, Role #10
+returned `NO_ISSUES_FOUND` with no `TICKETS_EXAMINED:` line, or `ticket_review.status` is `denied`/
+`unavailable`, set `tickets_examined` to `[]`.
 
 ### If invoked directly by the user
 
@@ -417,13 +524,21 @@ Render a chat report:
 
 **Findings (confidence ≥ 70):** N
 
-1. <title> &nbsp;`[severity, agreement N/9, confidence X]`
+1. <title> &nbsp;`[severity, agreement N, confidence X]`
    <file>:<line_range>
    <description>
    *Suggested fix:* <fix>
 
 2. ...
+
+**Tickets examined:** <ID> ✅ · <ID> ⚠️ <N> gaps · <ID> ❓ unread
 ```
+
+Omit the **Tickets examined** line when no ticket IDs were found in the change or when
+`--skip-ticket` was passed. When `ticket_review.status` is `unavailable`, replace it with a
+prominent warning: `⚠️ **Ticket review NOT performed** — <note>. Install/authenticate acli or
+the Atlassian MCP, or re-run with --skip-ticket.` When the status is `denied`, show:
+`ℹ️ Ticket review skipped — access denied.`
 
 If zero findings survive: report `✅ No issues found at confidence ≥ 70.`
 
@@ -434,8 +549,13 @@ and the threshold note is dropped.
 
 - **No GitHub writes, ever.** Only read-only `gh` calls are permitted (list, view, diff,
   search). Sub-agents that try to issue a write should be aborted and surfaced to the caller.
-- **9 parallel reviewers per pass** — never serialize, never skip a role for speed. The role
-  specialization is the point.
+- **9 or 10 parallel reviewers per pass** — 10 by default (the 10th is ticket intent
+  compliance), 9 when `--skip-ticket` is passed. Never serialize, never skip a role for
+  speed. The role specialization is the point.
+- **Role #10 is read-only and abortable.** It may use `acli jira workitem view` (Jira read)
+  and read-only Datadog MCP tools — nothing else. On any denied permission it returns
+  `TICKET_REVIEW_SKIPPED: access denied` and stops. This is the user's "ignore this reviewer"
+  control — Role #10 never writes to Jira, Datadog, or GitHub.
 - **Single pass per invocation** — no looping inside this skill. Callers that want iteration
   (like `review-and-fix`) loop externally.
 - **Threshold default is `< 70` discard.** `--raw` bypasses the filter for callers that apply

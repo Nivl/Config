@@ -75,7 +75,7 @@ If NO template exists, fall back to the default format (Step 3).
 
 1. Branch commit list:
    ```
-   git log --no-pager origin/<default>..HEAD --oneline
+   git --no-pager log origin/<default>..HEAD --oneline
    ```
 2. Stats:
    ```

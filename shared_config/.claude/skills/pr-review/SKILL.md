@@ -23,7 +23,7 @@ description: >
 # PR Review (10x-reviewed)
 
 This skill orchestrates **ten** parallel reviewer sub-agents against a single PR: **five
-instances of `in-depth-review`** (nine specialized roles each, raw scored findings) and
+instances of `in-depth-review`** (each runs ten roles by default, or nine with `--skip-ticket`; all raw scored findings) and
 **five instances of `gh-style-review`** (the `@claude review` GitHub Action prompt
 replicated locally, which adds Discussion Context — prior-human-comment cross-referencing
 — on top of standard findings). All ten are invoked with `--raw`; the orchestrator merges
@@ -47,6 +47,9 @@ and whether the diff addresses it" section.
   (they live alongside this skill in `shared_config/.claude/skills/`).
 - `gh` must be installed and authenticated.
 
+**Flag:** pass `--skip-ticket` to disable ticket intent compliance (Role #10) across all
+five `in-depth-review` instances and skip the Jira-tooling preflight.
+
 ## Step 0: Resolve the PR
 
 1. If the skill received an argument that looks like a PR number (e.g. `123` or `#123`), use it
@@ -62,6 +65,25 @@ and whether the diff addresses it" section.
 4. Re-confirm that **both** `in-depth-review` AND `gh-style-review` are available — check the
    available-skills list for both entries. If either is missing, abort the orchestration
    and tell the user which one to install.
+5. If the invocation included `--skip-ticket`, set `<SKIP_TICKET> = true` (default `false`).
+   When `true`, every in-depth-review sub-agent is invoked with `--skip-ticket`, so Role #10
+   never runs. When `false`, all five in-depth-review instances run Role #10 (five ticket
+   reviewers). `gh-style-review` is unaffected either way — it has no ticket role.
+6. **Jira-tooling preflight** (skip this step entirely if `<SKIP_TICKET>` is true). Before
+   launching any reviewers, confirm a Jira reader is available AND authenticated:
+   - acli: installed (`command -v acli`) and able to read Jira — run a lightweight
+     authenticated acli call; if it fails with an auth/login error, treat acli as
+     unauthenticated; OR
+   - a Jira/Atlassian MCP: connected and authenticated — search available tools (e.g.
+     ToolSearch "atlassian jira"); if the only exposed tool is an `authenticate` tool, it is
+     connected but not yet authed.
+   If neither is ready, ASK the user to choose:
+     (a) install/authenticate acli or the Atlassian MCP, then continue — re-check after they confirm;
+     (b) proceed now with `--skip-ticket` — set `<SKIP_TICKET> = true` and run the other
+         reviewers without the ticket check;
+     (c) abort the review.
+   Do not launch any reviewers until this is resolved. If a re-check after choice (a) still
+   fails, present the three choices again rather than proceeding.
 
 ## Step 1: Launch ten reviewer sub-agents in parallel
 
@@ -80,7 +102,10 @@ skill, then return its result to me unchanged.
 
 Concretely:
 
-1. Invoke the `in-depth-review` skill with the arguments: `<PR> --raw`
+1. Invoke the `in-depth-review` skill with the arguments: `<PR> --raw` — and append
+   ` --skip-ticket` when the orchestrator's `<SKIP_TICKET>` is true (so the args become
+   `<PR> --raw --skip-ticket`). When `<SKIP_TICKET>` is false, pass `<PR> --raw` unchanged
+   so Role #10 runs.
    - The `<PR>` arg puts it in PR mode against this PR.
    - The `--raw` flag tells in-depth-review to skip its internal <70 confidence filter so we
      get every scored finding. The orchestrator will apply its own >=60 threshold.
@@ -170,6 +195,8 @@ Once all ten sub-agents have returned:
      fixes differ meaningfully, mention the alternatives in the description.
    - `category`: union of categories.
    - `permalink`: take any one valid permalink from the group.
+   - `ticket_id`: preserved from `ticket`-category findings (the Jira ID the gap traces to);
+     `null` for all other findings. Never merge two findings that name different `ticket_id`s.
 
 4. **Filter:** keep only findings with `confidence >= 60`. Discard the rest. (Threshold is 60.)
 
@@ -178,7 +205,7 @@ Once all ten sub-agents have returned:
    2. `agreement` descending (10/10 > 5/10 > 1/10 when scores tie)
    3. Both-sources first (a finding raised by both in-depth-review and gh-style-review beats
       a same-confidence-and-agreement finding from a single source)
-   4. `category` priority: bug > CLAUDE.md adherence > history > prior PR > comment guidance
+   4. `category` priority: bug > AGENTS.md > history > prior PR > comment guidance > ticket
 
 ## Step 2.5: Aggregate Discussion Context (from gh-style sub-agents only)
 
@@ -243,6 +270,13 @@ A finding is **GLOBAL** if any of those checks fails — typical reasons:
 Don't be overly aggressive demoting to GLOBAL: the whole point of inline comments is reviewer
 ergonomics. When in doubt, prefer INLINE if a single line range is identifiable.
 
+### Step 3a.5: Aggregate tickets_examined
+
+`tickets_examined` = union by `id` of the `tickets_examined` arrays returned by the five
+in-depth-review sub-agents. For each `id`, `status` is `gaps` if any instance reported gaps,
+else `unread` if any reported unread, else `ok`. The `gaps` count = number of surviving ticket
+findings for that `id` in the merged, deduplicated pool (after the Step 2 ≥60 filter).
+
 ### Step 3b: Build the global body
 
 The global body **must start** with the disclosure line below — verbatim, as the first
@@ -270,6 +304,15 @@ Found <K_global> issue(s) across 10 independent reviews (5 × in-depth-review + 
    <permalink>
 
 2. ...
+   <<endif>>
+
+<<if tickets_examined is non-empty:>>
+
+### Tickets examined
+
+- <id> — ✅ implemented &nbsp;`[no gaps]`
+- <id> — ⚠️ <N> gap(s) found (see findings above)
+- <id> — ❓ could not read
    <<endif>>
 
 <<if K_unaddressed > 0:>>
@@ -308,8 +351,11 @@ one Discussion Context entry. The disclosure + `### Code review` header are unco
 the section blocks (Still unaddressed, Addressed by this PR, inline-meta-line) are emitted
 only when their respective counts are > 0.
 
-**Section order is fixed:** code review findings → still unaddressed → addressed → inline
+**Section order is fixed:** code review findings → tickets examined → still unaddressed → addressed → inline
 meta-line. "Still unaddressed" comes before "Addressed" because it's the actionable half.
+
+**Ticket findings:** when a finding has a non-null `ticket_id`, prepend `[<ticket_id>] ` to
+its `<title>` in both the global body and any inline comment, so the ticket is visible.
 
 ### Step 3c: Build each inline comment
 
@@ -391,6 +437,9 @@ remembers their PR isn't ready-for-review yet.
 - The PR review's HTML URL (the `html_url` returned by the `gh api .../reviews` response).
 - Any inline comments that had to be demoted to GLOBAL because GitHub rejected them
   (line not in diff), with a brief explanation.
+- Tickets examined and their outcome: `<id> ✅ | ⚠️ N gaps | ❓ unread`. If any in-depth-review
+  sub-agent reported `ticket_review.status` of `denied` (user denied access) or `unavailable`
+  (no Jira tooling), say so explicitly.
 
 **If no review was posted (clean PR):**
 
@@ -403,6 +452,9 @@ discussion items. Nothing posted to GitHub.`
 - How many were filtered out by the ≥ 60 threshold (so the user can see whether reviewers
   flagged anything below the bar).
 - Sub-agents that returned `skipped_reason` (if any) and why.
+- Tickets examined and their outcome: `<id> ✅ | ⚠️ N gaps | ❓ unread`. If any in-depth-review
+  sub-agent reported `ticket_review.status` of `denied` (user denied access) or `unavailable`
+  (no Jira tooling), say so explicitly.
 
 ## Constraints
 

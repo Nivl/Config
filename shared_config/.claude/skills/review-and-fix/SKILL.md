@@ -24,7 +24,8 @@ This skill wraps `in-depth-review` AND `gh-style-review` with an iterate-and-fix
 Each iteration:
 
 1. Runs **3 `in-depth-review` + 3 `gh-style-review` instances in parallel** (6 total, each
-   invoked with `--raw`). The target is the branch's PR if one exists for the current
+   invoked with `--raw`). The 3 in-depth instances also run Role #10 (ticket intent
+   compliance) unless `--skip-ticket` was passed. The target is the branch's PR if one exists for the current
    branch, otherwise the branch's commit range.
 2. Cross-instance dedups their findings into one flat pool (each instance already
    pre-dedupes internally; the triangulation across 6 independent passes from two prompt
@@ -40,8 +41,12 @@ Each iteration:
 6. Loops until a batch is clean (or 10 iterations).
 
 The 6× triangulation lives **here**, not inside the sub-skills. Each `in-depth-review` pass
-is itself a 9-role review and each `gh-style-review` pass is the @claude review GitHub
-Action prompt with full PR context (when in PR mode).
+is itself a 9- or 10-role review; the 10th role is ticket intent compliance, on by default.
+Each `gh-style-review` pass is the @claude review GitHub Action prompt with full PR context
+(when in PR mode).
+
+**Flag:** pass `--skip-ticket` to disable ticket intent compliance (Role #10) in all three
+`in-depth-review` instances and skip the Jira-tooling preflight.
 
 ## GitHub side-effect policy
 
@@ -89,6 +94,25 @@ gh-style-review's PR conversation/review-thread fetches) are fine.
 6. Define `<TARGET_ARG>` for use in the sub-agent prompts:
    - If `<HAS_PR>` → `<TARGET_ARG> = <PR>`
    - Else → `<TARGET_ARG> = <RANGE>`
+7. If the invocation included `--skip-ticket`, set `<SKIP_TICKET> = true` (default `false`).
+   When `true`, every in-depth-review sub-agent is invoked with `--skip-ticket` so Role #10
+   never runs. When `false`, all three in-depth-review instances run Role #10 (three ticket
+   reviewers). `gh-style-review` is unaffected.
+8. **Jira-tooling preflight** (skip this step entirely if `<SKIP_TICKET>` is true). Before
+   the first review iteration, confirm a Jira reader is available AND authenticated:
+   - acli: installed (`command -v acli`) and able to read Jira — run a lightweight
+     authenticated acli call; if it fails with an auth/login error, treat acli as
+     unauthenticated; OR
+   - a Jira/Atlassian MCP: connected and authenticated — search available tools (e.g.
+     ToolSearch "atlassian jira"); if the only exposed tool is an `authenticate` tool, it is
+     connected but not yet authed.
+   If neither is ready, ASK the user to choose:
+     (a) install/authenticate acli or the Atlassian MCP, then continue — re-check after they confirm;
+     (b) proceed now with `--skip-ticket` — set `<SKIP_TICKET> = true` and run the other
+         reviewers without the ticket check;
+     (c) abort.
+   Do not start iteration 1 until this is resolved. If a re-check after choice (a) still
+   fails, present the three choices again rather than proceeding.
 
 ## Step 1: Review — 6 Parallel Sub-Agents (3 in-depth-review + 3 gh-style-review)
 
@@ -107,7 +131,10 @@ Each of the three in-depth-review sub-agents receives:
 ```
 You are sub-agent N of 6 in a review-and-fix iteration (N is 1, 2, or 3).
 
-Invoke the `in-depth-review` skill with the arguments: `<TARGET_ARG> --raw`
+Invoke the `in-depth-review` skill with the arguments: `<TARGET_ARG> --raw` — and append
+` --skip-ticket` when the orchestrator's `<SKIP_TICKET>` is true (args become
+`<TARGET_ARG> --raw --skip-ticket`). When false, pass `<TARGET_ARG> --raw` unchanged so
+Role #10 runs.
 
 - `<TARGET_ARG>` is either a PR number (PR mode) or a commit range like `origin/main..HEAD`
   (branch mode). in-depth-review auto-detects.
@@ -182,6 +209,8 @@ After all 6 sub-agents return:
    - `title`, `description`, `suggested_fix`: pick the clearest from the group; if suggested
      fixes differ meaningfully, mention the alternatives in the description.
    - `category`: union of categories.
+   - `ticket_id`: preserved from `ticket`-category findings (the Jira ID the gap traces to);
+     `null` for all other findings. Never merge two findings with different `ticket_id`s.
 
 4. **Apply the orchestrator's confidence threshold: discard everything with `confidence < 50`.**
    This is the review-and-fix-specific threshold, lower than each sub-skill's default of 70
@@ -197,6 +226,15 @@ After all 6 sub-agents return:
    2. `cross_instance_agreement` descending (6/6 > 3/6 > 1/6 when severity ties)
    3. Both-sources first (a both-source finding beats a same-confidence single-source one)
    4. `confidence` descending
+
+### Aggregating tickets_examined (in-depth-review only)
+
+Union the `tickets_examined` arrays from the 3 in-depth-review sub-agents (gh-style-review has
+none). Union by `id`; for each `id`, `status` is `gaps` if any instance reported gaps, else
+`unread` if any reported unread, else `ok`. The `gaps` count is the number of surviving ticket
+findings for that `id` in the merged pool after the ≥50 filter. Also collect each instance's
+`ticket_review.status`: if any returned `denied` or `unavailable`, record it for the Final
+Report so the user knows ticket review did not fully run.
 
 ## Step 1.5: Aggregate Discussion Context (PR mode only)
 
@@ -223,7 +261,10 @@ user can see the diff's effect on the PR's discussion thread evolving across ite
 
 ## Step 2: Fix
 
-Process each finding from the ordered work list (Step 1) one at a time.
+Process each finding from the ordered work list (Step 1) one at a time. Skip any
+`ticket`-category finding already recorded in `resolved_ticket_findings` (deferred or
+dismissed in a prior iteration) — do not re-prompt; deferred ones are carried to the Final
+Report.
 
 ### For each finding:
 
@@ -233,6 +274,16 @@ Process each finding from the ordered work list (Step 1) one at a time.
    - If the fix is clear and unambiguous → implement it directly.
    - If the fix is ambiguous or has multiple valid approaches → use `ask_user` to present the
      options and wait for a decision before proceeding.
+   - If the finding's `category` is `ticket` → ALWAYS use `ask_user`, regardless of how
+     clear the fix looks. Ticket gaps are intent decisions, not mechanical fixes. Present:
+     (1) the ticket ID and the requirement it states, (2) the gap — what the diff does vs.
+     what the ticket asks. Offer three choices:
+       (a) implement the missing intent (then proceed to implement + commit as usual),
+       (b) defer — surface only, make no change this run,
+       (c) dismiss — the gap is a false positive or out of scope.
+     Only implement and commit when the user picks (a). Never auto-commit a ticket finding.
+     When the user picks (b) or (c), record the finding in `resolved_ticket_findings` (keyed
+     by `ticket_id` + title) so later iterations do not re-prompt for it.
 
 3. **Implement the fix** following all project coding standards:
    - Read the relevant `AGENTS.md` (root and sub-project) for mandatory conventions.
@@ -272,9 +323,11 @@ Track state explicitly:
 - `batch_clean`: per-iteration flag, true iff the deduplicated findings list was empty
 - `discussion_context_snapshot`: per-iteration snapshot of resolved/unaddressed pools (PR
   mode only) — useful for the per-iteration summary
+- `resolved_ticket_findings`: ticket findings the user deferred or dismissed (keyed by
+  `ticket_id` + title), so later iterations skip them instead of re-prompting.
 
 **A single clean findings batch ends the loop.** With 6 independent reviewers all agreeing
-(3 × in-depth-review's 9 roles + 3 × gh-style-review's @claude-mirror prompt), the signal is
+(3 × in-depth-review's 9 or 10 roles + 3 × gh-style-review's @claude-mirror prompt), the signal is
 already strong; requiring two consecutive clean batches would just waste an iteration.
 
 Note: a non-empty `unaddressed_pool` in PR mode does NOT prevent the loop from terminating.
@@ -297,6 +350,9 @@ Summarise the entire session in a clear report to the user:
 ### Changes Made
 - <commit hash (short)>: <commit message>
 - ...
+
+### Tickets examined
+- <id>: ✅ implemented | ⚠️ N gap(s) — <user decision> | ❓ unread
 
 ### Remaining Issues (if iteration limit reached)
 - <finding description> [severity, cross-instance N/6, sources <in-depth|gh-style|both>, confidence X] — <file:line>
@@ -322,6 +378,12 @@ agreed there is nothing actionable in the findings pool. Done.
 — OR —
 ⚠️ Stopped after 10 iterations. See remaining issues above.
 ```
+
+For the **Tickets examined** section: omit it entirely when no ticket IDs were found or
+`--skip-ticket` was passed. List any deferred or dismissed ticket findings (from
+`resolved_ticket_findings`) with their decision — they were not re-prompted in later
+iterations. If an in-depth-review sub-agent reported `ticket_review.status` of `denied` or
+`unavailable`, note that ticket review did not run and why.
 
 ## Constraints
 

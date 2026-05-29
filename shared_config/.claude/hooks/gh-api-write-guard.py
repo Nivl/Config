@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
-# PreToolUse hook: auto-allow `gh api` read-only calls.
+# PreToolUse hook: gate `gh api` calls by read/write semantics.
 #
-# Reads PreToolUse JSON from stdin. If the Bash command is a clean
-# `gh api` invocation with no write semantics, emits a permission
-# decision of "allow" to skip the prompt. Otherwise stays silent so
-# the existing `Bash(gh api *)` ask rule fires.
+# Reads PreToolUse JSON from stdin. For a clean, single `gh api`
+# invocation it emits a permission decision:
+#   - read-only call -> "allow" (skip the prompt)
+#   - write call     -> "ask"   (force a confirmation prompt)
 #
-# A call is treated as a WRITE (and NOT auto-allowed) when any of:
+# The hook is self-contained: it does NOT pair with a `Bash(gh api *)`
+# ask rule. An ask rule can't be bypassed by a hook "allow", so pairing
+# the two would prompt on every read. Emitting "ask" for writes here
+# keeps that guard without an ask rule behind it.
+#
+# Anything that can't be classified cleanly stays silent and falls
+# through to the normal permission flow (default-mode prompt):
 #   - the command contains a shell separator (;, &, &&, ||, |, |&) —
-#     we can't reason about chained commands, so fall through
+#     we can't reason about chained commands
+#   - the command can't be tokenized
+#
+# A call is treated as a WRITE when any of:
 #   - explicit method flag: -X / --method = POST|PUT|PATCH|DELETE
 #   - any field flag (-f / -F / --field / --raw-field) UNLESS the
 #     method is explicitly -X GET (gh defaults to POST when -f present)
@@ -22,6 +31,19 @@ import sys
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 FIELD_FLAGS = {"-f", "-F", "--field", "--raw-field"}
 CHAIN_TOKENS = {";", "&", "&&", "||", "|", "|&"}
+
+
+def emit(decision: str, reason: str) -> None:
+    json.dump(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": decision,
+                "permissionDecisionReason": reason,
+            }
+        },
+        sys.stdout,
+    )
 
 
 def main() -> None:
@@ -101,18 +123,10 @@ def main() -> None:
                 break
 
     if is_write:
+        emit("ask", "gh api write call — confirm before sending")
         return
 
-    json.dump(
-        {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "allow",
-                "permissionDecisionReason": "gh api read-only call",
-            }
-        },
-        sys.stdout,
-    )
+    emit("allow", "gh api read-only call")
 
 
 if __name__ == "__main__":

@@ -52,6 +52,17 @@ jobs:
       - name: Run canonicalize test
         run: bash tests/canonicalize_test.sh
 
+  gh-api-hook:
+    name: gh api write-guard hook test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run gh api write-guard test
+        run: bash tests/gh_api_write_guard_test.sh
+
   go-unit:
     name: Go unit tests
     runs-on: ubuntu-latest

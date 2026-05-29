@@ -8,6 +8,10 @@ Never prepend `cd <path> && ...` to a command when `<path>` is already the shell
 
 This holds even when the `cd` is _not_ redundant. Claude Code force-prompts (`cd-compound-redirect`) any compound command that combines `cd` with output redirection — **including `2>&1` and pipes**, e.g. `cd app && rushx lint:typecheck 2>&1 | tail -5`. Run the `cd` as its own Bash call first, then the command separately (`cd app` → `rushx lint:typecheck 2>&1 | tail -5`), so no single command mixes `cd` with a redirect. In a monorepo where you must run from a package subdir (e.g. `rushx`), this is the most common avoidable prompt. Subagents must follow this too.
 
+## No reasoning or code snippets inside Bash commands
+
+Keep a Bash command to just the command. Never prepend multi-line `#` comment blocks to it — especially ones that paste code containing braces (`{` `}`) next to quotes (`'` or `"`). Claude Code runs a safety scan over the whole command string, comments included, and force-prompts anything where a brace sits next to a quote, with the reason "Contains brace with quote character (expansion obfuscation)". This fires even for allow-listed commands like `sed`, so the prompt looks like it came from nowhere. Put your reasoning in the message text, not in the command. If you must annotate a command, use one short `#` note with no braces or quotes.
+
 ## Code comments
 
 Commenting code is good. Keep doing it. But every comment must earn its place. Follow these rules:

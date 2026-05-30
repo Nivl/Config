@@ -8,13 +8,13 @@ description: >
   deduplicates the ten result sets into one flat pool, keeps findings with merged confidence
   score >= 60, then classifies each surviving finding as INLINE (narrow, points at specific
   lines in the diff) or GLOBAL (broad, multi-file, architectural). The `gh-style-review`
-  instances also return Discussion Context (which prior human comments the diff resolves vs.
-  still leaves open) — the orchestrator aggregates that across instances and surfaces it
-  inside the posted PR review body. All findings + Discussion Context are posted as a
-  SINGLE PR review: the review body contains the global findings, the Discussion Context
-  section, and a meta-line counting any inline comments; inline comments are attached to
-  the relevant diff lines. If nothing survives, posts NOTHING to GitHub and reports the
-  clean result only in chat.
+  instances also return Discussion Context — prior human comments the diff still leaves
+  open — which the orchestrator aggregates and surfaces as a "Still unaddressed" section in
+  the posted PR review body. Everything is posted as a SINGLE PR review whose body carries
+  the global findings (full detail), a names-only list of the inline/local findings, and the
+  still-unaddressed prior concerns; inline comments are attached to the relevant diff lines.
+  Empty sections are never emitted and nothing about what passed is reported. If nothing
+  survives, posts NOTHING to GitHub and reports the clean result only in chat.
   Use this skill when the user asks to "review this PR", "pr review", "triple code review",
   "ensemble code review", "consensus review", a "thorough review of this PR", or wants
   higher-confidence PR feedback than a single `/in-depth-review` run would produce.
@@ -26,17 +26,18 @@ This skill orchestrates **ten** parallel reviewer sub-agents against a single PR
 instances of `in-depth-review`** (each runs ten roles by default, or nine with `--skip-ticket`; all raw scored findings) and
 **five instances of `gh-style-review`** (the `@claude review` GitHub Action prompt
 replicated locally, which adds Discussion Context — prior-human-comment cross-referencing
-— on top of standard findings). All ten are invoked with `--raw`; the orchestrator merges
-+ deduplicates the ten result sets into one flat pool, applies a final **score ≥ 60**
-filter, classifies each surviving finding as INLINE or GLOBAL, aggregates `discussion_context`
-across the five gh-style instances, and posts a single PR review whose body carries the
-GLOBAL findings + the aggregated Discussion Context. Inline comments are attached to the
-diff lines they refer to.
+— on top of standard findings). All ten are invoked with `--raw`; the orchestrator merges and
+deduplicates the ten result sets into one flat pool, applies a final **score ≥ 60** filter,
+classifies each surviving finding as INLINE (local) or GLOBAL, aggregates the still-unaddressed
+`discussion_context` across the five gh-style instances, and posts a single PR review whose body
+carries the global findings in full, a names-only list of the local findings, and the
+still-unaddressed prior concerns. Inline comments are attached to the diff lines they refer to.
+Sections with no content are never emitted.
 
 The point: ten independent passes from two different prompt structures (specialized-role
 vs. GitHub-Action mirror) catch different issues, AND converge on the real ones. One
 review entry, ten reviewers' worth of recall, plus an explicit "what humans already raised
-and whether the diff addresses it" section.
+that the diff still hasn't addressed" section.
 
 ## Prerequisites
 
@@ -77,13 +78,13 @@ five `in-depth-review` instances and skip the Jira-tooling preflight.
    - a Jira/Atlassian MCP: connected and authenticated — search available tools (e.g.
      ToolSearch "atlassian jira"); if the only exposed tool is an `authenticate` tool, it is
      connected but not yet authed.
-   If neither is ready, ASK the user to choose:
+     If neither is ready, ASK the user to choose:
      (a) install/authenticate acli or the Atlassian MCP, then continue — re-check after they confirm;
      (b) proceed now with `--skip-ticket` — set `<SKIP_TICKET> = true` and run the other
-         reviewers without the ticket check;
+     reviewers without the ticket check;
      (c) abort the review.
-   Do not launch any reviewers until this is resolved. If a re-check after choice (a) still
-   fails, present the three choices again rather than proceeding.
+     Do not launch any reviewers until this is resolved. If a re-check after choice (a) still
+     fails, present the three choices again rather than proceeding.
 
 ## Step 1: Launch ten reviewer sub-agents in parallel
 
@@ -198,7 +199,11 @@ Once all ten sub-agents have returned:
    - `ticket_id`: preserved from `ticket`-category findings (the Jira ID the gap traces to);
      `null` for all other findings. Never merge two findings that name different `ticket_id`s.
 
-4. **Filter:** keep only findings with `confidence >= 60`. Discard the rest. (Threshold is 60.)
+4. **Filter:** keep only findings with `confidence >= 60`. Discard the rest — with one
+   exception: retain any discarded `ticket`-category finding (confidence < 60) in a separate
+   `sub_threshold_ticket_notes` list. Step 3a.5 uses it for the "Tickets examined" section.
+   These never enter the findings pool, the INLINE/GLOBAL classification, or the ordering
+   below — they are notes, not findings. (Threshold is 60.)
 
 5. **Order the surviving findings:**
    1. `confidence` descending
@@ -211,38 +216,42 @@ Once all ten sub-agents have returned:
 
 `gh-style-review` sub-agents each return a `discussion_context` block with `resolved` and
 `unaddressed` arrays. `in-depth-review` returns no such block — skip those instances here.
+Only the **unaddressed** concerns are rendered (the "Addressed by this PR" section was dropped
+as noise — listing what the diff already fixed is not actionable). The `resolved` entries are
+read solely to detect reviewer disagreement in step 2.
 
-1. **Pool every entry** across the five `gh-style-review` result sets into two flat lists:
-   `resolved_pool` and `unaddressed_pool`. Each entry carries `quote`, `author`, `url`, and
-   either `resolution` or `gap`.
+1. **Pool every `unaddressed` entry** across the five `gh-style-review` result sets into one
+   flat `unaddressed_pool`. Each entry carries `quote`, `author`, `url`, and `gap`.
 
 2. **Deduplicate by `url`** (the GitHub comment URL is the canonical identity of a discussion
-   item). If the same URL appears in both `resolved` and `unaddressed` across instances —
+   item). If the same URL appears in some instances' `resolved` and others' `unaddressed` —
    reviewers disagree on whether the diff fixes it — keep it in `unaddressed_pool` and note
    the disagreement count.
 
-3. **For each deduplicated entry** pick the clearest `quote`, `resolution`, and `gap` text
-   across instances (longest non-trivial wording usually wins). Record `agreement` =
-   instance count that raised this exact discussion item.
+3. **For each deduplicated entry** pick the clearest `quote` and `gap` text across instances
+   (longest non-trivial wording usually wins). Record `agreement` = instance count that raised
+   this exact concern as unaddressed.
 
 4. **Retain all entries** — there's no confidence threshold here because every entry is
-   grounded in a real human comment URL. Order each list by `agreement` desc, then by the
-   comment's `created_at` ascending (oldest unresolved concern first).
+   grounded in a real human comment URL. Order `unaddressed_pool` by `agreement` desc, then by
+   the comment's `created_at` ascending (oldest unresolved concern first).
 
-5. **If either pool is empty after dedup, mark that subsection skipped** for the Step 3b
-   body construction. If both pools are empty AND the findings list from Step 2 is also
-   empty, Step 3 still applies — no review is posted.
+5. **If `unaddressed_pool` is empty after dedup, the "Still unaddressed" section is skipped.**
+   If it is empty AND the findings list from Step 2 is also empty, Step 3 still applies — no
+   review is posted.
 
 ## Step 3: Post the review (only if there is something worth posting)
 
-**If BOTH the merged-and-filtered findings list AND both Discussion Context pools are
-EMPTY, do NOT post anything to GitHub.** Skip directly to Step 4 and tell the user in chat
-that the PR looks clean. No review, no comment, no PR state change — silence on GitHub is
-the success signal.
+**If the merged-and-filtered findings list AND `unaddressed_pool` are BOTH EMPTY, do NOT
+post anything to GitHub.** Skip directly to Step 4 and tell the user in chat that the PR
+looks clean. No review, no comment, no PR state change — silence on GitHub is the success
+signal. A sub-threshold ticket note on its own is NOT enough to post — if there are no
+findings and nothing unaddressed, there is nothing worth saying on GitHub (the note is
+reported only in the Step 4 chat summary).
 
-**If at least one of {findings, resolved_pool, unaddressed_pool} is non-empty**, post a
-single PR review that combines a global body with any inline comments. This is a single
-atomic write to GitHub.
+**If at least one of {findings, unaddressed_pool} is non-empty**, post a single PR review
+that combines a global body with any inline comments. This is a single atomic write to
+GitHub.
 
 ### Step 3a: Classify each surviving finding as INLINE or GLOBAL
 
@@ -270,12 +279,25 @@ A finding is **GLOBAL** if any of those checks fails — typical reasons:
 Don't be overly aggressive demoting to GLOBAL: the whole point of inline comments is reviewer
 ergonomics. When in doubt, prefer INLINE if a single line range is identifiable.
 
-### Step 3a.5: Aggregate tickets_examined
+### Step 3a.5: Identify ticket notes worth surfacing (no "all clear" roll-call)
 
-`tickets_examined` = union by `id` of the `tickets_examined` arrays returned by the five
-in-depth-review sub-agents. For each `id`, `status` is `gaps` if any instance reported gaps,
-else `unread` if any reported unread, else `ok`. The `gaps` count = number of surviving ticket
-findings for that `id` in the merged, deduplicated pool (after the Step 2 ≥60 filter).
+Build `tickets_examined` = union by `id` of the `tickets_examined` arrays returned by the five
+in-depth-review sub-agents (each entry has `id` and `status` ∈ {`ok`, `gaps`, `unread`}). For
+each `id`, `status` is `gaps` if any instance reported gaps, else `unread` if any reported
+unread, else `ok`.
+
+From that, derive ONLY the notes worth showing a human — never a roll-call of what passed:
+
+- **Above-threshold ticket gaps** are already Code review findings (category `ticket`, prefixed
+  `[<ticket_id>]`). Do NOT repeat them in the Tickets examined section.
+- **Sub-threshold ticket observations** = the `sub_threshold_ticket_notes` retained in Step 2
+  (ticket findings that scored < 60) — an AC a reviewer flagged that did not clear the ≥60 bar.
+- **Unread/unverified tickets** = any `id` whose aggregated `status` is `unread` (no instance
+  could read it).
+
+Set `ticket_notes_present` = true if there is at least one sub-threshold observation OR at
+least one unread ticket. Tickets with `status: ok` and no sub-threshold note contribute
+nothing and are never named.
 
 ### Step 3b: Build the global body
 
@@ -283,37 +305,60 @@ The global body **must start** with the disclosure line below — verbatim, as t
 paragraph, on its own line. Do not change its wording. Do not append any branding footer,
 "Generated with Claude Code" line, or ensemble-stats `<sub>` tag at the end.
 
+**Never emit a section that has no content, and never report what passed.** Every
+`###`/`####` block below is conditional on its count — when the count is zero, omit the
+header and the block entirely. No "all clear", no "no gaps", no roll-call of green tickets.
+The review surfaces only what needs attention.
+
 Let:
+
 - `K_global` = count of GLOBAL findings
-- `K_inline` = count of INLINE findings
-- `K_resolved` = count of entries in `resolved_pool`
+- `K_inline` = count of INLINE findings (each is also posted as an inline diff comment in Step 3c)
 - `K_unaddressed` = count of entries in `unaddressed_pool`
 
 ```markdown
 I used an AI agent with a custom prompt to generate this review.
 
+<<if K_global + K_inline > 0:>>
+
 ### Code review
 
+Found <K_global + K_inline> issue(s):
+
 <<if K_global > 0:>>
-Found <K_global> issue(s) across 10 independent reviews (5 × in-depth-review + 5 × gh-style-review, threshold ≥ 60):
 
-1. <title> &nbsp;`[agreement: <N>/10, confidence: <score>, sources: <in-depth|gh-style|both>]`
+#### <K_global> global issue(s)
 
-   <description, including category and any suggested-fix alternatives>
+**1.** <title> &nbsp;`[agreement: <N>/10, confidence: <score>, sources: <in-depth|gh-style|both>]`
 
-   <permalink>
+<description, including category and any suggested-fix alternatives>
 
-2. ...
-   <<endif>>
+<permalink>
 
-<<if tickets_examined is non-empty:>>
+**2.** ...
+<<endif>>
+
+<<if K_inline > 0:>>
+
+#### <K_inline> local issue(s)
+
+- <title>
+- <title>
+- ...
+
+I left <K_inline> comment(s) directly in the diff for those.
+<<endif>>
+<<endif>>
+
+<<if ticket_notes_present (Step 3a.5):>>
 
 ### Tickets examined
 
-- <id> — ✅ implemented &nbsp;`[no gaps]`
-- <id> — ⚠️ <N> gap(s) found (see findings above)
-- <id> — ❓ could not read
-   <<endif>>
+<One short paragraph. Surface ONLY: sub-threshold ticket observations — name the ticket and
+the AC, and say it did not clear the ≥60 bar and why — plus any unread/unverified ticket. Do
+NOT list tickets that passed. Do NOT repeat above-threshold ticket gaps; those already appear
+as Code review findings above, prefixed [<ticket_id>].>
+<<endif>>
 
 <<if K_unaddressed > 0:>>
 
@@ -321,41 +366,43 @@ Found <K_global> issue(s) across 10 independent reviews (5 × in-depth-review + 
 
 Concerns raised by reviewers earlier that this PR does not appear to address:
 
-- > <quote> — @<author> ([link](<url>))
-  ⚠️ <gap> &nbsp;`[agreement: <N>/5]`
+- > <quote> — ([link](url))
+  >
+  > ⚠️ <gap> &nbsp;`[agreement: <N>/5]`
 - ...
-   <<endif>>
-
-<<if K_resolved > 0:>>
-
-### Addressed by this PR
-
-Earlier concerns that this PR resolves:
-
-- > <quote> — @<author> ([link](<url>))
-  ✅ <resolution> &nbsp;`[agreement: <N>/5]`
-- ...
-   <<endif>>
-
-<<if K_global > 0 AND K_inline > 0:>>
-
-I also left <K_inline> comment(s) for different findings in the diff.
-<<elif K_global == 0 AND K_inline > 0:>>
-
-I left <K_inline> comment(s) on the diff.
-<<endif>>
+  <<endif>>
 ```
 
-A global body is ALWAYS produced when there is at least one finding, one inline comment, or
-one Discussion Context entry. The disclosure + `### Code review` header are unconditional;
-the section blocks (Still unaddressed, Addressed by this PR, inline-meta-line) are emitted
-only when their respective counts are > 0.
+A global body is produced whenever Step 3 reaches here (at least one finding or one
+unaddressed concern). The disclosure line is the only unconditional content. The `### Code
+review` section — and its `#### global` / `#### local` subsections — "Tickets examined", and
+"Still unaddressed" are each emitted only when their count is non-zero. A body carrying just
+the disclosure line is impossible: Step 3 gates entry on having something to say.
 
-**Section order is fixed:** code review findings → tickets examined → still unaddressed → addressed → inline
-meta-line. "Still unaddressed" comes before "Addressed" because it's the actionable half.
+**Pluralize the headers.** In the `#### ... issue(s)` headers, render the real word: "issue"
+when the count is 1, "issues" otherwise — e.g. `#### 1 global issue`, `#### 3 local issues`.
+The `Found <N> issue(s):` count is `K_global + K_inline` (the (s) shorthand is fine there).
+
+**Global issues use a bold `**N.**` marker, NOT a real Markdown ordered list.** Each global
+finding spans several paragraphs (title, description, permalink), and a multi-paragraph ("loose")
+`1.` list item gets its marker re-printed before every paragraph by some renderers — so the
+whole block shows up as `1.` on every line. A bold `**1.**` marker with flush-left paragraphs
+renders identically on GitHub and elsewhere (a line starting with `**` is never parsed as a list
+item, so nothing re-numbers). Number them `**1.**`, `**2.**`, … by hand. Do not convert this
+back to a `1.`/`2.` ordered list.
+
+**Local issues are names only.** Under `#### local issue(s)`, list each INLINE finding's
+`<title>` as a bullet — no description, no permalink (single-line bullets render cleanly, so an
+ordinary `-` list is fine here). The full text rides on the inline diff comment (Step 3c); the
+trailing "I left <K_inline> comment(s) directly in the diff for those." line points the reader
+at them.
+
+**Section order is fixed:** code review (global then local) → tickets examined → still
+unaddressed.
 
 **Ticket findings:** when a finding has a non-null `ticket_id`, prepend `[<ticket_id>] ` to
-its `<title>` in both the global body and any inline comment, so the ticket is visible.
+its `<title>` in both the global body (global list and local list) and any inline comment, so
+the ticket is visible.
 
 ### Step 3c: Build each inline comment
 
@@ -425,14 +472,14 @@ Summarise to the user in chat — this report happens whether or not a review wa
 If `<IS_DRAFT>` was true, prepend a short note: `ℹ️ PR #<PR> is still a draft.` so the user
 remembers their PR isn't ready-for-review yet.
 
-**If at least one finding or Discussion Context entry was posted (review issued):**
+**If at least one finding or unaddressed prior concern was posted (review issued):**
 
 - The PR URL.
 - How many findings each sub-agent originally returned (pre-merge counts), broken down by
   source: `5 × in-depth-review: [N1, N2, N3, N4, N5]`, `5 × gh-style-review: [N6..N10]`.
 - How many unique findings survived the ≥ 60 filter (post-merge count), broken down as
   GLOBAL vs INLINE, and how many were both-source vs single-source.
-- How many Discussion Context entries surfaced: `resolved: K`, `unaddressed: K`.
+- How many unaddressed prior concerns surfaced: `unaddressed: K`.
 - Sub-agents that returned `skipped_reason` (if any) and why.
 - The PR review's HTML URL (the `html_url` returned by the `gh api .../reviews` response).
 - Any inline comments that had to be demoted to GLOBAL because GitHub rejected them
@@ -460,9 +507,10 @@ discussion items. Nothing posted to GitHub.`
 
 - **At most one PR review per run.** The orchestrator posts a single `POST .../pulls/<PR>/reviews`
   call (which atomically carries the global body AND all inline comments) — only when there is
-  at least one surviving finding ≥ 60 OR at least one Discussion Context entry. When all
-  three pools are empty, the orchestrator posts NOTHING. Either way: no `gh pr comment`,
-  no `gh pr edit`, no extra comments, no second review.
+  at least one surviving finding ≥ 60 OR at least one unaddressed prior concern. When both
+  pools are empty, the orchestrator posts NOTHING (a sub-threshold ticket note alone is not
+  enough to post). Either way: no `gh pr comment`, no `gh pr edit`, no extra comments, no
+  second review.
 - **The review event MUST be `COMMENT`.** Never `APPROVE`, never `REQUEST_CHANGES`. This skill
   comments; it does not gate merges.
 - **Sub-agents are read-only with respect to GitHub.** They invoke `in-depth-review` or
@@ -485,7 +533,10 @@ discussion items. Nothing posted to GitHub.`
   invocation.
 - **No fix application.** This skill posts feedback only. For the iterate-and-fix flow, use
   the `review-and-fix` skill instead.
-- **Always produce a global body when there is anything to post.** Even if every surviving
-  finding was inline-eligible and there are no Discussion Context entries, the review's
-  `body` field must contain the disclosure + `### Code review` header + the meta-line
-  "I left X comment(s) on the diff." Never send a review with an empty `body`.
+- **Always produce a non-empty global body when posting.** If every surviving finding is
+  inline-eligible (no global findings), the `body` still carries the disclosure line +
+  `### Code review` + `Found <N> issue(s):` + the `#### local issue(s)` name list + "I left
+  <N> comment(s) directly in the diff for those." If the only thing to post is an unaddressed
+  prior concern (no findings at all), the `body` carries the disclosure line + the
+  `### Still unaddressed in this PR` section. Never send a review with an empty `body`, and
+  never emit a section header with nothing under it.

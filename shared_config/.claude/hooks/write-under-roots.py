@@ -12,6 +12,11 @@
 # two differ (e.g. a subagent running from another directory), which silently
 # dropped the rule and forced a prompt. Prefer the input cwd; fall back to
 # getcwd() only when it's absent.
+#
+# .git carve-out: even when a path sits under an allowed root, writes that
+# touch a `.git` segment are downgraded from `allow` to `ask`. Both the input
+# path and its realpath are checked, so neither a direct `.git/...` write nor
+# a symlink that resolves into a real `.git` dir slips through silently.
 
 import json
 import os
@@ -23,6 +28,14 @@ ROOT_SPECS = (
     ("HOME", ".melvin/config"),
 )
 FIXED_ROOTS = ("/tmp", "/private/tmp")
+
+
+def _has_git_segment(path: str) -> bool:
+    # Lowercase before comparing — macOS APFS is case-insensitive by default,
+    # so `.GIT/HEAD` and `.Git/HEAD` resolve to the same directory as
+    # `.git/HEAD`. A case-sensitive check would miss writes through those
+    # spellings.
+    return ".git" in [p.lower() for p in path.split(os.sep)]
 
 
 def main() -> None:
@@ -53,21 +66,30 @@ def main() -> None:
 
     for root in roots:
         try:
-            if os.path.commonpath([target, root]) == root:
-                json.dump(
-                    {
-                        "hookSpecificOutput": {
-                            "hookEventName": "PreToolUse",
-                            "permissionDecision": "allow",
-                            "permissionDecisionReason": f"path is inside {root}",
-                        }
-                    },
-                    sys.stdout,
-                )
-                return
+            if os.path.commonpath([target, root]) != root:
+                continue
         except ValueError:
             # commonpath raises on mixed absolute/relative or different drives
             continue
+
+        if _has_git_segment(file_path) or _has_git_segment(target):
+            decision = "ask"
+            reason = "path traverses a .git directory; refusing to auto-allow"
+        else:
+            decision = "allow"
+            reason = f"path is inside {root}"
+
+        json.dump(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": decision,
+                    "permissionDecisionReason": reason,
+                }
+            },
+            sys.stdout,
+        )
+        return
 
 
 if __name__ == "__main__":

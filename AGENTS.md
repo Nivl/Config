@@ -157,6 +157,7 @@ CI workflow at `.github/workflows/tests.yml` runs on `pull_request` and pushes t
 | `shell-syntax` | three separate `zsh -n` invocations against `install.bootstrap.sh`, `shared_config/base.zshrc`, `shared_config/config.zshrc` (one script per `zsh -n` so missing files / syntax errors don't slip past as ignored positional args). |
 | `worktrees` | `bash tests/wt_ignored_copy_test.sh` |
 | `canonicalize` | `bash tests/canonicalize_test.sh` |
+| `write-under-roots-hook` | `bash tests/write_under_roots_test.sh` |
 | `go-unit` | `go test ./internal/... ./cmd/...` + `golangci-lint run` (in service-images-go-dev container on ubuntu-latest) |
 | `go-darwin` | `go test -tags darwin ./internal/brew/...` (macos-latest, Go version from `go.mod`) |
 | `go-integration` | `go test -run 'FakeBinarySubprocess' ./internal/brew/...` (macos-latest, Go version from `go.mod`) |

@@ -118,6 +118,17 @@ jobs:
       - name: Run deny-awk test
         run: bash tests/deny_awk_test.sh
 
+  deny-multi-command-hook:
+    name: deny-multi-command hook test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run deny-multi-command test
+        run: bash tests/deny_multi_command_test.sh
+
   go-unit:
     name: Go unit tests
     runs-on: ubuntu-latest

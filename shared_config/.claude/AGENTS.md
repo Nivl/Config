@@ -12,6 +12,22 @@ This holds even when the `cd` is _not_ redundant. Claude Code force-prompts (`cd
 
 Keep a Bash command to just the command. Never prepend multi-line `#` comment blocks to it — especially ones that paste code containing braces (`{` `}`) next to quotes (`'` or `"`). Claude Code runs a safety scan over the whole command string, comments included, and force-prompts anything where a brace sits next to a quote, with the reason "Contains brace with quote character (expansion obfuscation)". This fires even for allow-listed commands like `sed`, so the prompt looks like it came from nowhere. Put your reasoning in the message text, not in the command. If you must annotate a command, use one short `#` note with no braces or quotes.
 
+## No inline scripting inside Bash commands
+
+The `deny-shell-wrapper.py` hook blocks any Bash command that buries the real work inside an opaque blob. The point: the permission allowlist and the sibling hooks (cd, git, gh, write) all read the FIRST token of the command, so anything you smuggle past that token is invisible to them. The denied shapes are:
+
+- **Shell `-c` wrappers.** `bash -c '...'`, `sh -c`, `zsh -c`, `dash -c`, `ksh -c`, `mksh`, `ash`, `pwsh -c`. Also blocks bundled clusters like `-lc`, `-ec`.
+- **Interpreter code strings.** `python -c`, `pypy -c`, `perl -e` / `-E`, `ruby -e`, `node -e` / `-p` / `--eval` / `--print`, `bun -e`, `deno eval`. Including packed forms like `python -cprint(1)`.
+- **Inline function definitions.** `name() { ... }` and `function name { ... }`.
+- **`for` / `while` / `until` / `select` loops** with a `do ... done` body.
+- **`eval`, `source`, `.`** at command-position (start of stream or after a separator).
+- **Heredocs piped into an interpreter.** `python3 <<EOF ... EOF`, `bash <<-EOF ...`, etc. Heredocs feeding `cat` / `tee` to write a file are fine.
+- **Multi-line ANSI-C `$'...\n...'` strings** containing a real newline or an escaped `\n`.
+
+Invocation wrappers (`env`, `sudo`, `command`, `exec`, `nice`, `nohup`, `time`, `FOO=bar` assignments, etc.) are peeled before the check — they do not provide an escape. Composition wrappers `xargs` and `timeout` are deliberately left alone.
+
+If you need to repeat logic, run the command N times directly. The Bash tool's working directory persists across calls, so each call can share state with the previous one. If you genuinely need a multi-step script, write a real script file via the Write tool first and then execute it as one command.
+
 ## Code comments
 
 Commenting code is good. Keep doing it. But every comment must earn its place. Follow these rules:

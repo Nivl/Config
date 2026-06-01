@@ -63,6 +63,17 @@ jobs:
       - name: Run gh api write-guard test
         run: bash tests/gh_api_write_guard_test.sh
 
+  deny-shell-wrapper-hook:
+    name: deny-shell-wrapper hook test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run deny-shell-wrapper test
+        run: bash tests/deny_shell_wrapper_test.sh
+
   write-under-roots-hook:
     name: write-under-roots hook test
     runs-on: macos-latest
@@ -73,7 +84,6 @@ jobs:
 
       - name: Run write-under-roots test
         run: bash tests/write_under_roots_test.sh
-
 
   go-unit:
     name: Go unit tests

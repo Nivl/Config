@@ -59,8 +59,6 @@ def main() -> None:
             continue
         path = os.path.join(value, sub) if sub else value
         roots.append(os.path.realpath(path))
-    if not roots:
-        return
 
     target = os.path.realpath(file_path)
 

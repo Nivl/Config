@@ -422,8 +422,9 @@ def strip_heredoc_bodies_from_tokens(tokens):
 
 def has_loop(tokens) -> bool:
     # A real loop keyword sits at command-position: start of the token stream,
-    # or immediately after a CMD_SEPARATORS token, or immediately after an
-    # invocation wrapper like `time` / `nice` (which are transparent prefixes,
+    # or immediately after a CMD_SEPARATORS token, or immediately after a
+    # transparent prefix (invocation wrapper like `time` / `nice`, or a
+    # variable assignment like `FOO=bar` — both are environment modifiers,
     # not command-terminators). Otherwise the word is a plain argument
     # (e.g. `echo for; echo do; echo done`). The body must contain `do` and
     # then `done` after the keyword.
@@ -432,7 +433,11 @@ def has_loop(tokens) -> bool:
             continue
         if i > 0:
             prev = tokens[i - 1]
-            if prev not in CMD_SEPARATORS and os.path.basename(prev) not in WRAPPER_PREFIXES:
+            if (
+                prev not in CMD_SEPARATORS
+                and os.path.basename(prev) not in WRAPPER_PREFIXES
+                and not ASSIGNMENT_RE.match(prev)
+            ):
                 continue
         try:
             do_idx = tokens.index("do", i + 1)

@@ -165,6 +165,17 @@ assert_eq "R3_while" "deny" "$(decision "while read l; do echo \$l; done < file"
 assert_eq "R3_until" "deny" "$(decision "until false; do echo hi; done")"
 assert_eq "R3_select" "deny" "$(decision "select x in a b c; do echo \$x; done")"
 assert_eq "R3_for_pipeline" "deny" "$(decision "for i in 1 2 3; do echo \$i; done | wc -l")"
+# Variable-assignment prefix (`FOO=bar`) is a transparent environment
+# modifier — `for` after it is still at command-position.
+assert_eq "R3_for_with_assignment" "deny" "$(decision "FOO=bar for i in 1; do echo \$i; done")"
+assert_eq "R3_while_with_assignment" "deny" "$(decision "X=1 Y=2 while read l; do echo \$l; done < file")"
+# Combined assignment + wrapper prefix (order-independent).
+assert_eq "R3_for_with_assignment_and_wrapper" "deny" "$(decision "X=1 time for i in 1; do :; done")"
+# Invalid shell variable names (digit-leading, dot-inside) are NOT valid
+# assignments and must remain regular tokens — `for` after them is not at
+# command-position, so the rule shouldn't fire.
+assert_eq "R3_for_after_invalid_assignment_digit" "silent" "$(decision "1=foo for i in 1; do :; done")"
+assert_eq "R3_for_after_invalid_assignment_dot" "silent" "$(decision "foo.bar=x for i in 1; do :; done")"
 assert_eq "R3_quoted_for" "silent" "$(decision "echo 'for x in y; do z; done'")"
 assert_eq "R3_find_done" "silent" "$(decision "find . -name done")"
 # Keyword tokens present but no do/done body -> not a loop.

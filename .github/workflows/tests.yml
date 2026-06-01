@@ -85,6 +85,17 @@ jobs:
       - name: Run write-under-roots test
         run: bash tests/write_under_roots_test.sh
 
+  rm-under-tmp-hook:
+    name: rm-under-tmp hook test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run rm-under-tmp test
+        run: bash tests/rm_under_tmp_test.sh
+
   go-unit:
     name: Go unit tests
     runs-on: ubuntu-latest

@@ -24,7 +24,9 @@ The `deny-shell-wrapper.py` hook blocks any Bash command that buries the real wo
 - **Heredocs piped into an interpreter.** `python3 <<EOF ... EOF`, `bash <<-EOF ...`, etc. Heredocs feeding `cat` / `tee` to write a file are fine.
 - **Multi-line ANSI-C `$'...\n...'` strings** containing a real newline or an escaped `\n`.
 
-Invocation wrappers (`env`, `sudo`, `command`, `exec`, `nice`, `nohup`, `time`, `FOO=bar` assignments, etc.) are peeled before the check — they do not provide an escape. Composition wrappers `xargs` and `timeout` are deliberately left alone.
+Invocation wrappers (`env`, `sudo`, `command`, `exec`, `nice`, `nohup`, `time`, `FOO=bar` assignments, etc.) are peeled before the check — they do not provide an escape. Composition wrappers `xargs` and `timeout` are deliberately left alone by this hook because they have legitimate composition uses.
+
+Both `xargs` and `timeout` are also deliberately absent from `permissions.allow` in `settings.json`. Allow-listing `Bash(xargs *)` or `Bash(timeout *)` would auto-allow `xargs rm /etc/passwd` (stripping the `rm-under-tmp.py` ASK gate, since that hook only fires when `tokens[0] == "rm"`), `timeout 10 bash -c 'rm -rf ~'`, `xargs git -C /tmp/x reset --hard` (stripping `git-deny-dash-c.py`), and every other invocation whose dangerous token sits past the first — none of which the leading-token gates (allowlist patterns and sibling hooks) can see. Absence from `permissions.ask` is a different decision: the dangerous shapes form an open set (any post-leading-token combination), so the default permission prompt is a better gate than enumerating narrow ASK patterns. Don't re-add `xargs` or `timeout` to either list under any path form.
 
 If you need to repeat logic, run the command N times directly. The Bash tool's working directory persists across calls, so each call can share state with the previous one. If you genuinely need a multi-step script, write a real script file via the Write tool first and then execute it as one command.
 

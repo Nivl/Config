@@ -75,6 +75,10 @@
           },
           {
             "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/rm-under-tmp.py"
+          },
+          {
+            "type": "command",
             "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-shell-wrapper.py"
           }
         ]
@@ -303,7 +307,6 @@
     ],
     "ask": [
       "Bash(/bin/mv *)",
-      "Bash(/bin/rm *)",
       "Bash(/opt/homebrew/bin/ *)",
       "Bash(/opt/homebrew/bin/go build ../*)",
       "Bash(/opt/homebrew/bin/go build ./../*)",
@@ -324,7 +327,6 @@
       "Bash(go build ./../*)",
       "Bash(go build /*)",
       "Bash(mv *)",
-      "Bash(rm *)",
       "Bash(sed * -i*)",
       "Bash(sed -i*)",
       "Bash(wget *)"

@@ -107,6 +107,17 @@ jobs:
       - name: Run deny-json-tool test
         run: bash tests/deny_json_tool_test.sh
 
+  deny-awk-hook:
+    name: deny-awk hook test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run deny-awk test
+        run: bash tests/deny_awk_test.sh
+
   go-unit:
     name: Go unit tests
     runs-on: ubuntu-latest

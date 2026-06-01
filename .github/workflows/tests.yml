@@ -96,6 +96,17 @@ jobs:
       - name: Run rm-under-tmp test
         run: bash tests/rm_under_tmp_test.sh
 
+  deny-json-tool-hook:
+    name: deny-json-tool hook test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run deny-json-tool test
+        run: bash tests/deny_json_tool_test.sh
+
   go-unit:
     name: Go unit tests
     runs-on: ubuntu-latest

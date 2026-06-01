@@ -182,6 +182,7 @@
       "Bash(/usr/bin/git stash list *)",
       "Bash(/usr/bin/git stash list)",
       "Bash(/usr/bin/git status *)",
+      "Bash(/usr/bin/git symbolic-ref --short *)",
       "Bash(/usr/bin/git worktree list)",
       "Bash(/usr/bin/grep *)",
       "Bash(/usr/bin/head *)",
@@ -258,6 +259,7 @@
       "Bash(git stash list *)",
       "Bash(git stash list)",
       "Bash(git status *)",
+      "Bash(git symbolic-ref --short *)",
       "Bash(git worktree list)",
       "Bash(go build *)",
       "Bash(go doc *)",
@@ -329,7 +331,10 @@
       "Bash(sed -i*)",
       "Bash(wget *)"
     ],
-    "deny": ["Bash(* .env *)", "Bash(* ~/.ssh/*)"]
+    "deny": [
+      "Bash(* .env *)",
+      "Bash(* ~/.ssh/*)"
+    ]
   },
   "skipAutoPermissionPrompt": true,
   "theme": "auto"

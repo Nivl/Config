@@ -6,6 +6,14 @@
 #   - read-only call -> "allow" (skip the prompt)
 #   - write call     -> "ask"   (force a confirmation prompt)
 #
+# A PIPE is different: we can't reason about what a downstream stage does
+# with the data, so any `gh api ... | ...` is "deny"ed with a message
+# steering the agent to redirect to a file instead, e.g.
+#   gh api <endpoint> > /tmp/gh-api.out   (then read that file)
+# The bare redirect form has no pipe and no chain token, so the read
+# classifier below auto-allows it. Denying (rather than abstaining) means
+# the agent self-corrects without a human prompt.
+#
 # The hook is self-contained: it does NOT pair with a `Bash(gh api *)`
 # ask rule. An ask rule can't be bypassed by a hook "allow", so pairing
 # the two would prompt on every read. Emitting "ask" for writes here
@@ -13,8 +21,9 @@
 #
 # Anything that can't be classified cleanly stays silent and falls
 # through to the normal permission flow (default-mode prompt):
-#   - the command contains a shell separator (;, &, &&, ||, |, |&) —
-#     we can't reason about chained commands
+#   - the command contains a non-pipe shell separator (;, &, &&, ||) —
+#     we can't reason about chained or backgrounded commands. (Redirects
+#     like `> file` and `2>&1` are NOT separators and stay classifiable.)
 #   - the command can't be tokenized
 #
 # A call is treated as a WRITE when any of:
@@ -30,7 +39,9 @@ import sys
 
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 FIELD_FLAGS = {"-f", "-F", "--field", "--raw-field"}
-CHAIN_TOKENS = {";", "&", "&&", "||", "|", "|&"}
+# A pipe -> deny (steer to a file redirect). The rest -> abstain.
+PIPE_TOKENS = {"|", "|&"}
+CHAIN_TOKENS = {";", "&", "&&", "||"}
 
 
 def emit(decision: str, reason: str) -> None:
@@ -68,6 +79,18 @@ def main() -> None:
         lex.whitespace_split = True
         tokens = list(lex)
     except ValueError:
+        return
+
+    if any(t in PIPE_TOKENS for t in tokens):
+        emit(
+            "deny",
+            "gh api calls may not be piped — the read/write guard can't "
+            "classify what a downstream pipeline stage does with the data. "
+            "Re-run the bare call; if you need to capture or cap the output, "
+            "redirect to a file instead of piping, e.g. "
+            "`gh api <endpoint> > /tmp/gh-api.out`, then read that file. "
+            "(Un-piped read calls are auto-allowed; write calls still prompt.)",
+        )
         return
 
     if any(t in CHAIN_TOKENS for t in tokens):

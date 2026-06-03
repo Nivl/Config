@@ -1,4 +1,10 @@
 {
+  "additionalDirectories": [
+    "/Users/melvin/Dev/repos",
+    "/Users/melvin/Dev/worktrees",
+    "/private/tmp",
+    "/tmp"
+  ],
   "enabledPlugins": {
     "amplitude@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true,
@@ -135,6 +141,7 @@
       "Bash(/opt/homebrew/bin/gh release verify *)",
       "Bash(/opt/homebrew/bin/gh release verify-asset *)",
       "Bash(/opt/homebrew/bin/gh release view *)",
+      "Bash(/opt/homebrew/bin/gh repo view *)",
       "Bash(/opt/homebrew/bin/gh run list *)",
       "Bash(/opt/homebrew/bin/gh run view *)",
       "Bash(/opt/homebrew/bin/go build *)",
@@ -202,7 +209,9 @@
       "Bash(/usr/bin/man *)",
       "Bash(/usr/bin/read *)",
       "Bash(/usr/bin/sed *)",
+      "Bash(/usr/bin/sort)",
       "Bash(/usr/bin/tail *)",
+      "Bash(/usr/bin/uniq *)",
       "Bash(/usr/bin/wc *)",
       "Bash(/usr/bin/which *)",
       "Bash(/usr/bin/xxd *)",
@@ -236,6 +245,7 @@
       "Bash(gh release verify *)",
       "Bash(gh release verify-asset *)",
       "Bash(gh release view *)",
+      "Bash(gh repo view *)",
       "Bash(gh run list *)",
       "Bash(gh run view *)",
       "Bash(git --no-pager blame *)",
@@ -302,8 +312,10 @@
       "Bash(rg *)",
       "Bash(sed *)",
       "Bash(shfmt *)",
+      "Bash(sort)",
       "Bash(tail *)",
       "Bash(tree *)",
+      "Bash(uniq *)",
       "Bash(wc *)",
       "Bash(which *)",
       "Bash(xxd *)",
@@ -348,12 +360,6 @@
       "Bash(* ~/.ssh/*)"
     ]
   },
-  "additionalDirectories": [
-    "/Users/melvin/Dev/repos",
-    "/Users/melvin/Dev/worktrees",
-    "/private/tmp",
-    "/tmp"
-  ],
   "skipAutoPermissionPrompt": true,
   "theme": "auto"
 }

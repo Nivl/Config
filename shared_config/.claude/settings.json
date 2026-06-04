@@ -333,7 +333,8 @@
       "WebFetch(domain:nextjs.org)",
       "WebFetch(domain:oxc.rs)",
       "WebFetch(domain:pkg.go.dev)",
-      "WebFetch(domain:react.dev)"
+      "WebFetch(domain:react.dev)",
+      "WebFetch(domain:registry.npmjs.org)"
     ],
     "ask": [
       "Bash(/bin/mv *)",
@@ -364,6 +365,44 @@
     "deny": [
       "Bash(* .env *)",
       "Bash(* ~/.ssh/*)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "autoAllowBashIfSandboxed": false,
+    "allowUnsandboxedCommands": true,
+    "filesystem": {
+      "allowWrite": [
+        "/Users/melvin/.melvin/config",
+        "/Users/melvin/Dev/repos",
+        "/Users/melvin/Dev/worktrees",
+        "/private/tmp",
+        "/tmp"
+      ],
+      "denyRead": [
+        "/Users/melvin/.aws",
+        "/Users/melvin/.config",
+        "/Users/melvin/.docker",
+        "/Users/melvin/.gnupg",
+        "/Users/melvin/.kube",
+        "/Users/melvin/.netrc",
+        "/Users/melvin/.ssh"
+      ]
+    },
+    "excludedCommands": [
+      "/Users/melvin/.asdf/shims/go get *",
+      "/Users/melvin/.asdf/shims/go mod *",
+      "/opt/homebrew/bin/gh *",
+      "/opt/homebrew/bin/go get *",
+      "/opt/homebrew/bin/go mod *",
+      "/usr/bin/git *",
+      "/usr/local/bin/docker *",
+      "docker *",
+      "gh *",
+      "git *",
+      "go get *",
+      "go mod *"
     ]
   },
   "skipAutoPermissionPrompt": true,

@@ -42,3 +42,21 @@ Commenting code is good. Keep doing it. But every comment must earn its place. F
   - Bad: `// some comment (TICKET-0123).`
 - **Keep them short and focused.** One or two lines is the norm. Only write a long paragraph when the logic is genuinely complex and a short note cannot carry it.
 - **Write plainly.** Use short sentences. Avoid semicolons. Aim for a middle-school or high-school reading level, while still using normal software engineering terms.
+
+## Sandbox mode
+
+Bash commands run inside an OS-level sandbox (macOS Seatbelt). It is a safety *floor* beneath the permission rules and hooks. `autoAllowBashIfSandboxed` is **off**, so the prompt/approval flow is unchanged — the sandbox only adds hard OS limits that the kernel enforces. It governs **Bash only**. The Write / Edit / Read tools stay on the hooks plus permission rules. The whole block assumes macOS/Seatbelt: `failIfUnavailable` is on, so on any host where the sandbox backend cannot initialize, Claude Code refuses to start rather than run unprotected.
+
+What the sandbox enforces for Bash:
+
+- **Writes** are allowed only under the dev roots (`~/Dev/repos`, `~/Dev/worktrees`, `~/.melvin/config`) and `/tmp` (and its canonical form `/private/tmp`). A write anywhere else fails at the kernel. By **default** the sandbox also denies writes to `.git` (and git internals), `.claude/hooks`, `.claude/skills`, `.mcp.json`, and every `settings.json`, so don't try to hand-write those from Bash. Git itself writes `.git` fine because git runs unsandboxed (see below).
+- **Reads** are blocked for the home credential dirs (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`, `~/.docker`, `~/.netrc`) and the **whole `~/.config`** — a broad deny so every current and future tool token under it (`gh`, `gcloud`, `op`, `stripe`, `vercel-plugin`, `configstore`, …) is covered without enumerating each. `~/.npmrc` (not under `~/.config`) stays readable so sandboxed `pnpm install` keeps working. The Go toolchain is unaffected: on macOS `go` reads `~/Library/Application Support/go/env`, not `~/.config`. If a sandboxed tool ever needs a non-secret `~/.config` subdir, re-allow just that path with `sandbox.filesystem.allowRead` — a denied read fails loudly, so breakage is obvious, not silent. Everything else stays readable.
+- **Network** egress is allowlisted. The allowlist is the set of `WebFetch(domain:…)` allow rules, which the sandbox reuses. A new host prompts on first use. Add it with `melvin-config claude perms allow add --fetch <host>`.
+
+Some tools run **outside** the sandbox (`sandbox.excludedCommands`) and are gated by the normal permission rules instead:
+
+- `docker` — incompatible with the sandbox.
+- `gh`, `go get`, `go mod` — Go CLIs fail TLS verification under Seatbelt.
+- **all `git`** — `.git` is write-denied inside the sandbox, so running git unsandboxed lets `commit`/`add`/`fetch` (and git-over-SSH) work normally. Local git is still repo-scoped and gated by the allowlist plus `git-deny-dash-c.py`.
+
+Rollback: set `sandbox.enabled` to `false`, re-sync (`melvin-config claude sync`), and restart Claude Code. On a personal computer the symlinked `~/.claude/settings.json` makes the edit live, so only a restart is needed. Hooks and permission rules are unchanged, so behavior returns to exactly pre-sandbox.

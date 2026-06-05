@@ -161,3 +161,15 @@ func TestVariants_TrimsSurroundingWhitespace(t *testing.T) {
 	assert.Contains(t, got, "Bash(git status *)")
 	assert.NotContains(t, got, "Bash(  git status *  )")
 }
+
+func TestCommandVariants_RawAndTwin(t *testing.T) {
+	stubLookPath(t, map[string]string{"gh": "/opt/homebrew/bin/gh"})
+	got := CommandVariants("gh pr view *")
+	assert.Equal(t, []string{"gh pr view *", "/opt/homebrew/bin/gh pr view *"}, got)
+}
+
+func TestCommandVariants_NoTwinWhenUnresolved(t *testing.T) {
+	disablePathResolution(t)
+	got := CommandVariants("rushx test *")
+	assert.Equal(t, []string{"rushx test *"}, got)
+}

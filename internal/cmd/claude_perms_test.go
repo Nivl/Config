@@ -43,7 +43,8 @@ func setupPermsTestRepo(t *testing.T) (configDir string, cfg *appConfig, stderr 
     "deny": []
   }
 }
-`), 0o644))
+`), 0o644,
+	))
 
 	for _, args := range [][]string{
 		{"init", "-q", "--initial-branch=main"},
@@ -244,7 +245,7 @@ func TestRunPermsCmd_NoFlagsErrors(t *testing.T) {
 		nil, addAction{},
 	)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "--bash, --read, or --fetch")
+	assert.Contains(t, err.Error(), "--bash, --read, --fetch, or --skill")
 }
 
 // TestRunPermsCmd_CommitSubjectPluralization — 1 rule vs N rules
@@ -549,4 +550,120 @@ func TestApplyDryRunFromFlags_NeitherFlagNorEnv(t *testing.T) {
 	assert.False(t, cfg.dryRun)
 	assert.Equal(t, initialReporter, cfg.reporter,
 		"reporter must not be re-swapped when dry-run is false")
+}
+
+// readBashAllow returns the parsed bash-allow-trusted.json next to the
+// hook in the test repo.
+func readBashAllow(t *testing.T, configDir string) struct {
+	Excluded [][]string `json:"excluded"`
+	Trusted  [][]string `json:"trusted"`
+} {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(configDir, bashAllowRelPath))
+	require.NoError(t, err)
+	var parsed struct {
+		Excluded [][]string `json:"excluded"`
+		Trusted  [][]string `json:"trusted"`
+	}
+	require.NoError(t, json.Unmarshal(data, &parsed))
+	return parsed
+}
+
+// seedExcluded rewrites settings.json with the given sandbox.excludedCommands.
+func seedExcluded(t *testing.T, configDir string, excl []string) {
+	t.Helper()
+	s, err := perms.Load(filepath.Join(configDir, settingsRelPath))
+	require.NoError(t, err)
+	s.SetExcludedCommands(excl)
+	require.NoError(t, s.Save(filepath.Join(configDir, settingsRelPath)))
+}
+
+// seedAllow rewrites permissions.allow with the given raw rules.
+func seedAllow(t *testing.T, configDir string, rules []string) {
+	t.Helper()
+	s, err := perms.Load(filepath.Join(configDir, settingsRelPath))
+	require.NoError(t, err)
+	s.SetList(perms.ListAllow, rules)
+	require.NoError(t, s.Save(filepath.Join(configDir, settingsRelPath)))
+}
+
+func TestPermsAllowAdd_RegeneratesBashAllow(t *testing.T) {
+	configDir, cfg, _ := setupPermsTestRepo(t)
+	seedExcluded(t, configDir, []string{"gh *"})
+
+	cmd := newPermsCmd(cfg)
+	cmd.SetArgs([]string{"allow", "add", "--bash", "gh pr view *"})
+	require.NoError(t, cmd.Execute())
+
+	ba := readBashAllow(t, configDir)
+	assert.Contains(t, ba.Trusted, []string{"gh", "pr", "view"})
+	assert.Contains(t, ba.Excluded, []string{"gh"})
+
+	out, err := exec.CommandContext(t.Context(), "git", "-C", configDir,
+		"show", "--name-only", "--pretty=format:", "HEAD").CombinedOutput()
+	require.NoError(t, err)
+	assert.Contains(t, string(out), "bash-allow-trusted.json")
+	assert.Contains(t, string(out), "settings.json")
+}
+
+// readExcluded re-reads sandbox.excludedCommands from settings.json.
+func readExcluded(t *testing.T, configDir string) []string {
+	t.Helper()
+	s, err := perms.Load(filepath.Join(configDir, settingsRelPath))
+	require.NoError(t, err)
+	return s.ExcludedCommands()
+}
+
+func TestPermsExcludeAddRemove(t *testing.T) {
+	configDir, cfg, _ := setupPermsTestRepo(t)
+	seedExcluded(t, configDir, []string{"git *"})
+	seedAllow(t, configDir, []string{"Bash(rushx test *)"})
+
+	add := newPermsCmd(cfg)
+	add.SetArgs([]string{"exclude", "add", "rushx test *"})
+	require.NoError(t, add.Execute())
+
+	assert.Contains(t, readExcluded(t, configDir), "rushx test *")
+	// now rushx test is allowed ∩ excluded -> trusted
+	assert.Contains(t, readBashAllow(t, configDir).Trusted, []string{"rushx", "test"})
+
+	rm := newPermsCmd(cfg)
+	rm.SetArgs([]string{"exclude", "remove", "rushx test *"})
+	require.NoError(t, rm.Execute())
+
+	assert.NotContains(t, readExcluded(t, configDir), "rushx test *")
+	assert.NotContains(t, readBashAllow(t, configDir).Trusted, []string{"rushx", "test"})
+}
+
+func TestPermsRebuild_BackfillsFromSettings(t *testing.T) {
+	configDir, cfg, _ := setupPermsTestRepo(t)
+	seedExcluded(t, configDir, []string{"rushx test *"})
+	seedAllow(t, configDir, []string{"Bash(rushx test *)", "Bash(go build *)"})
+
+	cmd := newPermsCmd(cfg)
+	cmd.SetArgs([]string{"rebuild"})
+	require.NoError(t, cmd.Execute())
+
+	ba := readBashAllow(t, configDir)
+	assert.Equal(t, [][]string{{"rushx", "test"}}, ba.Trusted) // go build dropped
+}
+
+// TestCommittedBashAllowInSync guards against drift: the committed
+// bash-allow-trusted.json must equal what Derive produces from the committed
+// settings.json. A failure means settings.json was edited without running
+// `melvin-config claude perms rebuild`.
+func TestCommittedBashAllowInSync(t *testing.T) {
+	root := filepath.Join("..", "..")
+	s, err := perms.Load(filepath.Join(root, settingsRelPath))
+	require.NoError(t, err)
+	trusted, excluded := perms.Derive(s.List(perms.ListAllow), s.ExcludedCommands())
+
+	expected := filepath.Join(t.TempDir(), "expected.json")
+	require.NoError(t, perms.WriteBashAllow(expected, trusted, excluded))
+	want, err := os.ReadFile(expected)
+	require.NoError(t, err)
+	got, err := os.ReadFile(filepath.Join(root, bashAllowRelPath))
+	require.NoError(t, err)
+	assert.Equal(t, string(want), string(got),
+		"bash-allow-trusted.json is stale — run `melvin-config claude perms rebuild`")
 }

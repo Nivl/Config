@@ -171,6 +171,40 @@ func TestSave_NormalizesNestedMultiLineRawValues(t *testing.T) {
 		"nested multi-line values must be re-indented consistently")
 }
 
+func TestSettings_ExcludedCommandsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{
+  "model": "opus",
+  "permissions": { "allow": [], "ask": [], "deny": [] },
+  "sandbox": {
+    "enabled": true,
+    "excludedCommands": ["git *", "gh *"],
+    "filesystem": { "denyRead": ["/x"] }
+  }
+}
+`), 0o644))
+
+	s, err := Load(path)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"git *", "gh *"}, s.ExcludedCommands())
+
+	s.SetExcludedCommands([]string{"gh *", "docker *", "git *"})
+	require.NoError(t, s.Save(path))
+
+	reloaded, err := Load(path)
+	require.NoError(t, err)
+	// Save sorts+dedupes the list, like the permission lists.
+	assert.Equal(t, []string{"docker *", "gh *", "git *"}, reloaded.ExcludedCommands())
+
+	// Other sandbox keys + top-level keys survive untouched.
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"enabled": true`)
+	assert.Contains(t, string(data), `"denyRead"`)
+	assert.Contains(t, string(data), `"model": "opus"`)
+}
+
 // TestSave_TwoSpaceIndentAndTrailingNewline — output uses 2-space
 // indent (matches existing settings.json) and ends with a newline so
 // line-based tooling and editors are happy.

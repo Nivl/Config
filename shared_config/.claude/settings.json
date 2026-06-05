@@ -98,6 +98,10 @@
           {
             "type": "command",
             "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-shell-wrapper.py"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/bash-allow-trusted.py"
           }
         ]
       },
@@ -172,6 +176,7 @@
       "Bash(/usr/bin/find *)",
       "Bash(/usr/bin/git --no-pager blame *)",
       "Bash(/usr/bin/git --no-pager diff *)",
+      "Bash(/usr/bin/git --no-pager grep *)",
       "Bash(/usr/bin/git --no-pager log *)",
       "Bash(/usr/bin/git --no-pager ls-tree *)",
       "Bash(/usr/bin/git --no-pager show *)",
@@ -184,6 +189,7 @@
       "Bash(/usr/bin/git diff *)",
       "Bash(/usr/bin/git fetch *)",
       "Bash(/usr/bin/git fsck *)",
+      "Bash(/usr/bin/git grep *)",
       "Bash(/usr/bin/git help *)",
       "Bash(/usr/bin/git log *)",
       "Bash(/usr/bin/git ls-files *)",
@@ -255,6 +261,7 @@
       "Bash(gh run watch *)",
       "Bash(git --no-pager blame *)",
       "Bash(git --no-pager diff *)",
+      "Bash(git --no-pager grep *)",
       "Bash(git --no-pager log *)",
       "Bash(git --no-pager ls-tree *)",
       "Bash(git --no-pager show *)",
@@ -267,6 +274,7 @@
       "Bash(git diff *)",
       "Bash(git fetch *)",
       "Bash(git fsck *)",
+      "Bash(git grep *)",
       "Bash(git help *)",
       "Bash(git log *)",
       "Bash(git ls-files *)",
@@ -368,31 +376,10 @@
     ]
   },
   "sandbox": {
-    "enabled": true,
-    "failIfUnavailable": true,
-    "autoAllowBashIfSandboxed": false,
     "allowUnsandboxedCommands": true,
-    "filesystem": {
-      "allowWrite": [
-        "/Users/melvin/.melvin/config",
-        "/Users/melvin/Dev/repos",
-        "/Users/melvin/Dev/worktrees",
-        "/private/tmp",
-        "/tmp"
-      ],
-      "denyRead": [
-        "/Users/melvin/.aws",
-        "/Users/melvin/.config",
-        "/Users/melvin/.docker",
-        "/Users/melvin/.gnupg",
-        "/Users/melvin/.kube",
-        "/Users/melvin/.netrc",
-        "/Users/melvin/.ssh"
-      ]
-    },
+    "autoAllowBashIfSandboxed": false,
+    "enabled": true,
     "excludedCommands": [
-      "/Users/melvin/.asdf/shims/go get *",
-      "/Users/melvin/.asdf/shims/go mod *",
       "/opt/homebrew/bin/gh *",
       "/opt/homebrew/bin/go get *",
       "/opt/homebrew/bin/go mod *",
@@ -403,7 +390,28 @@
       "git *",
       "go get *",
       "go mod *"
-    ]
+    ],
+    "failIfUnavailable": true,
+    "filesystem": {
+      "allowWrite": [
+        "/private/tmp",
+        "/tmp",
+        "~/.melvin/config",
+        "~/Dev/repos",
+        "~/Dev/sdks",
+        "~/Dev/worktrees",
+        "~/Library/Caches/go-build/"
+      ],
+      "denyRead": [
+        "~/.aws",
+        "~/.config",
+        "~/.docker",
+        "~/.gnupg",
+        "~/.kube",
+        "~/.netrc",
+        "~/.ssh"
+      ]
+    }
   },
   "skipAutoPermissionPrompt": true,
   "theme": "auto"

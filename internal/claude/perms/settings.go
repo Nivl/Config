@@ -45,6 +45,16 @@ type Settings struct {
 	// permsOther captures any keys inside `permissions` that aren't
 	// allow/ask/deny (e.g. `defaultMode`) so we round-trip them.
 	permsOther map[string]json.RawMessage
+
+	// sandboxOther captures every key under `sandbox` except
+	// excludedCommands, so they round-trip untouched.
+	sandboxOther map[string]json.RawMessage
+	// excludedCmds is the typed sandbox.excludedCommands list.
+	excludedCmds []string
+	// hasSandbox records whether the loaded file had a `sandbox`
+	// key, so Save only writes one back if it existed (or a caller
+	// set excluded commands).
+	hasSandbox bool
 }
 
 // Load reads settings.json from path and returns an in-memory
@@ -54,9 +64,10 @@ type Settings struct {
 // special-casing first-run scenarios.
 func Load(path string) (*Settings, error) {
 	s := &Settings{
-		top:        map[string]json.RawMessage{},
-		lists:      map[ListName][]string{ListAllow: {}, ListAsk: {}, ListDeny: {}},
-		permsOther: map[string]json.RawMessage{},
+		top:          map[string]json.RawMessage{},
+		lists:        map[ListName][]string{ListAllow: {}, ListAsk: {}, ListDeny: {}},
+		permsOther:   map[string]json.RawMessage{},
+		sandboxOther: map[string]json.RawMessage{},
 	}
 
 	data, err := os.ReadFile(path) //nolint:gosec // caller-supplied path to a project-tracked settings file
@@ -90,6 +101,23 @@ func Load(path string) (*Settings, error) {
 			s.permsOther[key] = raw
 		}
 	}
+
+	if sandboxRaw, ok := s.top["sandbox"]; ok {
+		s.hasSandbox = true
+		var sandboxObj map[string]json.RawMessage
+		if err := json.Unmarshal(sandboxRaw, &sandboxObj); err != nil {
+			return nil, fmt.Errorf("parse sandbox in %s: %w", path, err)
+		}
+		for key, raw := range sandboxObj {
+			if key == "excludedCommands" {
+				if err := json.Unmarshal(raw, &s.excludedCmds); err != nil {
+					return nil, fmt.Errorf("parse sandbox.excludedCommands in %s: %w", path, err)
+				}
+				continue
+			}
+			s.sandboxOther[key] = raw
+		}
+	}
 	return s, nil
 }
 
@@ -104,6 +132,19 @@ func (s *Settings) List(name ListName) []string {
 // writing to disk.
 func (s *Settings) SetList(name ListName, items []string) {
 	s.lists[name] = items
+}
+
+// ExcludedCommands returns the current sandbox.excludedCommands list.
+func (s *Settings) ExcludedCommands() []string {
+	return s.excludedCmds
+}
+
+// SetExcludedCommands replaces sandbox.excludedCommands. Marks the
+// settings as having a sandbox block so Save writes it back even if
+// the loaded file had none. Save sorts + dedupes before writing.
+func (s *Settings) SetExcludedCommands(items []string) {
+	s.excludedCmds = items
+	s.hasSandbox = true
 }
 
 // Save serializes Settings back to path with 2-space indentation,
@@ -130,6 +171,22 @@ func (s *Settings) Save(path string) error {
 		return fmt.Errorf("marshal permissions: %w", err)
 	}
 	s.top["permissions"] = permsBytes
+
+	if s.hasSandbox {
+		sandboxObj := map[string]json.RawMessage{}
+		maps.Copy(sandboxObj, s.sandboxOther)
+		excl := sortedUnique(s.excludedCmds)
+		marshaled, err := json.MarshalIndent(excl, "    ", "  ")
+		if err != nil {
+			return fmt.Errorf("marshal sandbox.excludedCommands: %w", err)
+		}
+		sandboxObj["excludedCommands"] = marshaled
+		sandboxBytes, err := marshalIndentObject(sandboxObj, "  ", "  ")
+		if err != nil {
+			return fmt.Errorf("marshal sandbox: %w", err)
+		}
+		s.top["sandbox"] = sandboxBytes
+	}
 
 	out, err := marshalIndentObject(s.top, "", "  ")
 	if err != nil {

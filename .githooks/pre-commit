@@ -34,4 +34,11 @@ while IFS= read -r file; do
     jq -f "$FILTER" <<<"$staged" >"$REPO_ROOT/$file"
     git add "$REPO_ROOT/$file"
   fi
-done < <(git diff --cached --name-only --diff-filter=ACM | grep -E '^(\.claude|shared_config/\.claude)/.*\.json$' || true)
+# bash-allow-trusted.json holds ORDERED token tuples (command prefixes). The
+# canonical sort in canonicalize.jq sorts every primitive array, which would
+# scramble token order and break the hook's prefix matching. It is generated
+# already-canonical by `melvin-config claude perms`, so exempt it here.
+done < <(git diff --cached --name-only --diff-filter=ACM \
+  | grep -E '^(\.claude|shared_config/\.claude)/.*\.json$' \
+  | grep -vE '(^|/)bash-allow-trusted(\.local)?\.json$' \
+  || true)

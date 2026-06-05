@@ -95,23 +95,34 @@ func Variants(kind Kind, value string) ([]string, error) {
 	}
 }
 
-// bashVariants expands a bash value into the rule list described on
-// Variants: the raw `Bash(value)`, plus a resolved-path twin when
-// lookPath resolves the first token to a different absolute path. No
-// command (git included) gets special treatment — the `git -C`
-// cwd-bypass form is handled by deny at the hook layer, not by
-// allow-listing here.
-func bashVariants(value string) []string {
+// CommandVariants returns the raw command plus its PATH-resolved twin
+// (when the leading token resolves to a different absolute path). Used
+// by Bash() rule expansion and by the exclude command, which writes the
+// raw forms straight into sandbox.excludedCommands.
+func CommandVariants(value string) []string {
 	first, rest := splitFirstToken(value)
-	out := []string{
-		"Bash(" + value + ")",
-	}
+	out := []string{value}
 	if resolved, err := lookPath(first); err == nil && resolved != first {
 		resolvedValue := resolved
 		if rest != "" {
 			resolvedValue = resolved + " " + rest
 		}
-		out = append(out, "Bash("+resolvedValue+")")
+		out = append(out, resolvedValue)
+	}
+	return out
+}
+
+// bashVariants expands a bash value into the rule list described on
+// Variants: the raw `Bash(value)`, plus a resolved-path twin when
+// lookPath resolves the first token to a different absolute path. No
+// command (git included) gets special treatment — the `git -C`
+// cwd-bypass form is handled by deny at the hook layer, not by
+// allow-listing here. Delegates to CommandVariants for the raw expansion.
+func bashVariants(value string) []string {
+	raw := CommandVariants(value)
+	out := make([]string, len(raw))
+	for i, v := range raw {
+		out[i] = "Bash(" + v + ")"
 	}
 	return out
 }

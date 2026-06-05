@@ -129,6 +129,17 @@ jobs:
       - name: Run deny-multi-command test
         run: bash tests/deny_multi_command_test.sh
 
+  bash-allow-trusted-hook:
+    name: bash-allow-trusted hook test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run bash-allow-trusted test
+        run: bash tests/bash_allow_trusted_test.sh
+
   go-unit:
     name: Go unit tests
     runs-on: ubuntu-latest

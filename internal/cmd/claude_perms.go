@@ -22,6 +22,22 @@ import (
 // edit and as the path passed to `git add` so commits stay scoped.
 const settingsRelPath = "shared_config/.claude/settings.json"
 
+// bashAllowRelPath is the hook data file regenerated from settings.json
+// on every perms mutation and staged alongside it.
+const bashAllowRelPath = "shared_config/.claude/hooks/bash-allow-trusted.json"
+
+// regenerateBashAllow derives the trusted/excluded prefix lists from the
+// in-memory Settings and writes them to bash-allow-trusted.json.
+// Creates the parent directory if it doesn't exist yet.
+func regenerateBashAllow(settings *perms.Settings, configDir string) error {
+	dest := filepath.Join(configDir, bashAllowRelPath)
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return fmt.Errorf("create hooks dir: %w", err)
+	}
+	trusted, excluded := perms.Derive(settings.List(perms.ListAllow), settings.ExcludedCommands())
+	return perms.WriteBashAllow(dest, trusted, excluded)
+}
+
 // newPermsCmd builds the `melvin-config claude perms` parent
 // command. It has no body — only the three list-subcommands
 // (allow/ask/deny). Each list subcommand has add/remove children.
@@ -47,6 +63,8 @@ The command only runs on a personal computer (PERSONAL_COMPUTER=true).`,
 	cmd.AddCommand(newPermsListCmd(cfg, perms.ListAllow))
 	cmd.AddCommand(newPermsListCmd(cfg, perms.ListAsk))
 	cmd.AddCommand(newPermsListCmd(cfg, perms.ListDeny))
+	cmd.AddCommand(newPermsRebuildCmd(cfg))
+	cmd.AddCommand(newPermsExcludeCmd(cfg))
 	return cmd
 }
 
@@ -218,7 +236,7 @@ func runPermsCmd(ctx context.Context, cfg *appConfig, list perms.ListName, ops [
 		return err
 	}
 	if len(ops) == 0 {
-		return errors.New("at least one of --bash, --read, or --fetch is required")
+		return errors.New("at least one of --bash, --read, --fetch, or --skill is required")
 	}
 
 	configDir, err := resolveConfigDir(cfg)
@@ -250,6 +268,9 @@ func runPermsCmd(ctx context.Context, cfg *appConfig, list perms.ListName, ops [
 	if err := settings.Save(settingsPath); err != nil {
 		return fmt.Errorf("save settings: %w", err)
 	}
+	if err := regenerateBashAllow(settings, configDir); err != nil {
+		return fmt.Errorf("regenerate bash-allow: %w", err)
+	}
 	if err := gitCommitSettings(ctx, cfg, configDir, list, action.verb(), diff); err != nil {
 		return fmt.Errorf("git commit: %w", err)
 	}
@@ -264,10 +285,10 @@ func runPermsCmd(ctx context.Context, cfg *appConfig, list perms.ListName, ops [
 func reportDryRunCommit(reporter dryrun.Reporter, configDir string, list perms.ListName, verb string, diff perms.Diff) {
 	subject := buildCommitSubject(list, verb, diff)
 	reporter.Shellout("git",
-		[]string{"-C", configDir, "add", settingsRelPath},
-		"stage settings change")
+		[]string{"-C", configDir, "add", settingsRelPath, bashAllowRelPath},
+		"stage settings + bash-allow change")
 	reporter.Shellout("git",
-		[]string{"-C", configDir, "commit", "-m", subject},
+		[]string{"-C", configDir, "commit", "-m", subject, "--", settingsRelPath, bashAllowRelPath},
 		"commit settings change")
 }
 
@@ -341,8 +362,7 @@ func printDiff(out io.Writer, diff perms.Diff, list perms.ListName, verb string,
 // `feat(claude,perms): <verb> N <list> rules (<kinds>)`. The body lists every
 // rule so the commit message stays auditable for big batches.
 func gitCommitSettings(ctx context.Context, cfg *appConfig, configDir string, list perms.ListName, verb string, diff perms.Diff) error {
-	relPath := settingsRelPath
-	if err := runGit(ctx, cfg, configDir, "add", relPath); err != nil {
+	if err := runGit(ctx, cfg, configDir, "add", settingsRelPath, bashAllowRelPath); err != nil {
 		return err
 	}
 
@@ -352,7 +372,7 @@ func gitCommitSettings(ctx context.Context, cfg *appConfig, configDir string, li
 	if body != "" {
 		msg = subject + "\n\n" + body
 	}
-	return runGit(ctx, cfg, configDir, "commit", "-m", msg)
+	return runGit(ctx, cfg, configDir, "commit", "-m", msg, "--", settingsRelPath, bashAllowRelPath)
 }
 
 // buildCommitSubject produces a compact 1-line subject summarizing
@@ -438,6 +458,189 @@ func summarizeKinds(diff perms.Diff) string {
 	// canonical Bash → Read → Skill → WebFetch order).
 	sort.Strings(out)
 	return strings.Join(out, ", ")
+}
+
+// newPermsExcludeCmd builds `claude perms exclude` with add/remove
+// children that edit sandbox.excludedCommands. Patterns are raw command
+// globs (positional); each is expanded to its PATH twin via
+// CommandVariants. After the edit, bash-allow-trusted.json is
+// regenerated and both files are committed.
+func newPermsExcludeCmd(cfg *appConfig) *cobra.Command {
+	cmd := &cobra.Command{Use: "exclude", Short: "Manage sandbox.excludedCommands"}
+	cmd.AddCommand(newPermsExcludeMutateCmd(cfg, "add"))
+	cmd.AddCommand(newPermsExcludeMutateCmd(cfg, "remove"))
+	return cmd
+}
+
+func newPermsExcludeMutateCmd(cfg *appConfig, verb string) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   verb + " <pattern>...",
+		Short: fmt.Sprintf("%s sandbox.excludedCommands entries", verb),
+		Args:  cobra.MinimumNArgs(1),
+	}
+	cmd.RunE = func(cobraCmd *cobra.Command, args []string) error {
+		if err := applyDryRunFromFlags(cobraCmd, cfg); err != nil {
+			return err
+		}
+		return runExcludeCmd(cobraCmd.Context(), cfg, verb, args)
+	}
+	return cmd
+}
+
+func runExcludeCmd(ctx context.Context, cfg *appConfig, verb string, patterns []string) error {
+	if err := requirePersonalComputer(); err != nil {
+		return err
+	}
+	configDir, err := resolveConfigDir(cfg)
+	if err != nil {
+		return err
+	}
+	settingsPath := filepath.Join(configDir, settingsRelPath)
+	settings, err := perms.Load(settingsPath)
+	if err != nil {
+		return fmt.Errorf("load settings: %w", err)
+	}
+
+	// Expand each pattern to its raw form + PATH twin.
+	var rules []string
+	for _, p := range patterns {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		rules = append(rules, perms.CommandVariants(p)...)
+	}
+
+	existing := settings.ExcludedCommands()
+	idx := map[string]struct{}{}
+	for _, e := range existing {
+		idx[e] = struct{}{}
+	}
+	changed := false
+	added, removed := 0, 0
+	addLabel, removeLabel := "added  ", "removed"
+	if cfg.dryRun {
+		addLabel, removeLabel = "would add", "would remove"
+	}
+	switch verb {
+	case "add":
+		for _, r := range rules {
+			if _, ok := idx[r]; ok {
+				fmt.Fprintf(cfg.streams.Err, "skipped (already excluded): %s\n", r)
+				continue
+			}
+			existing = append(existing, r)
+			idx[r] = struct{}{}
+			changed = true
+			added++
+			fmt.Fprintf(cfg.streams.Err, "%s excluded -> %s\n", addLabel, r)
+		}
+	case "remove":
+		keep := existing[:0:0]
+		drop := map[string]struct{}{}
+		for _, r := range rules {
+			drop[r] = struct{}{}
+		}
+		for _, e := range existing {
+			if _, ok := drop[e]; ok {
+				changed = true
+				removed++
+				fmt.Fprintf(cfg.streams.Err, "%s excluded <- %s\n", removeLabel, e)
+				continue
+			}
+			keep = append(keep, e)
+		}
+		existing = keep
+	}
+	if !changed {
+		return nil
+	}
+	// Count entries actually changed, not the PATH-twin-expanded input, so the
+	// commit subject is an accurate audit record.
+	subject := fmt.Sprintf("feat(claude,perms): %s %d excludedCommands", verb, added+removed)
+	if cfg.dryRun {
+		cfg.reporter.Shellout("git",
+			[]string{"-C", configDir, "add", settingsRelPath, bashAllowRelPath},
+			"stage exclude change")
+		cfg.reporter.Shellout("git",
+			[]string{"-C", configDir, "commit", "-m", subject, "--", settingsRelPath, bashAllowRelPath},
+			"commit exclude change")
+		return nil
+	}
+
+	settings.SetExcludedCommands(existing)
+	if err := settings.Save(settingsPath); err != nil {
+		return fmt.Errorf("save settings: %w", err)
+	}
+	if err := regenerateBashAllow(settings, configDir); err != nil {
+		return fmt.Errorf("regenerate bash-allow: %w", err)
+	}
+	if err := runGit(ctx, cfg, configDir, "add", settingsRelPath, bashAllowRelPath); err != nil {
+		return err
+	}
+	return runGit(ctx, cfg, configDir, "commit", "-m", subject, "--", settingsRelPath, bashAllowRelPath)
+}
+
+// newPermsRebuildCmd builds `claude perms rebuild`: regenerate
+// bash-allow-trusted.json from the current settings.json (no allow/ask/
+// deny/exclude change) and commit if it changed. Used for the one-time
+// audit/migration and after any hand-edit of settings.json.
+func newPermsRebuildCmd(cfg *appConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rebuild",
+		Short: "Regenerate bash-allow-trusted.json from settings.json",
+		Args:  cobra.NoArgs,
+	}
+	cmd.RunE = func(cobraCmd *cobra.Command, _ []string) error {
+		if err := applyDryRunFromFlags(cobraCmd, cfg); err != nil {
+			return err
+		}
+		if err := requirePersonalComputer(); err != nil {
+			return err
+		}
+		configDir, err := resolveConfigDir(cfg)
+		if err != nil {
+			return err
+		}
+		settings, err := perms.Load(filepath.Join(configDir, settingsRelPath))
+		if err != nil {
+			return fmt.Errorf("load settings: %w", err)
+		}
+		if cfg.dryRun {
+			cfg.reporter.Shellout("git",
+				[]string{"-C", configDir, "add", bashAllowRelPath}, "stage bash-allow rebuild")
+			return nil
+		}
+		if err := regenerateBashAllow(settings, configDir); err != nil {
+			return fmt.Errorf("regenerate bash-allow: %w", err)
+		}
+		if err := runGit(cobraCmd.Context(), cfg, configDir, "add", bashAllowRelPath); err != nil {
+			return err
+		}
+		return commitIfStaged(cobraCmd.Context(), cfg, configDir,
+			"chore(claude,perms): rebuild bash-allow-trusted.json", bashAllowRelPath)
+	}
+	return cmd
+}
+
+// commitIfStaged commits the given pathspec with subject only if those
+// paths have staged changes, so a no-op rebuild doesn't create an empty
+// commit and an unrelated pre-staged file isn't swept into the commit.
+func commitIfStaged(ctx context.Context, cfg *appConfig, configDir, subject string, pathspec ...string) error {
+	args := append([]string{"-C", configDir, "diff", "--cached", "--quiet", "--"}, pathspec...)
+	c := exec.CommandContext(ctx, "git", args...) //nolint:gosec // fixed verb; pathspec is repo-relative literals
+	err := c.Run()
+	if err == nil {
+		return nil // nothing staged for these paths
+	}
+	// `git diff --quiet` exits 1 when there ARE differences; any other exit
+	// code is a real failure (not a repo, bad pathspec) that must surface.
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+		return fmt.Errorf("git diff --cached: %w", err)
+	}
+	commitArgs := append([]string{"commit", "-m", subject, "--"}, pathspec...)
+	return runGit(ctx, cfg, configDir, commitArgs...)
 }
 
 // runGit invokes `git -C <configDir> <args...>` with both stdout and

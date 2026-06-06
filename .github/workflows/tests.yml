@@ -129,6 +129,17 @@ jobs:
       - name: Run deny-multi-command test
         run: bash tests/deny_multi_command_test.sh
 
+  deny-command-substitution-hook:
+    name: deny-command-substitution hook test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run deny-command-substitution test
+        run: bash tests/deny_command_substitution_test.sh
+
   bash-allow-trusted-hook:
     name: bash-allow-trusted hook test
     runs-on: macos-latest

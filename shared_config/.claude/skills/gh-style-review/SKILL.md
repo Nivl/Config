@@ -88,9 +88,20 @@ Example invocations:
 
    **PR mode:**
    ```
-   gh pr view <PR_NUM> --json number,baseRefName,headRefName,url,author,title,body,state,isDraft,createdAt
+   gh pr view <PR_NUM> --json number,baseRefName,headRefName,headRefOid,url,author,title,body,state,isDraft,createdAt
    ```
-   Save `<OWNER>`, `<REPO>`, `<PR_NUM>`, `<BASE_REF>`, `<HEAD_REF>`, `<IS_DRAFT>`.
+   Save `<OWNER>`, `<REPO>`, `<PR_NUM>`, `<BASE_REF>`, `<HEAD_REF>`, `<HEAD_SHA>` (= `headRefOid`), `<IS_DRAFT>`.
+
+   Make the reviewed code readable locally **without disturbing the working tree** — the PR
+   head may not be the branch you're on, and parallel sub-agents share one checkout, so do
+   NOT `gh pr checkout`. Best-effort fetch the head commit (idempotent; ignore a failure from
+   a concurrent run):
+   ```
+   git fetch origin pull/<PR_NUM>/head
+   ```
+   Files at the reviewed revision are then read with `git show <HEAD_SHA>:<path>`. If the
+   object is missing, fall back to
+   `gh api repos/<OWNER>/<REPO>/contents/<path>?ref=<HEAD_SHA> -H "Accept: application/vnd.github.raw"`.
 
    - If `state != "OPEN"`, **abort early** and (if invoked as a sub-agent) return a
      `skipped_reason` of `"PR <N> is <state>; gh-style-review requires an open PR."`.
@@ -212,22 +223,60 @@ repository: <OWNER>/<REPO>                  # PR mode
 pr_number: <PR_NUM>                         # PR mode
 base_ref: origin/<BASE_REF>
 head_ref: <HEAD_REF>                        # PR mode (PR head branch)
+head_sha: <HEAD_SHA>                        # PR mode (reviewed revision; read files via `git show <HEAD_SHA>:<path>`)
 range: <RANGE>                              # branch mode
 </metadata>
 
-Review instructions:
+Review instructions — mirror how the @claude review Action works: you are reviewing a
+LIVE repository with full read access, NOT a static diff. The pre-fetched context above is
+your STARTING POINT, not the boundary of the review. This is a REVIEW, not an implementation
+task: do NOT edit files, commit, push, or post to GitHub. Read and report only.
 
-- Read the diff against `origin/<BASE_REF>` (NOT main/master).
-- Honor the repo's CLAUDE.md (read it before starting if you haven't already).
-- This is a REVIEW, not an implementation task. Do NOT edit files, do NOT commit,
-  do NOT push, do NOT post to GitHub. Read and report only.
-- (PR mode only) Cross-reference <comments>, <review_comments>, and <prior_reviews>:
-  if a concern was already raised there, either confirm it's resolved by the diff
-  or flag it as unresolved. Don't duplicate a point that's already been made by
-  a human. In **branch mode** these tags are absent — skip the Discussion Context
-  output section.
-- Focus on: correctness, project conventions (CLAUDE.md), security, error handling,
-  test coverage, and changes that look risky or surprising in context of the diff.
+1. Gather context.
+   - The diff against `origin/<BASE_REF>` (NOT main/master) shows WHAT changed.
+   - Use the Read tool to look at the relevant files for better context — read the FULL
+     changed files, not just the diff hunks, so each change is seen in its real surroundings.
+   - (PR mode) The reviewed code is at the PR head `<HEAD_SHA>`, which may differ from your
+     local working tree. Read the authoritative version with `git show <HEAD_SHA>:<path>`,
+     not whatever branch happens to be checked out.
+   - Read the repo's CLAUDE.md and honor it.
+
+2. Investigate impact — this is where diff-only review fails.
+   - For each change, trace it into the code it touches: the functions it calls, the callers
+     that reach it, and any previously-dormant, conditional, or dead code paths the change
+     newly activates or makes reachable.
+   - Read those surrounding and downstream files (Read/Grep/Glob) EVEN WHEN THEY ARE NOT IN
+     THE DIFF. A correct diff can still surface or activate a latent bug elsewhere — that
+     defect is in scope, and is exactly the kind diff-anchored review misses.
+   - Follow the data flow to its real endpoints (DB writes, emails, partner/external calls,
+     state transitions) and confirm the change's effect two hops out, not just locally.
+
+3. Reachability proof for any branch the change depends on — the check that catches dead-guard
+   / latent-typo bugs, done ADVERSARIALLY: default to the branch being BROKEN until you can
+   prove it fires, with quoted evidence. When the change relies on a branch firing (to send an
+   email, emit an event, persist, or clean up) and that branch is guarded by `X.field ===
+   'LITERAL'`:
+   - `git grep` the FIELD to list (i) every literal COMPARED against it and (ii) every site that
+     ASSIGNS or persists it — and QUOTE the assignment line(s).
+   - If the field is written verbatim from a source object (e.g. `model.status =
+     apiObject.status`), it holds THAT source's values — trace what the source actually
+     produces. Do NOT assume the field carries a separate "internal" value just because a
+     guard's literal looks plausible. A literal sitting next to a near-duplicate of itself
+     (`'PastDue'` vs a persisted `'Past Due'`; `'in_trial'` vs `'inTrial'`) is almost always a
+     typo, not a deliberate distinction — prove which from the assignment, don't rationalize.
+   - A guard whose literal never appears among the values actually written is a DEAD branch: the
+     dependent email / event / cleanup silently never happens. Flag it (REQUEST CHANGES) with
+     the exact line and the one-line fix. Reject any "it's intentional / it's a different field"
+     explanation you cannot back with a quoted write line.
+
+4. Review thoroughly. Look for: correctness bugs, security issues, performance problems,
+   missing edge cases, project-convention violations (CLAUDE.md), error handling, and test
+   coverage — including coverage gaps for unchanged code the change newly exercises.
+   - (PR mode only) Cross-reference <comments>, <review_comments>, and <prior_reviews>:
+     confirm a prior human concern is resolved by the diff, or flag it unresolved; don't
+     duplicate a point a human already made. In branch mode these tags are absent — skip the
+     Discussion Context output section.
+   - Reference specific code with file paths and line numbers.
 
 <!-- OUTPUT FORMAT — see "Output Format" section of the skill -->
 ```

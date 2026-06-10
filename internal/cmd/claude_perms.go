@@ -31,7 +31,7 @@ const bashAllowRelPath = "shared_config/.claude/hooks/bash-allow-trusted.json"
 // Creates the parent directory if it doesn't exist yet.
 func regenerateBashAllow(settings *perms.Settings, configDir string) error {
 	dest := filepath.Join(configDir, bashAllowRelPath)
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil { //nolint:gosec // 0755 conventional mkdir -p default
 		return fmt.Errorf("create hooks dir: %w", err)
 	}
 	trusted, excluded := perms.Derive(settings.List(perms.ListAllow), settings.ExcludedCommands())
@@ -475,7 +475,7 @@ func newPermsExcludeCmd(cfg *appConfig) *cobra.Command {
 func newPermsExcludeMutateCmd(cfg *appConfig, verb string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   verb + " <pattern>...",
-		Short: fmt.Sprintf("%s sandbox.excludedCommands entries", verb),
+		Short: verb + " sandbox.excludedCommands entries",
 		Args:  cobra.MinimumNArgs(1),
 	}
 	cmd.RunE = func(cobraCmd *cobra.Command, args []string) error {
@@ -526,14 +526,14 @@ func runExcludeCmd(ctx context.Context, cfg *appConfig, verb string, patterns []
 	case "add":
 		for _, r := range rules {
 			if _, ok := idx[r]; ok {
-				fmt.Fprintf(cfg.streams.Err, "skipped (already excluded): %s\n", r)
+				_, _ = fmt.Fprintf(cfg.streams.Err, "skipped (already excluded): %s\n", r)
 				continue
 			}
 			existing = append(existing, r)
 			idx[r] = struct{}{}
 			changed = true
 			added++
-			fmt.Fprintf(cfg.streams.Err, "%s excluded -> %s\n", addLabel, r)
+			_, _ = fmt.Fprintf(cfg.streams.Err, "%s excluded -> %s\n", addLabel, r)
 		}
 	case "remove":
 		keep := existing[:0:0]
@@ -545,7 +545,7 @@ func runExcludeCmd(ctx context.Context, cfg *appConfig, verb string, patterns []
 			if _, ok := drop[e]; ok {
 				changed = true
 				removed++
-				fmt.Fprintf(cfg.streams.Err, "%s excluded <- %s\n", removeLabel, e)
+				_, _ = fmt.Fprintf(cfg.streams.Err, "%s excluded <- %s\n", removeLabel, e)
 				continue
 			}
 			keep = append(keep, e)

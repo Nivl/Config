@@ -68,6 +68,8 @@ func Load(path string) (*Settings, error) {
 		lists:        map[ListName][]string{ListAllow: {}, ListAsk: {}, ListDeny: {}},
 		permsOther:   map[string]json.RawMessage{},
 		sandboxOther: map[string]json.RawMessage{},
+		excludedCmds: nil,
+		hasSandbox:   false,
 	}
 
 	data, err := os.ReadFile(path) //nolint:gosec // caller-supplied path to a project-tracked settings file

@@ -76,6 +76,7 @@ func TestWriteBashAllow(t *testing.T) {
 
 	got, err := os.ReadFile(path)
 	require.NoError(t, err)
+	//nolint:testifylint // byte-exact format check, not semantic JSON
 	assert.Equal(t, `{
   "excluded": [["git"], ["gh"]],
   "trusted": [["gh", "pr", "view"]]
@@ -120,5 +121,6 @@ func TestWriteBashAllow_EmptyListsRenderAsArrays(t *testing.T) {
 	require.NoError(t, WriteBashAllow(path, nil, nil))
 	got, err := os.ReadFile(path)
 	require.NoError(t, err)
+	//nolint:testifylint // byte-exact format check, not semantic JSON
 	assert.Equal(t, "{\n  \"excluded\": [],\n  \"trusted\": []\n}\n", string(got))
 }

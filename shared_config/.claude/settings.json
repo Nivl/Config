@@ -380,7 +380,7 @@
     ]
   },
   "sandbox": {
-    "allowUnsandboxedCommands": true,
+    "allowUnsandboxedCommands": false,
     "autoAllowBashIfSandboxed": false,
     "enabled": true,
     "excludedCommands": [

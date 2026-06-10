@@ -57,7 +57,7 @@ Commenting code is good. Keep doing it. But every comment must earn its place. F
 
 ## Sandbox mode
 
-Bash commands run inside an OS-level sandbox (macOS Seatbelt). It is a safety *floor* beneath the permission rules and hooks. `autoAllowBashIfSandboxed` is **off**, so the prompt/approval flow is unchanged — the sandbox only adds hard OS limits that the kernel enforces. It governs **Bash only**. The Write / Edit / Read tools stay on the hooks plus permission rules. The whole block assumes macOS/Seatbelt: `failIfUnavailable` is on, so on any host where the sandbox backend cannot initialize, Claude Code refuses to start rather than run unprotected.
+Bash commands run inside an OS-level sandbox (macOS Seatbelt). It is a safety *floor* beneath the permission rules and hooks. `autoAllowBashIfSandboxed` is **off**, so the prompt/approval flow is unchanged — the sandbox only adds hard OS limits that the kernel enforces. `allowUnsandboxedCommands` is **off** too: the Bash tool's `dangerouslyDisableSandbox` parameter is silently ignored, so retrying a sandbox-denied command with it just fails the same way. When a command genuinely needs to escape the sandbox (e.g. `melvin-config claude sync`, which writes `~/.claude`), don't retry — ask the user to run it themselves in a regular terminal. It governs **Bash only**. The Write / Edit / Read tools stay on the hooks plus permission rules. The whole block assumes macOS/Seatbelt: `failIfUnavailable` is on, so on any host where the sandbox backend cannot initialize, Claude Code refuses to start rather than run unprotected.
 
 What the sandbox enforces for Bash:
 

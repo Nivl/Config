@@ -220,6 +220,7 @@
       "Bash(/usr/bin/head *)",
       "Bash(/usr/bin/jq *)",
       "Bash(/usr/bin/man *)",
+      "Bash(/usr/bin/pgrep *)",
       "Bash(/usr/bin/read *)",
       "Bash(/usr/bin/sed *)",
       "Bash(/usr/bin/sort)",
@@ -319,6 +320,7 @@
       "Bash(ls *)",
       "Bash(man *)",
       "Bash(melvin-config *)",
+      "Bash(pgrep *)",
       "Bash(pnpm exec oxlint *)",
       "Bash(pnpm install *)",
       "Bash(pnpm run lint *)",
@@ -414,6 +416,11 @@
         "~/.kube",
         "~/.netrc",
         "~/.ssh"
+      ]
+    },
+    "network": {
+      "allowMachLookup": [
+        "com.apple.sysmond"
       ]
     }
   },

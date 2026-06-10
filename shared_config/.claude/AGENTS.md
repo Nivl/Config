@@ -28,7 +28,7 @@ Invocation wrappers (`env`, `sudo`, `command`, `exec`, `nice`, `nohup`, `time`, 
 
 Both `xargs` and `timeout` are also deliberately absent from `permissions.allow` in `settings.json`. Allow-listing `Bash(xargs *)` or `Bash(timeout *)` would auto-allow `xargs rm /etc/passwd` (stripping the `rm-under-tmp.py` ASK gate, since that hook only fires when `tokens[0] == "rm"`), `timeout 10 bash -c 'rm -rf ~'`, `xargs git -C /tmp/x reset --hard` (stripping `git-deny-dash-c.py`), and every other invocation whose dangerous token sits past the first — none of which the leading-token gates (allowlist patterns and sibling hooks) can see. Absence from `permissions.ask` is a different decision: the dangerous shapes form an open set (any post-leading-token combination), so the default permission prompt is a better gate than enumerating narrow ASK patterns. Don't re-add `xargs` or `timeout` to either list under any path form.
 
-If you need to repeat logic, run the command N times directly. The Bash tool's working directory persists across calls, so each call can share state with the previous one. If you genuinely need a multi-step script, write a real script file via the Write tool first and then execute it as one command.
+If you need to repeat logic, run the command N times directly. The Bash tool's working directory persists across calls, so each call can share state with the previous one. Do not reach for a script file as the workaround — executing shell script files is itself denied outside the allow-listed roots (see "No running shell script files").
 
 ## No command substitution inside Bash commands
 
@@ -37,6 +37,12 @@ The `deny-command-substitution.py` hook denies any Bash command that runs a comm
 The hook tracks quote state, so it only fires where the shell would actually expand the substitution. These stay allowed: substitution syntax inside **single quotes** (`grep '$(x)' file`, `rg '\$\('` — literal text, never run), **arithmetic** `$((...))` (`echo $((1 + 2))` — math, not a command), and `${VAR}` parameter expansion. A `$(...)` nested in a default like `${VAR:-$(cmd)}` still denies, because it does run.
 
 To use one command's output in the next, run it in its own Bash call, read the result, then paste the literal value into the following call — the Bash tool's working directory persists across calls.
+
+## No running shell script files
+
+The `deny-bash-script.py` hook denies executing a shell script file — `bash foo.sh`, `sh build.sh`, `zsh run.sh` (any of bash/sh/zsh/dash/ksh/mksh/ash) — unless the script lives under an allow-listed root. Same leading-token bypass as the sibling hooks: every gate sees only `bash`, while the file can do anything. Inline `bash -c` strings and heredocs are `deny-shell-wrapper.py`'s job; this hook closes the script-file shape. Run a script's steps directly as separate Bash calls instead.
+
+The escape route is `allowedRoots` in `hooks/deny-bash-script.json` (committed) or `hooks/deny-bash-script.local.json` (gitignored, per-machine) — for repos whose test suites are bash files. Currently allowed: `~/.melvin/config/tests` (this repo's own hook tests). A script under an allowed root runs without a prompt, but must run ALONE: piping or chaining it is denied — redirect to a file under `/tmp` and process it in a separate command, the same split pattern as excluded commands. An env-assignment prefix (`FOO=1 bash x.sh`) falls through to the normal permission prompt.
 
 ## Redirects go at the end of a command
 

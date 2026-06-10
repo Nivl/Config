@@ -1,0 +1,5 @@
+{
+  "allowedRoots": [
+    "~/.melvin/config/tests"
+  ]
+}

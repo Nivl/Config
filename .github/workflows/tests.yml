@@ -151,6 +151,17 @@ jobs:
       - name: Run deny-command-substitution test
         run: bash tests/deny_command_substitution_test.sh
 
+  deny-bash-script-hook:
+    name: deny-bash-script hook test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run deny-bash-script test
+        run: bash tests/deny_bash_script_test.sh
+
   bash-allow-trusted-hook:
     name: bash-allow-trusted hook test
     runs-on: macos-latest

@@ -7,6 +7,7 @@ shared_config/.emacs.d/auto-save-list/*
 shared_config/.claude/.sync-state/
 shared_config/.claude/settings.local.json
 shared_config/.claude/hooks/bash-allow-trusted.local.json
+shared_config/.claude/hooks/deny-bash-script.local.json
 shared_config/.claude/backups/
 shared_config/.claude/cache/
 shared_config/.claude/history.jsonl

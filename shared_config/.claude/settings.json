@@ -1,10 +1,4 @@
 {
-  "additionalDirectories": [
-    "/Users/melvin/Dev/repos",
-    "/Users/melvin/Dev/worktrees",
-    "/private/tmp",
-    "/tmp"
-  ],
   "enabledPlugins": {
     "amplitude@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true,
@@ -131,6 +125,12 @@
   },
   "model": "opus[1m]",
   "permissions": {
+    "additionalDirectories": [
+      "/Users/melvin/Dev/repos",
+      "/Users/melvin/Dev/worktrees",
+      "/private/tmp",
+      "/tmp"
+    ],
     "allow": [
       "Bash(* --help *)",
       "Bash(* --version)",

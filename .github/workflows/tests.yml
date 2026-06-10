@@ -52,6 +52,17 @@ jobs:
       - name: Run canonicalize test
         run: bash tests/canonicalize_test.sh
 
+  settings-schema:
+    name: settings.json schema test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run settings schema test
+        run: bash tests/settings_schema_test.sh
+
   gh-api-hook:
     name: gh api write-guard hook test
     runs-on: macos-latest

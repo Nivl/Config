@@ -38,6 +38,10 @@ The hook tracks quote state, so it only fires where the shell would actually exp
 
 To use one command's output in the next, run it in its own Bash call, read the result, then paste the literal value into the following call — the Bash tool's working directory persists across calls.
 
+## Redirects go at the end of a command
+
+Never place a redirect mid-command with more arguments after it, e.g. `rg --files src 2>/dev/null --glob '!dist' | head -40`. The shell would hand the post-redirect tokens back to `rg`, but Claude Code's safety parser refuses to vouch for that shape: it force-prompts with the reason "Redirect has multiple targets — post-redirect args swallowed", even when every pipeline segment is allow-listed. Write the redirect as the last token of its segment instead (`rg --files src --glob '!dist' 2>/dev/null | head -40`) — or just drop `2>/dev/null`, which is rarely needed in the first place.
+
 ## Code comments
 
 Commenting code is good. Keep doing it. But every comment must earn its place. Follow these rules:

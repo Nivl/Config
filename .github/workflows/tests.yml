@@ -162,6 +162,17 @@ jobs:
       - name: Run deny-bash-script test
         run: bash tests/deny_bash_script_test.sh
 
+  deny-env-vars-hook:
+    name: deny-env-vars hook test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run deny-env-vars test
+        run: bash tests/deny_env_vars_test.sh
+
   bash-allow-trusted-hook:
     name: bash-allow-trusted hook test
     runs-on: macos-latest

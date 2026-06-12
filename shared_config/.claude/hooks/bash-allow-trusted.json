@@ -45,6 +45,8 @@
     ["git", "ls-tree"],
     ["git", "merge", "origin/main"],
     ["git", "merge", "origin/master"],
+    ["git", "merge-base", "origin/main", "HEAD"],
+    ["git", "merge-base", "origin/master", "HEAD"],
     ["git", "mv"],
     ["git", "pull"],
     ["git", "remote", "show"],

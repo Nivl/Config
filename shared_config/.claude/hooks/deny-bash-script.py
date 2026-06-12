@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-# PreToolUse hook: deny executing shell SCRIPT FILES (`bash foo.sh`,
-# `sh build.sh`, `zsh run.sh`, any of bash/sh/zsh/dash/ksh/mksh/ash)
-# unless the script lives under an allow-listed root. This is the same
-# leading-token bypass the sibling hooks close: the allowlist and every
-# other gate see only `bash`, while the file can contain anything.
-# Inline `-c` strings and heredocs-into-interpreters are already
-# deny-shell-wrapper.py's job; this hook covers the script-file shape
-# that one deliberately leaves alone.
+# PreToolUse hook: deny executing SCRIPT FILES with an interpreter —
+# `bash foo.sh`, `sh build.sh`, `zsh run.sh` (any of bash/sh/zsh/dash/
+# ksh/mksh/ash), and `node foo.js` — unless the script lives under an
+# allow-listed root. This is the same leading-token bypass the sibling
+# hooks close: the allowlist and every other gate see only `bash` or
+# `node`, while the file can contain anything. Inline code strings
+# (shell `-c`, node `-e`/`-p`/`--eval`/`--print`) and heredocs-into-
+# interpreters are already deny-shell-wrapper.py's job; this hook
+# covers the script-file shape that one deliberately leaves alone.
 #
 # The escape route: a script under a root listed in the sibling
 # deny-bash-script.json (committed) or deny-bash-script.local.json
@@ -17,13 +18,16 @@
 # already fail at the kernel.
 #
 # Decisions (first match wins):
-#   1. No shell-family token at command-position          -> silent
-#   2. `-c` option cluster on the shell                   -> silent (deny-shell-wrapper owns it)
+#   1. No interpreter token at command-position           -> silent
+#   2. Inline-code flags (`-c` clusters for shells;
+#      `-e`/`-p`/`--eval`/`--print` for node)             -> silent (deny-shell-wrapper owns it)
 #   3. Compound command (| && || ; & newline, subshell)   -> DENY (must run alone)
 #   4. Leading env assignment (FOO=1 bash x.sh)           -> silent (falls to the prompt;
 #      same documented carve-out as deny-awk.py)
-#   5. Lone `shell <script>` with script under a root     -> ALLOW
-#   6. Any other `shell ...` (bare, stdin, redirect-as-
+#   5. No script argument at all (`node --version`)       -> silent (falls to the prompt;
+#      nothing executes, and probes like --version stay allowlistable)
+#   6. Lone `interpreter <script>` with script under root -> ALLOW
+#   7. Any other `interpreter ...` (stdin/redirect-as-
 #      script, script outside the roots)                  -> DENY
 #
 # Missing or malformed config files contribute no roots (fail closed:
@@ -36,25 +40,43 @@ import shlex
 import sys
 
 SHELL_RE = re.compile(r"^(?:bash|sh|zsh|dash|ksh|mksh|ash)$")
-# Superset of the sibling hooks' separator conventions so a shell after
-# any chaining/grouping token counts as command-position.
+NODE_RE = re.compile(r"^node$")
+# Superset of the sibling hooks' separator conventions so an interpreter
+# after any chaining/grouping token counts as command-position.
 CMD_SEPARATORS = frozenset({";", ";;", "|", "|&", "&", "&&", "||", "(", "{"})
 
+# Flags whose presence means "inline code, not a script file" — those
+# shapes belong to deny-shell-wrapper.py, so this hook stays silent and
+# lets it give its richer reason. Short-cluster letters per family, plus
+# node's long forms.
+INLINE_CODE_CLUSTER = {"shell": "c", "node": "ep"}
+INLINE_CODE_LONG = {"node": frozenset({"--eval", "--print"})}
+
 DENY_OUTSIDE = (
-    "Don't execute shell script files (`bash <file>`, `sh`, `zsh`, ...) — "
-    "the allowlist and the sibling gates only see the interpreter token, "
-    "not what the file does. Run the script's steps directly as separate "
-    "Bash calls instead. If this directory legitimately holds runnable "
-    "scripts (e.g. a bash-file test suite), add its absolute path to "
-    "`allowedRoots` in deny-bash-script.json (committed) or "
-    "deny-bash-script.local.json (this machine only), next to the hooks."
+    "Don't execute script files with an interpreter (`bash <file>`, "
+    "`zsh <file>`, `node <file>`, ...) — the allowlist and the sibling "
+    "gates only see the interpreter token, not what the file does. Run "
+    "the script's steps directly as separate Bash calls instead. If this "
+    "directory legitimately holds runnable scripts (e.g. a bash-file "
+    "test suite), add its absolute path to `allowedRoots` in "
+    "deny-bash-script.json (committed) or deny-bash-script.local.json "
+    "(this machine only), next to the hooks."
 )
 
 DENY_COMPOUND = (
-    "Shell script files must run ALONE — no pipe (|), chain (&&, ||, ;, "
+    "Script files must run ALONE — no pipe (|), chain (&&, ||, ;, "
     "newline), or subshell. Run `bash <script> > /tmp/out.txt` first, "
     "then process the file in a SEPARATE command."
 )
+
+
+def interpreter_kind(token):
+    base = os.path.basename(token)
+    if SHELL_RE.match(base):
+        return "shell"
+    if NODE_RE.match(base):
+        return "node"
+    return None
 
 
 def _config_dir():
@@ -139,35 +161,43 @@ def main():
     except ValueError:
         return
 
-    # First shell-family token at command-position. Plain occurrences as
-    # arguments (`echo bash`, `which bash`) and assignment-prefixed forms
+    # First interpreter token at command-position. Plain occurrences as
+    # arguments (`echo bash`, `which node`) and assignment-prefixed forms
     # (`FOO=1 bash x.sh`) don't sit at command-position and fall through
     # to the normal permission flow.
-    pos = None
+    pos, kind = None, None
     for i, t in enumerate(tokens):
-        if SHELL_RE.match(os.path.basename(t)) and (i == 0 or tokens[i - 1] in CMD_SEPARATORS):
-            pos = i
+        k = interpreter_kind(t)
+        if k and (i == 0 or tokens[i - 1] in CMD_SEPARATORS):
+            pos, kind = i, k
             break
     if pos is None:
         return
 
-    # Defer `-c` clusters (-c, -lc, -ec, ...) to deny-shell-wrapper.py so
-    # the agent gets its richer inline-code reason instead of this one.
+    # Defer inline-code shapes (shell `-c` clusters, node `-e`/`-p`/
+    # `--eval`/`--print`) to deny-shell-wrapper.py so the agent gets its
+    # richer reason instead of this one.
+    cluster = INLINE_CODE_CLUSTER[kind]
+    long_opts = INLINE_CODE_LONG.get(kind, frozenset())
     for t in tokens[pos + 1:]:
         if t in CMD_SEPARATORS:
             break
         if t == "--":
             break
-        if t.startswith("-") and not t.startswith("--") and "c" in t[1:]:
+        if t in long_opts:
+            return
+        if t.startswith("-") and not t.startswith("--") and any(ch in t[1:] for ch in cluster):
             return
 
     if any(t in CMD_SEPARATORS for t in tokens) or has_unquoted_newline(cmd.strip()):
         emit("deny", DENY_COMPOUND)
         return
 
-    # Single simple command with the shell leading. Find the script: the
-    # first non-option argument. A redirect/heredoc token in that slot
-    # means the "script" comes from stdin — no file to vet, so deny.
+    # Single simple command with the interpreter leading. Find the
+    # script: the first non-option argument. A redirect/heredoc token in
+    # that slot means the "script" comes from stdin — no file to vet, so
+    # deny. No argument at all (`node --version`, bare `bash`) executes
+    # no file — stay silent so probes keep working via the allowlist.
     script = None
     args = tokens[1:]
     i = 0
@@ -181,13 +211,15 @@ def main():
             continue
         script = a
         break
-    if not script or script[0] in "<>&":
+    if script is None:
+        return
+    if script[0] in "<>&":
         emit("deny", DENY_OUTSIDE)
         return
 
     cwd = (data.get("cwd") or "").strip() or os.getcwd()
     if under_root(script, cwd, _allowed_roots()):
-        emit("allow", "shell script under an allowed root")
+        emit("allow", "script under an allowed root")
         return
     emit("deny", DENY_OUTSIDE)
 

@@ -2,10 +2,10 @@
 # Exercises shared_config/.claude/hooks/deny-bash-script.py: feeds it
 # PreToolUse Bash payloads against a fixture allowedRoots config
 # (pointed to by DENY_BASH_SCRIPT_DIR) and asserts the decision.
-#   shell + script under an allowed root, run alone -> allow
-#   shell + script anywhere else                    -> deny
-#   compound/piped/stdin shell invocations          -> deny
-#   -c shapes, non-shells, arg-position shells      -> silent
+#   interpreter (shell/node) + script under an allowed root, alone -> allow
+#   interpreter + script anywhere else                             -> deny
+#   compound/piped/stdin interpreter invocations                   -> deny
+#   inline-code shapes, no-script probes, arg-position tokens      -> silent
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 HOOK="$SCRIPT_DIR/shared_config/.claude/hooks/deny-bash-script.py"
@@ -66,9 +66,15 @@ assert_eq "deny_tmp" "deny" "$(decision "bash /tmp/whatever.sh")"
 assert_eq "deny_relative_outside" "deny" "$(decision "bash evil.sh" "$OUTSIDE")"
 assert_eq "deny_traversal" "deny" "$(decision "bash $ROOT/../outside/evil.sh")"
 
-# ---- Deny: no vettable script file ----
-assert_eq "deny_bare" "deny" "$(decision "bash")"
+# ---- Deny: stdin-fed script (no file to vet) ----
 assert_eq "deny_stdin_redirect" "deny" "$(decision "bash < $ROOT/test.sh")"
+assert_eq "deny_node_stdin" "deny" "$(decision "node < $OUTSIDE/evil.js")"
+
+# ---- Silent: no script argument executes no file — probes fall to the allowlist ----
+assert_eq "silent_bare_bash" "silent" "$(decision "bash")"
+assert_eq "silent_bare_node" "silent" "$(decision "node")"
+assert_eq "silent_node_version" "silent" "$(decision "node --version")"
+assert_eq "silent_bash_version" "silent" "$(decision "bash --version")"
 
 # ---- Deny: compound — allowed-root scripts must run alone ----
 assert_eq "deny_piped" "deny" "$(decision "bash $ROOT/test.sh | head -3")"
@@ -80,9 +86,21 @@ assert_eq "deny_subshell" "deny" "$(decision "(bash $ROOT/test.sh)")"
 # ---- Deny: fail closed when the config is missing ----
 assert_eq "deny_no_config" "deny" "$(DENY_BASH_SCRIPT_DIR="$FIX/empty" decision "bash $ROOT/test.sh")"
 
-# ---- Silent: -c shapes belong to deny-shell-wrapper.py ----
+# ---- Node: same root rules as the shells ----
+assert_eq "allow_node_under_root" "allow" "$(decision "node $ROOT/tool.js")"
+assert_eq "allow_node_with_flag" "allow" "$(decision "node --no-warnings $ROOT/tool.js")"
+assert_eq "deny_node_outside" "deny" "$(decision "node $OUTSIDE/evil.js")"
+assert_eq "deny_node_relative" "deny" "$(decision "node evil.js" "$OUTSIDE")"
+assert_eq "deny_node_piped" "deny" "$(decision "node $ROOT/tool.js | head -3")"
+assert_eq "deny_abs_node" "deny" "$(decision "/opt/homebrew/bin/node $OUTSIDE/evil.js")"
+
+# ---- Silent: inline-code shapes belong to deny-shell-wrapper.py ----
 assert_eq "silent_dash_c" "silent" "$(decision "bash -c 'echo hi'")"
 assert_eq "silent_dash_lc" "silent" "$(decision "bash -lc 'echo hi'")"
+assert_eq "silent_node_eval_short" "silent" "$(decision "node -e 'console.log(1)'")"
+assert_eq "silent_node_print_short" "silent" "$(decision "node -p '1+1'")"
+assert_eq "silent_node_eval_long" "silent" "$(decision "node --eval 'console.log(1)'")"
+assert_eq "silent_node_packed" "silent" "$(decision "node -pe '1+1'")"
 
 # ---- Silent: shell not at command-position ----
 assert_eq "silent_echo_bash" "silent" "$(decision "echo bash")"
@@ -95,6 +113,8 @@ assert_eq "silent_assign_prefix" "silent" "$(decision "FOO=1 bash $ROOT/test.sh"
 # ---- Silent: lookalikes and non-shells ----
 assert_eq "silent_ssh" "silent" "$(decision "ssh host uptime")"
 assert_eq "silent_bash_suffix" "silent" "$(decision "bash-upgrade --check")"
+assert_eq "silent_node_suffix" "silent" "$(decision "nodemon app.js")"
+assert_eq "silent_echo_node" "silent" "$(decision "echo node")"
 assert_eq "silent_empty" "silent" "$(decision "")"
 
 # ---- Reasons steer at the escape and the split pattern ----

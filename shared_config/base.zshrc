@@ -3,6 +3,8 @@
 zstyle ':completion:*' special-dirs true
 zstyle ':omz:update' mode disabled # Updates should be done manually
 
+export HOMEBREW_REQUIRE_TAP_TRUST=1
+
 export ZSH="$HOME/.melvin/config/shared_config/.oh-my-zsh"
 # ZSH_CUSTOM points OUTSIDE the OMZ submodule so user customizations
 # (e.g. the nivl theme) survive `git submodule update --remote`

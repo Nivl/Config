@@ -141,6 +141,31 @@ exit 0`
 	got, err := os.ReadFile(logFile)
 	require.NoError(t, err)
 	assert.Equal(t, "upgrade\n", string(got))
+
+	// Scoped form: names ride as positional args (used by the retry path).
+	require.NoError(t, r.Upgrade(context.Background(), "foo", "bar"))
+	got, err = os.ReadFile(logFile)
+	require.NoError(t, err)
+	assert.Equal(t, "upgrade foo bar\n", string(got))
+}
+
+// TestRunner_Outdated_FakeBinarySubprocess verifies the arg shape and
+// the one-name-per-line parse, including blank-line trimming.
+func TestRunner_Outdated_FakeBinarySubprocess(t *testing.T) {
+	body := `echo "$@" > "$BREW_LOG"
+printf 'the-unarchiver\n\nzoom\n'`
+	dir := fakeBrew(t, body)
+	logFile := filepath.Join(dir, "brew.log")
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("BREW_LOG", logFile)
+
+	r := NewRunner(iox.Streams{Out: io.Discard, Err: io.Discard})
+	names, err := r.Outdated(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, []string{"the-unarchiver", "zoom"}, names)
+	got, err := os.ReadFile(logFile)
+	require.NoError(t, err)
+	assert.Equal(t, "outdated --quiet\n", string(got))
 }
 
 // TestRunner_IsCaskInstalled_FakeBinarySubprocess covers both branches:
@@ -190,9 +215,17 @@ type fakeRunner struct {
 	mock.Mock
 }
 
-// Upgrade implements Runner via the embedded mock.
-func (f *fakeRunner) Upgrade(ctx context.Context) error {
-	return f.Called(ctx).Error(0)
+// Upgrade implements Runner via the embedded mock. Variadic args are
+// bundled into a single []string slot in the mock call.
+func (f *fakeRunner) Upgrade(ctx context.Context, packages ...string) error {
+	return f.Called(ctx, packages).Error(0)
+}
+
+// Outdated implements Runner via the embedded mock.
+func (f *fakeRunner) Outdated(ctx context.Context) ([]string, error) {
+	args := f.Called(ctx)
+	v, _ := args.Get(0).([]string)
+	return v, args.Error(1)
 }
 
 // Install implements Runner via the embedded mock.
@@ -271,7 +304,7 @@ func TestDryRunRunner_WriteMethodsReportNoOp(t *testing.T) {
 	assert.Equal(t, []string{"install", "git", "go"}, rep.shellouts[1].args)
 	assert.Equal(t, []string{"install", "--cask", "iterm2"}, rep.shellouts[2].args)
 	// Write methods on the wrapped runner are never called.
-	inner.AssertNotCalled(t, "Upgrade", mock.Anything)
+	inner.AssertNotCalled(t, "Upgrade", mock.Anything, mock.Anything)
 	inner.AssertNotCalled(t, "Install", mock.Anything, mock.Anything)
 	inner.AssertNotCalled(t, "InstallCask", mock.Anything, mock.Anything)
 }
@@ -321,8 +354,13 @@ func TestDryRunRunner_ReadMethodsPassThrough(t *testing.T) {
 	inner.On("IsCaskInstalled", mock.Anything, "rectangle").Return(true, nil)
 	inner.On("IsAppRunning", mock.Anything, "Rectangle").Return(false, nil)
 	inner.On("ListCaskApps", mock.Anything, "rectangle").Return([]string{"Rectangle.app"}, nil)
+	inner.On("Outdated", mock.Anything).Return([]string{"zoom"}, nil)
 	rep := &fakeReporter{Reporter: dryrun.NewNullReporter()}
 	r := NewDryRunWrapper(inner, rep)
+
+	gotOutdated, err := r.Outdated(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, []string{"zoom"}, gotOutdated)
 
 	gotInstalled, err := r.IsCaskInstalled(context.Background(), "rectangle")
 	require.NoError(t, err)

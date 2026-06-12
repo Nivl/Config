@@ -18,7 +18,7 @@ import (
 // successful formula install groups. Used by tests where formulae are
 // expected to succeed and we want to focus assertions on cask behavior.
 func expectAllFormulaeInstalls(fake *brewtest.FakeRunner) {
-	fake.On("Upgrade", mock.Anything).Return(nil).Once()
+	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil).Once()
 	fake.On("Install", mock.Anything, Formulae).Return(nil).Once()
 	fake.On("Install", mock.Anything, Fonts).Return(nil).Once()
 	fake.On("Install", mock.Anything, DevTools).Return(nil).Once()
@@ -48,7 +48,7 @@ func TestInstall_FreshInstall_AllCasksProceed(t *testing.T) {
 	summary, err := Install(context.Background(), &buf, fake, Opts{Personal: false})
 	require.NoError(t, err)
 	assert.Empty(t, summary.Skipped)
-	assert.Empty(t, summary.Failed)
+	assert.False(t, summary.HasFailures())
 	// The fake's .Once() expectations already prove every cask was
 	// requested exactly once — no Installed count to cross-check.
 	fake.AssertExpectations(t)
@@ -74,7 +74,7 @@ func TestInstall_DockerRunning_Skipped(t *testing.T) {
 	summary, err := Install(context.Background(), &buf, fake, Opts{})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"docker"}, summary.Skipped)
-	assert.Empty(t, summary.Failed)
+	assert.False(t, summary.HasFailures())
 	fake.AssertExpectations(t)
 }
 
@@ -99,34 +99,98 @@ func TestInstall_CaskFailureCapturesReason(t *testing.T) {
 	var buf bytes.Buffer
 	summary, err := Install(context.Background(), &buf, fake, Opts{})
 	require.NoError(t, err)
-	require.Len(t, summary.Failed, 1)
-	assert.Equal(t, "raycast", summary.Failed[0].Name)
-	assert.Equal(t, "Error: raycast download failed", summary.Failed[0].Reason)
+	require.Len(t, summary.FailedCasks, 1)
+	assert.Equal(t, "raycast", summary.FailedCasks[0].Name)
+	assert.Equal(t, "Error: raycast download failed", summary.FailedCasks[0].Reason)
 	fake.AssertExpectations(t)
 }
 
-// TestInstall_FormulaFailureAbortsRun asserts that a formula install error
-// returns a wrapped error AND prevents any cask install from running.
-func TestInstall_FormulaFailureAbortsRun(t *testing.T) {
+// TestInstall_FormulaFailureIsolatesPerFormula asserts that a formula
+// group failure no longer aborts: every formula in the group is
+// re-attempted alone, the broken one lands in FailedFormulae, and the
+// cask phase still runs.
+func TestInstall_FormulaFailureIsolatesPerFormula(t *testing.T) {
 	fake := brewtest.NewFakeRunner()
-	fake.On("Upgrade", mock.Anything).Return(nil).Once()
+	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil).Once()
 	fake.On("Install", mock.Anything, Formulae).Return(errors.New("network down")).Once()
-	// No further calls expected — Install must abort here.
+	fake.On("Install", mock.Anything, []string{Formulae[0]}).Return(errors.New("network down")).Once()
+	// Every other isolated formula and the remaining groups succeed.
+	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectAllCasksInstall(fake, CommonCasks)
+	expectAllCasksInstall(fake, BetaCasks)
 
 	var buf bytes.Buffer
 	summary, err := Install(context.Background(), &buf, fake, Opts{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "network down")
-	assert.Empty(t, summary.Skipped)
-	assert.Empty(t, summary.Failed)
+	require.NoError(t, err)
+	require.Len(t, summary.FailedFormulae, 1)
+	assert.Equal(t, Formulae[0], summary.FailedFormulae[0].Name)
+	assert.Equal(t, "network down", summary.FailedFormulae[0].Reason)
 	fake.AssertExpectations(t)
 }
 
+// TestInstall_UpgradeFailureCollectsOutdated asserts that a failed bulk
+// upgrade does not abort: the still-outdated packages land in
+// FailedUpgrades and the rest of the run proceeds.
+func TestInstall_UpgradeFailureCollectsOutdated(t *testing.T) {
+	fake := brewtest.NewFakeRunner()
+	fake.On("Upgrade", mock.Anything, mock.Anything).Return(errors.New("exit status 1")).Once()
+	fake.On("Outdated", mock.Anything).Return([]string{"the-unarchiver"}, nil).Once()
+	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectAllCasksInstall(fake, CommonCasks)
+	expectAllCasksInstall(fake, BetaCasks)
+
+	var buf bytes.Buffer
+	summary, err := Install(context.Background(), &buf, fake, Opts{})
+	require.NoError(t, err)
+	require.Len(t, summary.FailedUpgrades, 1)
+	assert.Equal(t, "the-unarchiver", summary.FailedUpgrades[0].Name)
+	assert.True(t, summary.HasFailures())
+	fake.AssertExpectations(t)
+}
+
+// TestInstall_UpgradeFailureNothingOutdated asserts that a non-zero
+// `brew upgrade` with nothing left outdated (e.g. a cleanup hiccup) is
+// treated as success — there is nothing actionable to retry.
+func TestInstall_UpgradeFailureNothingOutdated(t *testing.T) {
+	fake := brewtest.NewFakeRunner()
+	fake.On("Upgrade", mock.Anything, mock.Anything).Return(errors.New("exit status 1")).Once()
+	fake.On("Outdated", mock.Anything).Return([]string{}, nil).Once()
+	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectAllCasksInstall(fake, CommonCasks)
+	expectAllCasksInstall(fake, BetaCasks)
+
+	var buf bytes.Buffer
+	summary, err := Install(context.Background(), &buf, fake, Opts{})
+	require.NoError(t, err)
+	assert.False(t, summary.HasFailures())
+	assert.Contains(t, buf.String(), "nothing is left outdated")
+}
+
+// TestInstall_UpgradeFailureUnknownSubsetRecordsSentinel asserts that
+// when `brew outdated` itself fails, the UpgradeAll sentinel is
+// recorded so a retry re-runs the full upgrade.
+func TestInstall_UpgradeFailureUnknownSubsetRecordsSentinel(t *testing.T) {
+	fake := brewtest.NewFakeRunner()
+	fake.On("Upgrade", mock.Anything, mock.Anything).Return(errors.New("exit status 1")).Once()
+	fake.On("Outdated", mock.Anything).Return(nil, errors.New("brew broken")).Once()
+	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectAllCasksInstall(fake, CommonCasks)
+	expectAllCasksInstall(fake, BetaCasks)
+
+	var buf bytes.Buffer
+	summary, err := Install(context.Background(), &buf, fake, Opts{})
+	require.NoError(t, err)
+	require.Len(t, summary.FailedUpgrades, 1)
+	assert.Equal(t, UpgradeAll, summary.FailedUpgrades[0].Name)
+	assert.Contains(t, summary.FailedUpgrades[0].Reason, "brew broken")
+}
+
 // TestInstall_ContextCancellation asserts that a pre-cancelled context
-// surfaces as a context.Canceled error from Install (via Upgrade).
+// surfaces as a context.Canceled error from Install (via Upgrade) —
+// cancellation is catastrophic, not a limp-and-report failure.
 func TestInstall_ContextCancellation(t *testing.T) {
 	fake := brewtest.NewFakeRunner()
-	fake.On("Upgrade", mock.Anything).Return(context.Canceled).Once()
+	fake.On("Upgrade", mock.Anything, mock.Anything).Return(context.Canceled).Once()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

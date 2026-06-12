@@ -5,31 +5,43 @@ import (
 	"io"
 )
 
-// Summary aggregates the outcomes of an Install run. Skipped and
-// Failed feed the "Skipped cask updates" and "Failed cask installs"
-// trailers; successful installs are not tracked. Formulae are not
-// tracked individually — a formula failure aborts the run before
-// Summary is returned.
+// Summary aggregates the outcomes of an Install run. Failures are
+// collected rather than aborting the run, so the caller can offer a
+// retry of just the failed items. Successful installs are not tracked.
 type Summary struct {
 	// Skipped lists casks that were already installed and whose app was
 	// running, so the upgrade was deferred.
 	Skipped []string
-	// Failed lists casks whose `brew install --cask` exited non-zero, with
-	// the trimmed last non-empty line of stderr captured as Reason.
-	Failed []FailedCask
+	// FailedUpgrades lists packages still outdated after `brew upgrade`
+	// exited non-zero. May hold the single UpgradeAll sentinel when the
+	// failed subset could not be identified.
+	FailedUpgrades []FailedItem
+	// FailedFormulae lists formulae whose isolated `brew install` exited
+	// non-zero after their group install failed.
+	FailedFormulae []FailedItem
+	// FailedCasks lists casks whose `brew install --cask` exited non-zero,
+	// with the trimmed last non-empty line of stderr captured as Reason.
+	FailedCasks []FailedItem
 }
 
-// FailedCask pairs a failed cask name with the captured failure reason.
-type FailedCask struct {
-	// Name is the brew cask name (e.g. "raycast").
+// UpgradeAll is the sentinel FailedItem name recorded when a bulk
+// `brew upgrade` failed AND `brew outdated` could not identify the
+// failed subset. Retrying it re-runs the unscoped `brew upgrade`.
+const UpgradeAll = "(all outdated packages)"
+
+// FailedItem pairs a failed package name with the captured failure reason.
+type FailedItem struct {
+	// Name is the brew package name (formula or cask), or the UpgradeAll
+	// sentinel.
 	Name string
-	// Reason is the trimmed last non-empty line of `brew install --cask`
-	// stderr, produced by brew.extractCaskFailureReason.
+	// Reason is a short human-readable cause: the trimmed last non-empty
+	// stderr line for casks, the wrapped exec error for formulae, or a
+	// fixed "still outdated" note for upgrades.
 	Reason string
 }
 
-// Print writes the human-readable "Skipped cask updates" and "Failed
-// cask installs or upgrades" trailers. Empty sections are omitted.
+// Print writes the human-readable trailers: skipped casks first, then
+// every failure section. Empty sections are omitted.
 func (s Summary) Print(w io.Writer) {
 	if len(s.Skipped) > 0 {
 		fmt.Fprint(w, "\nSkipped cask updates because the app is running:\n")
@@ -37,16 +49,30 @@ func (s Summary) Print(w io.Writer) {
 			fmt.Fprintf(w, "\t- %s\n", name)
 		}
 	}
-	if len(s.Failed) > 0 {
-		fmt.Fprint(w, "\nFailed cask installs or upgrades:\n")
-		for _, fc := range s.Failed {
-			fmt.Fprintf(w, "\t- %s: %s\n", fc.Name, fc.Reason)
-		}
+	s.PrintFailures(w)
+}
+
+// PrintFailures writes only the failure sections — used by the
+// retry prompt loop, which re-lists the failures before each ask
+// without repeating the skipped-casks trailer. Empty sections are
+// omitted.
+func (s Summary) PrintFailures(w io.Writer) {
+	printFailedSection(w, "Failed upgrades:", s.FailedUpgrades)
+	printFailedSection(w, "Failed formula installs:", s.FailedFormulae)
+	printFailedSection(w, "Failed cask installs or upgrades:", s.FailedCasks)
+}
+
+func printFailedSection(w io.Writer, title string, items []FailedItem) {
+	if len(items) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "\n%s\n", title)
+	for _, it := range items {
+		fmt.Fprintf(w, "\t- %s: %s\n", it.Name, it.Reason)
 	}
 }
 
-// HasFailures reports whether any cask failed. Drives the exit code in the
-// cobra layer (Summary.HasFailures() → exit 1).
+// HasFailures reports whether any upgrade, formula, or cask failed.
 func (s Summary) HasFailures() bool {
-	return len(s.Failed) > 0
+	return len(s.FailedUpgrades)+len(s.FailedFormulae)+len(s.FailedCasks) > 0
 }

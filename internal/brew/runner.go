@@ -15,8 +15,16 @@ import (
 // implementation (NewRunner) shells out to the brew CLI; tests inject a
 // FakeRunner backed by testify/mock.
 type Runner interface {
-	// Upgrade runs `brew upgrade` to bring all installed packages current.
-	Upgrade(ctx context.Context) error
+	// Upgrade runs `brew upgrade` to bring installed packages current.
+	// With no arguments it upgrades everything; with names it upgrades
+	// just those packages (used to retry a failed subset).
+	Upgrade(ctx context.Context, packages ...string) error
+	// Outdated runs `brew outdated --quiet` and returns the names of
+	// packages (formulae and casks) that still have a newer version
+	// available. Used after a failed bulk upgrade to identify exactly
+	// which packages did not make it — brew itself limps through every
+	// package, so the leftovers are the failures.
+	Outdated(ctx context.Context) ([]string, error)
 	// Install installs one or more formulae in a single `brew install` call.
 	Install(ctx context.Context, formulae ...string) error
 	// InstallCask installs a single cask with limp-and-report semantics:
@@ -97,9 +105,18 @@ func NewDryRunWrapper(wrapped Runner, reporter dryrun.Reporter) Runner {
 
 // Upgrade reports the brew upgrade shellout and returns nil
 // without invoking the wrapped runner.
-func (r *dryRunRunner) Upgrade(_ context.Context) error {
-	r.reporter.Shellout("brew", []string{"upgrade"}, "upgrade all formulae")
+func (r *dryRunRunner) Upgrade(_ context.Context, packages ...string) error {
+	desc := "upgrade all formulae"
+	if len(packages) > 0 {
+		desc = fmt.Sprintf("upgrade %d package(s)", len(packages))
+	}
+	r.reporter.Shellout("brew", append([]string{"upgrade"}, packages...), desc)
 	return nil
+}
+
+// Outdated delegates to the wrapped runner — reads run normally.
+func (r *dryRunRunner) Outdated(ctx context.Context) ([]string, error) {
+	return r.wrapped.Outdated(ctx)
 }
 
 // Install reports a brew install of the given formulae and returns

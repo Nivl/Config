@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/Nivl/config/internal/packages"
@@ -54,20 +53,21 @@ type installPackagesParams struct {
 }
 
 // installPackagesCmd installs homebrew packages: brew upgrade,
-// formulae, then casks one-at-a-time through the resilient InstallCask path.
-// Returns a non-nil error only for catastrophic failures (brew binary
-// missing, context cancelled, formula install failure). Per-cask failures
-// are printed via Summary.Print and reflected in the exit code.
+// formulae, then casks — every step limps past per-package failures.
+// When failures remain, InstallWithRetry prompts the user to abort,
+// retry just the failed packages, or ignore and continue. Returns a
+// non-nil error for catastrophic failures (brew binary missing,
+// context cancelled), an explicit abort (packages.ErrAborted), or a
+// prompt that could not be answered (stdin EOF). An answered "ignore"
+// exits 0 — the user accepted the failures.
 func installPackagesCmd(ctx context.Context, cfg *appConfig, p installPackagesParams) error {
-	summary, err := packages.Install(ctx, cfg.streams.Out, cfg.newBrewRunner(cfg.streams), packages.Opts{
-		Personal: p.personal,
-	})
+	summary, err := packages.InstallWithRetry(ctx, cfg.streams.In, cfg.streams.Out,
+		cfg.newBrewRunner(cfg.streams), packages.Opts{
+			Personal: p.personal,
+		})
 	if err != nil {
 		return fmt.Errorf("install packages: %w", err)
 	}
 	summary.Print(cfg.streams.Out)
-	if summary.HasFailures() {
-		return errors.New("some casks failed to install (see summary above)")
-	}
 	return nil
 }

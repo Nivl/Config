@@ -22,8 +22,19 @@ type FakeRunner struct {
 func NewFakeRunner() *FakeRunner { return &FakeRunner{} }
 
 // Upgrade implements brew.Runner; delegates to the embedded mock.
-func (f *FakeRunner) Upgrade(ctx context.Context) error {
-	return f.Called(ctx).Error(0)
+// Variadic args are bundled into a single []string slot in the mock call.
+func (f *FakeRunner) Upgrade(ctx context.Context, packages ...string) error {
+	return f.Called(ctx, packages).Error(0)
+}
+
+// Outdated implements brew.Runner; delegates to the embedded mock.
+// The first return is nil-safe: tests that register .Return(nil, err)
+// for the error path get a typed-nil []string instead of a panic from
+// a failed type assertion on an untyped nil.
+func (f *FakeRunner) Outdated(ctx context.Context) ([]string, error) {
+	args := f.Called(ctx)
+	v, _ := args.Get(0).([]string)
+	return v, args.Error(1)
 }
 
 // Install implements brew.Runner; delegates to the embedded mock.

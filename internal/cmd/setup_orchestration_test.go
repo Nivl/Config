@@ -29,8 +29,12 @@ import (
 // that the packages phase completes — not what was installed.
 type noopBrewRunner struct{}
 
-func (noopBrewRunner) Upgrade(context.Context) error            { return nil }
+func (noopBrewRunner) Upgrade(context.Context, ...string) error { return nil }
 func (noopBrewRunner) Install(context.Context, ...string) error { return nil }
+func (noopBrewRunner) Outdated(context.Context) ([]string, error) {
+	return nil, nil
+}
+
 func (noopBrewRunner) IsCaskInstalled(context.Context, string) (bool, error) {
 	return false, nil
 }
@@ -191,13 +195,19 @@ func TestSetupCmd_ClaudeSyncErrorAbortsRemainingPhases(t *testing.T) {
 		"phases after claude sync must not run when it errors")
 }
 
-// errBrewRunner is a brew.Runner whose first reachable method
-// (Upgrade) errors out. packages.Install calls Upgrade before
-// anything else, so this surfaces as a packages-phase failure.
+// errBrewRunner is a brew.Runner whose Upgrade and Outdated both error
+// out. The upgrade failure limps into the failed-packages prompt, the
+// prompt hits EOF on the fixture's empty stdin, and the packages phase
+// fails loudly — proving a broken brew plus no interactive input still
+// aborts the run.
 type errBrewRunner struct{}
 
-func (errBrewRunner) Upgrade(context.Context) error            { return errors.New("brew exploded") }
+func (errBrewRunner) Upgrade(context.Context, ...string) error { return errors.New("brew exploded") }
 func (errBrewRunner) Install(context.Context, ...string) error { return nil }
+func (errBrewRunner) Outdated(context.Context) ([]string, error) {
+	return nil, errors.New("brew exploded")
+}
+
 func (errBrewRunner) IsCaskInstalled(context.Context, string) (bool, error) {
 	return false, nil
 }

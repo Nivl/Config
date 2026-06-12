@@ -180,7 +180,7 @@ func setupCmd(ctx context.Context, cfg *appConfig, p setupParams) error {
 	if cfg.dryRun {
 		brewRunner = brew.NewDryRunWrapper(brewRunner, cfg.reporter)
 	}
-	summary, err := packages.Install(ctx, stdout, brewRunner, packages.Opts{
+	summary, err := packages.InstallWithRetry(ctx, stdin, stdout, brewRunner, packages.Opts{
 		Personal: personal,
 	})
 	if err != nil {

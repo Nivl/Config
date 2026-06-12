@@ -361,9 +361,12 @@ each ticket's stated intent against what the diff actually does.
    check.
 
 3. Read each ticket, preferring acli: acli jira workitem view <ID>
-   If acli is not installed, or errors because it is not authenticated, fall back to a
-   Jira/Atlassian MCP — search the available tools (e.g. ToolSearch "atlassian jira") for an
-   issue-read tool and use it. Pull the title, description, and acceptance criteria.
+   If acli is not installed, errors because it is not authenticated, or the session runs
+   Bash inside a sandbox (sandboxed acli fails even when installed and authenticated — its
+   credentials are unreadable there, so don't misread the failure as an auth problem), fall
+   back to a Jira/Atlassian MCP — search the available tools (e.g. ToolSearch
+   "atlassian jira") for an issue-read tool and use it. Pull the title, description, and
+   acceptance criteria.
 
    If NEITHER acli (installed + authenticated) NOR a Jira/Atlassian MCP (connected +
    authenticated) is available, you cannot perform this review. Stop and return exactly:

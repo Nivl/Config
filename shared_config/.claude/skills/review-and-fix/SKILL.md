@@ -102,7 +102,9 @@ gh-style-review's PR conversation/review-thread fetches) are fine.
    the first review iteration, confirm a Jira reader is available AND authenticated:
    - acli: installed (`command -v acli`) and able to read Jira — run a lightweight
      authenticated acli call; if it fails with an auth/login error, treat acli as
-     unauthenticated; OR
+     unauthenticated. In a sandboxed session, skip the acli probe and treat acli as
+     unavailable — sandboxed acli fails even when installed and authenticated — and rely
+     on the MCP check below; OR
    - a Jira/Atlassian MCP: connected and authenticated — search available tools (e.g.
      ToolSearch "atlassian jira"); if the only exposed tool is an `authenticate` tool, it is
      connected but not yet authed.

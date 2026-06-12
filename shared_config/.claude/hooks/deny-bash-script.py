@@ -35,7 +35,7 @@ import re
 import shlex
 import sys
 
-SHELL_RE = re.compile(r"^(?:bash|sh|zsh|dash|ksh|mksh|ash|node)$")
+SHELL_RE = re.compile(r"^(?:bash|sh|zsh|dash|ksh|mksh|ash)$")
 # Superset of the sibling hooks' separator conventions so a shell after
 # any chaining/grouping token counts as command-position.
 CMD_SEPARATORS = frozenset({";", ";;", "|", "|&", "&", "&&", "||", "(", "{"})
@@ -58,9 +58,7 @@ DENY_COMPOUND = (
 
 
 def _config_dir():
-    return os.environ.get("DENY_BASH_SCRIPT_DIR") or os.path.dirname(
-        os.path.realpath(__file__)
-    )
+    return os.environ.get("DENY_BASH_SCRIPT_DIR") or os.path.dirname(os.path.realpath(__file__))
 
 
 def _allowed_roots():
@@ -117,13 +115,11 @@ def has_unquoted_newline(cmd):
 
 def emit(decision, reason):
     json.dump(
-        {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": decision,
-                "permissionDecisionReason": reason,
-            }
-        },
+        {"hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": decision,
+            "permissionDecisionReason": reason,
+        }},
         sys.stdout,
     )
 
@@ -149,9 +145,7 @@ def main():
     # to the normal permission flow.
     pos = None
     for i, t in enumerate(tokens):
-        if SHELL_RE.match(os.path.basename(t)) and (
-            i == 0 or tokens[i - 1] in CMD_SEPARATORS
-        ):
+        if SHELL_RE.match(os.path.basename(t)) and (i == 0 or tokens[i - 1] in CMD_SEPARATORS):
             pos = i
             break
     if pos is None:
@@ -159,7 +153,7 @@ def main():
 
     # Defer `-c` clusters (-c, -lc, -ec, ...) to deny-shell-wrapper.py so
     # the agent gets its richer inline-code reason instead of this one.
-    for t in tokens[pos + 1 :]:
+    for t in tokens[pos + 1:]:
         if t in CMD_SEPARATORS:
             break
         if t == "--":

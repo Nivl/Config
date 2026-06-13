@@ -75,7 +75,7 @@
           },
           {
             "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/rm-under-tmp.py"
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/file-ops-under-roots.py"
           },
           {
             "type": "command",
@@ -369,7 +369,6 @@
       "WebFetch(domain:registry.npmjs.org)"
     ],
     "ask": [
-      "Bash(/bin/mv *)",
       "Bash(/opt/homebrew/bin/ *)",
       "Bash(/opt/homebrew/bin/go build ../*)",
       "Bash(/opt/homebrew/bin/go build ./../*)",
@@ -389,7 +388,6 @@
       "Bash(go build ../*)",
       "Bash(go build ./../*)",
       "Bash(go build /*)",
-      "Bash(mv *)",
       "Bash(sed * -i*)",
       "Bash(sed -i*)",
       "Bash(wget *)"

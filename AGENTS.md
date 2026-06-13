@@ -161,7 +161,7 @@ CI workflow at `.github/workflows/tests.yml` runs on `pull_request` and pushes t
 | `gh-api-hook` | `bash tests/gh_api_write_guard_test.sh` |
 | `deny-shell-wrapper-hook` | `bash tests/deny_shell_wrapper_test.sh` |
 | `write-under-roots-hook` | `bash tests/write_under_roots_test.sh` |
-| `rm-under-tmp-hook` | `bash tests/rm_under_tmp_test.sh` |
+| `file-ops-under-roots-hook` | `bash tests/file_ops_under_roots_test.sh` |
 | `deny-json-tool-hook` | `bash tests/deny_json_tool_test.sh` |
 | `deny-awk-hook` | `bash tests/deny_awk_test.sh` |
 | `deny-multi-command-hook` | `bash tests/deny_multi_command_test.sh` |

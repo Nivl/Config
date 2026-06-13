@@ -3,7 +3,7 @@
 # statements into one tool call via `;` or a bare newline. The point is
 # per-command auditability — when the agent batches 5 probes into one
 # Bash call, the user gets ONE permission prompt for the whole blob,
-# and the other hooks (deny-shell-wrapper, rm-under-tmp, etc.) can't
+# and the other hooks (deny-shell-wrapper, file-ops-under-roots, etc.) can't
 # walk the boundary between statements because shlex collapses newlines
 # into whitespace and the agent can hide arbitrary chained commands.
 #

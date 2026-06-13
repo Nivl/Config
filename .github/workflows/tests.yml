@@ -96,16 +96,16 @@ jobs:
       - name: Run write-under-roots test
         run: bash tests/write_under_roots_test.sh
 
-  rm-under-tmp-hook:
-    name: rm-under-tmp hook test
+  file-ops-under-roots-hook:
+    name: file-ops-under-roots hook test
     runs-on: macos-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Run rm-under-tmp test
-        run: bash tests/rm_under_tmp_test.sh
+      - name: Run file-ops-under-roots test
+        run: bash tests/file_ops_under_roots_test.sh
 
   deny-json-tool-hook:
     name: deny-json-tool hook test

@@ -7,27 +7,28 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestSummary_Print_EmptyOmitsAllSections asserts that a Summary with
-// nothing skipped and nothing failed prints nothing.
-func TestSummary_Print_EmptyOmitsAllSections(t *testing.T) {
+// TestSummary_PrintSkipped_EmptyPrintsNothing asserts that a Summary
+// with nothing skipped prints nothing — failures never leak into the
+// skipped trailer.
+func TestSummary_PrintSkipped_EmptyPrintsNothing(t *testing.T) {
 	var buf bytes.Buffer
-	(Summary{}).Print(&buf)
+	Summary{FailedCasks: []FailedItem{{Name: "raycast", Reason: "boom"}}}.PrintSkipped(&buf)
 	assert.Empty(t, buf.String())
 }
 
-// TestSummary_Print_SkippedSection asserts the Skipped section format.
-func TestSummary_Print_SkippedSection(t *testing.T) {
+// TestSummary_PrintSkipped_Format asserts the skipped trailer format.
+func TestSummary_PrintSkipped_Format(t *testing.T) {
 	var buf bytes.Buffer
-	Summary{Skipped: []string{"docker", "warp"}}.Print(&buf)
+	Summary{Skipped: []string{"docker", "warp"}}.PrintSkipped(&buf)
 	want := "\nSkipped cask updates because the app is running:\n" +
 		"\t- docker\n" +
 		"\t- warp\n"
 	assert.Equal(t, want, buf.String())
 }
 
-// TestSummary_Print_FailureSections asserts each failure section's
+// TestSummary_PrintFailures_Sections asserts each failure section's
 // title and format, in upgrade → formula → cask order.
-func TestSummary_Print_FailureSections(t *testing.T) {
+func TestSummary_PrintFailures_Sections(t *testing.T) {
 	var buf bytes.Buffer
 	Summary{
 		FailedUpgrades: []FailedItem{
@@ -39,7 +40,7 @@ func TestSummary_Print_FailureSections(t *testing.T) {
 		FailedCasks: []FailedItem{
 			{Name: "raycast", Reason: "Error: raycast download failed"},
 		},
-	}.Print(&buf)
+	}.PrintFailures(&buf)
 	want := "\nFailed upgrades:\n" +
 		"\t- the-unarchiver: still outdated after brew upgrade (see brew output above)\n" +
 		"\nFailed formula installs:\n" +

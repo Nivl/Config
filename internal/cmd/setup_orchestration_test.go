@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -22,6 +23,7 @@ import (
 	"github.com/Nivl/config/internal/configgen/configgentest"
 	"github.com/Nivl/config/internal/dryrun"
 	"github.com/Nivl/config/internal/iox"
+	"github.com/Nivl/config/internal/packages"
 )
 
 // noopBrewRunner is a brew.Runner that succeeds at everything as a
@@ -31,6 +33,8 @@ type noopBrewRunner struct{}
 
 func (noopBrewRunner) Upgrade(context.Context, ...string) error { return nil }
 func (noopBrewRunner) Install(context.Context, ...string) error { return nil }
+
+// Outdated implements brew.Runner; nothing is ever outdated.
 func (noopBrewRunner) Outdated(context.Context) ([]string, error) {
 	return nil, nil
 }
@@ -162,6 +166,80 @@ func TestSetupCmd_OrchestrationOrder(t *testing.T) {
 		"phase ordering regressed")
 }
 
+// failingCaskBrewRunner is a noopBrewRunner whose every InstallCask
+// call fails with a synthetic reason. Paired with a "3" (ignore)
+// answer it drives the ignored-failures path through the whole setup
+// pipeline.
+type failingCaskBrewRunner struct{ noopBrewRunner }
+
+// InstallCask implements brew.Runner; every cask fails with a
+// synthetic reason.
+func (failingCaskBrewRunner) InstallCask(context.Context, string) (brew.CaskOutcome, error) {
+	return brew.CaskOutcome{Status: brew.StatusFailed, Reason: "synthetic"}, nil
+}
+
+// TestSetupCmd_IgnoredPackageFailuresExitZero — answering "ignore" at
+// the failed-packages prompt means the user accepted the failures, so
+// setup must run every later phase and exit 0, matching the documented
+// InstallWithRetry contract and `install packages` behavior.
+func TestSetupCmd_IgnoredPackageFailuresExitZero(t *testing.T) {
+	f := makeOrchestrationFixture(t)
+	f.cfg.newBrewRunner = func(iox.Streams) brew.Runner {
+		return failingCaskBrewRunner{noopBrewRunner: noopBrewRunner{}}
+	}
+	f.cfg.streams.In = strings.NewReader("3\n")
+
+	require.NoError(t, setupCmd(context.Background(), f.cfg, orchestrationParams()))
+	assert.Equal(t,
+		[]string{"packages", "claude sync", "dotfiles", "configgen", "appsetup"},
+		f.reporter.sections,
+		"an ignored package failure must not stop the later phases")
+}
+
+// TestSetupCmd_FailureResolutionIgnoreRunsUnattended — the env/flag
+// pre-answer must let an unattended setup ride past package failures:
+// empty stdin, resolution "ignore", and the run still finishes every
+// phase, leaving the end-of-run reminder about the ignored failures.
+func TestSetupCmd_FailureResolutionIgnoreRunsUnattended(t *testing.T) {
+	f := makeOrchestrationFixture(t)
+	f.cfg.newBrewRunner = func(iox.Streams) brew.Runner {
+		return failingCaskBrewRunner{noopBrewRunner: noopBrewRunner{}}
+	}
+	var stderr bytes.Buffer
+	f.cfg.streams.Err = &stderr
+
+	params := orchestrationParams()
+	params.installFailureResolution = "ignore"
+	require.NoError(t, setupCmd(context.Background(), f.cfg, params))
+	assert.Equal(t,
+		[]string{"packages", "claude sync", "dotfiles", "configgen", "appsetup"},
+		f.reporter.sections,
+		"a pre-resolved ignore must not stop the later phases")
+	assert.Contains(t, stderr.String(), "failed and were ignored")
+}
+
+// TestSetupCmd_AbortChoiceHaltsPipeline — answering "1" (abort) at the
+// failed-packages prompt surfaces packages.ErrAborted wrapped as
+// "install packages:" and stops setup before any later phase runs. The
+// `install packages` command layer pins this via
+// TestInstallPackagesCmd_FailureAbortChoice; this is the setup-side
+// orchestration twin (a regression that swallowed ErrAborted and kept
+// going would otherwise slip past the suite).
+func TestSetupCmd_AbortChoiceHaltsPipeline(t *testing.T) {
+	f := makeOrchestrationFixture(t)
+	f.cfg.newBrewRunner = func(iox.Streams) brew.Runner {
+		return failingCaskBrewRunner{noopBrewRunner: noopBrewRunner{}}
+	}
+	f.cfg.streams.In = strings.NewReader("1\n")
+
+	err := setupCmd(context.Background(), f.cfg, orchestrationParams())
+	require.Error(t, err)
+	require.ErrorIs(t, err, packages.ErrAborted)
+	assert.Contains(t, err.Error(), "install packages:")
+	assert.Equal(t, []string{"packages"}, f.reporter.sections,
+		"an abort answer must stop the pipeline before later phases run")
+}
+
 // TestSetupCmd_PackagesErrorAbortsRemainingPhases — a brew error in
 // the packages phase wraps with "install packages:" and prevents
 // every later Section from being emitted. Verifies the
@@ -204,6 +282,9 @@ type errBrewRunner struct{}
 
 func (errBrewRunner) Upgrade(context.Context, ...string) error { return errors.New("brew exploded") }
 func (errBrewRunner) Install(context.Context, ...string) error { return nil }
+
+// Outdated implements brew.Runner; fails like Upgrade so the failed
+// subset stays unidentifiable.
 func (errBrewRunner) Outdated(context.Context) ([]string, error) {
 	return nil, errors.New("brew exploded")
 }

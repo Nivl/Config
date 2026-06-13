@@ -19,8 +19,9 @@ type Summary struct {
 	// FailedFormulae lists formulae whose isolated `brew install` exited
 	// non-zero after their group install failed.
 	FailedFormulae []FailedItem
-	// FailedCasks lists casks whose `brew install --cask` exited non-zero,
-	// with the trimmed last non-empty line of stderr captured as Reason.
+	// FailedCasks lists casks whose `brew install --cask` exited non-zero
+	// (Reason is the trimmed last non-empty stderr line) or whose
+	// InstallCask call itself errored (Reason is the wrapped error).
 	FailedCasks []FailedItem
 }
 
@@ -35,21 +36,26 @@ type FailedItem struct {
 	// sentinel.
 	Name string
 	// Reason is a short human-readable cause: the trimmed last non-empty
-	// stderr line for casks, the wrapped exec error for formulae, or a
-	// fixed "still outdated" note for upgrades.
+	// stderr line for casks (or the wrapped error when the InstallCask
+	// call itself failed), the wrapped exec error for formulae, and for
+	// upgrades a "still outdated" / "could not re-check" note — or, on
+	// the UpgradeAll sentinel, the wrapped `brew outdated` failure.
 	Reason string
 }
 
-// Print writes the human-readable trailers: skipped casks first, then
-// every failure section. Empty sections are omitted.
-func (s Summary) Print(w io.Writer) {
-	if len(s.Skipped) > 0 {
-		fmt.Fprint(w, "\nSkipped cask updates because the app is running:\n")
-		for _, name := range s.Skipped {
-			fmt.Fprintf(w, "\t- %s\n", name)
-		}
+// PrintSkipped writes the skipped-casks trailer; an empty list prints
+// nothing. The failure sections are owned by the InstallWithRetry
+// prompt loop (PrintFailures), so callers print only this trailer once
+// the loop returns — re-printing the failures would duplicate what the
+// prompt just showed.
+func (s Summary) PrintSkipped(w io.Writer) {
+	if len(s.Skipped) == 0 {
+		return
 	}
-	s.PrintFailures(w)
+	fmt.Fprint(w, "\nSkipped cask updates because the app is running:\n")
+	for _, name := range s.Skipped {
+		fmt.Fprintf(w, "\t- %s\n", name)
+	}
 }
 
 // PrintFailures writes only the failure sections — used by the
@@ -62,6 +68,8 @@ func (s Summary) PrintFailures(w io.Writer) {
 	printFailedSection(w, "Failed cask installs or upgrades:", s.FailedCasks)
 }
 
+// printFailedSection writes one titled failure list; an empty list
+// prints nothing so callers can emit sections unconditionally.
 func printFailedSection(w io.Writer, title string, items []FailedItem) {
 	if len(items) == 0 {
 		return

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -25,7 +24,7 @@ import (
 )
 
 // newSetupCmd builds the `melvin-config setup` subcommand. The RunE
-// wrapper resolves all 7 config knobs (flag → env → fallback/prompt)
+// wrapper resolves all 8 config knobs (flag → env → fallback/prompt)
 // and passes the resulting values down via setupParams; the body
 // never touches process env.
 func newSetupCmd(cfg *appConfig) *cobra.Command {
@@ -36,6 +35,8 @@ func newSetupCmd(cfg *appConfig) *cobra.Command {
 	}
 	personal := cmd.Flags().Bool("personal", false, "Personal computer (overrides PERSONAL_COMPUTER env)")
 	mergeResolution := cmd.Flags().String("merge-resolution", "", "Pre-resolve claude merge conflicts: keep-local|take-remote|skip (overrides CLAUDE_MERGE_RESOLUTION env)")
+	installFailureResolution := cmd.Flags().String("install-failure-resolution", "",
+		"Pre-answer the failed-packages prompt: abort|retry|ignore (overrides INSTALL_FAILURE_RESOLUTION env)")
 	homebrewPrefix := cmd.Flags().String("homebrew-prefix", "", "Homebrew prefix path (overrides HOMEBREW_PREFIX env; falls back to $(brew --prefix))")
 	devRoot := cmd.Flags().String("dev-root", "", "Root directory for dev repos (overrides DEV_ROOT env)")
 	gitOrg := cmd.Flags().String("git-org", "", "GitHub org / user (overrides GIT_CLONE_USER_NAME env)")
@@ -53,6 +54,13 @@ func newSetupCmd(cfg *appConfig) *cobra.Command {
 		}
 		if err := validateMergeResolution(p.mergeResolution); err != nil {
 			return fmt.Errorf("validate merge resolution: %w", err)
+		}
+		if p.installFailureResolution, err = resolveString(cobraCmd, "install-failure-resolution",
+			"INSTALL_FAILURE_RESOLUTION", *installFailureResolution, nil); err != nil {
+			return fmt.Errorf("resolve install-failure-resolution flag: %w", err)
+		}
+		if err := validateInstallFailureResolution(p.installFailureResolution); err != nil {
+			return fmt.Errorf("validate install failure resolution: %w", err)
 		}
 		ctx := cobraCmd.Context()
 		if p.homebrewPrefix, err = resolveString(cobraCmd, "homebrew-prefix", "HOMEBREW_PREFIX", *homebrewPrefix, func() (string, error) {
@@ -94,6 +102,11 @@ type setupParams struct {
 	personalArg string
 	// mergeResolution is empty when no override is requested.
 	mergeResolution string
+	// installFailureResolution pre-answers the failed-packages prompt
+	// (one of abort|retry|ignore; "" means "prompt interactively").
+	// Validated by validateInstallFailureResolution in the RunE
+	// wrapper, before setupCmd runs.
+	installFailureResolution string
 	// homebrewPrefix is always populated by RunE: flag → env →
 	// brewPrefixFallback (which shells to `brew --prefix`). If even
 	// that errors, RunE surfaces the error and setupCmd is never
@@ -180,13 +193,17 @@ func setupCmd(ctx context.Context, cfg *appConfig, p setupParams) error {
 	if cfg.dryRun {
 		brewRunner = brew.NewDryRunWrapper(brewRunner, cfg.reporter)
 	}
-	summary, err := packages.InstallWithRetry(ctx, stdin, stdout, brewRunner, packages.Opts{
-		Personal: personal,
+	summary, err := packages.InstallWithRetry(ctx, stdin, stdout, stderr, brewRunner, packages.Opts{
+		Personal:          personal,
+		FailureResolution: p.installFailureResolution,
 	})
+	// The trailer is informational and its casks really were skipped —
+	// show it however the packages phase ended (abort, prompt EOF,
+	// catastrophic failure included).
+	summary.PrintSkipped(stdout)
 	if err != nil {
 		return fmt.Errorf("install packages: %w", err)
 	}
-	summary.Print(stdout)
 
 	// Run the full claude config sync. Sync owns precommit hook
 	// install, both modes, and last-sync-commit advancement.
@@ -272,12 +289,12 @@ func setupCmd(ctx context.Context, cfg *appConfig, p setupParams) error {
 	// zshrc from a child process can't affect the user's interactive
 	// shell; the stderr hint achieves the same practical effect.
 	appsetup.PrintRemainingTasks(stderr, home, githubAuthed)
+	// An ignored package failure scrolled past four phases of output by
+	// now — leave a final pointer without re-printing the full list.
+	if summary.HasFailures() {
+		_, _ = fmt.Fprintln(stderr, "\nSome package installs failed and were ignored — see the failure list in the packages output above.")
+	}
 	_, _ = fmt.Fprintln(stderr, "\nRun \"source ~/.zshrc\" to pick up the new environment.")
 
-	// If any casks failed earlier, exit non-zero at the end so the
-	// user-facing reminder list still gets printed first.
-	if summary.HasFailures() {
-		return errors.New("some casks failed to install (see summary above)")
-	}
 	return nil
 }

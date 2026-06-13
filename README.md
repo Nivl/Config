@@ -99,6 +99,7 @@ Every variable below also has a matching `--flag` on `melvin-config setup`. Flag
 | `GIT_HOST` | Your SSH git host, e.g. `git@github.com`. Used by the `wt` / `cl` worktree helpers. Prompted on first install if unset. |
 | `GIT_CLONE_USER_NAME` | Default org or user used when cloning short-form `owner/repo` paths. On personal computers this defaults to `Nivl`. |
 | `CLAUDE_MERGE_RESOLUTION` | Pre-resolve Claude config merge conflicts non-interactively. One of `keep-local`, `take-remote`, `skip`. Useful for CI / unattended runs. |
+| `INSTALL_FAILURE_RESOLUTION` | Pre-answer the prompt shown when brew packages fail to install or upgrade. One of `abort`, `retry`, `ignore`; applies to the first ask only. Useful for CI / unattended runs. |
 | `HOMEBREW_PREFIX` | Override the auto-detected Homebrew prefix used for the `pinentry-mac` path in `~/.gnupg/gpg-agent.conf`. Falls back to `$(brew --prefix)`. |
 | `MELVIN_DRY_RUN` | `true` enables preview mode. Identical to passing `--dry-run`. |
 

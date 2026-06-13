@@ -22,14 +22,14 @@ import (
 
 // makeTestCfg returns an appConfig with the brew runner factory
 // replaced by one returning the given FakeRunner. The caller-supplied
-// stdin feeds the failed-packages prompt; the stdout buffer is wired
-// into cfg.streams.Out so test assertions can inspect what
-// installPackagesCmd writes.
-func makeTestCfg(fake *brewtest.FakeRunner, stdin io.Reader, stdout io.Writer) *appConfig {
+// stdin feeds the failed-packages prompt; the stdout and stderr
+// writers are wired into cfg.streams so test assertions can inspect
+// progress output (stdout) and prompt output (stderr) separately.
+func makeTestCfg(fake *brewtest.FakeRunner, stdin io.Reader, stdout, stderr io.Writer) *appConfig {
 	return &appConfig{
 		cwd:           "",
 		configDir:     "",
-		streams:       iox.Streams{In: stdin, Out: stdout, Err: io.Discard},
+		streams:       iox.Streams{In: stdin, Out: stdout, Err: stderr},
 		newBrewRunner: func(iox.Streams) brew.Runner { return fake },
 		reporter:      dryrun.NewNullReporter(),
 	}
@@ -51,30 +51,39 @@ func TestInstallPackagesCmd_Success(t *testing.T) {
 	expectAllInstallsSucceed(fake)
 
 	var stdout bytes.Buffer
-	cfg := makeTestCfg(fake, strings.NewReader(""), &stdout)
-	err := installPackagesCmd(context.Background(), cfg, installPackagesParams{personal: false})
+	cfg := makeTestCfg(fake, strings.NewReader(""), &stdout, io.Discard)
+	err := installPackagesCmd(context.Background(), cfg, installPackagesParams{personal: false, failureResolution: ""})
 	require.NoError(t, err)
 	fake.AssertExpectations(t)
 }
 
 // TestInstallPackagesCmd_FailureAbortChoice asserts that answering the
-// failed-packages prompt with 1 surfaces packages.ErrAborted.
+// failed-packages prompt with 1 surfaces packages.ErrAborted, that the
+// failure list reached the prompt stream (stderr), and that the
+// skipped-casks trailer still prints on the abort path — those casks
+// were really skipped, abort or not.
 func TestInstallPackagesCmd_FailureAbortChoice(t *testing.T) {
 	fake := brewtest.NewFakeRunner()
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil)
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	fake.On("InstallCask", mock.Anything, "docker").
+		Return(brew.CaskOutcome{Status: brew.StatusSkipped}, nil).Once()
 	fake.On("InstallCask", mock.Anything, "zoom").
 		Return(brew.CaskOutcome{Status: brew.StatusFailed, Reason: "synthetic"}, nil).Once()
 	fake.On("InstallCask", mock.Anything, mock.Anything).
 		Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
 
-	var stdout bytes.Buffer
-	cfg := makeTestCfg(fake, strings.NewReader("1\n"), &stdout)
-	err := installPackagesCmd(context.Background(), cfg, installPackagesParams{personal: false})
+	var stdout, stderr bytes.Buffer
+	cfg := makeTestCfg(fake, strings.NewReader("1\n"), &stdout, &stderr)
+	err := installPackagesCmd(context.Background(), cfg, installPackagesParams{personal: false, failureResolution: ""})
 	require.Error(t, err)
 	require.ErrorIs(t, err, packages.ErrAborted)
-	assert.Contains(t, stdout.String(), "Failed cask installs or upgrades:")
-	assert.Contains(t, stdout.String(), "zoom: synthetic")
+	assert.Contains(t, stderr.String(), "Failed cask installs or upgrades:")
+	assert.Contains(t, stderr.String(), "zoom: synthetic")
+	assert.Contains(t, stdout.String(), "Skipped cask updates because the app is running:")
+	// The tab-dash shape only appears in PrintSkipped's item lines —
+	// the bare name also occurs in an unconditional progress line.
+	assert.Contains(t, stdout.String(), "\t- docker")
 }
 
 // TestInstallPackagesCmd_FailureIgnoreChoice asserts that answering
@@ -88,12 +97,15 @@ func TestInstallPackagesCmd_FailureIgnoreChoice(t *testing.T) {
 	fake.On("InstallCask", mock.Anything, mock.Anything).
 		Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
 
-	var stdout bytes.Buffer
-	cfg := makeTestCfg(fake, strings.NewReader("3\n"), &stdout)
-	err := installPackagesCmd(context.Background(), cfg, installPackagesParams{personal: false})
+	var stdout, stderr bytes.Buffer
+	cfg := makeTestCfg(fake, strings.NewReader("3\n"), &stdout, &stderr)
+	err := installPackagesCmd(context.Background(), cfg, installPackagesParams{personal: false, failureResolution: ""})
 	require.NoError(t, err)
-	assert.Contains(t, stdout.String(), "Ignoring the failed packages and continuing.")
-	assert.Contains(t, stdout.String(), "zoom: synthetic")
+	assert.Contains(t, stderr.String(), "Ignoring the failed packages and continuing.")
+	assert.Contains(t, stderr.String(), "zoom: synthetic")
+	// The prompt loop already listed the failures — the post-ignore
+	// trailer must not repeat them.
+	assert.NotContains(t, stdout.String(), "Failed cask installs or upgrades:")
 }
 
 // TestInstallPackagesCmd_FailureRetrySucceeds asserts that answering 2
@@ -111,9 +123,12 @@ func TestInstallPackagesCmd_FailureRetrySucceeds(t *testing.T) {
 		Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
 
 	var stdout bytes.Buffer
-	cfg := makeTestCfg(fake, strings.NewReader("2\n"), &stdout)
-	err := installPackagesCmd(context.Background(), cfg, installPackagesParams{personal: false})
+	cfg := makeTestCfg(fake, strings.NewReader("2\n"), &stdout, io.Discard)
+	err := installPackagesCmd(context.Background(), cfg, installPackagesParams{personal: false, failureResolution: ""})
 	require.NoError(t, err)
+	// Initial pass touches every cask, the retry re-attempts only the
+	// failed one — the exact count pins the retry scope.
+	fake.AssertNumberOfCalls(t, "InstallCask", len(packages.CommonCasks)+len(packages.BetaCasks)+1)
 	fake.AssertExpectations(t)
 }
 
@@ -137,14 +152,14 @@ func TestInstallPackagesCmd_PersonalParamIncludesPersonalCasks(t *testing.T) {
 	})).Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
 
 	var stdout bytes.Buffer
-	cfg := makeTestCfg(fake, strings.NewReader(""), &stdout)
-	err := installPackagesCmd(context.Background(), cfg, installPackagesParams{personal: true})
+	cfg := makeTestCfg(fake, strings.NewReader(""), &stdout, io.Discard)
+	err := installPackagesCmd(context.Background(), cfg, installPackagesParams{personal: true, failureResolution: ""})
 	require.NoError(t, err)
 	assert.True(t, personalCalled, "personal=true should have included PersonalCasks")
 }
 
 // TestInstallPackagesCmd_FormulaFailureIsolatedAndPrompted asserts a
-// formula group failure no longer aborts: the run isolates the broken
+// formula group failure is contained: the run isolates the broken
 // formula, finishes the casks, and the prompt decides the outcome.
 func TestInstallPackagesCmd_FormulaFailureIsolatedAndPrompted(t *testing.T) {
 	fake := brewtest.NewFakeRunner()
@@ -157,10 +172,42 @@ func TestInstallPackagesCmd_FormulaFailureIsolatedAndPrompted(t *testing.T) {
 	fake.On("InstallCask", mock.Anything, mock.Anything).
 		Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
 
-	var stdout bytes.Buffer
-	cfg := makeTestCfg(fake, strings.NewReader("3\n"), &stdout)
-	err := installPackagesCmd(context.Background(), cfg, installPackagesParams{personal: false})
+	var stdout, stderr bytes.Buffer
+	cfg := makeTestCfg(fake, strings.NewReader("3\n"), &stdout, &stderr)
+	err := installPackagesCmd(context.Background(), cfg, installPackagesParams{personal: false, failureResolution: ""})
 	require.NoError(t, err)
-	assert.Contains(t, stdout.String(), "Failed formula installs:")
-	assert.Contains(t, stdout.String(), packages.Formulae[0]+": network down")
+	assert.Contains(t, stderr.String(), "Failed formula installs:")
+	assert.Contains(t, stderr.String(), packages.Formulae[0]+": network down")
+}
+
+// TestInstallPackagesCmd_FailureResolutionIgnoreRunsUnattended asserts
+// the pre-resolved ignore answer lets a run with failures finish with
+// exit 0 and an untouched stdin — the scripted escape hatch for the
+// failed-packages gate.
+func TestInstallPackagesCmd_FailureResolutionIgnoreRunsUnattended(t *testing.T) {
+	fake := brewtest.NewFakeRunner()
+	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil)
+	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	fake.On("InstallCask", mock.Anything, "zoom").
+		Return(brew.CaskOutcome{Status: brew.StatusFailed, Reason: "synthetic"}, nil).Once()
+	fake.On("InstallCask", mock.Anything, mock.Anything).
+		Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
+
+	var stdout, stderr bytes.Buffer
+	cfg := makeTestCfg(fake, strings.NewReader(""), &stdout, &stderr)
+	err := installPackagesCmd(context.Background(), cfg, installPackagesParams{personal: false, failureResolution: "ignore"})
+	require.NoError(t, err)
+	assert.NotContains(t, stderr.String(), "Choice (1/2/3)?")
+}
+
+// TestValidateInstallFailureResolution covers the closed set: empty
+// and the three answers pass, anything else is rejected with the bad
+// value named.
+func TestValidateInstallFailureResolution(t *testing.T) {
+	for _, v := range []string{"", "abort", "retry", "ignore"} {
+		require.NoError(t, validateInstallFailureResolution(v), "should accept %q", v)
+	}
+	err := validateInstallFailureResolution("yolo")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "yolo")
 }

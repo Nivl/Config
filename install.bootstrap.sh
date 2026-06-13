@@ -25,6 +25,9 @@
 #   CLAUDE_MERGE_RESOLUTION    - propagated through re-exec; consumed by
 #                                Go's internal/claude/sync/prompt to bypass
 #                                merge prompts
+#   INSTALL_FAILURE_RESOLUTION - propagated through re-exec; consumed by
+#                                Go's internal/packages to pre-answer the
+#                                failed-packages prompt
 #   MELVIN_DRY_RUN             - propagated through re-exec; consumed by
 #                                Go's internal/cmd/setup.go to suppress
 #                                file writes and side-effecting shellouts
@@ -67,7 +70,10 @@ if [ -z "${PERSONAL_COMPUTER:-}" ]; then
     # If stdin is closed (e.g. `curl … | zsh install.bootstrap.sh`),
     # read returns non-zero — abort rather than spin forever in the
     # "Invalid value" branch.
-    read -r answer || { printf "\nNo input; aborting.\n" >&2; exit 1; }
+    read -r answer || {
+      printf "\nNo input; aborting.\n" >&2
+      exit 1
+    }
     case ${answer:0:1} in
     "y" | "Y")
       export PERSONAL_COMPUTER=true
@@ -159,6 +165,7 @@ else
       exec env _MELVIN_REEXECED=1 \
         PERSONAL_COMPUTER="${PERSONAL_COMPUTER:-}" \
         CLAUDE_MERGE_RESOLUTION="${CLAUDE_MERGE_RESOLUTION:-}" \
+        INSTALL_FAILURE_RESOLUTION="${INSTALL_FAILURE_RESOLUTION:-}" \
         MELVIN_DRY_RUN="${MELVIN_DRY_RUN:-}" \
         zsh "$CONFIG_DIR/install.bootstrap.sh" "$@"
     fi

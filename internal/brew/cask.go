@@ -122,8 +122,12 @@ func (r *runner) ListCaskApps(ctx context.Context, cask string) ([]string, error
 // InstallCask installs a single cask. If the cask is already installed and
 // its app is running, returns Status=Skipped with no error. If the install
 // fails, returns Status=Failed with the trimmed last non-empty stderr line
-// as Reason and no error. Returns a non-nil error only for catastrophic
-// situations (brew binary missing, context cancelled, etc.).
+// as Reason and no error. Hard failures (the brew call itself errored)
+// return a non-nil error for the caller to triage: the packages layer
+// aborts the whole run only when the context was cancelled or brew
+// could not run at all (any *exec.Error — missing or unrunnable
+// binary; see packages.catastrophic), and records other hard errors
+// as a per-cask failure gated by the failed-packages prompt.
 func (r *runner) InstallCask(ctx context.Context, cask string) (CaskOutcome, error) {
 	installed, err := r.IsCaskInstalled(ctx, cask)
 	if err != nil {
@@ -163,12 +167,12 @@ func (r *runner) InstallCask(ctx context.Context, cask string) (CaskOutcome, err
 		// Per the limp-and-report contract: a non-zero `brew install`
 		// surfaces as Status=Failed with the stderr summary, not as a
 		// Go error, so the caller keeps installing the rest of the
-		// list. Only catastrophic errors (brew binary missing, ctx
-		// cancelled — handled above) return non-nil. A missing binary
-		// (typically caught upstream by IsCaskInstalled, but possible
-		// if brew is removed mid-loop) returns *exec.Error, not
-		// *exec.ExitError; reject it explicitly so we don't silently
-		// claim every remaining cask "failed".
+		// list. A failure of the brew call itself (e.g. a missing
+		// binary — typically caught upstream by IsCaskInstalled, but
+		// possible if brew is removed mid-loop) returns *exec.Error,
+		// not *exec.ExitError; return it as a hard error so the caller
+		// can triage it (packages.catastrophic aborts the run for it)
+		// instead of it masquerading as a stderr-style cask failure.
 		var exitErr *exec.ExitError
 		if !errors.As(runErr, &exitErr) {
 			return CaskOutcome{}, fmt.Errorf("brew install --cask %s: %w", cask, runErr)

@@ -18,10 +18,16 @@ var ErrAborted = errors.New("aborted: some packages failed to install")
 // InstallWithRetry runs Install, then — as long as the summary carries
 // failures — lists them and asks the user whether to abort, retry just
 // the failed items, or ignore the failures and continue. The choice is
-// read from in. Returns ErrAborted on abort; on ignore the returned
-// summary still carries the failures but the error is nil, so callers
-// continue with the rest of their pipeline.
-func InstallWithRetry(ctx context.Context, in io.Reader, out io.Writer, r brew.Runner, opts Opts) (Summary, error) {
+// read from in; the failure list and the question go to promptOut
+// (stderr at both call sites, like every sibling prompt) so they reach
+// the terminal even when out is redirected, while progress lines keep
+// flowing to out. opts.FailureResolution pre-answers the first ask;
+// any later ask — reachable only when a pre-resolved retry leaves
+// failures behind — prompts interactively. Returns ErrAborted on
+// abort; on ignore the returned summary still carries the failures but
+// the error is nil, so callers continue with the rest of their
+// pipeline.
+func InstallWithRetry(ctx context.Context, in io.Reader, out, promptOut io.Writer, r brew.Runner, opts Opts) (Summary, error) {
 	summary, err := Install(ctx, out, r, opts)
 	if err != nil {
 		return summary, err
@@ -30,17 +36,22 @@ func InstallWithRetry(ctx context.Context, in io.Reader, out io.Writer, r brew.R
 	// drop bytes the previous one had buffered past its consumed line
 	// (bufio.NewReader returns an existing *bufio.Reader unchanged).
 	br := bufio.NewReader(in)
+	prearg := opts.FailureResolution
 	for summary.HasFailures() {
-		summary.PrintFailures(out)
-		choice, err := userinput.InstallRetryChoice(br, out)
+		summary.PrintFailures(promptOut)
+		choice, err := userinput.InstallRetryChoice(prearg, br, promptOut)
 		if err != nil {
 			return summary, fmt.Errorf("failed-packages prompt: %w", err)
 		}
+		// A pre-resolved answer applies to the first ask only — keeping
+		// "retry" for every ask would loop forever on a package that
+		// never recovers.
+		prearg = ""
 		switch choice {
 		case userinput.InstallRetryAbort:
 			return summary, ErrAborted
 		case userinput.InstallRetryIgnore:
-			fmt.Fprintln(out, "Ignoring the failed packages and continuing.")
+			fmt.Fprintln(promptOut, "Ignoring the failed packages and continuing.")
 			return summary, nil
 		case userinput.InstallRetryAgain:
 			summary, err = retryFailed(ctx, out, r, summary)
@@ -70,7 +81,11 @@ func retryFailed(ctx context.Context, w io.Writer, r brew.Runner, prev Summary) 
 			if cerr := catastrophic(ctx, err); cerr != nil {
 				return next, fmt.Errorf("retry upgrade: %w", cerr)
 			}
-			next.FailedUpgrades = outdatedAfterFailedUpgrade(ctx, w, r, names)
+			failed, oerr := outdatedAfterFailedUpgrade(ctx, w, r, names)
+			if oerr != nil {
+				return next, oerr
+			}
+			next.FailedUpgrades = failed
 		}
 	}
 

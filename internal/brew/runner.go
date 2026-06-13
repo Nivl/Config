@@ -21,9 +21,11 @@ type Runner interface {
 	Upgrade(ctx context.Context, packages ...string) error
 	// Outdated runs `brew outdated --quiet` and returns the names of
 	// packages (formulae and casks) that still have a newer version
-	// available. Used after a failed bulk upgrade to identify exactly
-	// which packages did not make it — brew itself limps through every
-	// package, so the leftovers are the failures.
+	// available. Used after a failed upgrade (bulk or scoped retry) to
+	// approximate the failed subset — brew limps through every package,
+	// so the leftovers are treated as the failures. See
+	// packages.outdatedAfterFailedUpgrade for why the list is a proxy,
+	// not ground truth.
 	Outdated(ctx context.Context) ([]string, error)
 	// Install installs one or more formulae in a single `brew install` call.
 	Install(ctx context.Context, formulae ...string) error
@@ -86,9 +88,9 @@ type runner struct {
 
 // dryRunRunner wraps a real Runner: write methods (Upgrade, Install,
 // InstallCask) no-op + report via the configured Reporter. Read
-// methods (IsCaskInstalled, IsAppRunning, ListCaskApps) delegate to
-// the wrapped runner so dry-run output reflects the actual state of
-// the system.
+// methods (Outdated, IsCaskInstalled, IsAppRunning, ListCaskApps)
+// delegate to the wrapped runner so dry-run output reflects the actual
+// state of the system.
 type dryRunRunner struct {
 	wrapped  Runner
 	reporter dryrun.Reporter
@@ -96,9 +98,9 @@ type dryRunRunner struct {
 
 // NewDryRunWrapper returns a Runner that no-ops + reports every
 // side-effecting method (Upgrade/Install/InstallCask) and delegates
-// every read method (IsCaskInstalled/IsAppRunning/ListCaskApps) to
-// the wrapped runner. Use this in conjunction with a real
-// NewRunner(streams) under --dry-run.
+// every read method (Outdated/IsCaskInstalled/IsAppRunning/
+// ListCaskApps) to the wrapped runner. Use this in conjunction with a
+// real NewRunner(streams) under --dry-run.
 func NewDryRunWrapper(wrapped Runner, reporter dryrun.Reporter) Runner {
 	return &dryRunRunner{wrapped: wrapped, reporter: reporter}
 }
@@ -106,7 +108,7 @@ func NewDryRunWrapper(wrapped Runner, reporter dryrun.Reporter) Runner {
 // Upgrade reports the brew upgrade shellout and returns nil
 // without invoking the wrapped runner.
 func (r *dryRunRunner) Upgrade(_ context.Context, packages ...string) error {
-	desc := "upgrade all formulae"
+	desc := "upgrade all packages"
 	if len(packages) > 0 {
 		desc = fmt.Sprintf("upgrade %d package(s)", len(packages))
 	}

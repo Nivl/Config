@@ -19,13 +19,20 @@ const (
 	InstallRetryIgnore
 )
 
-// InstallRetryChoice prompts for what to do about packages that failed
-// to install or upgrade and reads a 1/2/3 answer from in. Anything
+// InstallRetryChoice resolves what to do about packages that failed to
+// install or upgrade. Pre-resolved-value fast-path: when prearg is
+// non-empty it is parsed as abort|retry|ignore and the prompt is
+// skipped — the cmd layer resolves --install-failure-resolution /
+// INSTALL_FAILURE_RESOLUTION and validates the value before calling.
+// Otherwise prompts on out and reads a 1/2/3 answer from in. Anything
 // else reprompts; EOF returns errNoInput so unattended runs fail
 // loudly instead of looping forever. Callers that prompt repeatedly
 // should pass the same *bufio.Reader each time (bufio.NewReader
 // returns it unchanged) so buffered input survives across asks.
-func InstallRetryChoice(in io.Reader, out io.Writer) (InstallRetryDecision, error) {
+func InstallRetryChoice(prearg string, in io.Reader, out io.Writer) (InstallRetryDecision, error) {
+	if prearg != "" {
+		return parseInstallRetry(prearg)
+	}
 	r := bufio.NewReader(in)
 	for {
 		_, err := fmt.Fprint(out, "\nSome packages failed to install or upgrade. What do you want to do?\n"+
@@ -52,4 +59,19 @@ func InstallRetryChoice(in io.Reader, out io.Writer) (InstallRetryDecision, erro
 			return 0, fmt.Errorf("write retry hint: %w", err)
 		}
 	}
+}
+
+// parseInstallRetry maps a pre-resolved resolution value onto the
+// decision enum. The cmd layer validates user input before it gets
+// here, so an unknown value is a wiring bug — fail loud.
+func parseInstallRetry(value string) (InstallRetryDecision, error) {
+	switch value {
+	case "abort":
+		return InstallRetryAbort, nil
+	case "retry":
+		return InstallRetryAgain, nil
+	case "ignore":
+		return InstallRetryIgnore, nil
+	}
+	return 0, fmt.Errorf("unknown install failure resolution %q", value)
 }

@@ -74,7 +74,7 @@ func TestSetupCmd_AllPromptsEnvFastPathDoNotReadStdin(t *testing.T) {
 // The test invokes the configgen + dotfiles functions directly rather
 // than going through setupCmd because setupCmd performs an end-to-end
 // install that is hard to fake. The relevant logical flow is: get env
-// → call userinput.* → call packages.Install → call sync.Sync
+// → call userinput.* → call packages.InstallWithRetry → call sync.Sync
 // → call the four file-gen functions. This test covers the last leg
 // in isolation.
 func TestSetupCmd_FileGenWiring(t *testing.T) {

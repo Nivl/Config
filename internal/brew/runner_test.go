@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -168,6 +169,35 @@ printf 'the-unarchiver\n\nzoom\n'`
 	assert.Equal(t, "outdated --quiet\n", string(got))
 }
 
+// TestRunner_Outdated_MissingBrewReturnsErrNotFound pins the
+// cross-package catastrophic contract: when the brew binary is absent,
+// the wrapped error must satisfy errors.Is(err, exec.ErrNotFound) so
+// packages.catastrophic aborts the run instead of limping through
+// every package against a missing binary.
+func TestRunner_Outdated_MissingBrewReturnsErrNotFound(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	r := NewRunner(iox.Streams{Out: io.Discard, Err: io.Discard})
+	_, err := r.Outdated(context.Background())
+	require.Error(t, err)
+	require.ErrorIs(t, err, exec.ErrNotFound)
+}
+
+// TestRunner_Outdated_ExitErrorFakeBinarySubprocess pins the other
+// half of the contract: an ordinary non-zero exit returns an error
+// that does NOT match exec.ErrNotFound, so the packages layer records
+// the UpgradeAll sentinel instead of aborting the run.
+func TestRunner_Outdated_ExitErrorFakeBinarySubprocess(t *testing.T) {
+	body := `echo "Error: synthetic outdated failure" >&2 ; exit 1`
+	dir := fakeBrew(t, body)
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	r := NewRunner(iox.Streams{Out: io.Discard, Err: io.Discard})
+	_, err := r.Outdated(context.Background())
+	require.Error(t, err)
+	require.NotErrorIs(t, err, exec.ErrNotFound)
+	assert.Contains(t, err.Error(), "brew outdated")
+}
+
 // TestRunner_IsCaskInstalled_FakeBinarySubprocess covers both branches:
 // brew list --cask returns 0 (installed) and returns 1 (not installed).
 func TestRunner_IsCaskInstalled_FakeBinarySubprocess(t *testing.T) {
@@ -279,8 +309,10 @@ func (f *fakeReporter) Shellout(command string, args []string, _ string) {
 		fakeShellout{command: command, args: append([]string(nil), args...)})
 }
 
-// TestDryRunRunner_WriteMethodsReportNoOp — Upgrade/Install report
-// via the Reporter and never invoke the wrapped runner's writes.
+// TestDryRunRunner_WriteMethodsReportNoOp — Upgrade (bare and scoped),
+// Install, and InstallCask report via the Reporter and never invoke
+// the wrapped runner's writes. The scoped Upgrade form must report
+// the package names it would hand to brew.
 // InstallCask also reports a would-install when the cask is not yet
 // present (the live path would shell out); the skip-when-running
 // branch is covered separately below.
@@ -294,15 +326,17 @@ func TestDryRunRunner_WriteMethodsReportNoOp(t *testing.T) {
 	r := NewDryRunWrapper(inner, rep)
 
 	require.NoError(t, r.Upgrade(context.Background()))
+	require.NoError(t, r.Upgrade(context.Background(), "foo", "bar"))
 	require.NoError(t, r.Install(context.Background(), "git", "go"))
 	_, err := r.InstallCask(context.Background(), "iterm2")
 	require.NoError(t, err)
 
-	require.Len(t, rep.shellouts, 3)
+	require.Len(t, rep.shellouts, 4)
 	assert.Equal(t, "brew", rep.shellouts[0].command)
 	assert.Equal(t, []string{"upgrade"}, rep.shellouts[0].args)
-	assert.Equal(t, []string{"install", "git", "go"}, rep.shellouts[1].args)
-	assert.Equal(t, []string{"install", "--cask", "iterm2"}, rep.shellouts[2].args)
+	assert.Equal(t, []string{"upgrade", "foo", "bar"}, rep.shellouts[1].args)
+	assert.Equal(t, []string{"install", "git", "go"}, rep.shellouts[2].args)
+	assert.Equal(t, []string{"install", "--cask", "iterm2"}, rep.shellouts[3].args)
 	// Write methods on the wrapped runner are never called.
 	inner.AssertNotCalled(t, "Upgrade", mock.Anything, mock.Anything)
 	inner.AssertNotCalled(t, "Install", mock.Anything, mock.Anything)

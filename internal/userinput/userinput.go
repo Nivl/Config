@@ -1,13 +1,17 @@
-// Package userinput collects the small set of interactive prompts that
-// `melvin-config setup` runs before invoking the rest of the pipeline.
-// Each prompt has a strict prearg fast-path so the CLI can run
-// unattended in CI / scripted contexts.
+// Package userinput collects the small set of interactive prompts used
+// by melvin-config: the four setup inputs resolved up front (Personal,
+// DevRoot, GitHost, GitOrg) plus the failed-packages retry prompt that
+// fires mid-run from both `setup` and `install packages`. Each prompt
+// has a strict prearg fast-path so the CLI can run unattended in CI /
+// scripted contexts.
 //
 // Pattern (one file per prompt):
 //   - Take a `prearg string` as the first argument. The cmd layer
 //     resolves the value from flag → env → "" before calling; "" means
 //     "neither was set." If prearg is non-empty, return it verbatim and
 //     skip persistence — pre-set values pass through unvalidated.
+//     (InstallRetryChoice is the exception: its prearg is parsed into
+//     the decision enum, and an unknown value errors.)
 //   - Otherwise prompt to `out` (typically stderr) and read one line
 //     from `in` (typically os.Stdin). EOF returns errNoInput.
 //   - Optional persistence (only Personal writes ~/.zprofile).

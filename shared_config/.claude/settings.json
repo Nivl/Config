@@ -1,144 +1,5 @@
 {
-  "enabledPlugins": {
-    "amplitude@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true,
-    "code-review@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true,
-    "skill-creator@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true,
-    "claude-md-management@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true,
-    "security-guidance@claude-plugins-official": true,
-    "claude-code-setup@claude-plugins-official": true,
-    "vercel@claude-plugins-official": true,
-    "pr-review-toolkit@claude-plugins-official": true,
-    "serena@claude-plugins-official": false,
-    "hookify@claude-plugins-official": true,
-    "learning-output-style@claude-plugins-official": true,
-    "gopls-lsp@claude-plugins-official": true,
-    "stripe@claude-plugins-official": true,
-    "superpowers@claude-plugins-official": false,
-    "superpowers@superpowers-marketplace": true,
-    "warp@claude-code-warp": true
-  },
-  "extraKnownMarketplaces": {
-    "prime-radiant-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "prime-radiant-inc/prime-radiant-marketplace"
-      },
-      "autoUpdate": true
-    },
-    "superpowers-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "obra/superpowers-marketplace"
-      },
-      "autoUpdate": true
-    },
-    "claude-code-warp": {
-      "source": {
-        "source": "github",
-        "repo": "warpdotdev/claude-code-warp"
-      }
-    }
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
-            "if": "Bash(gh api *)"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
-            "if": "Bash(/opt/homebrew/bin/gh api *)"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/cd-under-roots.py",
-            "if": "Bash(cd *)"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/git-deny-dash-c.py",
-            "if": "Bash(git *)"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/git-deny-dash-c.py",
-            "if": "Bash(/usr/bin/git *)"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/file-ops-under-roots.py"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-json-tool.py"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-awk.py"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-multi-command.py"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-shell-wrapper.py"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-command-substitution.py"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-bash-script.py"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-env-vars.py"
-          },
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/bash-allow-trusted.py"
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/write-under-roots.py"
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/read-guard.py"
-          }
-        ]
-      }
-    ]
-  },
-  "model": "opus[1m]",
   "permissions": {
-    "additionalDirectories": [
-      "/Users/melvin/Dev/repos",
-      "/Users/melvin/Dev/worktrees",
-      "/private/tmp",
-      "/tmp"
-    ],
     "allow": [
       "Bash(* --help *)",
       "Bash(* --version)",
@@ -368,6 +229,10 @@
       "WebFetch(domain:react.dev)",
       "WebFetch(domain:registry.npmjs.org)"
     ],
+    "deny": [
+      "Bash(* .env *)",
+      "Bash(* ~/.ssh/*)"
+    ],
     "ask": [
       "Bash(/opt/homebrew/bin/ *)",
       "Bash(/opt/homebrew/bin/go build ../*)",
@@ -392,28 +257,163 @@
       "Bash(sed -i*)",
       "Bash(wget *)"
     ],
-    "deny": [
-      "Bash(* .env *)",
-      "Bash(* ~/.ssh/*)"
+    "additionalDirectories": [
+      "/Users/melvin/Dev/repos",
+      "/Users/melvin/Dev/worktrees",
+      "/private/tmp",
+      "/tmp"
     ]
   },
+  "model": "opus[1m]",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
+            "if": "Bash(gh api *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/gh-api-write-guard.py",
+            "if": "Bash(/opt/homebrew/bin/gh api *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/cd-under-roots.py",
+            "if": "Bash(cd *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/git-deny-dash-c.py",
+            "if": "Bash(git *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/git-deny-dash-c.py",
+            "if": "Bash(/usr/bin/git *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/file-ops-under-roots.py"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-json-tool.py"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-awk.py"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-multi-command.py"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-shell-wrapper.py"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-command-substitution.py"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-bash-script.py"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-env-vars.py"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/bash-allow-trusted.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/write-under-roots.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/read-guard.py"
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "amplitude@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "claude-code-setup@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true,
+    "pr-review-toolkit@claude-plugins-official": true,
+    "serena@claude-plugins-official": false,
+    "hookify@claude-plugins-official": true,
+    "learning-output-style@claude-plugins-official": true,
+    "gopls-lsp@claude-plugins-official": true,
+    "stripe@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": false,
+    "superpowers@superpowers-marketplace": true,
+    "warp@claude-code-warp": true,
+    "ponytail@ponytail": true
+  },
+  "extraKnownMarketplaces": {
+    "prime-radiant-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "prime-radiant-inc/prime-radiant-marketplace"
+      },
+      "autoUpdate": true
+    },
+    "superpowers-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "obra/superpowers-marketplace"
+      },
+      "autoUpdate": true
+    },
+    "claude-code-warp": {
+      "source": {
+        "source": "github",
+        "repo": "warpdotdev/claude-code-warp"
+      }
+    },
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    }
+  },
   "sandbox": {
-    "allowUnsandboxedCommands": false,
-    "autoAllowBashIfSandboxed": false,
     "enabled": true,
-    "excludedCommands": [
-      "/opt/homebrew/bin/gh *",
-      "/opt/homebrew/bin/go get *",
-      "/opt/homebrew/bin/go mod *",
-      "/usr/bin/git *",
-      "/usr/local/bin/docker *",
-      "docker *",
-      "gh *",
-      "git *",
-      "go get *",
-      "go mod *"
-    ],
     "failIfUnavailable": true,
+    "autoAllowBashIfSandboxed": false,
+    "allowUnsandboxedCommands": false,
+    "network": {
+      "allowMachLookup": [
+        "com.apple.sysmond"
+      ]
+    },
     "filesystem": {
       "allowWrite": [
         "/private/tmp",
@@ -434,12 +434,19 @@
         "~/.ssh"
       ]
     },
-    "network": {
-      "allowMachLookup": [
-        "com.apple.sysmond"
-      ]
-    }
+    "excludedCommands": [
+      "/opt/homebrew/bin/gh *",
+      "/opt/homebrew/bin/go get *",
+      "/opt/homebrew/bin/go mod *",
+      "/usr/bin/git *",
+      "/usr/local/bin/docker *",
+      "docker *",
+      "gh *",
+      "git *",
+      "go get *",
+      "go mod *"
+    ]
   },
-  "skipAutoPermissionPrompt": true,
-  "theme": "auto"
+  "theme": "auto",
+  "skipAutoPermissionPrompt": true
 }

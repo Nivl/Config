@@ -28,6 +28,26 @@ will actually read — short, simple, scannable.
 4. **Template wins.** If the repo has a PR template, USE IT. Don't substitute the default
    format just because you prefer it.
 
+## GitHub access (`gh` with GitHub-MCP fallback)
+
+Every GitHub call below is written as a `gh` command. **If the `gh` binary is unavailable or
+unauthenticated in this environment, fall back to the GitHub MCP server** — the same way
+`in-depth-review`'s Role #10 falls back from `acli` to the Atlassian MCP. Discover the MCP
+tools with `ToolSearch "github pull request"` and call the operation matching the `gh` call:
+
+| `gh` call used here | GitHub MCP equivalent (confirm exact name via ToolSearch) |
+|---|---|
+| `gh repo view --json defaultBranchRef` | get repository (default branch) |
+| `gh pr view --json …` | get pull request (existing-PR check) |
+| `gh pr list --limit N --json title` | list pull requests (recent titles, for convention) |
+| `gh pr create …` | **create pull request** — the write (Step 7) |
+
+Prefer `gh` when present; only fall back when the binary is missing or auth fails. If NEITHER
+`gh` nor a GitHub MCP is available, tell the user to install/authenticate `gh`
+(`gh auth login`) or connect a GitHub MCP, and stop — this skill cannot open a PR without one.
+Local `git` calls (`git log`, `git diff`, `git push`, `git rev-parse`) need no `gh` and are
+unaffected.
+
 ## Step 0: Preflight
 
 1. Verify we're in a git repo: `git rev-parse --is-inside-work-tree`. Abort if not.
@@ -231,6 +251,11 @@ EOF
 
 Add `--draft` if the user asked for a draft (either via skill argument `--draft` or by
 saying "open as draft" in the conversation).
+
+**If `gh` is unavailable**, create the PR through the GitHub MCP instead (see **GitHub
+access**): use a create-pull-request tool with base = `<default-branch>`, head = the current
+branch, the drafted title, the drafted body, and draft = true when requested. Report the URL
+it returns the same way.
 
 After `gh pr create` returns the URL, report it to the user:
 

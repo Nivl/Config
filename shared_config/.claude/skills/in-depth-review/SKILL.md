@@ -72,6 +72,27 @@ Permitted read-only `gh` calls: `gh pr list`, `gh pr view`, `gh pr diff`, `gh se
 If a sub-agent appears about to issue any write command, abort and surface the attempt to the
 caller.
 
+## GitHub access (`gh` with GitHub-MCP fallback)
+
+Every GitHub call below is written as a `gh` command. **If the `gh` binary is unavailable or
+unauthenticated in this environment, fall back to the GitHub MCP server** — the same way Role
+#10 falls back from `acli` to the Atlassian MCP. Discover the MCP tools with
+`ToolSearch "github pull request"` and call the operation matching the `gh` call:
+
+| `gh` call used here | GitHub MCP equivalent (confirm exact name via ToolSearch) |
+|---|---|
+| `gh pr view <N> --json …` | get pull request (metadata, title/body/baseRefName/commits) |
+| `gh pr diff <N>` | get pull request diff |
+| `gh pr diff <N> --name-only` | get pull request files (changed files) |
+| `gh pr list --search …` | list / search pull requests |
+| `gh pr view <N> --comments` | get pull request review comments + issue comments |
+
+Prefer `gh` when present; only fall back when the binary is missing or auth fails. This is a
+**read-only** fallback — read calls map to read tools, so the "never writes to GitHub"
+constraint is unchanged. If NEITHER `gh` nor a GitHub MCP is available, PR mode cannot proceed:
+abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git blame`,
+`git rev-list`) need no `gh` and are unaffected — branch mode works without GitHub entirely.
+
 ## Step 0: Resolve scope
 
 1. Parse the argument. First split it on whitespace into tokens; classify each token, then apply mode detection to the lone non-flag token:
@@ -147,7 +168,9 @@ Do NOT coordinate with the others.
 
 IMPORTANT: Do not run `gh pr comment`, `gh pr review`, `gh pr edit`, or any command that
 writes to GitHub. Read-only gh commands (gh pr list / view / diff / search) are permitted
-only if your role below explicitly requires them.
+only if your role below explicitly requires them. If the `gh` binary is unavailable or
+unauthenticated, use the GitHub MCP read tools instead (find them with
+ToolSearch "github pull request") — they are equally read-only; never use a write tool.
 ```
 
 ### Reviewer Role #1 — AGENTS.md compliance
@@ -209,8 +232,11 @@ Surface any past feedback that applies to the current change. Past reviewers may
 flagged the same class of issue, or there may be agreed-upon conventions documented in the
 discussion.
 
-You are READ-ONLY. Do not run `gh pr comment`, `gh pr review`, or any write command. If gh is
-not available or unauthenticated, respond with "NO_ISSUES_FOUND" and note the limitation.
+You are READ-ONLY. Do not run `gh pr comment`, `gh pr review`, or any write command. If the
+`gh` binary is not available or unauthenticated, fall back to the GitHub MCP read tools (find
+them with ToolSearch "github pull request") to list past PRs and read their comments. Only if
+NEITHER `gh` nor a GitHub MCP is available, respond with "NO_ISSUES_FOUND" and note the
+limitation.
 ```
 
 ### Reviewer Role #5 — In-file code comments
@@ -551,7 +577,8 @@ and the threshold note is dropped.
 ## Constraints
 
 - **No GitHub writes, ever.** Only read-only `gh` calls are permitted (list, view, diff,
-  search). Sub-agents that try to issue a write should be aborted and surfaced to the caller.
+  search) — or, when `gh` is unavailable, the equally read-only GitHub MCP PR-read tools.
+  Sub-agents that try to issue a write should be aborted and surfaced to the caller.
 - **9 or 10 parallel reviewers per pass** — 10 by default (the 10th is ticket intent
   compliance), 9 when `--skip-ticket` is passed. Never serialize, never skip a role for
   speed. The role specialization is the point.

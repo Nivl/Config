@@ -55,6 +55,17 @@ The skill never invokes `gh pr comment`, `gh pr review`, `gh pr edit`, or any wr
 Read-only `gh` calls inside the sub-skills (in-depth-review's prior-PR-comment role, plus
 gh-style-review's PR conversation/review-thread fetches) are fine.
 
+## GitHub access (`gh` with GitHub-MCP fallback)
+
+This skill's only direct GitHub call is `gh pr view` (PR detection, Step 0.5). **If the `gh`
+binary is unavailable or unauthenticated, fall back to the GitHub MCP server** — the same way
+`in-depth-review`'s Role #10 falls back from `acli` to the Atlassian MCP. Discover its tools
+with `ToolSearch "github pull request"` and use a get-pull-request / list-pull-requests tool to
+find the current branch's open PR. If neither `gh` nor a GitHub MCP is available, treat it as
+"no PR" (`<HAS_PR> = false`) and run the sub-agents in branch mode — the loop still works. The
+reviewer sub-skills (`in-depth-review`, `gh-style-review`) carry their own identical fallback
+for the reads they do. Local `git` calls need no `gh`.
+
 ## Process Overview
 
 1. Determine the target: PR if one exists for the current branch, else commit range
@@ -91,6 +102,8 @@ gh-style-review's PR conversation/review-thread fetches) are fine.
      `<RANGE>` and run in branch mode.
    - Exit zero and `state == "OPEN"` → set `<HAS_PR> = true`, save `<PR>` and `<PR_URL>`.
      Sub-agents will receive `<PR>` and run in PR mode. Draft PRs are accepted.
+   - If `gh` is unavailable, detect the PR via the GitHub MCP instead (see **GitHub access**);
+     if neither `gh` nor a GitHub MCP is available, set `<HAS_PR> = false` and continue.
 6. Define `<TARGET_ARG>` for use in the sub-agent prompts:
    - If `<HAS_PR>` → `<TARGET_ARG> = <PR>`
    - Else → `<TARGET_ARG> = <RANGE>`

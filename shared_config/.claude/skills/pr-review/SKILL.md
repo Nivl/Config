@@ -50,10 +50,31 @@ that the diff still hasn't addressed" section.
   marking the PR ready). Both `in-depth-review` and `gh-style-review` accept drafts.
 - Both the `in-depth-review` and `gh-style-review` skills must be installed and available
   (they live alongside this skill in `shared_config/.claude/skills/`).
-- `gh` must be installed and authenticated.
+- `gh` must be installed and authenticated — OR a GitHub MCP server must be connected and
+  authenticated, which the skill falls back to when `gh` is unavailable (see **GitHub access**).
 
 **Flag:** pass `--skip-ticket` to disable ticket intent compliance (Role #10) across all
 five `in-depth-review` instances and skip the Jira-tooling preflight.
+
+## GitHub access (`gh` with GitHub-MCP fallback)
+
+Every GitHub call below is written as a `gh` command. **If the `gh` binary is unavailable or
+unauthenticated in this environment, fall back to the GitHub MCP server** — the same way
+`in-depth-review`'s Role #10 falls back from `acli` to the Atlassian MCP. Discover the MCP
+tools with `ToolSearch "github pull request"` and call the operation matching the `gh` call:
+
+| `gh` call used here | GitHub MCP equivalent (confirm exact name via ToolSearch) |
+|---|---|
+| `gh pr view <N> --json …` | get pull request (metadata, headRefOid) |
+| `gh pr diff <N> --name-only` | get pull request files (changed files) |
+| `gh repo view --json owner,name` | get repository (owner/name) |
+| `gh api -X POST …/pulls/<N>/reviews` | **create-and-submit pull request review** (or the pending-review + add-review-comment + submit trio for inline comments) — the one write |
+
+Prefer `gh` when present; only fall back when the binary is missing or auth fails. If NEITHER
+`gh` nor a GitHub MCP is available, abort in Step 0 and tell the user — this skill cannot
+resolve or post to the PR without one. The reviewer sub-agents (`in-depth-review`,
+`gh-style-review`) carry their own identical fallback for the reads they do. Local `git` calls
+need no `gh`.
 
 ## Step 0: Resolve the PR
 
@@ -615,11 +636,19 @@ gh api -X POST "/repos/$OWNER_REPO/pulls/<PR>/reviews" --input - <<EOF
 EOF
 ```
 
+**If `gh` is unavailable**, post the identical review through the GitHub MCP instead (see
+**GitHub access**): use a create-and-submit-pull-request-review tool with the same `body` and
+`event=COMMENT`; when there are inline comments, use the pending-review trio (create a pending
+review → add one review comment per INLINE finding at its `path`/`line`/`side` → submit the
+pending review as `COMMENT`). This is still ONE logical review. The 422 handling below applies
+either way.
+
 If the API responds 422 because one or more inline comments target lines not in the diff,
 demote those specific comments to GLOBAL (append them to the global body in a "Couldn't anchor
 inline" subsection) and re-issue the call. Do not silently drop findings.
 
-**This is the ONLY GitHub write this skill is permitted to perform**, and only when at least one
+**This is the ONLY GitHub write this skill is permitted to perform** (via `gh api`, or the
+GitHub MCP review-create tool when `gh` is unavailable), and only when at least one
 of {a surviving finding ≥ 60, a surviving adversarial finding (Step 2.7), an unaddressed prior
 concern} is present. Do not edit the PR, add reviewers, change labels, request changes,
 approve, or alter any other PR state.

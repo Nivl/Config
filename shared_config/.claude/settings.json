@@ -243,8 +243,6 @@
       "Bash(/usr/bin/find *-exec rm*)",
       "Bash(/usr/bin/find *-execdir rm*)",
       "Bash(/usr/bin/find *-ok rm*)",
-      "Bash(/usr/bin/sed * -i*)",
-      "Bash(/usr/bin/sed -i*)",
       "Bash(curl *)",
       "Bash(find *-delete*)",
       "Bash(find *-exec rm*)",
@@ -253,8 +251,6 @@
       "Bash(go build ../*)",
       "Bash(go build ./../*)",
       "Bash(go build /*)",
-      "Bash(sed * -i*)",
-      "Bash(sed -i*)",
       "Bash(wget *)"
     ],
     "additionalDirectories": [

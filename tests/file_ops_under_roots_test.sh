@@ -415,4 +415,39 @@ for bad_payload in 'not-json' 'null' '[]' '"str"' '{}' '{"tool_input":null}' '{"
   assert_eq "bad_payload_silent($bad_payload)" "0|" "$raw_status|$raw_out"
 done
 
+# ---- sed: in-place (-i) is gated like rm; read-only sed is untouched ----
+# Read-only sed writes nothing -> silent (the allow rule covers it). The
+# $-anchor case is the regression guard: a `$` in the SCRIPT must not be
+# read as shell expansion and is never seen because read-only sed returns
+# before any check.
+assert_eq "silent_sed_readonly" "silent" "$(decision "sed 's/a/b/' /tmp/f")"
+assert_eq "silent_sed_n_print" "silent" "$(decision "sed -n 1,5p /tmp/f")"
+sed_ro_dollar='sed s/$/x/ /tmp/f'
+assert_eq "silent_sed_ro_dollar" "silent" "$(decision "$sed_ro_dollar")"
+
+# In-place under a safe root with the recoverability guards satisfied.
+assert_eq "allow_sed_tmp" "allow" "$(decision "sed -i '' 's/a/b/' /tmp/f.txt")"
+assert_eq "allow_sed_tmp_multi" "allow" "$(decision "sed -i '' 's/a/b/' /tmp/a /tmp/b")"
+assert_eq "allow_sed_e_flags" "allow" "$(decision "sed -i '' -e 's/a/b/' -e 's/c/d/' /tmp/f")"
+assert_eq "allow_sed_attached_suffix" "allow" "$(decision "sed -i.bak 's/a/b/' /tmp/f")"
+assert_eq "allow_sed_repo_file" "allow" "$(decision "sed -i '' 's/a/b/' $RP_ROOT/sub/file.txt")"
+assert_eq "allow_sed_abs_bin" "allow" "$(decision "/usr/bin/sed -i '' 's/a/b/' /tmp/f")"
+# A `$` end-anchor lives in the script, not a path, so it must not ask.
+sed_ip_dollar="sed -i '' 's/\$/x/' /tmp/f"
+assert_eq "allow_sed_dollar_anchor" "allow" "$(decision "$sed_ip_dollar")"
+
+# In-place that must ask: outside roots, a .git path, a repo root, no file
+# target, expansion in a path, a chained command, or under a dev root but
+# not inside a repo (not git-recoverable).
+assert_eq "ask_sed_outside" "ask" "$(decision "sed -i '' 's/a/b/' /etc/hosts")"
+assert_eq "ask_sed_git_segment" "ask" "$(decision "sed -i '' 's/a/b/' $RP_ROOT/.git/config")"
+assert_eq "ask_sed_repo_root" "ask" "$(decision "sed -i '' 's/a/b/' $tmpdir/repo")"
+assert_eq "ask_sed_no_target" "ask" "$(decision "sed -i '' 's/a/b/'")"
+sed_ip_var="sed -i '' 's/a/b/' /tmp/\${VAR}/f"
+assert_eq "ask_sed_var_in_path" "ask" "$(decision "$sed_ip_var")"
+sed_ip_chain="sed -i '' 's/a/b/' /tmp/f; rm -rf /tmp/x"
+assert_eq "ask_sed_chain" "ask" "$(decision "$sed_ip_chain")"
+assert_eq "ask_sed_loose_devroot" "ask" \
+  "$(decision_with_roots "sed -i '' 's/a/b/' $DEV_RP/loose.txt" "$DEV_WT" "$DEV_RP")"
+
 echo "file-ops-under-roots.py: all tests passed"

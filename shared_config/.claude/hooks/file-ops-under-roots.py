@@ -50,6 +50,19 @@
 # / `-S` / `--suffix` forms ask as well: they carry the write
 # destination inside an option token that the positional scan skips.
 #
+# sed specifics: only IN-PLACE sed (`-i`) is handled — it rewrites its
+# input files, so the files it edits get rm's containment + recoverability
+# guards. Read-only sed returns silent before any check (the settings
+# allow rule covers it), so a script like `sed 's/$/x/' f` is never
+# touched. Parsing assumes BSD sed (this is macOS): `-i` consumes a
+# mandatory following suffix token (`sed -i '' 's/a/b/' f`); `-e`/`-f`
+# consume the script/file argument; with no `-e`/`-f` the first remaining
+# positional is the script and the rest are the edited files. The broad
+# command-level shell-expansion guard is skipped for sed (a `$` end-anchor
+# in the script is not a path), but every edited-file path is checked for
+# expansion individually, and `deny-command-substitution.py` still denies
+# real `$(...)`/backticks in the same hook chain.
+#
 # Hidden-path forms (command substitution, backticks, process
 # substitution) ask too: we can't statically tell what gets touched.
 # Wrapper-prefixed forms like `sudo rm` are out of scope here —
@@ -66,6 +79,10 @@ import sys
 RM_COMMANDS = frozenset({"rm", "rmdir", "unlink"})
 COPY_COMMANDS = frozenset({"cp", "mv"})
 FILE_OP_COMMANDS = RM_COMMANDS | COPY_COMMANDS
+# In-place sed rewrites its input files, so `sed -i` is content-destructive
+# the same way rm is — gated here with rm's recoverability guards. Read-only
+# sed (no -i) writes nothing and is left to the settings allow rule.
+SED_COMMANDS = frozenset({"sed"})
 # Pathy invocations are only honored from these dirs. Anything else
 # (/tmp/evil/rm, ./rm) is an arbitrary binary that happens to share a
 # file-op name — those stay silent and hit the default prompt.
@@ -195,6 +212,63 @@ def collect_targets(args):
     return targets
 
 
+def sed_inplace_targets(args):
+    # Parse a BSD sed argument list into (in_place, files). in_place is
+    # True when -i/-I (or --in-place) is present. files are the input
+    # paths sed would rewrite — the script argument is excluded. Short
+    # options cluster, and -e/-f/-i/-I take an argument: attached when the
+    # cluster has trailing characters (`-i.bak`, `-e's/a/b/'`), otherwise
+    # the next whole token (BSD `-i ''`). Unparseable / ambiguous shapes
+    # leave files empty so the caller asks.
+    in_place = False
+    have_script = False  # -e/-f given, so every positional is a file
+    positionals = []
+    in_options = True
+    i = 0
+    n = len(args)
+    while i < n:
+        a = args[i]
+        if in_options and a == "--":
+            in_options = False
+            i += 1
+            continue
+        if in_options and a.startswith("--"):
+            opt = a.split("=", 1)[0]
+            if opt == "--in-place":
+                in_place = True
+            elif opt in ("--expression", "--file"):
+                have_script = True
+                if "=" not in a:
+                    i += 1  # script/file arg is the next token
+            i += 1
+            continue
+        if in_options and a.startswith("-") and a != "-":
+            body = a[1:]
+            j = 0
+            while j < len(body):
+                c = body[j]
+                if c in "iI":
+                    in_place = True
+                    if not body[j + 1 :]:
+                        i += 1  # BSD: suffix is the next token
+                    break
+                if c in "ef":
+                    have_script = True
+                    if not body[j + 1 :]:
+                        i += 1  # script/file arg is the next token
+                    break
+                j += 1  # flag without an argument (n, E, r, s, u, z, ...)
+            i += 1
+            continue
+        positionals.append(a)
+        i += 1
+    if not in_place:
+        return False, []
+    if have_script:
+        return True, positionals
+    return True, positionals[1:]
+
+
 def has_destination_option(args):
     # GNU cp/mv can carry the destination (or a backup suffix that
     # becomes part of a write path) inside an option: `-t DIR`,
@@ -295,12 +369,23 @@ def main() -> None:
         return
     head = tokens[0]
     name = os.path.basename(head)
-    if name not in FILE_OP_COMMANDS:
+    if name not in FILE_OP_COMMANDS and name not in SED_COMMANDS:
         return
     if os.sep in head and os.path.dirname(os.path.normpath(head)) not in TRUSTED_BIN_DIRS:
         return
 
-    if has_hidden_expansion(cmd):
+    sed_targets = None
+    if name in SED_COMMANDS:
+        in_place, sed_targets = sed_inplace_targets(tokens[1:])
+        if not in_place:
+            # Read-only sed writes nothing — leave it to the allow rule,
+            # untouched by the checks below (notably the $-anchor case).
+            return
+
+    # The command-level expansion guard would flag a `$` end-anchor in a
+    # sed script, which is not a path — sed's edited files are checked
+    # individually in the loop below instead.
+    if name in FILE_OP_COMMANDS and has_hidden_expansion(cmd):
         emit(
             "ask",
             f"{name} command uses shell expansion ($(...), ${{VAR}}, backticks, "
@@ -328,22 +413,31 @@ def main() -> None:
         )
         return
 
-    if name in COPY_COMMANDS and has_destination_option(tokens[1:]):
-        emit(
-            "ask",
-            f"{name} uses -t/--target-directory or -S/--suffix, which hide a "
-            "write path inside an option; spell the destination as a "
-            "positional argument instead.",
-        )
-        return
+    if name in SED_COMMANDS:
+        targets = sed_targets
+        if not targets:
+            emit("ask", "sed -i invocation has no static file target — asking for explicit approval.")
+            return
+    else:
+        if name in COPY_COMMANDS and has_destination_option(tokens[1:]):
+            emit(
+                "ask",
+                f"{name} uses -t/--target-directory or -S/--suffix, which hide a "
+                "write path inside an option; spell the destination as a "
+                "positional argument instead.",
+            )
+            return
 
-    targets = collect_targets(tokens[1:])
-    if not targets:
-        emit("ask", f"{name} invocation has no static target — asking for explicit approval.")
-        return
+        targets = collect_targets(tokens[1:])
+        if not targets:
+            emit("ask", f"{name} invocation has no static target — asking for explicit approval.")
+            return
 
     cwd = str(data.get("cwd") or "").strip()
     lexical_roots, real_roots, env_real_roots = allowed_roots()
+    # rm and in-place sed both destroy file content, so both get the
+    # recoverability guards below.
+    rm_like = name in RM_COMMANDS or name in SED_COMMANDS
     # For mv, every positional except the last is a source being removed
     # from its directory — destructive like rm from the dev roots'
     # perspective, so sources share rm's recoverability guard below.
@@ -361,6 +455,15 @@ def main() -> None:
                 f"{name} path {target!r} carries brace-expansion or glob "
                 "characters whose runtime expansion can't be checked "
                 "statically.",
+            )
+            return
+        # sed skipped the command-level expansion guard, so check each
+        # edited-file path here ($VAR/$(...) in a path could escape roots).
+        if name in SED_COMMANDS and has_hidden_expansion(target):
+            emit(
+                "ask",
+                f"sed path {target!r} uses shell expansion ($(...), ${{VAR}}, "
+                "backticks, <(...) etc.) that can't be checked statically.",
             )
             return
         # Tilde-expand so `rm ~/foo` resolves to the actual home path rather
@@ -426,7 +529,7 @@ def main() -> None:
                 "refusing to auto-allow.",
             )
             return
-        if (name in RM_COMMANDS or target in mv_sources) and (
+        if (rm_like or target in mv_sources) and (
             lexical in lexical_roots or real in real_roots
         ):
             # Removing or relocating a whole allowed root is never routine.
@@ -441,7 +544,7 @@ def main() -> None:
             )
             return
 
-        if name in RM_COMMANDS or target in mv_sources:
+        if rm_like or target in mv_sources:
             # A symlink operand is just a link: rm unlinks it and mv
             # relocates it, so it is never a repo root for these checks
             # (stat would follow it and misread the link as the repo),
@@ -464,6 +567,13 @@ def main() -> None:
                         f"rm target {target!r} is a git repository root; "
                         "deleting it is irreversible, asking for explicit "
                         "approval.",
+                    )
+                    return
+                if name in SED_COMMANDS:
+                    emit(
+                        "ask",
+                        f"sed target {target!r} is a git repository root, not "
+                        "an editable file; asking for explicit approval.",
                     )
                     return
                 # An mv source that IS a repo root stays allowed: .git

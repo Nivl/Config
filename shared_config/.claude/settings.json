@@ -437,6 +437,7 @@
         "~/.docker",
         "~/.gnupg",
         "~/.kube",
+        "~/.melvin/config/shared_config/.emacs.d/elpa",
         "~/.netrc",
         "~/.ssh"
       ]

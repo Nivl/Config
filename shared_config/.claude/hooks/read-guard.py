@@ -13,6 +13,10 @@
 # input (Claude Code provides `cwd`), falling back to the hook process's own
 # getcwd() only when absent. realpath is applied before the root boundary
 # check so symlinks / `..` can't escape a root.
+#
+# Decision 0 sits in front of all of the above: shared_config/.emacs.d/elpa
+# is hundreds of bulky vendored Emacs package files — reading them only
+# burns context, never helps — so it is hard-DENIED regardless of location.
 
 import json
 import os
@@ -24,6 +28,11 @@ ROOT_SPECS = (
     ("HOME", ".melvin/config"),
 )
 FIXED_ROOTS = ("/tmp", "/private/tmp")
+
+# Path components of the committed Emacs package tree. Matched as a
+# contiguous segment run rather than one absolute path so a worktree
+# checkout of this repo is covered too, not just ~/.melvin/config.
+ELPA_SEGMENTS = ("shared_config", ".emacs.d", "elpa")
 
 # Look like .env files but carry no real secrets — safe to read, so NOT asked.
 ENV_TEMPLATE_SUFFIXES = (".example", ".sample", ".template", ".dist", ".defaults")
@@ -42,6 +51,15 @@ SENSITIVE_NAMES = {
 
 # Basename extensions indicating private keys / keystores.
 SENSITIVE_EXTS = (".pem", ".key", ".p12", ".pfx", ".p8")
+
+
+def is_elpa_path(path: str) -> bool:
+    parts = [p for p in path.split(os.sep) if p]
+    span = len(ELPA_SEGMENTS)
+    for i in range(len(parts) - span + 1):
+        if tuple(parts[i : i + span]) == ELPA_SEGMENTS:
+            return True
+    return False
 
 
 def is_sensitive(name: str) -> bool:
@@ -97,6 +115,13 @@ def main() -> None:
         base = (data.get("cwd") or "").strip() or os.getcwd()
         file_path = os.path.join(base, file_path)
     target = os.path.realpath(file_path)
+
+    # 0. The Emacs package tree is bulky vendored deps. Reading it wastes
+    #    context, so hard-deny — check both the requested path and the
+    #    symlink target so a link into elpa can't slip past.
+    if is_elpa_path(file_path) or is_elpa_path(target):
+        emit("deny", "shared_config/.emacs.d/elpa is bulky vendored Emacs deps; reading it is blocked")
+        return
 
     # 1. Sensitive files ASK regardless of location. Check both the requested
     #    name and the symlink target's name so `read cfg` (cfg -> /x/.env)

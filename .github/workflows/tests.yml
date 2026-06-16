@@ -107,6 +107,17 @@ jobs:
       - name: Run file-ops-under-roots test
         run: bash tests/file_ops_under_roots_test.sh
 
+  read-guard-hook:
+    name: read-guard hook test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run read-guard test
+        run: bash tests/read_guard_test.sh
+
   deny-json-tool-hook:
     name: deny-json-tool hook test
     runs-on: macos-latest

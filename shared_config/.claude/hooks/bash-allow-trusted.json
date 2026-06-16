@@ -38,6 +38,7 @@
     ["git", "cherry-pick"],
     ["git", "diff"],
     ["git", "fetch"],
+    ["git", "format-patch"],
     ["git", "fsck"],
     ["git", "grep"],
     ["git", "help"],

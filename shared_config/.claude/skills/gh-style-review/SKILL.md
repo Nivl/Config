@@ -269,7 +269,23 @@ task: do NOT edit files, commit, push, or post to GitHub. Read and report only.
      not whatever branch happens to be checked out.
    - Read the repo's CLAUDE.md and honor it.
 
-2. Investigate impact — this is where diff-only review fails.
+2. Verify the PR delivers its stated benefit — reason from MOTIVATION, not just the diff.
+   The diff shows WHAT changed; the <pr_or_issue_body> / <commit_log> / linked ticket say
+   WHY. A diff can be locally correct yet still NOT deliver its headline benefit — e.g. it
+   fixes a helper that has no live callers while the real behavior runs through a different,
+   untouched path that still carries the bug.
+   - Restate the PR's stated goal in one sentence. If it names an observable effect (a
+     metric/tag value, a query result, an email, an event, an endpoint response), note it.
+   - Find where that effect must actually manifest at runtime — the live call site, query,
+     metric emit, or handler the goal names. `git grep` for it. It is frequently NOT in the
+     diff, and that is exactly what diff-anchored review misses.
+   - Confirm the diff makes the benefit land THERE. If the changed code has no live callers
+     (grep proves zero), do NOT stop at "forward-looking, no change needed" — that is the
+     near-miss trap. Pull the thread: where does the live behavior run today, and does it
+     still carry the bug the PR set out to fix? Flag that site (REQUEST CHANGES) even though
+     it is outside the diff — delivering the stated benefit there is in scope.
+
+3. Investigate impact — this is where diff-only review fails.
    - For each change, trace it into the code it touches: the functions it calls, the callers
      that reach it, and any previously-dormant, conditional, or dead code paths the change
      newly activates or makes reachable.
@@ -279,7 +295,7 @@ task: do NOT edit files, commit, push, or post to GitHub. Read and report only.
    - Follow the data flow to its real endpoints (DB writes, emails, partner/external calls,
      state transitions) and confirm the change's effect two hops out, not just locally.
 
-3. Reachability proof for any branch the change depends on — the check that catches dead-guard
+4. Reachability proof for any branch the change depends on — the check that catches dead-guard
    / latent-typo bugs, done ADVERSARIALLY: default to the branch being BROKEN until you can
    prove it fires, with quoted evidence. When the change relies on a branch firing (to send an
    email, emit an event, persist, or clean up) and that branch is guarded by `X.field ===
@@ -297,7 +313,7 @@ task: do NOT edit files, commit, push, or post to GitHub. Read and report only.
      the exact line and the one-line fix. Reject any "it's intentional / it's a different field"
      explanation you cannot back with a quoted write line.
 
-4. Review thoroughly. Look for: correctness bugs, security issues, performance problems,
+5. Review thoroughly. Look for: correctness bugs, security issues, performance problems,
    missing edge cases, project-convention violations (CLAUDE.md), error handling, and test
    coverage — including coverage gaps for unchanged code the change newly exercises.
    - (PR mode only) Cross-reference <comments>, <review_comments>, and <prior_reviews>:
@@ -324,9 +340,30 @@ Each finding is graded on **two orthogonal axes** — same scheme as `in-depth-r
 | ----- | ------- |
 | 0     | False positive that doesn't survive light scrutiny, or a pre-existing issue unrelated to the diff |
 | 25    | Somewhat confident — might be real, might not; couldn't verify either way |
-| 50    | Moderately confident — verified real, but might be a nitpick or rarely hits in practice |
-| 75    | Highly confident — verified, will likely be hit in practice; OR an explicit CLAUDE.md violation |
+| 50    | Moderately confident — the mechanism is real, but residual uncertainty remains about whether it truly applies here |
+| 75    | Highly confident — verified the code definitively does this; OR a provable convention / CLAUDE.md violation |
 | 100   | Absolutely certain — the diff directly confirms the problem |
+
+**Calibration — confidence is the TRUTH axis, not current impact.** Confidence answers "how
+sure are we this finding is real and valid," NOT "how big is the blast radius today." Two
+consequences:
+- A finding whose truth is *provable and binary* — a convention or safety violation (e.g. a
+  non-`CONCURRENTLY` index build on a pre-existing table, checkable against repo convention) —
+  scores by provability ALONE. Do NOT discount it because the current blast radius is small:
+  an empty or feature-gated table, low live traffic, or a cheap fix. That low impact belongs
+  in the **severity** field (`minor` / `suggestion`), not in the confidence number. Deflating
+  a provably-true finding by today's table size is the calibration error to avoid — it buries
+  real, cheap-to-fix findings below the caller's threshold.
+- This is NOT a blanket "score every real-ish finding high." For a latent *bug*, confidence
+  still reflects whether it is genuinely a defect and whether its path is reachable at all — a
+  rare, marginal conjunction that may not even constitute a real defect legitimately sits near
+  or below the line. Reachability (can the path EVER execute) is a truth question and bounds
+  confidence; frequency (how OFTEN, how big the blast radius) is impact and does not.
+
+**Scope note for the motivation-delivery step (step 2).** A finding that the PR's stated
+benefit fails to land at its live call site is NOT disqualified as a "pre-existing issue
+unrelated to the diff" — the PR's stated purpose puts that site in scope. Score it on whether
+the benefit is genuinely undelivered, not on whether the line sits inside the diff.
 
 **Default filter:** discard findings with `confidence < 70`. (Matches `in-depth-review`'s
 default. Lower threshold than upstream `code-review`'s 80 because the richer pre-fetched

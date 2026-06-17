@@ -2,11 +2,11 @@
 name: in-depth-review
 description: >
   Performs one in-depth multi-perspective code review of either a pull request or a commit
-  range. Launches up to TEN specialized parallel reviewer roles (AGENTS.md compliance, shallow bug
+  range. Launches up to ELEVEN specialized parallel reviewer roles (AGENTS.md compliance, shallow bug
   scan, git history context, prior PR comments, in-file code comments, database / data-layer,
-  OWASP Top 10 security, error handling, test coverage, and — unless `--skip-ticket` is
-  passed — ticket intent compliance), then scores each finding 0–100 for confidence, filters
-  anything below 70, and deduplicates. Returns the surviving findings.
+  OWASP Top 10 security, error handling, test coverage, headline-benefit / motivation delivery,
+  and — unless `--skip-ticket` is passed — ticket intent compliance), then scores each finding
+  0–100 for confidence, filters anything below 70, and deduplicates. Returns the surviving findings.
   Never writes to GitHub.
   Used as one of two parallel review primitives (the other being `gh-style-review`) by
   `review-and-fix` (which spawns 3 of each per iteration and adds a fix/commit loop) and
@@ -19,7 +19,7 @@ description: >
 # In-Depth Review
 
 This skill performs ONE complete review pass over a target scope (a PR or a commit range)
-using up to ten specialized reviewer roles, then scores, filters, and deduplicates findings. It
+using up to eleven specialized reviewer roles, then scores, filters, and deduplicates findings. It
 returns the result — it does NOT post anywhere, fix anything, or loop.
 
 The multi-role specialization gives **cross-domain coverage** (style/standards, raw bugs, history,
@@ -126,8 +126,9 @@ abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git bl
 ## Step 1: Launch the specialized reviewers in parallel
 
 Spawn the reviewer sub-agents in a single message (concurrent tool-use blocks). Launch
-**10** when ticket review is active (the default), or **9** when `--skip-ticket` was passed
-(omit Role #10). Sequential launches defeat the purpose of this design — never serialize.
+**11** when ticket review is active (the default), or **10** when `--skip-ticket` was passed
+(omit Role #10; Role #11 always runs). Sequential launches defeat the purpose of this design
+— never serialize.
 
 ### Common reviewer prompt fragment
 
@@ -163,7 +164,7 @@ Return a structured list of findings. For each finding include:
 
 If you find NO issues, respond with exactly: "NO_ISSUES_FOUND"
 
-You are one of the reviewers running concurrently (9, or 10 when ticket review is active).
+You are one of the reviewers running concurrently (10, or 11 when ticket review is active).
 Do NOT coordinate with the others.
 
 IMPORTANT: Do not run `gh pr comment`, `gh pr review`, `gh pr edit`, or any command that
@@ -434,6 +435,44 @@ You are READ-ONLY everywhere: Jira (view only), Datadog (read only), GitHub (rea
 Never comment on, transition, or otherwise write to a ticket.
 ```
 
+### Reviewer Role #11 — Headline-benefit / motivation delivery
+
+This role **always runs** (it needs no ticket tooling — the PR body / commit messages are
+always present). It reasons from the change's STATED PURPOSE down to the live call site, to
+catch the case where the diff is locally correct but does not actually deliver the benefit it
+claims — the gap diff-anchored reviewers miss because a pre-existing, untouched call site sits
+outside their lens.
+
+```
+Your job: verify the change delivers the benefit its description claims — reasoning from
+MOTIVATION, not from the diff.
+
+1. Restate the stated goal in one sentence. Sources: the PR title/body (PR mode:
+   `gh pr view <PR> --json title,body`) and the commit messages
+   (`git --no-pager log <RANGE> --format='%s%n%b'`). If the goal names an observable effect
+   (a metric/tag value, a query result, an email, an event, an endpoint response), note it.
+
+2. Find where that effect must actually manifest at runtime — the live call site, query,
+   metric emit, or handler the goal names. `git grep` for it. This site is FREQUENTLY NOT IN
+   THE DIFF, and finding it is the whole point of this role.
+
+3. Confirm the diff makes the benefit land THERE. Two failure modes to hunt:
+   - The changed code has no live callers (`git grep` the changed symbol → zero production
+     call sites). Do NOT conclude "forward-looking, no change needed" and stop — that is the
+     exact near-miss this role exists to prevent. Pull the thread: where does the live
+     behavior run today, and does that path still carry the very bug the change set out to fix?
+   - The live path is a different, untouched implementation (e.g. an inlined handler) that
+     still has the defect the change fixes elsewhere.
+
+   When either holds, flag the LIVE site — even though it is outside the diff. Set the
+   finding's category to "motivation" and anchor it to the live call site's file and line(s).
+
+UNLIKE the other roles, the common "discount pre-existing issues / lines the diff didn't
+touch" guidance does NOT apply to you: an out-of-diff site is in scope precisely when the
+PR's stated benefit fails to land there. Still discount a genuinely unrelated pre-existing
+bug that has nothing to do with the stated goal.
+```
+
 ## Step 2: Confidence scoring
 
 After all reviewers return:
@@ -460,9 +499,28 @@ Each scorer returns a number 0–100 with this rubric:
 | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 0     | False positive that doesn't survive light scrutiny, or a pre-existing issue                                                                          |
 | 25    | Somewhat confident — might be real, might be false; couldn't verify either way. For AGENTS.md issues: the cited rule doesn't actually call this out. |
-| 50    | Moderately confident — verified real, but might be a nitpick or rarely hits in practice                                                              |
-| 75    | Highly confident — verified, will likely be hit in practice; OR an explicit AGENTS.md violation                                                      |
-| 100   | Absolutely certain — evidence directly confirms it, happens frequently                                                                               |
+| 50    | Moderately confident — the mechanism is real, but residual uncertainty remains about whether it truly applies                                        |
+| 75    | Highly confident — verified the code definitively does this; OR a provable convention / AGENTS.md violation                                          |
+| 100   | Absolutely certain — evidence directly confirms it                                                                                                   |
+
+**Calibration — confidence is the TRUTH axis, not current impact.** Confidence answers "how
+sure are we this finding is real and valid," NOT "how big is the blast radius today." Two
+consequences:
+- A finding whose truth is *provable and binary* — a convention or safety violation (e.g. a
+  non-`CONCURRENTLY` index build on a pre-existing table, checkable against repo convention) —
+  is scored by provability ALONE. Do NOT discount it because the current blast radius is
+  small: an empty or feature-gated table, low live traffic, or a cheap fix. That low impact
+  belongs in the **severity** field (`minor` / `suggestion`), not in the confidence number.
+  Deflating a provably-true finding by today's table size is the calibration error to avoid —
+  it buries real, cheap-to-fix findings below the caller's threshold.
+- This is NOT a blanket "score every real-ish finding high." For a latent *bug*, confidence
+  still reflects whether it is genuinely a defect and whether its path is reachable at all — a
+  rare, marginal conjunction that may not even constitute a real defect legitimately sits near
+  or below the line. Reachability (can the path EVER execute) is a truth question and bounds
+  confidence; frequency (how OFTEN, how big the blast radius) is impact and does not.
+
+When scoring, the agreement count and the diff are inputs to *truth*, not impact — more roles
+raising the same provable violation supports a higher confidence, never a lower one.
 
 **Ticket-category findings** (from Role #10) are scored on the same 0–100 scale. The question
 is "how sure are we the code diverges from what the ticket requires?":
@@ -474,6 +532,17 @@ is "how sure are we the code diverges from what the ticket requires?":
 - 0 — false positive: the ticket does not require this, or the diff already satisfies it
 
 Score the divergence, not the importance of the ticket.
+
+**Motivation-category findings** (from Role #11) are scored on "how sure are we the PR's
+stated benefit fails to land at the live call site?" Do NOT score one of these as 0 merely
+because the cited line is outside the diff — the PR's stated purpose puts that site in scope:
+
+- 100 — the stated goal demonstrably does not occur (the live call site still has the bug, or
+  the changed code has zero live callers and the real path is untouched)
+- 75 — strong evidence the benefit does not land where the goal says it should
+- 50 — plausible the benefit is undelivered, but the goal or the live call site is ambiguous
+- 25 — could not confirm the live call site; may be a misread of the goal
+- 0 — the benefit does land (the diff reaches the real call site), or the "goal" was misread
 
 ## Step 3: Filter and dedup
 
@@ -516,7 +585,7 @@ Return this exact JSON shape:
       "title": "<one-line description>",
       "file": "<path>",
       "line_range": "<L<start>-L<end>>",
-      "category": "<bug | AGENTS.md | history | prior PR | comment guidance | db | security | error-handling | test coverage | ticket>",
+      "category": "<bug | AGENTS.md | history | prior PR | comment guidance | db | security | error-handling | test coverage | motivation | ticket>",
       "ticket_id": "<JIRA-ID this gap traces to, or null for non-ticket findings>",
       "description": "<full text>",
       "suggested_fix": "<text or code snippet>",
@@ -579,8 +648,9 @@ and the threshold note is dropped.
 - **No GitHub writes, ever.** Only read-only `gh` calls are permitted (list, view, diff,
   search) — or, when `gh` is unavailable, the equally read-only GitHub MCP PR-read tools.
   Sub-agents that try to issue a write should be aborted and surfaced to the caller.
-- **9 or 10 parallel reviewers per pass** — 10 by default (the 10th is ticket intent
-  compliance), 9 when `--skip-ticket` is passed. Never serialize, never skip a role for
+- **10 or 11 parallel reviewers per pass** — 11 by default (the 11th is headline-benefit /
+  motivation delivery, always-on; the 10th is ticket intent compliance), 10 when
+  `--skip-ticket` is passed (only Role #10 is omitted). Never serialize, never skip a role for
   speed. The role specialization is the point.
 - **Role #10 is read-only and abortable.** It may use `acli jira workitem view` (Jira read)
   and read-only Datadog MCP tools — nothing else. On any denied permission it returns

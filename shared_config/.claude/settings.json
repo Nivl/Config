@@ -121,6 +121,26 @@
           },
           {
             "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-unallowlisted-host.py",
+            "if": "Bash(curl *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-unallowlisted-host.py",
+            "if": "Bash(/usr/bin/curl *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-unallowlisted-host.py",
+            "if": "Bash(wget *)"
+          },
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-unallowlisted-host.py",
+            "if": "Bash(/usr/bin/wget *)"
+          },
+          {
+            "type": "command",
             "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/bash-allow-trusted.py"
           }
         ]
@@ -140,6 +160,28 @@
           {
             "type": "command",
             "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/read-guard.py"
+          }
+        ]
+      }
+    ],
+    "PermissionDenied": [
+      {
+        "matcher": "WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/report-access-failure.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/report-access-failure.py"
           }
         ]
       }

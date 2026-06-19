@@ -184,6 +184,28 @@ jobs:
       - name: Run deny-env-vars test
         run: bash tests/deny_env_vars_test.sh
 
+  deny-unallowlisted-host-hook:
+    name: deny-unallowlisted-host hook test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run deny-unallowlisted-host test
+        run: bash tests/deny_unallowlisted_host_test.sh
+
+  report-access-failure-hook:
+    name: report-access-failure hook test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run report-access-failure test
+        run: bash tests/report_access_failure_test.sh
+
   bash-allow-trusted-hook:
     name: bash-allow-trusted hook test
     runs-on: macos-latest

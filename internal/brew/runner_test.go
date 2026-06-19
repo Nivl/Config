@@ -57,6 +57,33 @@ esac`
 	assert.Equal(t, "Error: synthetic failure", outcome.Reason)
 }
 
+// TestRunner_InstallCask_UpgradesInstalledQuiescentCask verifies the
+// installed-and-not-running branch: the cask is upgraded with
+// `brew upgrade --cask` (NOT a no-op `brew install --cask`). The app
+// name returned by `brew info` is the same guaranteed-absent name
+// TestRunner_IsAppRunning_NotRunning relies on, so the real
+// pgrep/osascript report it not-running and the upgrade proceeds.
+func TestRunner_InstallCask_UpgradesInstalledQuiescentCask(t *testing.T) {
+	body := `case "$1 $2" in
+"list --cask") exit 0 ;;
+"info --cask") echo '{"casks":[{"artifacts":[{"app":["ThisAppDefinitelyDoesNotExist_xyzzy.app"]}]}]}' ;;
+"upgrade --cask") echo "$@" > "$BREW_LOG" ; exit 0 ;;
+*) echo "unexpected: $*" >&2 ; exit 99 ;;
+esac`
+	dir := fakeBrew(t, body)
+	logFile := filepath.Join(dir, "brew.log")
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("BREW_LOG", logFile)
+
+	r := NewRunner(iox.Streams{Out: io.Discard, Err: io.Discard})
+	outcome, err := r.InstallCask(context.Background(), "synthetic-cask")
+	require.NoError(t, err)
+	assert.Equal(t, StatusInstalled, outcome.Status)
+	got, err := os.ReadFile(logFile)
+	require.NoError(t, err)
+	assert.Equal(t, "upgrade --cask synthetic-cask\n", string(got))
+}
+
 // TestRunner_ListCaskApps_MalformedJSONYieldsEmptyList verifies that a
 // brew `info` exit-zero but JSON-garbage body collapses to "no apps
 // known" rather than a propagated parse error. A real-world brew bug
@@ -141,7 +168,9 @@ exit 0`
 	require.NoError(t, r.Upgrade(context.Background()))
 	got, err := os.ReadFile(logFile)
 	require.NoError(t, err)
-	assert.Equal(t, "upgrade\n", string(got))
+	// The blanket pass is scoped to --formula so it never quits/upgrades
+	// a running cask app; casks go through InstallCask instead.
+	assert.Equal(t, "upgrade --formula\n", string(got))
 
 	// Scoped form: names ride as positional args (used by the retry path).
 	require.NoError(t, r.Upgrade(context.Background(), "foo", "bar"))
@@ -167,6 +196,25 @@ printf 'the-unarchiver\n\nzoom\n'`
 	got, err := os.ReadFile(logFile)
 	require.NoError(t, err)
 	assert.Equal(t, "outdated --quiet\n", string(got))
+}
+
+// TestRunner_OutdatedCasks_FakeBinarySubprocess verifies OutdatedCasks
+// shells to `brew outdated --quiet --cask` and parses one-name-per-line.
+func TestRunner_OutdatedCasks_FakeBinarySubprocess(t *testing.T) {
+	body := `echo "$@" > "$BREW_LOG"
+printf 'brave-browser\n\nrectangle\n'`
+	dir := fakeBrew(t, body)
+	logFile := filepath.Join(dir, "brew.log")
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("BREW_LOG", logFile)
+
+	r := NewRunner(iox.Streams{Out: io.Discard, Err: io.Discard})
+	names, err := r.OutdatedCasks(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, []string{"brave-browser", "rectangle"}, names)
+	got, err := os.ReadFile(logFile)
+	require.NoError(t, err)
+	assert.Equal(t, "outdated --quiet --cask\n", string(got))
 }
 
 // TestRunner_Outdated_MissingBrewReturnsErrNotFound pins the
@@ -252,7 +300,14 @@ func (f *fakeRunner) Upgrade(ctx context.Context, packages ...string) error {
 }
 
 // Outdated implements Runner via the embedded mock.
-func (f *fakeRunner) Outdated(ctx context.Context) ([]string, error) {
+func (f *fakeRunner) Outdated(ctx context.Context, _ ...string) ([]string, error) {
+	args := f.Called(ctx)
+	v, _ := args.Get(0).([]string)
+	return v, args.Error(1)
+}
+
+// OutdatedCasks implements Runner via the embedded mock.
+func (f *fakeRunner) OutdatedCasks(ctx context.Context) ([]string, error) {
 	args := f.Called(ctx)
 	v, _ := args.Get(0).([]string)
 	return v, args.Error(1)
@@ -333,7 +388,7 @@ func TestDryRunRunner_WriteMethodsReportNoOp(t *testing.T) {
 
 	require.Len(t, rep.shellouts, 4)
 	assert.Equal(t, "brew", rep.shellouts[0].command)
-	assert.Equal(t, []string{"upgrade"}, rep.shellouts[0].args)
+	assert.Equal(t, []string{"upgrade", "--formula"}, rep.shellouts[0].args)
 	assert.Equal(t, []string{"upgrade", "foo", "bar"}, rep.shellouts[1].args)
 	assert.Equal(t, []string{"install", "git", "go"}, rep.shellouts[2].args)
 	assert.Equal(t, []string{"install", "--cask", "iterm2"}, rep.shellouts[3].args)
@@ -363,9 +418,9 @@ func TestDryRunRunner_InstallCaskSkipsWhenAppRunning(t *testing.T) {
 }
 
 // TestDryRunRunner_InstallCaskReportsWhenInstalledButQuiescent — an
-// installed cask whose apps are NOT running falls through to the
-// would-install report (matches the production path, which would
-// upgrade it).
+// installed cask whose apps are NOT running falls through to a
+// would-`upgrade --cask` report (matches the production path, which
+// upgrades an installed cask rather than no-op `install --cask`-ing it).
 func TestDryRunRunner_InstallCaskReportsWhenInstalledButQuiescent(t *testing.T) {
 	inner := &fakeRunner{}
 	inner.On("IsCaskInstalled", mock.Anything, "docker").Return(true, nil)
@@ -377,7 +432,7 @@ func TestDryRunRunner_InstallCaskReportsWhenInstalledButQuiescent(t *testing.T) 
 	_, err := r.InstallCask(context.Background(), "docker")
 	require.NoError(t, err)
 	require.Len(t, rep.shellouts, 1)
-	assert.Equal(t, []string{"install", "--cask", "docker"}, rep.shellouts[0].args)
+	assert.Equal(t, []string{"upgrade", "--cask", "docker"}, rep.shellouts[0].args)
 }
 
 // TestDryRunRunner_ReadMethodsPassThrough — read methods (all three:

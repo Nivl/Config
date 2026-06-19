@@ -14,8 +14,18 @@ import (
 // A cancelled context propagates as ctx.Err() rather than the
 // "signal: killed" wrap from c.Run(), so callers can distinguish
 // catastrophic cancellation from real brew failures.
+//
+// With no package names the upgrade is scoped to --formula. A bare
+// `brew upgrade` also upgrades outdated casks and quits their running
+// apps by default — that would clobber a running app before the
+// per-cask running check in InstallCask ever runs. Casks are upgraded
+// individually (and skipped while running) by InstallCask instead.
 func (r *runner) Upgrade(ctx context.Context, packages ...string) error {
-	args := append([]string{"upgrade"}, packages...)
+	args := []string{"upgrade"}
+	if len(packages) == 0 {
+		args = append(args, "--formula")
+	}
+	args = append(args, packages...)
 	c := exec.CommandContext(ctx, "brew", args...)
 	c.Stdout = r.streams.Out
 	c.Stderr = r.streams.Err
@@ -29,13 +39,15 @@ func (r *runner) Upgrade(ctx context.Context, packages ...string) error {
 	return nil
 }
 
-// Outdated runs `brew outdated --quiet` and returns the package names
-// (formulae and casks) that still have a newer version available.
-// Stdout is captured rather than inherited — the names are data, not
-// progress. Stderr still flows to the user's stream.
-func (r *runner) Outdated(ctx context.Context) ([]string, error) {
+// Outdated runs `brew outdated --quiet` (optionally scoped, e.g. with
+// "--formula") and returns the package names that still have a newer
+// version available. Stdout is captured rather than inherited — the
+// names are data, not progress. Stderr still flows to the user's
+// stream.
+func (r *runner) Outdated(ctx context.Context, scopes ...string) ([]string, error) {
 	var out bytes.Buffer
-	c := exec.CommandContext(ctx, "brew", "outdated", "--quiet")
+	args := append([]string{"outdated", "--quiet"}, scopes...)
+	c := exec.CommandContext(ctx, "brew", args...)
 	c.Stdout = &out
 	c.Stderr = r.streams.Err
 	err := c.Run()

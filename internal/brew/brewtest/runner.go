@@ -31,7 +31,15 @@ func (f *FakeRunner) Upgrade(ctx context.Context, packages ...string) error {
 // The first return is nil-safe: tests that register .Return(nil, err)
 // for the error path get a typed-nil []string instead of a panic from
 // a failed type assertion on an untyped nil.
-func (f *FakeRunner) Outdated(ctx context.Context) ([]string, error) {
+func (f *FakeRunner) Outdated(ctx context.Context, _ ...string) ([]string, error) {
+	args := f.Called(ctx)
+	v, _ := args.Get(0).([]string)
+	return v, args.Error(1)
+}
+
+// OutdatedCasks implements brew.Runner; delegates to the embedded mock.
+// Nil-safe on the first return, same as Outdated.
+func (f *FakeRunner) OutdatedCasks(ctx context.Context) ([]string, error) {
 	args := f.Called(ctx)
 	v, _ := args.Get(0).([]string)
 	return v, args.Error(1)

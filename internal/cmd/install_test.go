@@ -39,8 +39,16 @@ func makeTestCfg(fake *brewtest.FakeRunner, stdin io.Reader, stdout, stderr io.W
 func expectAllInstallsSucceed(fake *brewtest.FakeRunner) {
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil)
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, mock.Anything).
 		Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
+}
+
+// expectNoOutdatedCasks stubs the cask-discovery pass to report nothing
+// system-wide, so the run only processes the configured casks. Optional
+// (unlimited, not asserted), like the packages-layer twin.
+func expectNoOutdatedCasks(fake *brewtest.FakeRunner) {
+	fake.On("OutdatedCasks", mock.Anything).Return(nil, nil)
 }
 
 // TestInstallPackagesCmd_Success asserts a clean run returns no error
@@ -66,6 +74,7 @@ func TestInstallPackagesCmd_FailureAbortChoice(t *testing.T) {
 	fake := brewtest.NewFakeRunner()
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil)
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, "docker").
 		Return(brew.CaskOutcome{Status: brew.StatusSkipped}, nil).Once()
 	fake.On("InstallCask", mock.Anything, "zoom").
@@ -92,6 +101,7 @@ func TestInstallPackagesCmd_FailureIgnoreChoice(t *testing.T) {
 	fake := brewtest.NewFakeRunner()
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil)
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, "zoom").
 		Return(brew.CaskOutcome{Status: brew.StatusFailed, Reason: "synthetic"}, nil).Once()
 	fake.On("InstallCask", mock.Anything, mock.Anything).
@@ -115,6 +125,7 @@ func TestInstallPackagesCmd_FailureRetrySucceeds(t *testing.T) {
 	fake := brewtest.NewFakeRunner()
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil)
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, "zoom").
 		Return(brew.CaskOutcome{Status: brew.StatusFailed, Reason: "synthetic"}, nil).Once()
 	fake.On("InstallCask", mock.Anything, "zoom").
@@ -142,6 +153,7 @@ func TestInstallPackagesCmd_PersonalParamIncludesPersonalCasks(t *testing.T) {
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil)
 	// Two Install calls expected (formulae + fonts); collapsed by mock.Anything.
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	// Any cask install (Common, Beta, AND Personal) succeeds.
 	var personalCalled bool
 	fake.On("InstallCask", mock.Anything, mock.MatchedBy(func(c string) bool {
@@ -169,6 +181,7 @@ func TestInstallPackagesCmd_FormulaFailureIsolatedAndPrompted(t *testing.T) {
 	fake.On("Install", mock.Anything, []string{packages.Formulae[0]}).
 		Return(errors.New("network down")).Once()
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, mock.Anything).
 		Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
 
@@ -188,6 +201,7 @@ func TestInstallPackagesCmd_FailureResolutionIgnoreRunsUnattended(t *testing.T) 
 	fake := brewtest.NewFakeRunner()
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil)
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, "zoom").
 		Return(brew.CaskOutcome{Status: brew.StatusFailed, Reason: "synthetic"}, nil).Once()
 	fake.On("InstallCask", mock.Anything, mock.Anything).

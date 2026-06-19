@@ -22,6 +22,7 @@ import (
 func expectOneCaskFailure(fake *brewtest.FakeRunner) {
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil)
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, "zoom").
 		Return(brew.CaskOutcome{Status: brew.StatusFailed, Reason: "synthetic"}, nil).Once()
 	fake.On("InstallCask", mock.Anything, mock.Anything).
@@ -34,6 +35,7 @@ func TestInstallWithRetry_NoFailuresNoPrompt(t *testing.T) {
 	fake := brewtest.NewFakeRunner()
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil)
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, mock.Anything).
 		Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
 
@@ -76,6 +78,7 @@ func TestInstallWithRetry_RetryClearsFailures(t *testing.T) {
 	fake := brewtest.NewFakeRunner()
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil)
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, "zoom").
 		Return(brew.CaskOutcome{Status: brew.StatusFailed, Reason: "synthetic"}, nil).Once()
 	fake.On("InstallCask", mock.Anything, "zoom").
@@ -101,6 +104,7 @@ func TestInstallWithRetry_RetryThenIgnore(t *testing.T) {
 	fake := brewtest.NewFakeRunner()
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil)
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, "zoom").
 		Return(brew.CaskOutcome{Status: brew.StatusFailed, Reason: "synthetic"}, nil).Twice()
 	fake.On("InstallCask", mock.Anything, mock.Anything).
@@ -121,6 +125,7 @@ func TestInstallWithRetry_UpgradeRetryIsScoped(t *testing.T) {
 	fake.On("Outdated", mock.Anything).Return([]string{"the-unarchiver"}, nil).Once()
 	fake.On("Upgrade", mock.Anything, []string{"the-unarchiver"}).Return(nil).Once()
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, mock.Anything).
 		Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
 
@@ -153,6 +158,7 @@ func TestInstallWithRetry_SentinelRetryRerunsFullUpgrade(t *testing.T) {
 	fake.On("Outdated", mock.Anything).Return(nil, errors.New("brew broken")).Once()
 	fake.On("Upgrade", mock.Anything, []string(nil)).Return(nil).Once()
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, mock.Anything).
 		Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
 
@@ -174,6 +180,7 @@ func TestInstallWithRetry_ScopedRetryFailureFiltersToScope(t *testing.T) {
 	fake.On("Upgrade", mock.Anything, []string{"a"}).Return(errors.New("exit status 1")).Once()
 	fake.On("Outdated", mock.Anything).Return([]string{"a", "b"}, nil).Once()
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, mock.Anything).
 		Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
 
@@ -195,6 +202,7 @@ func TestInstallWithRetry_FormulaRetryReattemptsOnlyFailed(t *testing.T) {
 	fake.On("Install", mock.Anything, []string{Formulae[0]}).Return(errors.New("network down")).Once()
 	fake.On("Install", mock.Anything, []string{Formulae[0]}).Return(nil).Once()
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, mock.Anything).
 		Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
 
@@ -211,6 +219,7 @@ func TestInstallWithRetry_RetryCarriesSkippedOver(t *testing.T) {
 	fake := brewtest.NewFakeRunner()
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil)
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, "docker").
 		Return(brew.CaskOutcome{Status: brew.StatusSkipped}, nil).Once()
 	fake.On("InstallCask", mock.Anything, "zoom").
@@ -237,6 +246,7 @@ func TestInstallWithRetry_CaskHardErrorOnRetryRecorded(t *testing.T) {
 	fake := brewtest.NewFakeRunner()
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil)
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, "zoom").
 		Return(brew.CaskOutcome{Status: brew.StatusFailed, Reason: "synthetic"}, nil).Once()
 	fake.On("InstallCask", mock.Anything, "zoom").
@@ -308,6 +318,7 @@ func TestInstallWithRetry_RetryCatastrophicAborts(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			fake := brewtest.NewFakeRunner()
 			tc.wire(fake)
+			expectNoOutdatedCasks(fake)
 			fake.On("InstallCask", mock.Anything, mock.Anything).
 				Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
 
@@ -333,6 +344,7 @@ func TestInstallWithRetry_RetryClearsAllFailureKinds(t *testing.T) {
 	fake.On("Install", mock.Anything, []string{Formulae[0]}).Return(errors.New("network down")).Once()
 	fake.On("Install", mock.Anything, []string{Formulae[0]}).Return(nil).Once()
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, "zoom").
 		Return(brew.CaskOutcome{Status: brew.StatusFailed, Reason: "synthetic"}, nil).Once()
 	fake.On("InstallCask", mock.Anything, "zoom").
@@ -359,6 +371,7 @@ func TestInstallWithRetry_ScopedRetryOutdatedFailureKeepsScope(t *testing.T) {
 	fake.On("Upgrade", mock.Anything, []string{"a"}).Return(errors.New("exit status 1")).Once()
 	fake.On("Outdated", mock.Anything).Return(nil, errors.New("brew flake")).Once()
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, mock.Anything).
 		Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
 
@@ -382,6 +395,7 @@ func TestInstallWithRetry_ScopedRetryFilterCanEmpty(t *testing.T) {
 	fake.On("Upgrade", mock.Anything, []string{"a"}).Return(errors.New("exit status 1")).Once()
 	fake.On("Outdated", mock.Anything).Return([]string{"b"}, nil).Once()
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, mock.Anything).
 		Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil)
 
@@ -433,6 +447,7 @@ func TestInstallWithRetry_PreresolvedRetryAppliesOnce(t *testing.T) {
 	fake := brewtest.NewFakeRunner()
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil)
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	fake.On("InstallCask", mock.Anything, "zoom").
 		Return(brew.CaskOutcome{Status: brew.StatusFailed, Reason: "synthetic"}, nil).Twice()
 	fake.On("InstallCask", mock.Anything, mock.Anything).

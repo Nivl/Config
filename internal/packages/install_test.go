@@ -26,6 +26,17 @@ func expectAllFormulaeInstalls(fake *brewtest.FakeRunner) {
 	fake.On("Install", mock.Anything, Fonts).Return(nil).Once()
 	fake.On("Install", mock.Anything, DevTools).Return(nil).Once()
 	fake.On("Install", mock.Anything, AI).Return(nil).Once()
+	// Every caller reaches the cask phase (formulae succeed), which polls
+	// for outdated casks; default to none so only configured casks run.
+	expectNoOutdatedCasks(fake)
+}
+
+// expectNoOutdatedCasks stubs the cask-discovery pass to report nothing
+// system-wide, so only the configured casks are processed. Optional
+// (unlimited, not asserted) so tests that abort before the cask phase
+// stay unaffected.
+func expectNoOutdatedCasks(fake *brewtest.FakeRunner) {
+	fake.On("OutdatedCasks", mock.Anything).Return(nil, nil)
 }
 
 // expectAllCasksInstall sets up FakeRunner expectations for every cask in
@@ -54,6 +65,28 @@ func TestInstall_FreshInstall_AllCasksProceed(t *testing.T) {
 	assert.False(t, summary.HasFailures())
 	// The fake's .Once() expectations already prove every cask was
 	// requested exactly once — no Installed count to cross-check.
+	fake.AssertExpectations(t)
+}
+
+// TestInstall_OutdatedUnmanagedCaskUpgraded asserts a cask in no
+// configured list, but reported outdated by `brew outdated --cask`, is
+// still run through InstallCask so `update` keeps unmanaged casks
+// current (InstallCask itself decides install/upgrade/skip).
+func TestInstall_OutdatedUnmanagedCaskUpgraded(t *testing.T) {
+	fake := brewtest.NewFakeRunner()
+	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil).Once()
+	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectAllCasksInstall(fake, CommonCasks)
+	expectAllCasksInstall(fake, BetaCasks)
+	fake.On("OutdatedCasks", mock.Anything).Return([]string{"totally-unmanaged-xyz"}, nil)
+	fake.On("InstallCask", mock.Anything, "totally-unmanaged-xyz").
+		Return(brew.CaskOutcome{Status: brew.StatusInstalled}, nil).Once()
+
+	var buf bytes.Buffer
+	summary, err := Install(context.Background(), &buf, fake, Opts{})
+	require.NoError(t, err)
+	assert.False(t, summary.HasFailures())
+	fake.AssertCalled(t, "InstallCask", mock.Anything, "totally-unmanaged-xyz")
 	fake.AssertExpectations(t)
 }
 
@@ -119,6 +152,7 @@ func TestInstall_FormulaFailureIsolatesPerFormula(t *testing.T) {
 	fake.On("Install", mock.Anything, []string{Formulae[0]}).Return(errors.New("network down")).Once()
 	// Every other isolated formula and the remaining groups succeed.
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	expectAllCasksInstall(fake, CommonCasks)
 	expectAllCasksInstall(fake, BetaCasks)
 
@@ -139,6 +173,7 @@ func TestInstall_UpgradeFailureCollectsOutdated(t *testing.T) {
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(errors.New("exit status 1")).Once()
 	fake.On("Outdated", mock.Anything).Return([]string{"the-unarchiver"}, nil).Once()
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	expectAllCasksInstall(fake, CommonCasks)
 	expectAllCasksInstall(fake, BetaCasks)
 
@@ -159,6 +194,7 @@ func TestInstall_UpgradeFailureNothingOutdated(t *testing.T) {
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(errors.New("exit status 1")).Once()
 	fake.On("Outdated", mock.Anything).Return([]string{}, nil).Once()
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	expectAllCasksInstall(fake, CommonCasks)
 	expectAllCasksInstall(fake, BetaCasks)
 
@@ -177,6 +213,7 @@ func TestInstall_UpgradeFailureUnknownSubsetRecordsSentinel(t *testing.T) {
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(errors.New("exit status 1")).Once()
 	fake.On("Outdated", mock.Anything).Return(nil, errors.New("brew broken")).Once()
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	expectAllCasksInstall(fake, CommonCasks)
 	expectAllCasksInstall(fake, BetaCasks)
 
@@ -295,6 +332,7 @@ func TestInstall_MultipleFailuresAccumulate(t *testing.T) {
 	fake.On("Install", mock.Anything, DevTools).Return(errors.New("network down")).Once()
 	fake.On("Install", mock.Anything, []string{DevTools[0]}).Return(errors.New("network down")).Once()
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	for _, c := range CommonCasks {
 		switch c {
 		case "zoom", "raycast":
@@ -359,6 +397,7 @@ func TestInstall_FormulaGroupTransientFailureRecovers(t *testing.T) {
 	fake.On("Upgrade", mock.Anything, mock.Anything).Return(nil).Once()
 	fake.On("Install", mock.Anything, Formulae).Return(errors.New("transient")).Once()
 	fake.On("Install", mock.Anything, mock.Anything).Return(nil)
+	expectNoOutdatedCasks(fake)
 	expectAllCasksInstall(fake, CommonCasks)
 	expectAllCasksInstall(fake, BetaCasks)
 

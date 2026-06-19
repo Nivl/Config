@@ -16,17 +16,27 @@ import (
 // FakeRunner backed by testify/mock.
 type Runner interface {
 	// Upgrade runs `brew upgrade` to bring installed packages current.
-	// With no arguments it upgrades everything; with names it upgrades
-	// just those packages (used to retry a failed subset).
+	// With no arguments it upgrades all outdated formulae (the blanket
+	// pass is scoped to --formula so it never quits/upgrades a running
+	// cask app); with names it upgrades just those packages (used to
+	// retry a failed subset). Casks are upgraded by InstallCask, which
+	// skips any whose app is running.
 	Upgrade(ctx context.Context, packages ...string) error
-	// Outdated runs `brew outdated --quiet` and returns the names of
-	// packages (formulae and casks) that still have a newer version
-	// available. Used after a failed upgrade (bulk or scoped retry) to
-	// approximate the failed subset — brew limps through every package,
-	// so the leftovers are treated as the failures. See
-	// packages.outdatedAfterFailedUpgrade for why the list is a proxy,
-	// not ground truth.
-	Outdated(ctx context.Context) ([]string, error)
+	// Outdated runs `brew outdated --quiet` (optionally scoped, e.g.
+	// "--formula") and returns the names of packages that still have a
+	// newer version available. Used after a failed upgrade (bulk or
+	// scoped retry) to approximate the failed subset — brew limps
+	// through every package, so the leftovers are treated as the
+	// failures. See packages.outdatedAfterFailedUpgrade for why the
+	// list is a proxy, not ground truth.
+	Outdated(ctx context.Context, scopes ...string) ([]string, error)
+	// OutdatedCasks runs `brew outdated --cask --quiet` and returns the
+	// tokens of installed casks with a newer version available
+	// (non-greedy, so self-updating casks are excluded). The packages
+	// layer feeds these through InstallCask so every outdated cask —
+	// managed or not — is upgraded behind the running-app skip, never by
+	// a bare `brew upgrade` that would quit the app.
+	OutdatedCasks(ctx context.Context) ([]string, error)
 	// Install installs one or more formulae in a single `brew install` call.
 	Install(ctx context.Context, formulae ...string) error
 	// InstallCask installs a single cask with limp-and-report semantics:
@@ -108,17 +118,26 @@ func NewDryRunWrapper(wrapped Runner, reporter dryrun.Reporter) Runner {
 // Upgrade reports the brew upgrade shellout and returns nil
 // without invoking the wrapped runner.
 func (r *dryRunRunner) Upgrade(_ context.Context, packages ...string) error {
-	desc := "upgrade all packages"
-	if len(packages) > 0 {
+	args := []string{"upgrade"}
+	desc := "upgrade all outdated formulae"
+	if len(packages) == 0 {
+		args = append(args, "--formula")
+	} else {
 		desc = fmt.Sprintf("upgrade %d package(s)", len(packages))
 	}
-	r.reporter.Shellout("brew", append([]string{"upgrade"}, packages...), desc)
+	args = append(args, packages...)
+	r.reporter.Shellout("brew", args, desc)
 	return nil
 }
 
 // Outdated delegates to the wrapped runner — reads run normally.
-func (r *dryRunRunner) Outdated(ctx context.Context) ([]string, error) {
-	return r.wrapped.Outdated(ctx)
+func (r *dryRunRunner) Outdated(ctx context.Context, scopes ...string) ([]string, error) {
+	return r.wrapped.Outdated(ctx, scopes...)
+}
+
+// OutdatedCasks delegates to the wrapped runner — reads run normally.
+func (r *dryRunRunner) OutdatedCasks(ctx context.Context) ([]string, error) {
+	return r.wrapped.OutdatedCasks(ctx)
 }
 
 // Install reports a brew install of the given formulae and returns
@@ -130,10 +149,10 @@ func (r *dryRunRunner) Install(_ context.Context, formulae ...string) error {
 }
 
 // InstallCask mirrors the production decision tree so the dry-run
-// preview matches what the real run would do: if the cask is already
-// installed AND any of its apps is running, return StatusSkipped
-// without reporting a would-install. Only when the live path would
-// have shelled out does the wrapper report the would-be install.
+// preview matches what the real run would do: an absent cask reports a
+// would-`install --cask`; an installed cask whose apps are all quiescent
+// reports a would-`upgrade --cask`; an installed cask with a running app
+// returns StatusSkipped without reporting anything.
 //
 // The read methods used here (IsCaskInstalled, ListCaskApps,
 // IsAppRunning) are pure observations and safe to invoke under
@@ -143,23 +162,26 @@ func (r *dryRunRunner) InstallCask(ctx context.Context, cask string) (CaskOutcom
 	if err != nil {
 		return CaskOutcome{}, fmt.Errorf("is cask installed %s: %w", cask, err)
 	}
-	if installed {
-		apps, err := r.wrapped.ListCaskApps(ctx, cask)
+	if !installed {
+		r.reporter.Shellout("brew", []string{"install", "--cask", cask},
+			"install cask")
+		return CaskOutcome{}, nil
+	}
+	apps, err := r.wrapped.ListCaskApps(ctx, cask)
+	if err != nil {
+		return CaskOutcome{}, fmt.Errorf("list cask apps %s: %w", cask, err)
+	}
+	for _, app := range apps {
+		running, err := r.wrapped.IsAppRunning(ctx, app)
 		if err != nil {
-			return CaskOutcome{}, fmt.Errorf("list cask apps %s: %w", cask, err)
+			return CaskOutcome{}, fmt.Errorf("is app running %s: %w", app, err)
 		}
-		for _, app := range apps {
-			running, err := r.wrapped.IsAppRunning(ctx, app)
-			if err != nil {
-				return CaskOutcome{}, fmt.Errorf("is app running %s: %w", app, err)
-			}
-			if running {
-				return CaskOutcome{Status: StatusSkipped}, nil
-			}
+		if running {
+			return CaskOutcome{Status: StatusSkipped}, nil
 		}
 	}
-	r.reporter.Shellout("brew", []string{"install", "--cask", cask},
-		"install cask")
+	r.reporter.Shellout("brew", []string{"upgrade", "--cask", cask},
+		"upgrade cask")
 	return CaskOutcome{}, nil
 }
 

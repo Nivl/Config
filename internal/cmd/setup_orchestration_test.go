@@ -35,7 +35,12 @@ func (noopBrewRunner) Upgrade(context.Context, ...string) error { return nil }
 func (noopBrewRunner) Install(context.Context, ...string) error { return nil }
 
 // Outdated implements brew.Runner; nothing is ever outdated.
-func (noopBrewRunner) Outdated(context.Context) ([]string, error) {
+func (noopBrewRunner) Outdated(context.Context, ...string) ([]string, error) {
+	return nil, nil
+}
+
+// OutdatedCasks implements brew.Runner; nothing is ever outdated.
+func (noopBrewRunner) OutdatedCasks(context.Context) ([]string, error) {
 	return nil, nil
 }
 
@@ -285,7 +290,13 @@ func (errBrewRunner) Install(context.Context, ...string) error { return nil }
 
 // Outdated implements brew.Runner; fails like Upgrade so the failed
 // subset stays unidentifiable.
-func (errBrewRunner) Outdated(context.Context) ([]string, error) {
+func (errBrewRunner) Outdated(context.Context, ...string) ([]string, error) {
+	return nil, errors.New("brew exploded")
+}
+
+// OutdatedCasks implements brew.Runner; fails like Outdated so the
+// cask-discovery path has an error to limp past.
+func (errBrewRunner) OutdatedCasks(context.Context) ([]string, error) {
 	return nil, errors.New("brew exploded")
 }
 

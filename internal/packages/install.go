@@ -83,19 +83,52 @@ func Install(ctx context.Context, w io.Writer, r brew.Runner, opts Opts) (Summar
 		caskGroups = append(caskGroups, PersonalCasks)
 	}
 
+	// Process the configured casks first (installs the missing ones,
+	// upgrades the rest), then every other outdated cask on the system
+	// so `update` keeps unmanaged casks current too. Each one goes
+	// through InstallCask, which skips a cask whose app is running — a
+	// bare `brew upgrade` would instead quit the app to swap its bundle,
+	// which is exactly what this flow avoids.
+	casks := make([]string, 0)
+	seen := make(map[string]struct{})
 	for _, group := range caskGroups {
 		for _, cask := range group {
-			outcome, err := r.InstallCask(ctx, cask)
-			if err != nil {
-				if cerr := catastrophic(ctx, err); cerr != nil {
-					return summary, fmt.Errorf("install cask %s: %w", cask, cerr)
-				}
-				summary.FailedCasks = append(summary.FailedCasks, FailedItem{Name: cask, Reason: err.Error()})
-				fmt.Fprintf(w, "Failed to install or upgrade cask %s: %s\n", cask, err.Error())
+			if _, ok := seen[cask]; ok {
 				continue
 			}
-			recordCaskOutcome(w, &summary, cask, outcome)
+			seen[cask] = struct{}{}
+			casks = append(casks, cask)
 		}
+	}
+	outdated, err := r.OutdatedCasks(ctx)
+	if err != nil {
+		if cerr := catastrophic(ctx, err); cerr != nil {
+			return summary, fmt.Errorf("list outdated casks: %w", cerr)
+		}
+		// A non-catastrophic failure (e.g. a transient brew flake) just
+		// means we limp on with the configured casks; the managed set is
+		// still kept current.
+		fmt.Fprintf(w, "Could not list outdated casks (%s); upgrading the configured casks only\n", err.Error())
+	}
+	for _, cask := range outdated {
+		if _, ok := seen[cask]; ok {
+			continue
+		}
+		seen[cask] = struct{}{}
+		casks = append(casks, cask)
+	}
+
+	for _, cask := range casks {
+		outcome, err := r.InstallCask(ctx, cask)
+		if err != nil {
+			if cerr := catastrophic(ctx, err); cerr != nil {
+				return summary, fmt.Errorf("install cask %s: %w", cask, cerr)
+			}
+			summary.FailedCasks = append(summary.FailedCasks, FailedItem{Name: cask, Reason: err.Error()})
+			fmt.Fprintf(w, "Failed to install or upgrade cask %s: %s\n", cask, err.Error())
+			continue
+		}
+		recordCaskOutcome(w, &summary, cask, outcome)
 	}
 
 	return summary, nil
@@ -139,13 +172,14 @@ func catastrophic(ctx context.Context, err error) error {
 	return nil
 }
 
-// outdatedAfterFailedUpgrade identifies which packages a failed `brew
-// upgrade` left behind. brew limps through every package on its own,
-// so whatever is still outdated afterwards is treated as the failed
-// set. The list is a proxy, not ground truth: it can also include names
-// brew deliberately skips (pinned formulae) or casks the later cask
-// phase will fix — accepted, because a retry re-checks with a scope
-// and self-corrects. A non-empty scope (the names a retry just
+// outdatedAfterFailedUpgrade identifies which formulae a failed `brew
+// upgrade --formula` left behind. brew limps through every package on
+// its own, so whatever formula is still outdated afterwards is treated
+// as the failed set (the check is scoped to --formula; casks are the
+// cask phase's job and must stay out of the upgrade-retry set). The
+// list is a proxy, not ground truth: it can also include names brew
+// deliberately skips (pinned formulae) — accepted, because a retry
+// re-checks with a scope and self-corrects. A non-empty scope (the names a retry just
 // attempted) filters out packages that became outdated mid-run; when
 // the re-check itself fails ordinarily, the scope is kept as the
 // failed set so the next retry stays scoped. Only with no scope does
@@ -155,7 +189,12 @@ func catastrophic(ctx context.Context, err error) error {
 // instead, so the run aborts rather than looping back to a prompt
 // that can no longer be served.
 func outdatedAfterFailedUpgrade(ctx context.Context, w io.Writer, r brew.Runner, scope []string) ([]FailedItem, error) {
-	names, err := r.Outdated(ctx)
+	// Scoped to --formula to match the blanket `brew upgrade --formula`:
+	// casks are upgraded (and skipped while running) by InstallCask, so
+	// they must never enter the upgrade-retry set — a retry would
+	// `brew upgrade <cask>` and quit the running app this whole flow
+	// exists to protect.
+	names, err := r.Outdated(ctx, "--formula")
 	if err != nil {
 		if cerr := catastrophic(ctx, err); cerr != nil {
 			return nil, cerr

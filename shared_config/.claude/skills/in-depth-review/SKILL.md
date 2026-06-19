@@ -72,11 +72,11 @@ Permitted read-only `gh` calls: `gh pr list`, `gh pr view`, `gh pr diff`, `gh se
 If a sub-agent appears about to issue any write command, abort and surface the attempt to the
 caller.
 
-## GitHub access (`gh` with GitHub-MCP fallback)
+## GitHub access (GitHub MCP with `gh` fallback)
 
-Every GitHub call below is written as a `gh` command. **If the `gh` binary is unavailable or
-unauthenticated in this environment, fall back to the GitHub MCP server** — the same way Role
-#10 falls back from `acli` to the Atlassian MCP. Discover the MCP tools with
+Every GitHub call below is written as a `gh` command for reference. **Prefer the GitHub MCP
+server when it is connected; use the `gh` command only as a fallback when no GitHub MCP is
+available (or its tools don't cover the call).** Discover the MCP tools with
 `ToolSearch "github pull request"` and call the operation matching the `gh` call:
 
 | `gh` call used here | GitHub MCP equivalent (confirm exact name via ToolSearch) |
@@ -87,9 +87,9 @@ unauthenticated in this environment, fall back to the GitHub MCP server** — th
 | `gh pr list --search …` | list / search pull requests |
 | `gh pr view <N> --comments` | get pull request review comments + issue comments |
 
-Prefer `gh` when present; only fall back when the binary is missing or auth fails. This is a
-**read-only** fallback — read calls map to read tools, so the "never writes to GitHub"
-constraint is unchanged. If NEITHER `gh` nor a GitHub MCP is available, PR mode cannot proceed:
+Prefer the GitHub MCP when connected; fall back to `gh` only when no MCP is available. Both
+paths are **read-only** here — read calls map to read tools, so the "never writes to GitHub"
+constraint is unchanged. If NEITHER a GitHub MCP nor `gh` is available, PR mode cannot proceed:
 abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git blame`,
 `git rev-list`) need no `gh` and are unaffected — branch mode works without GitHub entirely.
 
@@ -169,9 +169,9 @@ Do NOT coordinate with the others.
 
 IMPORTANT: Do not run `gh pr comment`, `gh pr review`, `gh pr edit`, or any command that
 writes to GitHub. Read-only gh commands (gh pr list / view / diff / search) are permitted
-only if your role below explicitly requires them. If the `gh` binary is unavailable or
-unauthenticated, use the GitHub MCP read tools instead (find them with
-ToolSearch "github pull request") — they are equally read-only; never use a write tool.
+only if your role below explicitly requires them. Prefer the GitHub MCP read tools (find them with
+ToolSearch "github pull request"); fall back to those read-only `gh` commands only when no MCP
+is connected — both are equally read-only; never use a write tool.
 ```
 
 ### Reviewer Role #1 — AGENTS.md compliance
@@ -234,10 +234,10 @@ flagged the same class of issue, or there may be agreed-upon conventions documen
 discussion.
 
 You are READ-ONLY. Do not run `gh pr comment`, `gh pr review`, or any write command. If the
-`gh` binary is not available or unauthenticated, fall back to the GitHub MCP read tools (find
-them with ToolSearch "github pull request") to list past PRs and read their comments. Only if
-NEITHER `gh` nor a GitHub MCP is available, respond with "NO_ISSUES_FOUND" and note the
-limitation.
+GitHub MCP read tools (find them with ToolSearch "github pull request") are preferred for
+listing past PRs and reading their comments; fall back to read-only `gh` only when no MCP is
+connected. Only if NEITHER a GitHub MCP nor `gh` is available, respond with "NO_ISSUES_FOUND"
+and note the limitation.
 ```
 
 ### Reviewer Role #5 — In-file code comments
@@ -645,8 +645,8 @@ and the threshold note is dropped.
 
 ## Constraints
 
-- **No GitHub writes, ever.** Only read-only `gh` calls are permitted (list, view, diff,
-  search) — or, when `gh` is unavailable, the equally read-only GitHub MCP PR-read tools.
+- **No GitHub writes, ever.** Prefer the equally read-only GitHub MCP PR-read tools; read-only
+  `gh` calls (list, view, diff, search) are the fallback when no MCP is connected.
   Sub-agents that try to issue a write should be aborted and surfaced to the caller.
 - **10 or 11 parallel reviewers per pass** — 11 by default (the 11th is headline-benefit /
   motivation delivery, always-on; the 10th is ticket intent compliance), 10 when

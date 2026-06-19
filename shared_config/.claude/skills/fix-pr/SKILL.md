@@ -15,9 +15,9 @@ Automatically connect to GitHub, inspect the current branch's PR, and fix everyt
 ## Prerequisites
 
 Check for GitHub access in this order:
-1. Try `gh auth status` to see if the `gh` CLI is installed and authenticated
-2. If `gh` is not available, check if a GitHub MCP tool is available and the user is logged in
-3. If neither works, ask the user to install and authenticate the `gh` CLI (`gh auth login`)
+1. Check if a GitHub MCP tool is available and the user is logged in
+2. If no GitHub MCP is available, try `gh auth status` to see if the `gh` CLI is installed and authenticated
+3. If neither works, ask the user to connect a GitHub MCP or install and authenticate the `gh` CLI (`gh auth login`)
 
 Do not proceed until you have a working GitHub connection.
 

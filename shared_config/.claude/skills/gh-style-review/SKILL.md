@@ -78,11 +78,11 @@ Example invocations:
 /gh-style-review HEAD~5..HEAD --raw    # branch mode, no filter
 ```
 
-## GitHub access (`gh` with GitHub-MCP fallback)
+## GitHub access (GitHub MCP with `gh` fallback)
 
-Every GitHub call below is written as a `gh` command. **If the `gh` binary is unavailable or
-unauthenticated in this environment, fall back to the GitHub MCP server** — the same way
-`in-depth-review`'s Role #10 falls back from `acli` to the Atlassian MCP. Discover the MCP
+Every GitHub call below is written as a `gh` command for reference. **Prefer the GitHub MCP
+server when it is connected; use the `gh` command only as a fallback when no GitHub MCP is
+available (or its tools don't cover the call).** Discover the MCP
 tools with `ToolSearch "github pull request"` and call the operation matching the `gh` call:
 
 | `gh` call used here | GitHub MCP equivalent (confirm exact name via ToolSearch) |
@@ -96,16 +96,16 @@ tools with `ToolSearch "github pull request"` and call the operation matching th
 | `gh api …/pulls/<N>/reviews` | get pull request reviews (prior reviews) |
 | `gh api …/contents/<path>?ref=<SHA>` | get file contents at a ref |
 
-Prefer `gh` when present; only fall back when the binary is missing or auth fails. This is a
-**read-only** fallback — read calls map to read tools, so the "never writes to GitHub"
-constraint is unchanged. If NEITHER `gh` nor a GitHub MCP is available, surface that and stop:
+Prefer the GitHub MCP when connected; fall back to `gh` only when no MCP is available. Both
+paths are **read-only** here — read calls map to read tools, so the "never writes to GitHub"
+constraint is unchanged. If NEITHER a GitHub MCP nor `gh` is available, surface that and stop:
 PR mode cannot proceed without PR context. Local `git` calls (`git show`, `git fetch`,
 `git diff`, `git log`) need no `gh` and are unaffected.
 
 ## Step 0: Setup
 
-1. Confirm GitHub access: `gh auth status`. If `gh` is missing or unauthenticated, switch to
-   the GitHub MCP per the **GitHub access** section above. If neither is available, surface the
+1. Confirm GitHub access: prefer a GitHub MCP PR tool (per the **GitHub access** section above);
+   if no MCP is connected, fall back to `gh auth status`. If neither is available, surface the
    failure and stop.
 2. Resolve the repo root with `git rev-parse --show-toplevel` (everything below assumes the
    shell CWD is somewhere inside it).
@@ -150,7 +150,7 @@ PR mode cannot proceed without PR context. Local `git` calls (`git show`, `git f
 Fetch the sections relevant to the active `<MODE>` in parallel (single Bash message with
 multiple calls), then format into the matching XML section. **Drop any section whose fetch
 returns empty** — don't inject `<comments></comments>` when there are no comments; just
-omit the tag. When `gh` is unavailable, each `gh`/`gh api` call in the tables below uses its
+omit the tag. When a GitHub MCP is connected (the preferred path), each `gh`/`gh api` call in the tables below uses its
 GitHub MCP equivalent (see **GitHub access**); the MCP returns JSON, so format from that
 instead of the `gh` output.
 
@@ -519,7 +519,7 @@ Notes on the JSON contract:
 
 - **No GitHub writes.** `gh pr comment`, `gh pr review`, `gh pr edit`, `gh pr merge`,
   `gh pr close`, `gh issue create`, `gh issue comment` are all forbidden. Only read-only
-  `gh` calls (the ones in Step 1) are permitted. The GitHub-MCP fallback is read-only too —
+  `gh` calls (the ones in Step 1) are permitted. The GitHub MCP path is read-only too —
   use only its PR-read tools; never a review-create / comment / merge / edit tool.
 - **Compare against `origin/<BASE_REF>`**, never `main`/`master` directly — the PR may be
   targeting a non-default branch (release branch, stacked PR, etc.).

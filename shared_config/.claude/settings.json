@@ -101,6 +101,10 @@
           },
           {
             "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-find-root.py"
+          },
+          {
+            "type": "command",
             "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-multi-command.py"
           },
           {

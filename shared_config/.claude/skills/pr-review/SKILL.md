@@ -116,7 +116,11 @@ need no `gh`.
 ## Step 1: Launch ten reviewer sub-agents in parallel
 
 Spawn **ten sub-agents in a single message** (ten concurrent Agent tool calls). Sequential
-launches defeat the purpose — never serialize. The split is:
+launches defeat the purpose — never serialize. **Spawn all ten on Sonnet** (Agent-tool
+`model: sonnet`): each is a thin wrapper that invokes a recall-pass skill and relays its JSON,
+and `in-depth-review` / `gh-style-review` already pin their own internal tiers (reviewers →
+Sonnet, scorers → Haiku). Never let these inherit the session model (it may be Opus / `[1m]`).
+The split is:
 
 - **Sub-agents 1–5:** invoke `in-depth-review`
 - **Sub-agents 6–10:** invoke `gh-style-review`
@@ -280,6 +284,12 @@ issues the adversarial reviewer raises. Only the issues the two *converge* on as
 needing a code change survive, and only if no other reviewer already raised the same thing with
 confidence > 50. Survivors are added to the findings pool (Step 2 output) so Step 3 posts them
 exactly like every other finding — distinguished only by an `adversarial` tag.
+
+**Model: spawn the adversarial reviewer and the nuanced agent on Opus** (Agent-tool
+`model: opus` — the standard 200k tier, NOT a `[1m]` variant). This is the one stage that is
+genuine judgment rather than recall — the debate IS the filter — so it keeps the strongest
+model. It is also cheap to keep there: one pair, run once (not 5×), ≤3 rounds. Everything
+else in this skill runs on Sonnet/Haiku.
 
 This stage runs **after** the merge because the dedup in Step 2.7b below compares against
 `merged_all`, which only exists once Step 2 has merged the ten reviewers. The pair runs **once**
@@ -719,6 +729,12 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
   in a single message with concurrent Agent tool calls. Do not fall back to fewer sub-agents
   for "speed"; the cross-source triangulation is the point. Do not use only one source —
   both prompt structures contribute distinct findings.
+- **Model policy (cost):** the ten reviewer sub-agents run on **Sonnet** (`model: sonnet`);
+  their inner reviewers/scorers self-tier (Sonnet/Haiku) per those skills. Only the
+  adversarial + nuanced pair (Step 2.7) runs on **Opus** (`model: opus`, standard 200k — never
+  `[1m]`), because that stage is judgment, not recall. Never let any of these inherit the
+  session model. The ≥60 triangulation and the converge stage are what protect quality — not a
+  bigger model on every finder.
 - **Threshold is 60.** Do not raise or lower it on the fly. This applies to the ten reviewers'
   findings only. Adversarial findings (Step 2.7) do NOT use this threshold — they are gated on
   the two agents *converging* on "needs a code change," not on a confidence score.

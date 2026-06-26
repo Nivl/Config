@@ -137,7 +137,11 @@ Announce at iteration start:
 > Target: PR #<PR> [draft]  ←  or  Target: branch range <RANGE>
 
 Spawn **6 sub-agents in a single message** (6 concurrent tool-use blocks). Sequential
-launches defeat the purpose — never serialize.
+launches defeat the purpose — never serialize. **Spawn all six on Sonnet** (Agent-tool
+`model: sonnet`): each wraps a recall-pass skill, and `in-depth-review` / `gh-style-review`
+already pin their internal tiers (reviewers → Sonnet, scorers → Haiku). Never let them
+inherit the session model. The fix step (Step 2) stays on the session model — applying and
+committing code is where the strong model earns its cost; the recall fan-out is not.
 
 ### Sub-agents 1–3 prompt (in-depth-review)
 
@@ -424,6 +428,11 @@ iterations. If an in-depth-review sub-agent reported `ticket_review.status` of `
   attempt to synthesize Discussion Context from in-depth-review findings. Do not fail an
   iteration because Discussion Context is empty — that's expected in branch mode.
 - **Confidence threshold is 50.** Do not raise or lower it on the fly.
+- **Model policy (cost):** the 6 reviewer sub-agents run on **Sonnet** (`model: sonnet`); their
+  inner reviewers/scorers self-tier (Sonnet/Haiku) per those skills. The fix step (Step 2) —
+  reading, editing, lint/test, committing — stays on the **session model**, since applying code
+  is where a strong model is worth its cost. Never let the reviewer fan-out inherit the session
+  model (it may be Opus / a `[1m]` variant).
 - **One commit per fix** — never squash or amend.
 - **Never commit broken code** — lint and tests must pass before committing.
 - **Never push** — only local commits; the user decides when to push.

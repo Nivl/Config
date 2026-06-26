@@ -527,6 +527,10 @@ Notes on the JSON contract:
 - **Print to the terminal only.** Do not write the review to a file unless the user asks.
 - **Single review pass.** This skill is not iterative — for the iterate-and-fix loop see
   `review-and-fix`; for cross-instance triangulation see `pr-review` or `in-depth-review`.
+- **Model policy (cost):** this skill spawns no sub-agents — it runs in one agent, so its
+  tier is set by whoever invokes it. When a caller (`pr-review`, `review-and-fix`) spawns it
+  as a sub-agent it MUST run on **Sonnet** (`model: sonnet`): a single bounded recall pass,
+  not worth Opus or a `[1m]` variant. Run directly by a user, it just uses the session model.
 - **Sub-agent mode contract.** When invoked as a sub-agent and asked for JSON, return the
   exact shape in "If invoked as a sub-agent" — including `discussion_context` (with empty
   arrays in branch mode). Don't drop fields the orchestrator depends on.

@@ -130,6 +130,12 @@ Spawn the reviewer sub-agents in a single message (concurrent tool-use blocks). 
 (omit Role #10; Role #11 always runs). Sequential launches defeat the purpose of this design
 — never serialize.
 
+**Model: spawn every reviewer on Sonnet** (Agent-tool `model: sonnet`) — do NOT let them
+inherit the session model. Each role is a bounded, tightly-specified recall pass over the
+diff; that is exactly the work Sonnet does well and Opus does at ~5× the cost. Confidence is
+recovered downstream by the cross-role agreement count and (for the orchestrators) the
+triangulation + adversarial converge stage — not by making each finder more expensive.
+
 ### Common reviewer prompt fragment
 
 Every reviewer prompt starts with this block:
@@ -486,8 +492,11 @@ After all reviewers return:
    overlapping line range + substantially the same problem). For each group, keep one canonical
    entry and record the **agreement count** (how many of the role outputs raised it).
    Highest severity in the group wins.
-3. **Launch a scoring sub-agent for each unique finding in parallel** (one Skill call per
-   finding, all in a single message). Give each scorer:
+3. **Launch a scoring sub-agent for each unique finding in parallel** (one sub-agent per
+   finding, all in a single message). **Spawn each scorer on Haiku** (Agent-tool
+   `model: haiku`) — scoring one finding against the rubric is a small, structured judgment
+   with the diff and AGENTS.md handed in, not open-ended reasoning; Haiku is ~15–20× cheaper
+   than Opus for it. Give each scorer:
    - The finding (file, line, severity, description, suggested fix)
    - The path of every AGENTS.md / CLAUDE.md file referenced by any reviewer that raised it
    - The diff for the relevant lines
@@ -662,4 +671,8 @@ and the threshold note is dropped.
   their own threshold.
 - **Scoring is per-finding and parallel** — one scorer per unique finding, all launched in a
   single message. Never score serially.
+- **Model policy (cost):** reviewers run on **Sonnet** (`model: sonnet`), scorers on **Haiku**
+  (`model: haiku`). Never let either inherit the session model (it may be Opus / a `[1m]`
+  variant — far pricier and unnecessary for these bounded tasks). Recall + provability come
+  from role specialization and the agreement count, not from a bigger model per finder.
 - **No fix application.** This skill reports; consumers fix.

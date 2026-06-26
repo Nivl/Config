@@ -91,6 +91,24 @@ assert_eq "local_union_rushx" "allow" "$(decision "rushx test y" "$REPOS_ROOT")"
 printf 'not json{' >"$FIX/bash-allow-trusted.local.json"
 assert_eq "malformed_local_ok" "allow" "$(decision "git symbolic-ref --short HEAD" "$REPOS_ROOT")"
 
+# ---- safe_assignments: a whitelisted env-var name may prefix a trusted command ----
+cat >"$FIX/bash-allow-trusted.json" <<'JSON'
+{
+  "excluded": [["rushx", "test"]],
+  "trusted": [["rushx", "test"]],
+  "safe_assignments": ["ENV_TIER"]
+}
+JSON
+rm -f "$FIX/bash-allow-trusted.local.json"
+assert_eq "safe_env_allow"     "allow"  "$(decision "ENV_TIER=local rushx test x" "$REPOS_ROOT")"
+assert_eq "safe_env_redirect"  "allow"  "$(decision "ENV_TIER=local rushx test x > ok.txt" "$REPOS_ROOT")"
+# an env var NOT on the safe list still falls through, even on a trusted command
+assert_eq "unsafe_env_silent"  "silent" "$(decision "GIT_PAGER=evil rushx test x" "$REPOS_ROOT")"
+# ALL leading assignments must be safe; one unknown name bails to a prompt
+assert_eq "mixed_env_silent"   "silent" "$(decision "ENV_TIER=local FOO=bar rushx test x" "$REPOS_ROOT")"
+# a safe prefix does NOT rescue a compound excluded command -> still deny
+assert_eq "safe_env_pipe_deny" "deny"   "$(decision "ENV_TIER=local rushx test x | grep ok" "$REPOS_ROOT")"
+
 # ---- both files absent -> fail closed (silent) ----
 rm -f "$FIX/bash-allow-trusted.json" "$FIX/bash-allow-trusted.local.json"
 assert_eq "failclosed" "silent" "$(decision "rushx test x" "$REPOS_ROOT")"

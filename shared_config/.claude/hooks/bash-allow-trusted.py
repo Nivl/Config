@@ -6,7 +6,9 @@
 # bash-allow-trusted.json (committed) and may be augmented by a
 # gitignored bash-allow-trusted.local.json. Both hold two lists of
 # token-tuples: `excluded` (any sandbox-excluded command) and `trusted`
-# (the allowed ∩ excluded subset). The hook UNIONs the two files.
+# (the allowed ∩ excluded subset), plus an optional `safe_assignments`
+# list of env-var NAMES a trusted command may be prefixed with (see below).
+# The hook UNIONs the two files.
 #
 # Decisions (first match wins):
 #   1. Compound (| && || ; & newline) AND any segment is_excluded -> DENY.
@@ -35,13 +37,14 @@ def _load_one(path):
         with open(path) as f:
             data = json.load(f)
     except (OSError, ValueError):
-        return [], []
+        return [], [], []
     def ok(t):
         return isinstance(t, list) and t and all(isinstance(x, str) for x in t)
 
     excl = [list(t) for t in data.get("excluded", []) if ok(t)]
     trust = [list(t) for t in data.get("trusted", []) if ok(t)]
-    return excl, trust
+    safe = [s for s in data.get("safe_assignments", []) if isinstance(s, str) and s]
+    return excl, trust, safe
 
 
 def _dedup(tuples):
@@ -57,12 +60,12 @@ def _dedup(tuples):
 
 def _load():
     d = _data_dir()
-    be, bt = _load_one(os.path.join(d, "bash-allow-trusted.json"))
-    le, lt = _load_one(os.path.join(d, "bash-allow-trusted.local.json"))
-    return _dedup(be + le), _dedup(bt + lt)
+    be, bt, bs = _load_one(os.path.join(d, "bash-allow-trusted.json"))
+    le, lt, ls = _load_one(os.path.join(d, "bash-allow-trusted.local.json"))
+    return _dedup(be + le), _dedup(bt + lt), set(bs) | set(ls)
 
 
-EXCLUDED, TRUSTED = _load()
+EXCLUDED, TRUSTED, SAFE_ASSIGNMENTS = _load()
 
 SEPARATORS = frozenset({"|", "||", "&&", ";", ";;", "&", "|&"})
 ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
@@ -286,14 +289,17 @@ def main():
 
     if not segments or not is_trusted(segments[0]):
         return
-    # Refuse to auto-allow ANY env-assignment-prefixed command. git/gh honor an
-    # open-ended set of env vars that inject commands (GIT_CONFIG_* sets arbitrary
-    # config like core.pager/core.sshCommand; GIT_EXTERNAL_DIFF/GIT_PAGER/
-    # GIT_SSH_COMMAND/… name programs directly). A denylist of names keeps missing
-    # new ones, so treat any leading assignment as unresolvable and fall through
-    # to the normal permission prompt.
-    if raw_segments[0] and ASSIGN_RE.match(raw_segments[0][0]):
-        return
+    # Env-assignment prefixes are refused by default: git/gh honor an open-ended set
+    # of env vars that inject commands (GIT_CONFIG_* sets arbitrary config like
+    # core.pager/core.sshCommand; GIT_EXTERNAL_DIFF/GIT_PAGER/GIT_SSH_COMMAND/… name
+    # programs directly). A denylist of names would keep missing new ones, so every
+    # leading assignment is treated as unresolvable UNLESS its name is on the explicit
+    # safe_assignments allowlist — values only the app reads (e.g. ENV_TIER=local).
+    for tok in raw_segments[0]:
+        if not ASSIGN_RE.match(tok):
+            break
+        if tok.split("=", 1)[0] not in SAFE_ASSIGNMENTS:
+            return
     cwd = (data.get("cwd") or "").strip() or os.getcwd()
     if has_unsafe_write_redirect(cmd, cwd, write_roots()):
         return

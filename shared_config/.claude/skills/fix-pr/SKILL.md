@@ -12,6 +12,29 @@ description: >
 
 Automatically connect to GitHub, inspect the current branch's PR, and fix everything that needs fixing — review comments, CI failures, and open questions.
 
+## Voice: terse, human, no slop
+
+Everything this skill writes to GitHub (review-comment replies in Step 3, question answers in
+Step 4, commit messages) is read by a busy reviewer. Write like a senior engineer, not a
+support bot. If a sentence could be deleted without losing information, delete it.
+
+**Banned. The tells that make a reply read as AI slop:**
+
+- Pleasantries: `Thanks for the feedback!`, `Great catch!`, `Good point!`, `You're right!`.
+  Skip them and go straight to what you did.
+- Openers: `I've gone ahead and ...`, `This addresses ...`, `I have updated ...`. Just state
+  it: "Renamed `x` to `y`." / "Added the null check."
+- Filler adjectives/verbs: `robust`, `comprehensive`, `seamless(ly)`, `leverage`,
+  `utilize` (say "use"), `streamline`, `ensure`, `enhance`.
+- Throat-clearing: `It's worth noting that`, `In order to` (say "to").
+- Restating the reviewer's comment back at them before answering.
+- Fancy non-keyboard symbols. Use plain ASCII: `->` not `→`, `...` not `…`, straight quotes,
+  and no em-dash `—` to glue clauses (use two sentences or a colon). Most people can't type
+  the fancy ones and they read as AI.
+
+**Do:** one or two short sentences: what changed, and why only if non-obvious, plus the commit
+link. A reply can be as short as `Done. <commit_url>` when the fix speaks for itself.
+
 ## Prerequisites
 
 Check for GitHub access in this order:
@@ -148,4 +171,5 @@ After all fixes are pushed:
 - **Always reply on GitHub**: when addressing a comment, reply explaining what was done and link to the commit. Reviewers shouldn't have to hunt through commits to see if their feedback was addressed.
 - **Resolve conversations on GitHub**: if you successfully address a review comment, resolve the thread so we know we don't have to take care of it anymore. If the comment is still relevant or you weren't able to fully address it, leave it open.
 - **Respect the codebase**: follow existing code style, run linters and tests, don't introduce new issues while fixing old ones.
+- **No AI slop in replies**: follow the Voice section: no pleasantries, no `I've gone ahead and ...`, no filler adjectives. Terse and direct; link the commit and stop.
 - **Flaky tests are special**: they get their own commit and require explicit user approval because they're outside the scope of the PR's intended changes.

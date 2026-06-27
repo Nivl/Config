@@ -492,6 +492,23 @@ Let:
 - `K_inline` = count of INLINE findings (each is also posted as an inline diff comment in Step 3c)
 - `K_unaddressed` = count of entries in `unaddressed_pool`
 
+**Confidence label (what the reader sees).** Internally a finding has a numeric `confidence`
+(0-100), used ONLY for filtering and ordering. The POSTED comment never shows the number, the
+agreement count, or the source skill. Those are internal mechanics that confuse readers. It
+shows one word, mapped from the score:
+
+| score | label |
+|---|---|
+| 90-100 | `Critical` |
+| 75-89 | `High` |
+| 60-74 | `Medium` |
+| below 60 | `Low` |
+
+(Normal findings cleared the >=60 bar, so they read `Medium` or higher; only an adversarial
+finding can bypass that bar and read `Low` -- e.g. a score of 42 shows as `Low`.) The whole tag
+is just `` `[confidence: <Low|Medium|High|Critical>]` `` (plus the `adversarial` marker for
+those findings, and a `[<ticket_id>]` title prefix for ticket findings).
+
 ```markdown
 I used an AI agent with a custom prompt to generate this review.
 
@@ -505,7 +522,7 @@ Found <K_global + K_inline> issue(s):
 
 #### <K_global> global issue(s)
 
-**1.** <title> &nbsp;`[agreement: <N>/10, confidence: <score>, sources: <in-depth|gh-style|both>]`
+**1.** <title> &nbsp;`[confidence: <Low|Medium|High|Critical>]`
 
 <description, including category and any suggested-fix alternatives>
 
@@ -580,14 +597,15 @@ unaddressed.
 its `<title>` in both the global body (global list and local list) and any inline comment, so
 the ticket is visible.
 
-**Adversarial findings (`source = "adversarial"`):** these have no `agreement: N/10` (they did
-not come from the 10 reviewers) and carry the `adversarial` tag instead. Render their
-annotation as `` `[adversarial, confidence: <score>, rounds: <R>]` `` everywhere the other
-findings would show `[agreement: …, confidence: …, sources: …]` — in the global `**N.**` list
-and the inline comment. The names-only local list shows just the `<title>`; the
-`[adversarial, …]` tag rides on the global entry and the inline comment, same as the score tag
-does for the other findings. (If an adversarial finding also has a `ticket_id`,
-prepend `[<ticket_id>] ` to the title as above — that is independent of the adversarial tag.)
+**Adversarial findings (`source = "adversarial"`):** these carry the `adversarial` marker.
+Render their annotation as `` `[adversarial, confidence: <Low|Medium|High|Critical>]` ``
+everywhere the other findings show `[confidence: ...]`: in the global `**N.**` list and the
+inline comment. Bucket the adversarial finding's own score with the same mapping above (a
+sub-60 adversarial finding reads `Low`). Do NOT show the round count; it is an internal debate
+mechanic, not reader signal. The names-only local list shows just the `<title>`; the
+`[adversarial, ...]` tag rides on the global entry and the inline comment. If an adversarial
+finding also has a `ticket_id`, prepend `[<ticket_id>] ` to the title as above; that is
+independent of the adversarial marker.
 
 ### Step 3c: Build each inline comment
 
@@ -595,14 +613,13 @@ Each inline comment carries a tighter body (no disclosure repetition, no permali
 anchors the comment to the line for you):
 
 ```markdown
-**<title>** `[agreement: <N>/10, confidence: <score>, sources: <in-depth|gh-style|both>]`
+**<title>** `[confidence: <Low|Medium|High|Critical>]`
 
 <description, including any suggested-fix alternatives>
 ```
 
 **Adversarial findings:** for a finding with `source = "adversarial"`, use the
-`` `[adversarial, confidence: <score>, rounds: <R>]` `` tag here instead of the
-`[agreement: …]` form — see Step 3b.
+`` `[adversarial, confidence: <Low|Medium|High|Critical>]` `` tag here instead. See Step 3b.
 
 GitHub line-range encoding:
 

@@ -20,13 +20,46 @@ will actually read — short, simple, scannable.
 1. **Title is simple.** One line, prefer < 70 chars. State the change, not the justification.
    ✅ "Add SQS queue for invoice generation" — not ❌ "feat(billing): refactor the invoice
    subsystem to enable asynchronous PDF rendering via SQS".
-2. **Description is short.** The default format has two narrative sections (`Goal`, `how`)
-   plus one bullet list of key changes. The list is **not exhaustive** — only the things a
-   reader needs to know.
+2. **Description is short.** The default format is a `Goal` line, an OPTIONAL `how` line, and
+   one `Changes` bullet list. The list is **not exhaustive**: only the things a reader needs
+   to know.
 3. **Lists beat prose.** A bulleted list of 4 key changes is far more scannable than a 3-
    paragraph essay covering the same ground. Use lists liberally.
 4. **Template wins.** If the repo has a PR template, USE IT. Don't substitute the default
    format just because you prefer it.
+5. **Scale to the change.** A tiny or obvious PR (a few lines, a config bump, a doc fix) gets a
+   one-line description and NO section headers. Don't manufacture `Goal` / `how` / `Changes`
+   scaffolding for a 5-line diff. Reserve the full format for changes big enough to need it.
+6. **Always a one-line summary.** Open the body with one plain sentence saying what the change
+   is about and why, so anyone gets it at a glance. If the template has a description / summary
+   / overview field, it goes there. If the template has NO such field, put the sentence at the
+   very top of the body, above the first section.
+
+## Voice: write plainly, not like a launch announcement
+
+The #1 cause of unreadable PRs is AI-slop phrasing. Write in the voice of a senior engineer
+leaving a note for a busy teammate: plain, direct, no padding. If a sentence could be deleted
+without losing information, delete it.
+
+**Banned. These are the tells that make a PR read as AI slop:**
+
+- The opener `This PR ...` / `This change introduces ...` / `In this PR, we ...`. Just state the thing.
+- Filler adjectives/verbs: `robust`, `comprehensive`, `seamless(ly)`, `powerful`, `leverage`,
+  `utilize` (say "use"), `streamline`, `facilitate`, `enhance`, `ensure`, `holistic`, `cutting-edge`.
+- Throat-clearing: `It's worth noting that`, `It is important to`, `In order to` (say "to").
+- Narrating the diff in prose ("adds a function `foo` that loops over the items and ..."). The
+  diff already shows that. Say WHY, not WHAT line by line.
+- Restating the title in the `Goal` section.
+- Fancy non-keyboard symbols. Use plain ASCII anyone can type: write `->` not `→`, `...` not
+  `…`, `>=`/`<=` not `≥`/`≤`, `x` not `×`, and straight quotes `'` `"` not the curly ones. The
+  fancy glyphs read as AI and most people can't type them on a keyboard.
+- The em-dash `—` (and en-dash `–`) to glue clauses together. Use two sentences, a colon, or a
+  plain hyphen with spaces. Same for padded triads ("the consumer, the producer, and the retry
+  logic") where a plain phrase would do.
+
+**Do:** short sentences, active voice, concrete nouns, ASCII punctuation only. Prefer the
+bullet list; use prose only for what a bullet can't carry (the why). One idea per bullet. Cut,
+then cut again.
 
 ## GitHub access (GitHub MCP with `gh` fallback)
 
@@ -137,6 +170,18 @@ Fill it in. Same principles apply:
 - If a template field doesn't apply to this change, write `N/A` rather than padding with
   fabricated content.
 - Don't reorder, rename, or delete template sections. Only fill them.
+- **Always include the one-line summary (Principle 6).** If the template has a description /
+  summary / overview field, put it there. If it has none, place the sentence at the very top
+  of the body, above the first section. This is the one addition to a template's structure
+  that is allowed.
+- **A "How to test me" / "Testing" / "QA" field means MANUAL steps, not automated tests.**
+  Give the steps a human follows to trigger the change and confirm it worked in a running
+  environment. Shape: numbered steps such as (1) deploy to the env, (2) send `curl ...`,
+  (3) expect response `...`, (4) check table X or the Amplitude event or the log line for Y.
+  Cover both halves: how to trigger the change, and how to verify it landed. NEVER put
+  unit-test or e2e-test run commands here (no `rushx test ...`, no `pnpm test`). If you can't
+  infer concrete trigger-and-verify steps from the diff, ASK the user; they may tell you to
+  drop the section entirely.
 
 ### If NO template was found
 
@@ -145,23 +190,25 @@ Use this exact format (note the lowercase `how` — that's intentional):
 ```markdown
 ### Goal
 
-<short explanation of what we're trying to achieve. 1–3 sentences. Add links to relevant
-tickets / Jira / Datadog dashboards / Linear issues / design docs when available.>
+<1-2 sentences: the outcome we want. Link a ticket / Jira / Datadog / Linear / design doc when
+one exists. Do NOT restate the title.>
 
-### how
+### how      <!-- OMIT this whole section when the approach is obvious from the changes -->
 
-<short explanation of HOW we achieve it. 1–2 sentences. High level — what's the approach,
-not every implementation detail.>
+<1 sentence: the key approach or decision. Skip it entirely if it adds nothing over the list.>
 
-This PR does the following:
+### Changes
 
 - <key change 1>
 - <key change 2>
 - <key change 3>
-- ...
 ```
 
-### Rules for the "This PR does the following" list
+Lead with `### Changes` directly (no "This PR does the following:" preamble. That phrase is a
+slop tell). For a small change, drop `### how` and often `### Goal` too; a one-liner above the
+list is enough (see Principle 5).
+
+### Rules for the `Changes` list
 
 - **Not exhaustive.** Only key changes. If a refactor touches 12 files with the same kind of
   edit, that's ONE bullet, not 12.
@@ -196,8 +243,8 @@ This PR does the following:
 
 ### how section guidance
 
-- 1–2 sentences.
-- Mention the key architectural decision or approach.
+- **Omit the whole section when the approach is obvious from the changes.** Don't pad.
+- When kept: 1 sentence, the key architectural decision or approach only.
 - Do NOT enumerate files or functions — the diff has those.
 
 ## Step 5: Preview and confirm
@@ -269,8 +316,12 @@ the exact error — don't retry blindly.
 ## Constraints
 
 - **Title under 70 chars when possible**, hard max 100.
-- **Description short.** Default format = two narrative sections + one non-exhaustive
-  bullet list (≤ 7 bullets).
+- **Description short.** Default format = a `Goal` line, an OPTIONAL `how` line, and a
+  non-exhaustive `Changes` list (<= 7 bullets). Tiny/obvious PRs: one line, no headers
+  (Principle 5).
+- **Voice: no AI slop.** Follow the Voice section: no `This PR ...` opener, no filler
+  adjectives (`robust`/`comprehensive`/`leverage`/...), no throat-clearing, no diff-narration.
+  Write like a terse senior engineer; prefer the bullet list over prose.
 - **Use the repo's PR template if one exists.** Don't substitute the default.
 - **Always preview before posting** (Step 5). User must confirm.
 - **Never create a PR if one already exists open** for the current branch.

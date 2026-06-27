@@ -69,6 +69,18 @@ Commenting code is good. Keep doing it. But every comment must earn its place. F
 - **Keep them short and focused.** One or two lines is the norm. Only write a long paragraph when the logic is genuinely complex and a short note cannot carry it.
 - **Write plainly.** Use short sentences. Avoid semicolons. Aim for a middle-school or high-school reading level, while still using normal software engineering terms.
 
+## Plain ASCII in authored prose
+
+Text you write for humans -- commit messages, code comments, PR and issue descriptions, docs -- uses plain, keyboard-typable ASCII punctuation. The fancy Unicode glyphs read as AI-written, and most people can't type them to match. Substitute:
+
+- `->` not `→`, `<-` not `←`
+- `...` not `…`
+- `>=` / `<=` not `≥` / `≤`, and `x` not `×`
+- straight quotes `'` and `"`, not the curly variants
+- a hyphen, a colon, or two separate sentences instead of the em-dash `—` or en-dash `–` to join clauses. Don't use `—` to chain thoughts; split the sentence.
+
+This governs prose you author. It does NOT mean mangling literal content: quoted command output, a string or identifier in the code, file contents you are reproducing, or a name that genuinely contains a Unicode character all stay verbatim. Don't "fix" a `→` that is actually part of the data.
+
 ## Sandbox mode
 
 Bash commands run inside an OS-level sandbox (macOS Seatbelt). It is a safety _floor_ beneath the permission rules and hooks. `autoAllowBashIfSandboxed` is **off**, so the prompt/approval flow is unchanged — the sandbox only adds hard OS limits that the kernel enforces. `allowUnsandboxedCommands` is **off** too: the Bash tool's `dangerouslyDisableSandbox` parameter is silently ignored, so retrying a sandbox-denied command with it just fails the same way. When a command genuinely needs to escape the sandbox (e.g. `melvin-config claude sync`, which writes `~/.claude`), don't retry — ask the user to run it themselves in a regular terminal. It governs **Bash only**. The Write / Edit / Read tools stay on the hooks plus permission rules. The whole block assumes macOS/Seatbelt: `failIfUnavailable` is on, so on any host where the sandbox backend cannot initialize, Claude Code refuses to start rather than run unprotected.

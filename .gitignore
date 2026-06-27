@@ -1,6 +1,7 @@
 docs/superpowers/
 .last_update_check
 .vscode
+.DS_Store
 /.claude/
 .serena/
 shared_config/.emacs.d/auto-save-list/*

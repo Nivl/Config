@@ -790,6 +790,10 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
   in a single message with concurrent Agent tool calls. Do not fall back to fewer sub-agents
   for "speed"; the cross-source triangulation is the point. Do not use only one source —
   both prompt structures contribute distinct findings.
+- **Comment-punctuation findings are in scope but low priority.** The sub-skills flag comments
+  the diff adds or edits that join clauses with ` - ` (space-hyphen-space) or a sentence-splitting
+  `:`, per AGENTS.md. These are `suggestion`-severity: keep them if they survive the threshold,
+  but never let them displace correctness findings in the posted review.
 - **Model policy (cost):** the ten reviewer sub-agents run on **Sonnet** (`model: sonnet`);
   their inner reviewers/scorers self-tier (Sonnet/Haiku) per those skills. Only the
   adversarial + nuanced pair (Step 2.7) runs on **Opus** (`model: opus`, standard 200k — never

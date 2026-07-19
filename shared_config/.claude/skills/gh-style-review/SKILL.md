@@ -320,6 +320,12 @@ task: do NOT edit files, commit, push, or post to GitHub. Read and report only.
      confirm a prior human concern is resolved by the diff, or flag it unresolved; don't
      duplicate a point a human already made. In branch mode these tags are absent — skip the
      Discussion Context output section.
+   - On comments the diff ADDS or edits, flag AGENTS.md comment-punctuation violations
+     (severity `suggestion`): a comment that joins two independent clauses with ` - `
+     (space-hyphen-space, standing in for an em-dash) or a `:` that splits a claim from its
+     elaboration. The fix is two sentences. Flag ONLY the clause-joiner use — never hyphenated
+     words (`read-only`), flags (`-c`), ranges (`1-10`), label prefixes (`TODO:`, `NOTE:`),
+     ratios/times (`3:1`), or code/paths/URLs.
    - Reference specific code with file paths and line numbers.
 
 <!-- OUTPUT FORMAT — see "Output Format" section of the skill -->

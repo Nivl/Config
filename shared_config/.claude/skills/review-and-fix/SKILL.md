@@ -421,6 +421,10 @@ iterations. If an in-depth-review sub-agent reported `ticket_review.status` of `
 - **Each sub-skill is invoked WITH `--raw`** — we want every scored finding (0–100), not
   the sub-skill's default `< 70` filtered output. The orchestrator applies its own
   `confidence >= 50` threshold after cross-instance, cross-source dedup.
+- **Comment-punctuation findings are in scope but low priority.** The sub-skills flag comments
+  the diff adds or edits that join clauses with ` - ` (space-hyphen-space) or a sentence-splitting
+  `:`, per AGENTS.md. These are `suggestion`-severity: fix them if the batch surfaces nothing
+  more important, but never spend a fix iteration on punctuation while real bugs are outstanding.
 - **Flat-pool merging.** Findings from in-depth-review and gh-style-review are merged into
   one pool, dedup'd by file+line+description regardless of source, then filtered. Source
   is preserved as a `sources` field on each finding (used as a tiebreaker only).

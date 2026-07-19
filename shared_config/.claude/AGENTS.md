@@ -76,6 +76,12 @@ Commenting code is good. Keep doing it. But every comment must earn its place. F
   - Bad: `// some comment (TICKET-0123).`
 - **Keep them short and focused.** One or two lines is the norm. Only write a long paragraph when the logic is genuinely complex and a short note cannot carry it.
 - **Write plainly.** Use short sentences. Avoid semicolons. Aim for a middle-school or high-school reading level, while still using normal software engineering terms.
+- **One thought per sentence. Don't glue clauses with a dash or a colon.** When you catch yourself joining two independent clauses with ` - ` (space-hyphen-space, used as a stand-in for an em-dash) or with a `:` that splits a claim from its elaboration, stop and write two sentences instead. This is the same "split the sentence" rule as the Plain ASCII section below, applied to the punctuation people actually reach for.
+  - Bad: `// This function never throws and never rejects - a Redis failure must not turn an already-committed write into an error.`
+  - Good: `// This function never throws and never rejects. A Redis failure must not turn an already-committed write into an error.`
+  - Bad: `// log first: it is the primary signal and must not be suppressed.`
+  - Good: `// Log first. It is the primary signal and must not be suppressed.`
+  - This bans the dash and colon only as clause JOINERS. Leave them alone everywhere else: hyphenated words (`read-only`, `already-committed`), CLI flags (`-c`), ranges (`1-10`), label prefixes at the start of a line (`TODO:`, `NOTE:`, `IMPORTANT:`, `Good:`, `Bad:`), ratios and times (`3:1`, `12:00`), and code, paths, or URLs.
 
 ## Plain ASCII in authored prose
 
@@ -85,7 +91,7 @@ Text you write for humans -- commit messages, code comments, PR and issue descri
 - `...` not `…`
 - `>=` / `<=` not `≥` / `≤`, and `x` not `×`
 - straight quotes `'` and `"`, not the curly variants
-- a hyphen, a colon, or two separate sentences instead of the em-dash `—` or en-dash `–` to join clauses. Don't use `—` to chain thoughts; split the sentence.
+- two separate sentences instead of the em-dash `—` or en-dash `–` to join clauses. Do not chain thoughts with a dash at all. That includes the ASCII stand-in ` - ` (space-hyphen-space) and a clause-splitting `:`. Split the sentence instead. (See the "One thought per sentence" rule under Code comments for the allowed non-joiner uses of `-` and `:`.)
 
 This governs prose you author. It does NOT mean mangling literal content: quoted command output, a string or identifier in the code, file contents you are reproducing, or a name that genuinely contains a Unicode character all stay verbatim. Don't "fix" a `→` that is actually part of the data.
 

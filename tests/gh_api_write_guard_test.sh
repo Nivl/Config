@@ -34,7 +34,30 @@ assert_eq "explicit_get"       "allow"  "$(decision 'gh api repos/o/r -X GET')"
 assert_eq "post_method"        "ask"    "$(decision 'gh api repos/o/r/issues -X POST -f title=x')"
 assert_eq "field_implies_post" "ask"    "$(decision 'gh api repos/o/r/issues -f title=x')"
 assert_eq "delete_method"      "ask"    "$(decision 'gh api repos/o/r/x --method DELETE')"
-assert_eq "graphql"            "ask"    "$(decision 'gh api graphql -f query=x')"
+
+# GraphQL always POSTs, but the document decides read vs write: a body
+# made only of query/fragment definitions is read-only and auto-allows.
+assert_eq "graphql_query"      "allow"  "$(decision "gh api graphql -f query='query { viewer { login } }'")"
+assert_eq "graphql_anon"       "allow"  "$(decision "gh api graphql -f query='{ viewer { login } }'")"
+assert_eq "graphql_multiline"  "allow"  "$(decision "gh api graphql -f query='
+  query {
+    repository(owner: \"o\", name: \"r\") {
+      pullRequest(number: 1) { title }
+    }
+  }' > /tmp/out.json")"
+assert_eq "graphql_fragment"   "allow"  "$(decision "gh api graphql -f query='query { viewer { ...F } } fragment F on User { login }'")"
+assert_eq "graphql_vars"       "allow"  "$(decision "gh api graphql -f query='query(\$n: Int!) { r(n: \$n) { x } }' -F n=5")"
+
+# Mutations, subscriptions, and anything unclassifiable stay a write.
+assert_eq "graphql_mutation"   "ask"    "$(decision "gh api graphql -f query='mutation { addStar(input: {starrableId: \"x\"}) { clientMutationId } }'")"
+assert_eq "graphql_trailing"   "ask"    "$(decision "gh api graphql -f query='query A { x } mutation B { y }'")"
+assert_eq "graphql_sub"        "ask"    "$(decision "gh api graphql -f query='subscription { s { x } }'")"
+assert_eq "graphql_junk"       "ask"    "$(decision 'gh api graphql -f query=x')"
+assert_eq "graphql_blockstr"   "ask"    "$(decision "gh api graphql -f query='query { f(s: \"\"\"x\"\"\") { y } }'")"
+assert_eq "graphql_input"      "ask"    "$(decision 'gh api graphql --input body.json')"
+assert_eq "graphql_packed"     "ask"    "$(decision "gh api graphql -fquery='query { x }'")"
+assert_eq "graphql_at_file"    "ask"    "$(decision 'gh api graphql -F query=@doc.graphql')"
+assert_eq "graphql_no_query"   "ask"    "$(decision 'gh api graphql -f foo=bar')"
 
 # Things the hook can't classify stay silent and fall through to the
 # normal permission flow.

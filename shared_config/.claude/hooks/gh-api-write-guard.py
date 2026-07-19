@@ -30,10 +30,15 @@
 #   - explicit method flag: -X / --method = POST|PUT|PATCH|DELETE
 #   - any field flag (-f / -F / --field / --raw-field) UNLESS the
 #     method is explicitly -X GET (gh defaults to POST when -f present)
-#   - the endpoint is `graphql` (always POST; mutations vs queries
-#     are indistinguishable without parsing the body)
+#   - the endpoint is `graphql` and the query document is not provably
+#     read-only. GraphQL always POSTs, but the body decides the real
+#     semantics: a document whose top-level definitions are all `query`
+#     or `fragment` (or the anonymous `{ ... }` shorthand) reads data.
+#     Mutations, subscriptions, bodies we can't extract (--input,
+#     @file, packed flags) or can't parse all count as writes.
 
 import json
+import re
 import shlex
 import sys
 
@@ -42,6 +47,81 @@ FIELD_FLAGS = {"-f", "-F", "--field", "--raw-field"}
 # A pipe -> deny (steer to a file redirect). The rest -> abstain.
 PIPE_TOKENS = {"|", "|&"}
 CHAIN_TOKENS = {";", "&", "&&", "||"}
+
+
+def graphql_doc_is_readonly(doc: str) -> bool:
+    # Block strings can hide braces and keywords from the regex
+    # stripping below, and they never appear at definition level in a
+    # legal executable document — their presence means "can't classify".
+    if '"""' in doc:
+        return False
+    doc = re.sub(r'"(?:\\.|[^"\\\n])*"', " ", doc)
+    if '"' in doc:
+        # Unterminated or multi-line string — don't guess.
+        return False
+    doc = re.sub(r"#[^\n\r]*", " ", doc)
+
+    # Walk brace depth. At depth 0 the first token of each definition
+    # must be `query` or `fragment`; a bare `{` is the anonymous query
+    # shorthand. Anything else (mutation, subscription, junk) fails.
+    # Tokens between the keyword and the body brace (operation name,
+    # variable definitions, directives) are ignored.
+    depth = 0
+    saw_definition = False
+    at_definition = True
+    # Parens split off as their own tokens so `query($n: Int!)` still
+    # yields a bare `query` keyword; they're otherwise ignored.
+    for tok in re.findall(r"[{}()]|[^\s{}()]+", doc):
+        if tok == "{":
+            if depth == 0 and at_definition:
+                saw_definition = True
+            depth += 1
+            at_definition = False
+        elif tok == "}":
+            depth -= 1
+            if depth < 0:
+                return False
+            if depth == 0:
+                at_definition = True
+        elif depth == 0 and at_definition:
+            if tok not in ("query", "fragment"):
+                return False
+            at_definition = False
+            saw_definition = True
+    return saw_definition and depth == 0
+
+
+def graphql_reads_only(args: list) -> bool:
+    # Collect every `query=` field body. Bail (-> write) on any form
+    # whose body we can't see as a literal string in argv.
+    docs = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in FIELD_FLAGS:
+            if i + 1 >= len(args):
+                return False
+            val = args[i + 1]
+            i += 2
+        elif a.startswith("--field=") or a.startswith("--raw-field="):
+            val = a.split("=", 1)[1]
+            i += 1
+        elif a.startswith(("-f", "-F")) and len(a) > 2:
+            # Packed short flag (-fquery=...) — don't guess its contents.
+            return False
+        elif a == "--input" or a.startswith("--input="):
+            # Body comes from a file or stdin — can't inspect it.
+            return False
+        else:
+            i += 1
+            continue
+        if val.startswith("query="):
+            body = val[len("query=") :]
+            if body.startswith("@"):
+                # -F query=@file / @- reads the document elsewhere.
+                return False
+            docs.append(body)
+    return bool(docs) and all(graphql_doc_is_readonly(d) for d in docs)
 
 
 def emit(decision: str, reason: str) -> None:
@@ -137,9 +217,12 @@ def main() -> None:
         i += 1
 
     if args[0] == "graphql":
-        is_write = True
-
-    if not explicit_get:
+        # Field flags are how the query gets passed, so the generic
+        # field-flag heuristic below doesn't apply — the document's own
+        # operations decide read vs write.
+        if not graphql_reads_only(args[1:]):
+            is_write = True
+    elif not explicit_get:
         for a in args:
             if a in FIELD_FLAGS:
                 is_write = True

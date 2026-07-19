@@ -98,4 +98,27 @@ done
 # short-circuit the command-substitution deny.
 assert_eq "gh_api_cmdsub_denies" "deny" "$(dispatch_decision "gh api /user/\$(whoami)")"
 
+# CLAUDE_BASH_HOOKS_SKIP drops named hooks for the session. stderr note is
+# discarded so only the stdout decision is asserted.
+dispatch_decision_skip() { # $1=cmd $2=skip-value
+  local payload out
+  payload="$(jq -nc --arg c "$1" '{tool_input:{command:$c}}')"
+  out="$(printf '%s' "$payload" | CLAUDE_BASH_HOOKS_SKIP="$2" python3 "$DISPATCH" 2>/dev/null)" || true
+  if [[ -z "$out" ]]; then echo "silent"; else jq -r '.hookSpecificOutput.permissionDecision // "silent"' <<<"$out"; fi
+}
+
+# Baselines: both deny with no skip.
+assert_eq "skip_baseline_find" "deny" "$(dispatch_decision "find /")"
+assert_eq "skip_baseline_awk"  "deny" "$(dispatch_decision "awk '{print}' /etc/hosts")"
+
+# Skipping the responsible hook drops the decision to silent.
+assert_eq "skip_find"     "silent" "$(dispatch_decision_skip "find /" "deny-find-root.py")"
+# `.py` suffix is optional.
+assert_eq "skip_find_bare" "silent" "$(dispatch_decision_skip "find /" "deny-find-root")"
+# Skipping an unrelated hook leaves the decision intact.
+assert_eq "skip_unrelated" "deny"   "$(dispatch_decision_skip "find /" "deny-awk.py")"
+# Several hooks at once (comma and space separated, mixed suffix).
+assert_eq "skip_multi_find" "silent" "$(dispatch_decision_skip "find /" "deny-awk, deny-find-root")"
+assert_eq "skip_multi_awk"  "silent" "$(dispatch_decision_skip "awk '{print}' /etc/hosts" "deny-awk deny-find-root.py")"
+
 echo "dispatch-bash.py: all tests passed"

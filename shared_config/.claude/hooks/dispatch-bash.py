@@ -82,6 +82,21 @@ HOOKS = [
 RANK = {"deny": 3, "ask": 2, "allow": 1}
 
 
+def _skipped():
+    # Hook filenames to skip for this session, from CLAUDE_BASH_HOOKS_SKIP
+    # (comma or space separated, `.py` optional), e.g.
+    # CLAUDE_BASH_HOOKS_SKIP="deny-awk.py deny-find-root". Hooks inherit the
+    # session's env, so setting it at launch scopes the skip to one session.
+    # This lowers the permission-hook safety floor. It is a one-off debugging
+    # escape, not a config knob. The OS sandbox is a separate layer and stays on.
+    out = set()
+    raw = os.environ.get("CLAUDE_BASH_HOOKS_SKIP", "")
+    for tok in re.split(r"[,\s]+", raw.strip()):
+        if tok:
+            out.add(tok if tok.endswith(".py") else tok + ".py")
+    return out
+
+
 def _load(fname):
     path = os.path.join(HOOK_DIR, fname)
     spec = importlib.util.spec_from_file_location(
@@ -138,9 +153,18 @@ def main():
     if not cmd:
         return
 
+    skip = _skipped()
+    if skip:
+        sys.stderr.write(
+            "dispatch-bash: SKIPPING hooks this session: "
+            + ", ".join(sorted(skip)) + "\n"
+        )
+
     mods = _load_all()
     best = None  # (rank, order_index, raw_output)
     for i, (fname, guard) in enumerate(HOOKS):
+        if fname in skip:
+            continue
         if guard and not guard(cmd):
             continue
         mod = mods.get(fname)

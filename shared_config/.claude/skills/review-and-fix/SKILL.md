@@ -2,17 +2,20 @@
 name: review-and-fix
 description: >
   Iteratively reviews recent code changes and fixes identified issues or implements
-  improvements. Each iteration spawns SIX concurrent reviewer sub-agents — THREE
+  improvements. The first iteration spawns SIX concurrent reviewer sub-agents — THREE
   `in-depth-review` and THREE `gh-style-review` — all invoked with `--raw` against the
   current branch (PR mode if an open PR exists for the branch, branch mode otherwise).
   Their raw scored findings are merged and deduplicated across all six instances into
   one flat pool, filtered to keep anything with confidence >= 50, then fixes are applied
-  and committed one at a time. In PR mode, the gh-style instances also return Discussion
-  Context (which prior human comments the diff resolves vs. still leaves open); the
-  orchestrator surfaces this in the per-iteration summary so the user can see what
-  reviewer feedback is being addressed by the fix loop. The loop stops as soon as one
-  batch finds nothing actionable above the threshold, or after 10 iterations. No GitHub
-  write commands are ever issued. Produces a final summary report.
+  and committed one at a time. Later iterations adapt the reviewer set: if any committed
+  fix changed program logic the next iteration reruns ALL reviewers, but if an iteration's
+  fixes were non-logic only (comments/formatting/docs) it reruns just the reviewers whose
+  findings were fixed — role-level for in-depth-review via its `--roles` flag. In PR mode,
+  the gh-style instances also return Discussion Context (which prior human comments the diff
+  resolves vs. still leaves open); the orchestrator surfaces this in the per-iteration
+  summary. The loop stops as soon as an iteration's active reviewers find nothing actionable,
+  or an iteration commits nothing, or after 10 iterations. No GitHub write commands are ever
+  issued. Produces a final summary report.
   Use this skill when the user asks to "review and fix", "review my changes", "clean up my
   code", "improve my recent commits", or similar requests to audit and improve uncommitted or
   branch-local changes.
@@ -23,27 +26,52 @@ description: >
 This skill wraps `in-depth-review` AND `gh-style-review` with an iterate-and-fix loop.
 Each iteration:
 
-1. Runs **3 `in-depth-review` + 3 `gh-style-review` instances in parallel** (6 total, each
-   invoked with `--raw`). The 3 in-depth instances also run Role #10 (ticket intent
-   compliance) unless `--skip-ticket` was passed. The target is the branch's PR if one exists for the current
-   branch, otherwise the branch's commit range.
+1. Runs a set of `in-depth-review` + `gh-style-review` instances in parallel, each invoked
+   with `--raw`. **Iteration 1 runs the full set** (3 in-depth + 3 gh-style). Later
+   iterations may run a smaller set — see the adaptive-rerun rule below. The 3 in-depth
+   instances also run Role #10 (ticket intent compliance) unless `--skip-ticket` was passed.
+   The target is the branch's PR if one exists for the current branch, otherwise the branch's
+   commit range.
 2. Cross-instance dedups their findings into one flat pool (each instance already
-   pre-dedupes internally; the triangulation across 6 independent passes from two prompt
+   pre-dedupes internally; the triangulation across independent passes from two prompt
    structures catches the rest).
 3. Applies the orchestrator's own **`confidence >= 50`** filter — more permissive than the
    sub-skills' default of 70 because we want to spend the fix loop's iteration budget on
-   moderately-confident findings too. The 6× triangulation gives us enough cross-pass
+   moderately-confident findings too. The triangulation gives us enough cross-pass
    evidence that 50–69 findings are worth attempting.
-4. (PR mode only) Aggregates Discussion Context across the 3 gh-style instances and shows
+4. (PR mode only) Aggregates Discussion Context across the gh-style instances and shows
    it in the per-iteration summary — useful when the loop is iterating on a PR that already
    has human reviewer comments.
-5. Fixes each unique finding, one commit per fix.
-6. Loops until a batch is clean (or 10 iterations).
+5. Fixes each unique finding, one commit per fix, and classifies each committed fix as a
+   logic change or not.
+6. Loops until the active reviewers' batch is clean, or an iteration commits nothing (or 10
+   iterations).
 
-The 6× triangulation lives **here**, not inside the sub-skills. Each `in-depth-review` pass
-is itself a 9- or 10-role review; the 10th role is ticket intent compliance, on by default.
-Each `gh-style-review` pass is the @claude review GitHub Action prompt with full PR context
-(when in PR mode).
+The triangulation lives **here**, not inside the sub-skills. Each `in-depth-review` pass
+is itself a multi-role review (up to 11 roles; the 10th is ticket intent compliance, on by
+default). Each `gh-style-review` pass is the @claude review GitHub Action prompt with full PR
+context (when in PR mode).
+
+## Adaptive rerun (why later iterations run fewer reviewers)
+
+Re-running all six passes every iteration is wasteful when the iteration only touched
+comments or formatting. The loop adapts based on what a completed iteration actually changed:
+
+- **A committed fix changed program logic** → the next iteration reruns the **full** set. A
+  logic change can introduce a bug, a security hole, a broken test, etc. in any domain, so
+  every reviewer must look again.
+- **An iteration committed fixes but none changed logic** (comments, docstrings, formatting,
+  doc files only) → the next iteration reruns **only the reviewers whose findings were fixed
+  this iteration** (the productive set). Logic reviewers cannot surface anything new because
+  the logic they last cleared is unchanged. in-depth-review roles are rerun individually via
+  its `--roles` flag; `gh-style-review` is one indivisible unit (rerun whole, or not at all).
+- **An iteration committed nothing** (every finding was deferred or dismissed) → **stop**.
+  The diff is unchanged, so a rerun would resurface the identical findings.
+
+This is safe without any final full-sweep because the pruned state is only ever entered after
+a no-logic-change iteration, and the moment any fix touches logic the loop re-escalates to a
+full rerun. So every logic reviewer has validated the final logic before the loop ends. See
+the worked example at the end of Step 3.
 
 **Flag:** pass `--skip-ticket` to disable ticket intent compliance (Role #10) in all three
 `in-depth-review` instances and skip the Jira-tooling preflight.
@@ -70,12 +98,15 @@ for the reads they do. Local `git` calls need no `gh`.
 
 1. Determine the target: PR if one exists for the current branch, else commit range
    (current branch vs. default branch)
-2. Launch **6 parallel reviewer sub-agents** (3 × in-depth-review + 3 × gh-style-review)
-   against that target
-3. Merge + deduplicate findings across all 6 instances into one flat pool
-4. (PR mode only) Aggregate Discussion Context across the 3 gh-style instances
-5. Fix each unique finding, asking for clarification on ambiguous items, committing each fix
-6. Repeat from step 2 until one batch is clean OR 10 iterations are reached
+2. Launch the iteration's **active reviewer sub-agents** in parallel (iteration 1: all 6 =
+   3 × in-depth-review + 3 × gh-style-review; later iterations: possibly a subset — see the
+   adaptive-rerun rule) against that target
+3. Merge + deduplicate findings across the active instances into one flat pool
+4. (PR mode only) Aggregate Discussion Context across the active gh-style instances
+5. Fix each unique finding, asking for clarification on ambiguous items, committing each fix,
+   and recording whether each committed fix changed logic and which reviewer it came from
+6. Decide the next iteration's active set (full rerun / pruned / stop) and repeat from step 2
+   until the active batch is clean, an iteration commits nothing, OR 10 iterations are reached
 7. Deliver a final summary report
 
 ## Step 0: Setup
@@ -129,36 +160,59 @@ for the reads they do. Local `git` calls need no `gh`.
    Do not start iteration 1 until this is resolved. If a re-check after choice (a) still
    fails, present the three choices again rather than proceeding.
 
-## Step 1: Review — 6 Parallel Sub-Agents (3 in-depth-review + 3 gh-style-review)
+9. **Initialize the active reviewer set** used by Step 1:
+   - `<ACTIVE_ROLES>` = all in-depth-review roles `1..11` (drop `10` when `<SKIP_TICKET>` is
+     true). This is the set of roles the in-depth-review instances will run.
+   - `<ACTIVE_GH_STYLE>` = true.
+   Step 3 recomputes both before each subsequent iteration. Iteration 1 always runs the full
+   set.
 
-Announce at iteration start:
+## Step 1: Review — Active Parallel Sub-Agents (up to 3 in-depth-review + 3 gh-style-review)
 
-> Iter N: launching 6 reviewer passes in parallel (3 × in-depth-review, 3 × gh-style-review).
+Launch the iteration's **active** reviewers only:
+- If `<ACTIVE_ROLES>` is non-empty, launch **3 in-depth-review** instances, each passed
+  `--roles <ACTIVE_ROLES>` (comma-separated role numbers). When `<ACTIVE_ROLES>` is the full
+  default set, you may omit the flag (identical result) — but passing it is fine.
+- If `<ACTIVE_GH_STYLE>` is true, launch **3 gh-style-review** instances.
+- Keep the 3× multiplicity for whichever reviewers are active (triangulation on the active
+  set). The count of live sub-agents is `3 × (in-depth active?) + 3 × (gh-style active?)`.
+
+Announce at iteration start, reflecting the ACTUAL active set, e.g.:
+
+> Iter N: launching 3 in-depth-review passes (roles: AGENTS.md, comment guidance); gh-style-review skipped.
 > Target: PR #<PR> [draft]  ←  or  Target: branch range <RANGE>
 
-Spawn **6 sub-agents in a single message** (6 concurrent tool-use blocks). Sequential
-launches defeat the purpose — never serialize. **Spawn all six on Sonnet** (Agent-tool
-`model: sonnet`): each wraps a recall-pass skill, and `in-depth-review` / `gh-style-review`
-already pin their internal tiers (reviewers → Sonnet, scorers → Haiku). Never let them
-inherit the session model. The fix step (Step 2) stays on the session model — applying and
-committing code is where the strong model earns its cost; the recall fan-out is not.
+or, for a full iteration:
 
-### Sub-agents 1–3 prompt (in-depth-review)
+> Iter N: launching 6 reviewer passes in parallel (3 × in-depth-review [all roles], 3 × gh-style-review).
+> Target: PR #<PR> [draft]  ←  or  Target: branch range <RANGE>
 
-Each of the three in-depth-review sub-agents receives:
+Spawn the active sub-agents **in a single message** (concurrent tool-use blocks). Sequential
+launches defeat the purpose — never serialize. **Spawn every active sub-agent on Sonnet**
+(Agent-tool `model: sonnet`): each wraps a recall-pass skill, and `in-depth-review` /
+`gh-style-review` already pin their internal tiers (reviewers → Sonnet, scorers → Haiku).
+Never let them inherit the session model. The fix step (Step 2) stays on the session model —
+applying and committing code is where the strong model earns its cost; the recall fan-out is
+not.
+
+### In-depth-review sub-agents prompt
+
+Launched only when `<ACTIVE_ROLES>` is non-empty. Each of the (up to) three in-depth-review
+sub-agents receives:
 
 ```
-You are sub-agent N of 6 in a review-and-fix iteration (N is 1, 2, or 3).
+You are an in-depth-review sub-agent in a review-and-fix iteration.
 
-Invoke the `in-depth-review` skill with the arguments: `<TARGET_ARG> --raw` — and append
-` --skip-ticket` when the orchestrator's `<SKIP_TICKET>` is true (args become
-`<TARGET_ARG> --raw --skip-ticket`). When false, pass `<TARGET_ARG> --raw` unchanged so
-Role #10 runs.
+Invoke the `in-depth-review` skill with the arguments: `<TARGET_ARG> --raw --roles <ACTIVE_ROLES>`
+— and append ` --skip-ticket` when the orchestrator's `<SKIP_TICKET>` is true. `<ACTIVE_ROLES>`
+is the comma-separated list of role numbers this iteration is rerunning.
 
 - `<TARGET_ARG>` is either a PR number (PR mode) or a commit range like `origin/main..HEAD`
   (branch mode). in-depth-review auto-detects.
 - `--raw` tells in-depth-review to skip its internal <70 confidence filter so we get every
   scored finding (0–100). The orchestrator applies its own >=50 threshold after merge.
+- `--roles` restricts the review to the active roles (the productive ones from the previous
+  iteration). On the first iteration this is all roles.
 
 Return in-depth-review's structured JSON output to me unchanged, with two top-level
 additions:
@@ -175,12 +229,13 @@ If `in-depth-review`'s internal logic appears to be about to invoke one of these
 return the abort reason to me instead of proceeding.
 ```
 
-### Sub-agents 4–6 prompt (gh-style-review)
+### gh-style-review sub-agents prompt
 
-Each of the three gh-style-review sub-agents receives:
+Launched only when `<ACTIVE_GH_STYLE>` is true. gh-style-review has no roles, so it is
+rerun as a whole unit (or skipped entirely). Each of the (up to) three sub-agents receives:
 
 ```
-You are sub-agent N of 6 in a review-and-fix iteration (N is 4, 5, or 6).
+You are a gh-style-review sub-agent in a review-and-fix iteration.
 
 Invoke the `gh-style-review` skill with the arguments: `<TARGET_ARG> --raw`
 
@@ -206,13 +261,13 @@ If `gh-style-review`'s internal logic appears to be about to invoke one of these
 return the abort reason to me instead of proceeding.
 ```
 
-### Aggregating across the 6 instances
+### Aggregating across the active instances
 
-After all 6 sub-agents return:
+After all active sub-agents return (up to 6; fewer when the iteration is pruned):
 
-1. **Pool every finding** from the 6 result sets into one flat pool. Each finding carries its
-   raw `confidence` (0–100), `file`, `line_range`, `category`, originating `sub_agent`
-   (1..6), and `source` (`"in-depth-review"` or `"gh-style-review"`). Don't pre-segregate
+1. **Pool every finding** from the active result sets into one flat pool. Each finding carries
+   its raw `confidence` (0–100), `file`, `line_range`, `category`, originating `sub_agent`,
+   and `source` (`"in-depth-review"` or `"gh-style-review"`). Don't pre-segregate
    by source — cross-prompt triangulation is the point.
 
 2. **Cross-instance dedup.** Two findings are duplicates if they refer to the **same file**
@@ -222,7 +277,7 @@ After all 6 sub-agents return:
 
 3. **For each duplicate group, produce one merged finding:**
    - `confidence`: **max** of the group's scores.
-   - `cross_instance_agreement`: count of distinct instances (1..6) that raised this finding.
+   - `cross_instance_agreement`: count of distinct active instances that raised this finding.
    - `sources`: set of distinct source skills (one of `{in-depth-review}`, `{gh-style-review}`,
      or both). Used as a tiebreaker — a both-source finding is stronger signal.
    - `title`, `description`, `suggested_fix`: pick the clearest from the group; if suggested
@@ -233,8 +288,8 @@ After all 6 sub-agents return:
 
 4. **Apply the orchestrator's confidence threshold: discard everything with `confidence < 50`.**
    This is the review-and-fix-specific threshold, lower than each sub-skill's default of 70
-   because cross-instance triangulation across 6 passes raises our confidence in 50–69
-   findings.
+   because cross-instance triangulation across the active passes raises our confidence in
+   50–69 findings.
 
 5. **If the post-filter list is empty** (every finding scored < 50), mark the **findings**
    batch clean. The iteration is **fully clean** only if Step 1.5's Discussion Context
@@ -242,14 +297,15 @@ After all 6 sub-agents return:
 
 6. **Otherwise** proceed to Step 2 with the filtered + deduplicated list, ordered by:
    1. Severity descending (critical → major → minor → suggestion)
-   2. `cross_instance_agreement` descending (6/6 > 3/6 > 1/6 when severity ties)
+   2. `cross_instance_agreement` descending (more instances agreeing wins when severity ties)
    3. Both-sources first (a both-source finding beats a same-confidence single-source one)
    4. `confidence` descending
 
 ### Aggregating tickets_examined (in-depth-review only)
 
-Union the `tickets_examined` arrays from the 3 in-depth-review sub-agents (gh-style-review has
-none). Union by `id`; for each `id`, `status` is `gaps` if any instance reported gaps, else
+Union the `tickets_examined` arrays from the active in-depth-review sub-agents (gh-style-review
+has none; there are none this iteration if in-depth-review was not active or role #10 was not
+in `<ACTIVE_ROLES>`). Union by `id`; for each `id`, `status` is `gaps` if any instance reported gaps, else
 `unread` if any reported unread, else `ok`. The `gaps` count is the number of surviving ticket
 findings for that `id` in the merged pool after the ≥50 filter. Also collect each instance's
 `ticket_review.status`: if any returned `denied` or `unavailable`, record it for the Final
@@ -260,16 +316,16 @@ Report so the user knows ticket review did not fully run.
 If `<HAS_PR>` is false, **skip this step entirely** — gh-style-review returned empty
 `discussion_context.resolved` and `discussion_context.unaddressed` arrays in branch mode.
 
-If `<HAS_PR>` is true:
+If `<HAS_PR>` is true (and `<ACTIVE_GH_STYLE>` is true — when gh-style-review was not active
+this iteration there is no new Discussion Context, so carry forward the previous snapshot):
 
-1. **Pool every entry** across the 3 gh-style-review `discussion_context` blocks into two
-   flat lists: `resolved_pool` and `unaddressed_pool`. (in-depth-review has no equivalent;
-   skip those 3 sub-agents here.)
+1. **Pool every entry** across the active gh-style-review `discussion_context` blocks into two
+   flat lists: `resolved_pool` and `unaddressed_pool`. (in-depth-review has no equivalent.)
 2. **Deduplicate by `url`** (the GitHub comment URL is canonical). If the same URL appears
    in both `resolved` and `unaddressed` across instances, keep it in `unaddressed_pool`
    (be conservative — surface anything a reviewer is uncertain about).
 3. **For each deduplicated entry** pick the clearest `quote`/`resolution`/`gap` text across
-   instances. Record `agreement` (1..3).
+   instances. Record `agreement` (1..N over the active gh-style instances).
 4. **Retain all entries** — no confidence filter; every entry is grounded in a real human
    comment URL.
 
@@ -279,6 +335,14 @@ in the current diff). It surfaces in the per-iteration summary and the Final Rep
 user can see the diff's effect on the PR's discussion thread evolving across iterations.
 
 ## Step 2: Fix
+
+At the start of the iteration's fix phase, reset three per-iteration accumulators used by
+Step 3 to decide the next active set:
+- `any_commit` = false — set true the moment any fix is committed.
+- `any_logic_change` = false — set true if any committed fix changes program logic.
+- `productive_reviewers` = empty — the reviewers whose findings were fixed AND committed this
+  iteration (in-depth-review role numbers via each finding's `category`, and/or the
+  `gh-style-review` unit). This is the pruned set a non-logic-only iteration reruns.
 
 Process each finding from the ordered work list (Step 1) one at a time. Skip any
 `ticket`-category finding already recorded in `resolved_ticket_findings` (deferred or
@@ -324,36 +388,83 @@ Report.
    `feat`, `refactor`, `docs`, etc.) and ensure the message is clear and concise. If the file
    is missing try to figure out what the correct type should be.
 
-5. After committing, move to the next finding.
+5. **Record what this commit was**, for Step 3's next-active-set decision:
+   - Set `any_commit = true`.
+   - Add the fixed finding's reviewer(s) to `productive_reviewers`: map its `category`(ies)
+     to in-depth role number(s) via the table in in-depth-review's Step 1, and add the
+     `gh-style-review` unit if the finding came (also) from that source. A finding merged
+     across both sources adds both.
+   - **Classify the commit as a logic change (diff-based).** Inspect the commit's own diff
+     (`git show --format= <sha>`). It is **non-logic** only if every changed hunk is confined
+     to comments, docstrings / block comments, blank-line or whitespace-only edits, or
+     pure-documentation files (`*.md`, `docs/**`). Any change to executable code — including a
+     string/number literal that logic reads, a moved statement, an import, config that alters
+     behavior — is a **logic change**: set `any_logic_change = true`. **When in doubt, treat
+     it as a logic change** (the cost is only rerunning more reviewers next iteration, never a
+     missed defect).
+
+6. After the bookkeeping, move to the next finding.
 
 ## Step 3: Loop Control
 
-After processing all findings (or after a clean batch):
+After processing all of the iteration's findings, evaluate these conditions **in order** —
+the first that matches wins:
 
-| Condition                                                                 | Action                                                |
-| ------------------------------------------------------------------------- | ----------------------------------------------------- |
-| This iteration's findings batch was clean (deduplicated list empty)       | Stop — proceed to Final Report                        |
-| `iteration` reached 10                                                    | Stop — proceed to Final Report (include limit notice) |
-| Otherwise                                                                 | Go back to Step 1                                     |
+| # | Condition                                                                  | Action                                                        |
+| - | -------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 1 | The active batch was clean (deduplicated findings list empty)              | **Stop** — proceed to Final Report                            |
+| 2 | `any_commit == false` (findings existed but nothing was committed)         | **Stop** — proceed to Final Report                            |
+| 3 | `iteration` reached 10                                                     | **Stop** — proceed to Final Report (include limit notice)     |
+| 4 | `any_logic_change == true`                                                 | **Full rerun**: set active set to ALL reviewers; go to Step 1 |
+| 5 | Otherwise (committed, but no logic change)                                 | **Pruned rerun**: set active set to `productive_reviewers`; go to Step 1 |
+
+Computing the next active set for rows 4 and 5:
+- **Row 4 (full):** `<ACTIVE_ROLES>` = all roles `1..11` (drop `10` when `<SKIP_TICKET>`),
+  `<ACTIVE_GH_STYLE>` = true.
+- **Row 5 (pruned):** `<ACTIVE_ROLES>` = the in-depth role numbers in `productive_reviewers`;
+  `<ACTIVE_GH_STYLE>` = true iff the `gh-style-review` unit is in `productive_reviewers`. (At
+  least one is non-empty here, because `any_commit` was true and every committed fix
+  attributes to a reviewer.)
 
 Track state explicitly:
 
 - `iteration`: starts at 1, increments before each Step 1 launch
 - `batch_clean`: per-iteration flag, true iff the deduplicated findings list was empty
+- `any_commit`, `any_logic_change`, `productive_reviewers`: per-iteration accumulators from
+  Step 2, consumed by the table above
+- `<ACTIVE_ROLES>`, `<ACTIVE_GH_STYLE>`: the next iteration's active reviewer set
 - `discussion_context_snapshot`: per-iteration snapshot of resolved/unaddressed pools (PR
   mode only) — useful for the per-iteration summary
 - `resolved_ticket_findings`: ticket findings the user deferred or dismissed (keyed by
   `ticket_id` + title), so later iterations skip them instead of re-prompting.
 
-**A single clean findings batch ends the loop.** With 6 independent reviewers all agreeing
-(3 × in-depth-review's 9 or 10 roles + 3 × gh-style-review's @claude-mirror prompt), the signal is
-already strong; requiring two consecutive clean batches would just waste an iteration.
+**A single clean active batch ends the loop.** The independent reviewers already triangulate
+strongly; requiring two consecutive clean batches would just waste an iteration.
+
+**Why pruning is safe without a final full sweep.** The loop only reaches a pruned rerun
+(row 5) after an iteration whose fixes left program logic identical to what the logic
+reviewers last cleared. The diff-based classifier in Step 2 flips `any_logic_change` and
+forces a full rerun (row 4) the instant any fix touches logic. So a logic reviewer is only
+ever skipped while the logic it already approved is unchanged — and by the time the loop stops
+(row 1 or 2) every logic reviewer has validated the final logic. A fix that sneaks a logic
+change past a "comment" finding is caught by the diff classifier, not by re-running everyone.
 
 Note: a non-empty `unaddressed_pool` in PR mode does NOT prevent the loop from terminating.
 "Still unaddressed" items are surfaced for the user to consider, but the fix loop is
 driven by the findings list — those items will either appear as findings in subsequent
 iterations (if they're actionable in the current diff) or persist until the user adds
 work that addresses them.
+
+### Worked example
+
+- **Iter 1** (full: all roles + gh-style). Findings from Role #2 (`bug`) and Role #5
+  (`comment guidance`). Fixing #2 edits executable code (logic change); fixing #5 edits a
+  comment (non-logic). `any_logic_change = true` → **Iter 2 is a full rerun**.
+- **Iter 2** (full). Only Role #5 fires now. Its fix is comment-only. `any_commit = true`,
+  `any_logic_change = false`, `productive_reviewers = {5}` → **Iter 3 is pruned** to
+  `--roles 5`, gh-style skipped.
+- **Iter 3** (pruned: 3 × in-depth-review `--roles 5`). Clean batch → **Stop** (row 1). Logic
+  reviewers last ran in Iter 2 on logic identical to the final tree, so nothing was missed.
 
 ## Step 4: Final Report
 
@@ -374,7 +485,7 @@ Summarise the entire session in a clear report to the user:
 - <id>: ✅ implemented | ⚠️ N gap(s) — <user decision> | ❓ unread
 
 ### Remaining Issues (if iteration limit reached)
-- <finding description> [severity, cross-instance N/6, sources <in-depth|gh-style|both>, confidence X] — <file:line>
+- <finding description> [severity, cross-instance N/M active, sources <in-depth|gh-style|both>, confidence X] — <file:line>
 - ...
 
 ### Discussion Context (PR mode only; omit entire section if branch mode or both pools empty)
@@ -392,8 +503,9 @@ iterations, intermediate snapshots are not reproduced — they're available in t
 per-iteration logs above.)
 
 ### Outcome
-✅ Clean batch — all 6 reviewer instances (3 × in-depth-review + 3 × gh-style-review)
-agreed there is nothing actionable in the findings pool. Done.
+✅ Clean batch — the final iteration's active reviewers found nothing actionable. Done.
+— OR —
+✅ Converged — the last iteration committed no changes; nothing left to fix. Done.
 — OR —
 ⚠️ Stopped after 10 iterations. See remaining issues above.
 ```
@@ -413,11 +525,16 @@ iterations. If an in-depth-review sub-agent reported `ticket_review.status` of `
   `gh pr diff`, `gh search pulls`, `gh search issues`, plus the `gh api` reads
   gh-style-review uses to pull PR comments / review threads / prior reviews. If a sub-agent
   appears about to issue a write command, abort and surface the attempt to the user.
-- **6 parallel sub-agents per iteration (3 × in-depth-review + 3 × gh-style-review)** —
-  launch them in a single message with concurrent tool calls. Do not fall back to fewer
-  instances "for speed"; the cross-source triangulation is the point. Do not skip
-  gh-style-review when in branch mode — it still contributes findings even with empty
-  Discussion Context arrays.
+- **Iteration 1 runs the full set: 6 parallel sub-agents (3 × in-depth-review + 3 ×
+  gh-style-review)** — launch them in a single message with concurrent tool calls. Do not
+  fall back to fewer instances "for speed" on the first pass; the cross-source triangulation
+  is the point. Do not skip gh-style-review when in branch mode — it still contributes
+  findings even with empty Discussion Context arrays.
+- **Later iterations use the adaptive active set (Step 3), never an arbitrary reduction.** The
+  ONLY reason to run fewer reviewers is the pruned-rerun rule (a committed, no-logic-change
+  iteration reruns just `productive_reviewers`). Any logic change forces a full 6-agent rerun.
+  Never drop a reviewer for "speed" outside this rule. Keep the 3× multiplicity for whichever
+  reviewers are active.
 - **Each sub-skill is invoked WITH `--raw`** — we want every scored finding (0–100), not
   the sub-skill's default `< 70` filtered output. The orchestrator applies its own
   `confidence >= 50` threshold after cross-instance, cross-source dedup.
@@ -432,8 +549,8 @@ iterations. If an in-depth-review sub-agent reported `ticket_review.status` of `
   attempt to synthesize Discussion Context from in-depth-review findings. Do not fail an
   iteration because Discussion Context is empty — that's expected in branch mode.
 - **Confidence threshold is 50.** Do not raise or lower it on the fly.
-- **Model policy (cost):** the 6 reviewer sub-agents run on **Sonnet** (`model: sonnet`); their
-  inner reviewers/scorers self-tier (Sonnet/Haiku) per those skills. The fix step (Step 2) —
+- **Model policy (cost):** every active reviewer sub-agent runs on **Sonnet** (`model: sonnet`);
+  their inner reviewers/scorers self-tier (Sonnet/Haiku) per those skills. The fix step (Step 2) —
   reading, editing, lint/test, committing — stays on the **session model**, since applying code
   is where a strong model is worth its cost. Never let the reviewer fan-out inherit the session
   model (it may be Opus / a `[1m]` variant).

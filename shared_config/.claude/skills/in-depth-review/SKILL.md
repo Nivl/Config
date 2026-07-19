@@ -9,9 +9,10 @@ description: >
   0–100 for confidence, filters anything below 70, and deduplicates. Returns the surviving findings.
   Never writes to GitHub.
   Used as one of two parallel review primitives (the other being `gh-style-review`) by
-  `review-and-fix` (which spawns 3 of each per iteration and adds a fix/commit loop) and
-  `pr-review` (which spawns 5 of each, merges them into one flat pool, and posts a single
-  PR review with inline + global comments).
+  `review-and-fix` (which spawns up to 3 of each per iteration, may rerun only a subset of
+  roles via `--roles` on later iterations, and adds a fix/commit loop) and `pr-review` (which
+  spawns 5 of each, merges them into one flat pool, and posts a single PR review with inline
+  + global comments).
   Use this skill when the user asks for "in-depth review", "deep review", "thorough review",
   "code review without fixing", or invokes it directly to get a one-shot review report.
 ---
@@ -29,7 +30,7 @@ this skill's — `review-and-fix` runs 3 of these per iteration; `pr-review` run
 
 ## Argument
 
-Accepts a positional arg plus optional modifier flags (`--raw`, `--skip-ticket`), in any order. Auto-detects mode from the positional arg:
+Accepts a positional arg plus optional modifier flags (`--raw`, `--skip-ticket`, `--roles`), in any order. Auto-detects mode from the positional arg:
 
 - **PR mode** — arg looks like `123`, `#123`, or a GitHub PR URL. Diff source = `gh pr diff`.
   Prerequisites: open PR (draft PRs are accepted) + `gh` authenticated.
@@ -49,6 +50,14 @@ fallback `main`).
   role runs: it reads the Jira tickets referenced by the change and checks the code against
   them. Pass this to skip all ticket reading (no `acli` / Datadog calls, no related prompts).
   The orchestrators forward this flag from their own `--skip-ticket`.
+- `--roles <csv>` — run ONLY the listed roles instead of all of them. Accepts role numbers
+  (`1`..`11`) and/or their category names, comma-separated, e.g. `--roles 1,5` or
+  `--roles "AGENTS.md,comment guidance"`. The number/name mapping is the table in Step 1.
+  When the flag is **absent, all roles run** (the normal, complete review) — so this flag is
+  purely additive and existing callers are unaffected. It exists for iterative callers
+  (`review-and-fix`) that rerun only the reviewers that were productive in the previous
+  iteration. `--skip-ticket` still wins: it removes Role #10 from whatever set `--roles`
+  selects. If `--roles` resolves to an empty set, abort with a clear reason (a caller bug).
 
 Example invocations:
 
@@ -57,6 +66,7 @@ Example invocations:
 /in-depth-review #1234 --raw       # PR mode, no filter (return all scored)
 /in-depth-review 1234 --skip-ticket # PR mode, skip the ticket-intent role
 /in-depth-review origin/main..HEAD # branch mode, default filter
+/in-depth-review origin/main..HEAD --raw --roles 1,5  # only AGENTS.md + comment roles
 /in-depth-review                   # branch mode, range = origin/<default-branch>..HEAD
 ```
 
@@ -99,6 +109,10 @@ abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git bl
    - Matches `^#?[0-9]+$` or a GitHub PR URL → **PR mode**; `<PR>` = the number.
    - Matches `^--raw$` → flag (defer until Step 4).
    - Matches `^--skip-ticket$` → flag; when set, Role #10 is omitted in Step 1.
+   - Matches `^--roles$` (followed by its value) or `^--roles=...$` → flag; parse the
+     comma-separated value into `<ROLE_SET>` (role numbers 1..11 and/or category names via
+     the Step 1 table). When the flag is absent, `<ROLE_SET>` = all roles. `--skip-ticket`
+     removes Role #10 from `<ROLE_SET>`. If `<ROLE_SET>` is empty, abort: "no roles selected".
    - Anything else → **branch mode**; `<RANGE>` = the arg.
    - If no positional arg: branch mode with `<RANGE>` = `origin/<default-branch>..HEAD`.
 
@@ -126,9 +140,28 @@ abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git bl
 ## Step 1: Launch the specialized reviewers in parallel
 
 Spawn the reviewer sub-agents in a single message (concurrent tool-use blocks). Launch
-**11** when ticket review is active (the default), or **10** when `--skip-ticket` was passed
-(omit Role #10; Role #11 always runs). Sequential launches defeat the purpose of this design
+exactly the roles in `<ROLE_SET>` (Step 0). By default `<ROLE_SET>` is all roles — **11**
+when ticket review is active, or **10** when `--skip-ticket` was passed (omit Role #10;
+Role #11 always runs). When a caller passed `--roles`, launch only that subset (e.g. two
+sub-agents for `--roles 1,5`). Sequential launches defeat the purpose of this design
 — never serialize.
+
+The role number ↔ category mapping used by `--roles` and by the `category` field of every
+finding:
+
+| # | Role | `category` |
+|---|------|------------|
+| 1 | AGENTS.md compliance | `AGENTS.md` |
+| 2 | Shallow bug scan | `bug` |
+| 3 | Git history context | `history` |
+| 4 | Prior PR comments | `prior PR` |
+| 5 | In-file code comments | `comment guidance` |
+| 6 | Database / data-layer | `db` |
+| 7 | OWASP Top 10 security | `security` |
+| 8 | Error handling | `error-handling` |
+| 9 | Test coverage | `test coverage` |
+| 10 | Ticket intent compliance | `ticket` |
+| 11 | Headline-benefit / motivation | `motivation` |
 
 **Model: spawn every reviewer on Sonnet** (Agent-tool `model: sonnet`) — do NOT let them
 inherit the session model. Each role is a bounded, tightly-specified recall pass over the
@@ -170,8 +203,8 @@ Return a structured list of findings. For each finding include:
 
 If you find NO issues, respond with exactly: "NO_ISSUES_FOUND"
 
-You are one of the reviewers running concurrently (10, or 11 when ticket review is active).
-Do NOT coordinate with the others.
+You are one of the reviewers running concurrently (up to 11; fewer when the caller
+restricted the set via `--roles`). Do NOT coordinate with the others.
 
 IMPORTANT: Do not run `gh pr comment`, `gh pr review`, `gh pr edit`, or any command that
 writes to GitHub. Read-only gh commands (gh pr list / view / diff / search) are permitted
@@ -665,10 +698,12 @@ and the threshold note is dropped.
 - **No GitHub writes, ever.** Prefer the equally read-only GitHub MCP PR-read tools; read-only
   `gh` calls (list, view, diff, search) are the fallback when no MCP is connected.
   Sub-agents that try to issue a write should be aborted and surfaced to the caller.
-- **10 or 11 parallel reviewers per pass** — 11 by default (the 11th is headline-benefit /
+- **Up to 11 parallel reviewers per pass** — 11 by default (the 11th is headline-benefit /
   motivation delivery, always-on; the 10th is ticket intent compliance), 10 when
-  `--skip-ticket` is passed (only Role #10 is omitted). Never serialize, never skip a role for
-  speed. The role specialization is the point.
+  `--skip-ticket` is passed (only Role #10 is omitted). A caller may run a smaller subset via
+  `--roles` (Step 0/1) for iterative reruns — that is the ONLY reason to drop a role. Never
+  serialize, and never drop a role for speed on a standalone or first-pass review. The role
+  specialization is the point.
 - **Role #10 is read-only and abortable.** It may use `acli jira workitem view` (Jira read)
   and read-only Datadog MCP tools — nothing else. On any denied permission it returns
   `TICKET_REVIEW_SKIPPED: access denied` and stops. This is the user's "ignore this reviewer"

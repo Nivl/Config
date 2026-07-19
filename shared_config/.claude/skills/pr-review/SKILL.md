@@ -141,14 +141,8 @@ need no `gh`.
 
 ## Step 1: Launch ten reviewer sub-agents in parallel
 
-Spawn the ten sub-agents in **waves of 4** (the wave size; tune to your core count): up to 4
-concurrent Agent tool calls per message, wait for the wave, then launch the next (so 4 / 4 / 2).
-Waves are not serialization: each wave runs concurrently and reviewers never coordinate. The cap
-matters most here because the fan-out is **multiplicative**: every `in-depth-review` instance in
-a wave itself spawns ~11 role agents, so leaf concurrency is roughly the wave size times that
-inner fan-out. Capping both layers (this one and `in-depth-review`'s own wave) holds the live
-agent count near 16 (the wave size squared) instead of 55+, which is what stops the CPU storm.
-**Spawn all ten on Sonnet** (Agent-tool
+Spawn **ten sub-agents in a single message** (ten concurrent Agent tool calls). Sequential
+launches defeat the purpose — never serialize. **Spawn all ten on Sonnet** (Agent-tool
 `model: sonnet`): each is a thin wrapper that invokes a recall-pass skill and relays its JSON,
 and `in-depth-review` / `gh-style-review` already pin their own internal tiers (reviewers →
 Sonnet, scorers → Haiku). Never let these inherit the session model (it may be Opus / `[1m]`).
@@ -792,11 +786,10 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
   user — do not proceed to post the merged review, since the inner skill could have posted
   from a sub-agent. **The adversarial and nuanced agents (Step 2.7) are read-only too** — same
   forbidden-write list; abort the orchestration if either appears about to write to GitHub.
-- **Ten sub-agents (5 × in-depth-review + 5 × gh-style-review), launched in waves of 4.**
-  Bounded concurrency, not fewer reviewers: all ten still run, in waves of 4 / 4 / 2, so the
-  multiplicative fan-out (each in-depth-review spawns ~11 roles) cannot pin every core. Do not
-  drop reviewers for "speed"; the cross-source triangulation is the point. Do not use only one
-  source; both prompt structures contribute distinct findings.
+- **Ten parallel sub-agents (5 × in-depth-review + 5 × gh-style-review).** Launch all ten
+  in a single message with concurrent Agent tool calls. Do not fall back to fewer sub-agents
+  for "speed"; the cross-source triangulation is the point. Do not use only one source —
+  both prompt structures contribute distinct findings.
 - **Model policy (cost):** the ten reviewer sub-agents run on **Sonnet** (`model: sonnet`);
   their inner reviewers/scorers self-tier (Sonnet/Haiku) per those skills. Only the
   adversarial + nuanced pair (Step 2.7) runs on **Opus** (`model: opus`, standard 200k — never

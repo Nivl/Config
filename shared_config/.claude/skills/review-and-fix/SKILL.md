@@ -136,12 +136,8 @@ Announce at iteration start:
 > Iter N: launching 6 reviewer passes in parallel (3 × in-depth-review, 3 × gh-style-review).
 > Target: PR #<PR> [draft]  ←  or  Target: branch range <RANGE>
 
-Spawn the 6 sub-agents in **waves of 4** (the wave size; tune to your core count): up to 4
-concurrent tool-use blocks per message, wait for the wave, then the next (so 4 / 2). Waves are
-not serialization: each wave runs concurrently and reviewers never coordinate. The cap is
-multiplicative-aware: every `in-depth-review` instance itself spawns ~11 role agents, so
-bounding this layer and `in-depth-review`'s own wave keeps leaf concurrency near 16 instead of
-dozens, which stops the CPU storm. **Spawn all six on Sonnet** (Agent-tool
+Spawn **6 sub-agents in a single message** (6 concurrent tool-use blocks). Sequential
+launches defeat the purpose — never serialize. **Spawn all six on Sonnet** (Agent-tool
 `model: sonnet`): each wraps a recall-pass skill, and `in-depth-review` / `gh-style-review`
 already pin their internal tiers (reviewers → Sonnet, scorers → Haiku). Never let them
 inherit the session model. The fix step (Step 2) stays on the session model — applying and
@@ -417,10 +413,10 @@ iterations. If an in-depth-review sub-agent reported `ticket_review.status` of `
   `gh pr diff`, `gh search pulls`, `gh search issues`, plus the `gh api` reads
   gh-style-review uses to pull PR comments / review threads / prior reviews. If a sub-agent
   appears about to issue a write command, abort and surface the attempt to the user.
-- **6 sub-agents per iteration (3 × in-depth-review + 3 × gh-style-review), launched in waves
-  of 4.** Bounded concurrency, not fewer reviewers: all six still run, in waves of 4 / 2. Do
-  not fall back to fewer instances "for speed"; the cross-source triangulation is the point. Do
-  not skip gh-style-review when in branch mode; it still contributes findings even with empty
+- **6 parallel sub-agents per iteration (3 × in-depth-review + 3 × gh-style-review)** —
+  launch them in a single message with concurrent tool calls. Do not fall back to fewer
+  instances "for speed"; the cross-source triangulation is the point. Do not skip
+  gh-style-review when in branch mode — it still contributes findings even with empty
   Discussion Context arrays.
 - **Each sub-skill is invoked WITH `--raw`** — we want every scored finding (0–100), not
   the sub-skill's default `< 70` filtered output. The orchestrator applies its own

@@ -125,17 +125,10 @@ abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git bl
 
 ## Step 1: Launch the specialized reviewers in parallel
 
-Spawn the reviewer sub-agents in **waves of 4** (the wave size; tune to your core count): up to
-4 concurrent tool-use blocks per message, wait for the wave to return, then launch the next.
-Launch **11** roles when ticket review is active (the default), or **10** when `--skip-ticket`
-was passed (omit Role #10; Role #11 always runs), so the roles run as waves of 4 / 4 / 3.
-
-Waves are NOT serialization: within a wave the reviewers run fully in parallel and never
-coordinate, and findings are pooled only after all roles return, so the result is identical.
-The cap only stops all 11 roles (plus the Step 2 scorer burst, plus any sibling
-`in-depth-review` instances an orchestrator launched) from being alive at once: each agent
-spawns its own `ripgrep` / `git` / `gh` subprocesses, and an uncapped fan-out pins every core.
-It trades wall-clock for a survivable machine; token cost is unchanged (the same agents all run).
+Spawn the reviewer sub-agents in a single message (concurrent tool-use blocks). Launch
+**11** when ticket review is active (the default), or **10** when `--skip-ticket` was passed
+(omit Role #10; Role #11 always runs). Sequential launches defeat the purpose of this design
+— never serialize.
 
 **Model: spawn every reviewer on Sonnet** (Agent-tool `model: sonnet`) — do NOT let them
 inherit the session model. Each role is a bounded, tightly-specified recall pass over the
@@ -499,9 +492,8 @@ After all reviewers return:
    overlapping line range + substantially the same problem). For each group, keep one canonical
    entry and record the **agreement count** (how many of the role outputs raised it).
    Highest severity in the group wins.
-3. **Launch a scoring sub-agent for each unique finding** in the same **waves of 4** as Step 1
-   (one sub-agent per finding, up to 4 per message, wait for each wave before the next).
-   **Spawn each scorer on Haiku** (Agent-tool
+3. **Launch a scoring sub-agent for each unique finding in parallel** (one sub-agent per
+   finding, all in a single message). **Spawn each scorer on Haiku** (Agent-tool
    `model: haiku`) — scoring one finding against the rubric is a small, structured judgment
    with the diff and AGENTS.md handed in, not open-ended reasoning; Haiku is ~15–20× cheaper
    than Opus for it. Give each scorer:
@@ -667,9 +659,8 @@ and the threshold note is dropped.
   Sub-agents that try to issue a write should be aborted and surfaced to the caller.
 - **10 or 11 parallel reviewers per pass** — 11 by default (the 11th is headline-benefit /
   motivation delivery, always-on; the 10th is ticket intent compliance), 10 when
-  `--skip-ticket` is passed (only Role #10 is omitted). Launched in waves of 4 (see Step 1):
-  bounded concurrency, not all at once and not one-at-a-time. Never skip a role for speed. The
-  role specialization is the point.
+  `--skip-ticket` is passed (only Role #10 is omitted). Never serialize, never skip a role for
+  speed. The role specialization is the point.
 - **Role #10 is read-only and abortable.** It may use `acli jira workitem view` (Jira read)
   and read-only Datadog MCP tools — nothing else. On any denied permission it returns
   `TICKET_REVIEW_SKIPPED: access denied` and stops. This is the user's "ignore this reviewer"
@@ -678,8 +669,8 @@ and the threshold note is dropped.
   (like `review-and-fix`) loop externally.
 - **Threshold default is `< 70` discard.** `--raw` bypasses the filter for callers that apply
   their own threshold.
-- **Scoring is per-finding and parallel** — one scorer per unique finding, launched in waves of
-  4 (see Step 1): bounded concurrency, not all at once and not one-at-a-time.
+- **Scoring is per-finding and parallel** — one scorer per unique finding, all launched in a
+  single message. Never score serially.
 - **Model policy (cost):** reviewers run on **Sonnet** (`model: sonnet`), scorers on **Haiku**
   (`model: haiku`). Never let either inherit the session model (it may be Opus / a `[1m]`
   variant — far pricier and unnecessary for these bounded tasks). Recall + provability come

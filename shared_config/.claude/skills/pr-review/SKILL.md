@@ -56,6 +56,12 @@ that the diff still hasn't addressed" section.
 **Flag:** pass `--skip-ticket` to disable ticket intent compliance (Role #10) across all
 five `in-depth-review` instances and skip the Jira-tooling preflight.
 
+**Flag:** `--announce` / `--no-announce` control the optional "review in progress" comment
+(Step 0.7). With neither flag the skill prompts once; the flag pre-answers and skips the
+prompt (`--announce` = post it, `--no-announce` = do not). Announcing needs GitHub write
+access — the same access posting the review needs. In a headless run pass one of these flags,
+since the interactive prompt would otherwise block.
+
 ## GitHub access (GitHub MCP with `gh` fallback)
 
 Every GitHub call below is written as a `gh` command for reference. **Prefer the GitHub MCP
@@ -68,7 +74,9 @@ tools with `ToolSearch "github pull request"` and call the operation matching th
 | `gh pr view <N> --json …` | get pull request (metadata, headRefOid) |
 | `gh pr diff <N> --name-only` | get pull request files (changed files) |
 | `gh repo view --json owner,name` | get repository (owner/name) |
-| `gh api -X POST …/pulls/<N>/reviews` | **create-and-submit pull request review** (or the pending-review + add-review-comment + submit trio for inline comments) — the one write |
+| `gh api -X POST …/pulls/<N>/reviews` | **create-and-submit pull request review** (or the pending-review + add-review-comment + submit trio for inline comments) — the review write |
+| `gh pr comment <N> --body …` | add issue comment — the opt-in in-progress comment (Step 0.7) |
+| `gh api -X DELETE …/issues/comments/<id>` | delete issue comment — removes the in-progress comment at the end of the run (Step 3e) |
 
 Prefer the GitHub MCP when connected; fall back to `gh` only when no MCP is available. If NEITHER
 a GitHub MCP nor `gh` is available, abort in Step 0 and tell the user — this skill cannot
@@ -112,6 +120,24 @@ need no `gh`.
      (c) abort the review.
      Do not launch any reviewers until this is resolved. If a re-check after choice (a) still
      fails, present the three choices again rather than proceeding.
+7. **Announcement decision.** Do this last — once every check above has passed and the
+   reviewers are about to launch — so a preflight abort never leaves a stray comment. Resolve
+   whether to post a "review in progress" comment:
+   - `--announce` -> yes; `--no-announce` -> no; neither flag -> ask the user one yes/no
+     question ("Post a 'review in progress' comment to the PR?").
+   - If **no**, leave `<ANNOUNCE_COMMENT_ID>` empty and continue — nothing else changes.
+   - If **yes**, post ONE PR conversation comment (a GitHub issue comment, not a review) with
+     exactly this body:
+
+     > I've started an automated review of this PR. It usually takes about 30 minutes to complete.
+
+     Prefer the GitHub MCP add-issue-comment tool; fall back to `gh pr comment <PR> --body "..."`.
+     Save the created comment's numeric id as `<ANNOUNCE_COMMENT_ID>` for deletion in Step 3e —
+     the MCP response returns the id directly; the `gh pr comment` fallback returns only the
+     comment URL, so take the numeric id from its `#issuecomment-<id>` fragment.
+     If the post fails (e.g. no write access), warn the user in chat, leave
+     `<ANNOUNCE_COMMENT_ID>` empty, and run the review anyway — the review is the deliverable and
+     the comment is best-effort.
 
 ## Step 1: Launch ten reviewer sub-agents in parallel
 
@@ -425,8 +451,10 @@ holding at `yes` only where it can still defend the issue, conceding to `no` oth
 **If the findings list AND `unaddressed_pool` are BOTH EMPTY, do NOT post anything to GitHub.**
 The findings list here is the Step 2 filtered findings PLUS any adversarial survivors folded in
 by Step 2.7c — so a single agreed adversarial finding is on its own enough to post a review.
-When both pools are empty, skip directly to Step 4 and tell the user in chat that the PR looks
-clean. No review, no comment, no PR state change — silence on GitHub is the success signal. A
+When both pools are empty, skip to Step 3e (which deletes the in-progress comment if one was
+posted) and then Step 4, and tell the user in chat that the PR looks clean. No review is
+posted and no PR state changes — deleting the opt-in in-progress comment leaves the PR with
+nothing on it, so silence on GitHub stays the success signal. A
 sub-threshold ticket note on its own is NOT enough to post — if there are no findings and
 nothing unaddressed, there is nothing worth saying on GitHub (the note is reported only in the
 Step 4 chat summary).
@@ -680,11 +708,23 @@ If the API responds 422 because one or more inline comments target lines not in 
 demote those specific comments to GLOBAL (append them to the global body in a "Couldn't anchor
 inline" subsection) and re-issue the call. Do not silently drop findings.
 
-**This is the ONLY GitHub write this skill is permitted to perform** (via the GitHub MCP
-review-create tool, or `gh api` when no MCP is connected), and only when at least one
-of {a surviving finding ≥ 60, a surviving adversarial finding (Step 2.7), an unaddressed prior
-concern} is present. Do not edit the PR, add reviewers, change labels, request changes,
-approve, or alter any other PR state.
+**The posted review is the only PR review this skill writes** (via the GitHub MCP review-create
+tool, or `gh api` when no MCP is connected), and only when at least one of {a surviving finding
+≥ 60, a surviving adversarial finding (Step 2.7), an unaddressed prior concern} is present. The
+skill's only other permitted writes are the opt-in in-progress comment (Step 0.7) and its
+deletion (Step 3e) — both orchestrator-only. Do not edit the PR, add reviewers, change labels,
+request changes, approve, or alter any other PR state.
+
+## Step 3e: Delete the in-progress comment
+
+If `<ANNOUNCE_COMMENT_ID>` is set (an in-progress comment was posted in Step 0.7), delete it
+now — on every path, whether or not a review was posted. The clean-PR path routes here too, so
+do not assume Step 3d ran or that `OWNER_REPO` is set. Prefer the GitHub MCP delete-issue-comment
+tool (pass owner/repo plus the comment id). Fall back to
+`gh api -X DELETE "/repos/<owner>/<repo>/issues/comments/<ANNOUNCE_COMMENT_ID>"`, resolving
+owner/repo with `gh repo view --json owner,name` if not already known. If deletion fails, note
+it in the Step 4 report and continue — the review is already delivered, so a failed cleanup
+never fails the run. If `<ANNOUNCE_COMMENT_ID>` is empty, do nothing here.
 
 ## Step 4: Final report (to the user, not GitHub)
 
@@ -692,6 +732,9 @@ Summarise to the user in chat — this report happens whether or not a review wa
 
 If `<IS_DRAFT>` was true, prepend a short note: `ℹ️ PR #<PR> is still a draft.` so the user
 remembers their PR isn't ready-for-review yet.
+
+If an in-progress comment was posted (Step 0.7), the run deleted it in Step 3e; if that
+deletion failed, say so and include the comment URL so the user can remove it manually.
 
 **If at least one finding or unaddressed prior concern was posted (review issued):**
 
@@ -738,8 +781,9 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
   call (which atomically carries the global body AND all inline comments) — only when there is
   at least one surviving finding ≥ 60, at least one surviving adversarial finding (Step 2.7), OR
   at least one unaddressed prior concern. When all of those are empty, the orchestrator posts
-  NOTHING (a sub-threshold ticket note alone is not enough to post). Either way: no
-  `gh pr comment`, no `gh pr edit`, no extra comments, no second review.
+  no review (a sub-threshold ticket note alone is not enough to post). The only other writes the
+  orchestrator may make are the opt-in in-progress comment (Step 0.7) and its later deletion
+  (Step 3e). Beyond those: no `gh pr edit`, no other comments, no second review.
 - **The review event MUST be `COMMENT`.** Never `APPROVE`, never `REQUEST_CHANGES`. This skill
   comments; it does not gate merges.
 - **Sub-agents are read-only with respect to GitHub.** They invoke `in-depth-review` or

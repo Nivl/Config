@@ -2,10 +2,11 @@
 name: in-depth-review
 description: >
   Performs one in-depth multi-perspective code review of either a pull request or a commit
-  range. Launches up to ELEVEN specialized parallel reviewer roles (AGENTS.md compliance, shallow bug
+  range. Launches up to TWELVE specialized parallel reviewer roles (AGENTS.md compliance, shallow bug
   scan, git history context, prior PR comments, in-file code comments, database / data-layer,
   OWASP Top 10 security, error handling, test coverage, headline-benefit / motivation delivery,
-  and — unless `--skip-ticket` is passed — ticket intent compliance), then scores each finding
+  — unless `--skip-ticket` is passed — ticket intent compliance, and — only when the diff touches
+  TypeScript — TypeScript type safety), then scores each finding
   0–100 for confidence, filters anything below 70, and deduplicates. Returns the surviving findings.
   Never writes to GitHub.
   Used as one of two parallel review primitives (the other being `gh-style-review`) by
@@ -20,7 +21,7 @@ description: >
 # In-Depth Review
 
 This skill performs ONE complete review pass over a target scope (a PR or a commit range)
-using up to eleven specialized reviewer roles, then scores, filters, and deduplicates findings. It
+using up to twelve specialized reviewer roles, then scores, filters, and deduplicates findings. It
 returns the result — it does NOT post anywhere, fix anything, or loop.
 
 The multi-role specialization gives **cross-domain coverage** (style/standards, raw bugs, history,
@@ -110,9 +111,10 @@ abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git bl
    - Matches `^--raw$` → flag (defer until Step 4).
    - Matches `^--skip-ticket$` → flag; when set, Role #10 is omitted in Step 1.
    - Matches `^--roles$` (followed by its value) or `^--roles=...$` → flag; parse the
-     comma-separated value into `<ROLE_SET>` (role numbers 1..11 and/or category names via
+     comma-separated value into `<ROLE_SET>` (role numbers 1..12 and/or category names via
      the Step 1 table). When the flag is absent, `<ROLE_SET>` = all roles. `--skip-ticket`
-     removes Role #10 from `<ROLE_SET>`. If `<ROLE_SET>` is empty, abort: "no roles selected".
+     removes Role #10 from `<ROLE_SET>`, and a diff with no TypeScript removes Role #12. If
+     `<ROLE_SET>` is empty, abort: "no roles selected".
    - Anything else → **branch mode**; `<RANGE>` = the arg.
    - If no positional arg: branch mode with `<RANGE>` = `origin/<default-branch>..HEAD`.
 
@@ -140,11 +142,13 @@ abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git bl
 ## Step 1: Launch the specialized reviewers in parallel
 
 Spawn the reviewer sub-agents in a single message (concurrent tool-use blocks). Launch
-exactly the roles in `<ROLE_SET>` (Step 0). By default `<ROLE_SET>` is all roles — **11**
-when ticket review is active, or **10** when `--skip-ticket` was passed (omit Role #10;
-Role #11 always runs). When a caller passed `--roles`, launch only that subset (e.g. two
-sub-agents for `--roles 1,5`). Sequential launches defeat the purpose of this design
-— never serialize.
+exactly the roles in `<ROLE_SET>` (Step 0). By default `<ROLE_SET>` is all roles — **12**
+when ticket review is active and the diff touches TypeScript, **11** when either one of those
+does not hold, or **10** when neither does. Role #10 is omitted by `--skip-ticket`; Role #12 is
+omitted when the diff has no `*.ts` / `*.tsx` / `*.mts` / `*.cts` file (see Role #12); Role #11
+always runs. When a caller passed `--roles`, launch only that subset (e.g. two
+sub-agents for `--roles 1,5`) — a `--roles` set naming 12 still skips it on a diff with no
+TypeScript. Sequential launches defeat the purpose of this design — never serialize.
 
 The role number ↔ category mapping used by `--roles` and by the `category` field of every
 finding:
@@ -162,6 +166,7 @@ finding:
 | 9 | Test coverage | `test coverage` |
 | 10 | Ticket intent compliance | `ticket` |
 | 11 | Headline-benefit / motivation | `motivation` |
+| 12 | TypeScript type safety (conditional) | `types` |
 
 **Model: spawn every reviewer on Sonnet** (Agent-tool `model: sonnet`) — do NOT let them
 inherit the session model. Each role is a bounded, tightly-specified recall pass over the
@@ -520,6 +525,49 @@ PR's stated benefit fails to land there. Still discount a genuinely unrelated pr
 bug that has nothing to do with the stated goal.
 ```
 
+### Reviewer Role #12 — TypeScript type safety (conditional)
+
+**This role runs ONLY when the diff touches a TypeScript file** (`*.ts`, `*.tsx`, `*.mts`,
+`*.cts`). Check with `gh pr diff <PR> --name-only` (PR mode) or
+`git --no-pager diff --name-only <RANGE>` (branch mode) before launching it. If the diff has no
+TypeScript, skip this role entirely and do not count it against the role total.
+
+It exists because a narrow lens catches what a broad one misses. Role #1 reads AGENTS.md in full
+and nominally covers this ground, but casting violations are a specific, mechanical, easily-missed
+pattern in a large compliance sweep. The conditional launch is what keeps the extra recall from
+costing anything on the many diffs with no TypeScript in them.
+
+```
+Your job: audit the TypeScript in this diff for type assertions used in place of narrowing, per
+the "TypeScript: narrow with type guards, don't cast" rule in AGENTS.md. Review ONLY TypeScript
+files. Ignore every other language in the diff.
+
+Flag these, in the diff's added or modified lines:
+- `value as SomeType` used to force a shape the compiler cannot verify.
+- `value as unknown as SomeType` — the double cast. Treat this as the highest-severity form: it
+  means the compiler actively disagreed and was overruled twice.
+- `as any`, including in a type parameter or a return position.
+- The non-null assertion `!` on a value that can genuinely be null or undefined at runtime.
+  `arr.find(...)!` is the classic case, since `find` returns `T | undefined`.
+
+For each finding, say what the correct narrowing would be — a `typeof` / `instanceof` / `in`
+check, a user-defined type predicate (`function isX(v: unknown): v is X`), a discriminated union
+plus `switch`, or validation at the trust boundary that makes the value arrive already typed.
+A finding without a concrete alternative is not actionable; either supply one or drop it.
+
+Do NOT flag these. They are explicitly allowed by the rule:
+- `as const`.
+- `satisfies`.
+- The definite-assignment declaration `let x!: T` — a declaration, not an expression assertion,
+  and normal with dependency injection or late initialization.
+- Deliberately partial fixtures in test files, where the missing fields are the point.
+- A `!` where the value was genuinely validated but the compiler lost the narrowing (across a
+  closure or an `await`). Restructuring is better, but this is not the defect the rule targets.
+
+Discount pre-existing casts on lines the diff did not touch. A cast the diff moved or reindented
+without otherwise changing is pre-existing, not new. Set every finding's category to "types".
+```
+
 ## Step 2: Confidence scoring
 
 After all reviewers return:
@@ -635,7 +683,7 @@ Return this exact JSON shape:
       "title": "<one-line description>",
       "file": "<path>",
       "line_range": "<L<start>-L<end>>",
-      "category": "<bug | AGENTS.md | history | prior PR | comment guidance | db | security | error-handling | test coverage | motivation | ticket>",
+      "category": "<bug | AGENTS.md | history | prior PR | comment guidance | db | security | error-handling | test coverage | motivation | ticket | types>",
       "ticket_id": "<JIRA-ID this gap traces to, or null for non-ticket findings>",
       "description": "<full text>",
       "suggested_fix": "<text or code snippet>",
@@ -698,12 +746,18 @@ and the threshold note is dropped.
 - **No GitHub writes, ever.** Prefer the equally read-only GitHub MCP PR-read tools; read-only
   `gh` calls (list, view, diff, search) are the fallback when no MCP is connected.
   Sub-agents that try to issue a write should be aborted and surfaced to the caller.
-- **Up to 11 parallel reviewers per pass** — 11 by default (the 11th is headline-benefit /
-  motivation delivery, always-on; the 10th is ticket intent compliance), 10 when
-  `--skip-ticket` is passed (only Role #10 is omitted). A caller may run a smaller subset via
+- **Up to 12 parallel reviewers per pass** — 11 by default (the 11th is headline-benefit /
+  motivation delivery, always-on; the 10th is ticket intent compliance), 12 when the diff also
+  touches TypeScript (Role #12), and one fewer in each case when `--skip-ticket` drops Role #10.
+  A caller may run a smaller subset via
   `--roles` (Step 0/1) for iterative reruns — that is the ONLY reason to drop a role. Never
   serialize, and never drop a role for speed on a standalone or first-pass review. The role
   specialization is the point.
+- **Role #12 is conditional, not optional.** Skip it when the diff contains no `*.ts` / `*.tsx` /
+  `*.mts` / `*.cts` file, and run it whenever the diff does. This is a cost guard, not a quality
+  dial: a language-specific lens is pure waste on a diff without that language, and skipping it
+  there is what pays for the extra recall on the diffs that have it. Do not skip it on a
+  TypeScript diff to save an agent.
 - **Role #10 is read-only and abortable.** It may use `acli jira workitem view` (Jira read)
   and read-only Datadog MCP tools — nothing else. On any denied permission it returns
   `TICKET_REVIEW_SKIPPED: access denied` and stops. This is the user's "ignore this reviewer"

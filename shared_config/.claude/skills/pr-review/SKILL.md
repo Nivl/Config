@@ -22,7 +22,7 @@ description: >
 # PR Review (4x-reviewed, mixed-tier)
 
 This skill orchestrates **four** parallel reviewer sub-agents against a single PR: **two
-instances of `in-depth-review` on Sonnet** (each runs ten roles by default, or nine with `--skip-ticket`; all raw scored findings),
+instances of `in-depth-review` on Sonnet** (each runs eleven roles by default, twelve when the diff touches TypeScript, one fewer with `--skip-ticket`; all raw scored findings),
 **one instance of `in-depth-review` on Opus** (the subtle-bug catcher — see Mixed-tier finders
 below), and
 **one instance of `gh-style-review`** (the `@claude review` GitHub Action prompt
@@ -335,7 +335,7 @@ Once all four sub-agents have returned:
    2. `agreement` descending (4/4 > 2/4 > 1/4 when scores tie)
    3. Both-sources first (a finding raised by both in-depth-review and gh-style-review beats
       a same-confidence-and-agreement finding from a single source)
-   4. `category` priority: bug > AGENTS.md > history > prior PR > comment guidance > ticket
+   4. `category` priority: bug > types > AGENTS.md > history > prior PR > comment guidance > ticket
 
    **Do not deprioritize a solo finding from sub-agent 3 (the Opus finder) on agreement alone.**
    Catching what the Sonnet reviewers miss is precisely its job, so `agreement: 1` from that

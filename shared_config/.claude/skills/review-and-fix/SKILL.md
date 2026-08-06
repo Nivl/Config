@@ -48,8 +48,9 @@ Each iteration:
    iterations).
 
 The triangulation lives **here**, not inside the sub-skills. Each `in-depth-review` pass
-is itself a multi-role review (up to 11 roles; the 10th is ticket intent compliance, on by
-default). Each `gh-style-review` pass is the @claude review GitHub Action prompt with full PR
+is itself a multi-role review (up to 12 roles; the 10th is ticket intent compliance, on by
+default, and the 12th is TypeScript type safety, which runs only when the diff touches
+TypeScript). Each `gh-style-review` pass is the @claude review GitHub Action prompt with full PR
 context (when in PR mode).
 
 ## Adaptive rerun (why later iterations run fewer reviewers)
@@ -161,7 +162,7 @@ for the reads they do. Local `git` calls need no `gh`.
    fails, present the three choices again rather than proceeding.
 
 9. **Initialize the active reviewer set** used by Step 1:
-   - `<ACTIVE_ROLES>` = all in-depth-review roles `1..11` (drop `10` when `<SKIP_TICKET>` is
+   - `<ACTIVE_ROLES>` = all in-depth-review roles `1..12` (drop `10` when `<SKIP_TICKET>` is
      true). This is the set of roles the in-depth-review instances will run.
    - `<ACTIVE_GH_STYLE>` = true.
    Step 3 recomputes both before each subsequent iteration. Iteration 1 always runs the full
@@ -454,7 +455,7 @@ the first that matches wins:
 | 5 | Otherwise (committed, but no logic change)                                 | **Pruned rerun**: set active set to `productive_reviewers`; go to Step 1 |
 
 Computing the next active set for rows 4 and 5:
-- **Row 4 (full):** `<ACTIVE_ROLES>` = all roles `1..11` (drop `10` when `<SKIP_TICKET>`),
+- **Row 4 (full):** `<ACTIVE_ROLES>` = all roles `1..12` (drop `10` when `<SKIP_TICKET>`),
   `<ACTIVE_GH_STYLE>` = true.
 - **Row 5 (pruned):** `<ACTIVE_ROLES>` = the in-depth role numbers in `productive_reviewers`;
   `<ACTIVE_GH_STYLE>` = true iff the `gh-style-review` unit is in `productive_reviewers`. (At

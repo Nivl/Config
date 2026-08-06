@@ -83,6 +83,40 @@ Commenting code is good. Keep doing it. But every comment must earn its place. F
   - Good: `// Log first. It is the primary signal and must not be suppressed.`
   - This bans the dash and colon only as clause JOINERS. Leave them alone everywhere else: hyphenated words (`read-only`, `already-committed`), CLI flags (`-c`), ranges (`1-10`), label prefixes at the start of a line (`TODO:`, `NOTE:`, `IMPORTANT:`, `Good:`, `Bad:`), ratios and times (`3:1`, `12:00`), and code, paths, or URLs.
 
+## TypeScript: narrow with type guards, don't cast
+
+A cast tells the compiler to stop checking. It does not change what the value actually is at runtime. If the value does not match the asserted type, nothing fails at the cast itself. It fails later, somewhere else, with an error that points at the wrong line. A type guard checks the value and narrows the type from that check, so the runtime truth and the static type stay in agreement.
+
+Avoid these shapes:
+
+- `value as SomeType` to force a shape the compiler cannot see for itself.
+- `value as unknown as SomeType`, the double cast. This is the loudest smell in the list. It means the compiler actively disagrees and is being overruled twice.
+- `as any` to make a red squiggle go away.
+- The non-null assertion `!` on something that can genuinely be null or undefined at runtime. `arr.find(...)!` is the classic case.
+
+Prefer these instead:
+
+- **Built-in narrowing.** `typeof x === 'string'`, `x instanceof Error`, `'kind' in x`, `Array.isArray(x)`, or a plain truthiness check. The compiler narrows automatically and there is nothing to keep in sync.
+- **A user-defined type predicate** when the shape needs a real runtime check. Write the check once and let every call site benefit:
+  ```ts
+  function isUser(x: unknown): x is User {
+    return (
+      typeof x === 'object' && x !== null &&
+      'id' in x && typeof x.id === 'string'
+    );
+  }
+  ```
+- **A discriminated union** with a literal `kind` or `type` field, then `switch` on that field. Each branch narrows for free, and the compiler can tell you when a new variant is unhandled.
+- **Validation at trust boundaries.** Parse external input (API responses, request bodies, JSON read from disk, env vars) with whatever schema validator the repo already uses. A parsed value arrives correctly typed, so nothing downstream needs a cast.
+
+These are fine and are not what this rule is about:
+
+- `as const` for literal types. It narrows rather than asserting something unproven.
+- `satisfies` to check a value against a type while keeping its narrow inferred type. Reach for `satisfies` before reaching for `as`.
+- Deliberately partial fixtures in tests, where the missing fields are the point.
+
+When a cast looks unavoidable, that is usually a signal that a type is wrong further upstream or that a boundary is missing its validation step. Fix the upstream type or add the guard. Do not paper over it at the use site.
+
 ## Plain ASCII in authored prose
 
 Text you write for humans -- commit messages, code comments, PR and issue descriptions, docs -- uses plain, keyboard-typable ASCII punctuation. The fancy Unicode glyphs read as AI-written, and most people can't type them to match. Substitute:

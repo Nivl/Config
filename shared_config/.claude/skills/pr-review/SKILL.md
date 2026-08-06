@@ -657,7 +657,62 @@ GitHub line-range encoding:
 `side` is always `RIGHT` (the new revision). Comments on the LEFT side (deleted lines) are
 seldom useful for a forward-looking review and are out of scope here.
 
+### Step 3c.7: Human-review gate (before posting)
+
+Before any GitHub write, dump every finding to a local file, pause, and post only what the
+user approves. **This is a hard gate.** Do not post to GitHub until the user says to.
+
+This step runs **only when Step 3 has something to post** (at least one finding or at least
+one unaddressed concern). The clean-PR path is unchanged: when there is nothing to post, skip
+straight to Step 3e as before. No file is written and there is no pause.
+
+1. **Write** `/tmp/claude/pr-review-<PR>-comments.md`. Emit **one block per finding**, numbered
+   `#1` through `#N` in the Step 2 order (GLOBAL and INLINE findings), followed by the
+   unaddressed concerns. Each of these is its own block:
+   - each GLOBAL finding,
+   - each INLINE comment,
+   - each entry in `unaddressed_pool`.
+
+   Each block is:
+   - a header line: `#<n> [GLOBAL]`, or `#<n> [INLINE] <file>:<line_range>`, or
+     `#<n> [UNADDRESSED]`. Append the confidence label and any `adversarial` /
+     `[<ticket_id>]` tag the finding carries, so the header reads the way the posted comment
+     will (e.g. `#3 [INLINE] src/auth.ts:40..52  [confidence: High]`).
+   - the rendered comment body below it: title + description for a finding, or the
+     `quote` + `gap` for an unaddressed concern.
+
+   Separate every block from the next with a divider line that is exactly thirteen `=`
+   characters on its own line, nothing else:
+
+   ```
+   =============
+   ```
+
+   The divider makes each finding visually distinct so the user can scan and judge them one at
+   a time.
+
+2. **Pause.** Tell the user the file path and a one-line tally: `<K_global> global,
+   <K_inline> inline, <K_unaddressed> unaddressed`. Ask them to review the file and confirm
+   before you post. Then wait.
+
+3. **Act on the user's response:**
+   - **Approve all** -> continue to Step 3d and post everything.
+   - **Keep a subset** (e.g. "drop #2 and #5", "only post #1 and #4") -> remove the dropped
+     findings from the pools, re-run the Step 3b body assembly and Step 3c inline set from the
+     survivors (so counts, numbering, and the global/local lists all reflect the reduced set),
+     rewrite the file, then continue to Step 3d with the remainder. If dropping leaves nothing
+     to post, treat it as a decline.
+   - **Decline all** -> post nothing. Skip Step 3d entirely, still run Step 3e cleanup, and
+     report in Step 4 that the comments were written to the file but not posted at the user's
+     request.
+
+This gate makes the skill interactive by design. In a headless run there is no one to approve,
+so the run stops at this file with nothing posted. That is the intended safe default.
+
 ### Step 3d: Post the review (one API call)
+
+Reached only after the Step 3c.7 gate has approved (all findings, or the kept subset). Post
+exactly the surviving set.
 
 Fetch the PR head SHA and the owner/repo:
 
@@ -730,6 +785,12 @@ remembers their PR isn't ready-for-review yet.
 If an in-progress comment was posted (Step 0.7), the run deleted it in Step 3e; if that
 deletion failed, say so and include the comment URL so the user can remove it manually.
 
+**Review file (Step 3c.7).** Whenever the gate ran, the assembled comments were written to
+`/tmp/claude/pr-review-<PR>-comments.md`. Always report this path. If the user kept only a
+subset, name which findings they dropped. If the user **declined** (or dropped everything),
+lead with a clear line that the review was written to that file but NOT posted to GitHub at
+the user's request, then still give the tallies below.
+
 **If at least one finding or unaddressed prior concern was posted (review issued):**
 
 - The PR URL.
@@ -778,6 +839,12 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
   no review (a sub-threshold ticket note alone is not enough to post). The only other writes the
   orchestrator may make are the opt-in in-progress comment (Step 0.7) and its later deletion
   (Step 3e). Beyond those: no `gh pr edit`, no other comments, no second review.
+- **Posting is gated on human approval (Step 3c.7).** Whenever there is something to post, the
+  assembled findings are first written to `/tmp/claude/pr-review-<PR>-comments.md`, one block
+  per finding split by `=============` dividers, and the run pauses. Only the findings the user
+  approves are posted; a declined gate posts nothing. This makes the skill interactive — a
+  headless run stops at the file with nothing posted, which is the intended safe default. The
+  clean-PR path (nothing to post) does not write a file or pause.
 - **The review event MUST be `COMMENT`.** Never `APPROVE`, never `REQUEST_CHANGES`. This skill
   comments; it does not gate merges.
 - **Sub-agents are read-only with respect to GitHub.** They invoke `in-depth-review` or

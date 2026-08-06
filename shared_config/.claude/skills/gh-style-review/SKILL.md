@@ -72,7 +72,7 @@ Example invocations:
 
 ```
 /gh-style-review                       # auto-detect: PR if branch has one, else branch mode
-/gh-style-review 1234                  # PR mode, default filter (≥ 70)
+/gh-style-review 1234                  # PR mode, default filter (>= 70)
 /gh-style-review #1234 --raw           # PR mode, no filter (every scored finding shown)
 /gh-style-review origin/main..HEAD     # branch mode, default filter
 /gh-style-review HEAD~5..HEAD --raw    # branch mode, no filter
@@ -384,7 +384,7 @@ Print to terminal as GitHub-flavored markdown, in **this exact structure**:
 
 ```
 ## Verdict
-<APPROVE | REQUEST CHANGES | COMMENT> — <one-sentence justification, ≤25 words>.
+<APPROVE | REQUEST CHANGES | COMMENT> — <one-sentence justification, <=25 words>.
 
 ## Summary
 2–4 sentences describing what the PR actually does. Plain prose, no bullets.
@@ -425,7 +425,7 @@ if both are empty (e.g. brand-new PR with no comments yet, or branch mode).
 
 ## Footer
 End with one line. The wording depends on whether `--raw` was passed:
-- Default mode: `Findings: N total, M after the confidence ≥ 70 filter.`
+- Default mode: `Findings: N total, M after the confidence >= 70 filter.`
 - `--raw` mode:  `Findings: N total (no filter applied; --raw).`
 
 ## Empty-case override
@@ -436,7 +436,7 @@ Trigger condition depends on mode:
 
 When the trigger condition holds, replace the entire output above with exactly:
 
-    ✅ Clean — nothing to flag <at confidence ≥ 70 | in raw mode>.
+    ✅ Clean — nothing to flag <at confidence >= 70 | in raw mode>.
     <one sentence on what the PR does, for confirmation>
 
 (Pick the bracketed phrase that matches the mode.) …and stop. Don't print empty
@@ -510,7 +510,7 @@ Notes on the JSON contract:
   minor → suggestion), then confidence desc within each severity.
 - **`--raw` semantics:** when `raw=true`, include every scored finding (no filter applied).
   When `raw=false`, only findings with `confidence >= 70` appear in the array. The caller
-  (`pr-review` at ≥60, `review-and-fix` at ≥50) will apply its own threshold post-merge.
+  (`pr-review` at >=60, `review-and-fix` at >=50) will apply its own threshold post-merge.
 - **`discussion_context` in branch mode:** both arrays are always empty `[]` (no PR comments
   to fetch). Don't omit the key — orchestrators expect a stable shape.
 - **`verdict` in branch mode:** still computed (`APPROVE` / `REQUEST CHANGES` / `COMMENT`),

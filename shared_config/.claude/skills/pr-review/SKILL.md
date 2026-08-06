@@ -28,7 +28,7 @@ below), and
 **one instance of `gh-style-review`** (the `@claude review` GitHub Action prompt
 replicated locally, which adds Discussion Context — prior-human-comment cross-referencing
 — on top of standard findings). All four are invoked with `--raw`; the orchestrator merges and
-deduplicates the four result sets into one flat pool, applies a final **score ≥ 60** filter,
+deduplicates the four result sets into one flat pool, applies a final **score >= 60** filter,
 classifies each surviving finding as INLINE (local) or GLOBAL, aggregates the still-unaddressed
 `discussion_context` from the gh-style instance, and posts a single PR review whose body
 carries the global findings in full, a names-only list of the local findings, and the
@@ -41,8 +41,8 @@ one thing only — is this the right way to build it (design, architecture, code
 over/under-engineering) — not bugs. Only the findings the pair *converges* on as genuinely
 needing a code change survive, and only if no other reviewer already proposed the same thing
 with confidence > 50. Survivors join the same posting pipeline, tagged `approach`. This pair
-runs once (not 3×), and its findings post on agreement alone —
-they do not have to clear the ≥ 60 confidence bar the other findings do.
+runs once (not 3x), and its findings post on agreement alone —
+they do not have to clear the >= 60 confidence bar the other findings do.
 
 The point: four independent passes from two different prompt structures (specialized-role
 vs. GitHub-Action mirror) and two model tiers catch different issues, AND converge on the real
@@ -60,7 +60,7 @@ raised that the diff still hasn't addressed" section.
 
 A fixed all-Sonnet pool is provisioned for the easy case and quietly loses recall on the hard
 one. Adding a single Opus in-depth instance covers the hard case without paying Opus rates on
-every finder. Keep it at exactly one: the point is coverage of the subtle tail, not tier parity.
+every finder. Keep it at exactly one. The point is coverage of the subtle tail, not tier parity.
 Do NOT promote the Sonnet finders to Opus, and do NOT drop the Opus one to save cost — it is the
 cheapest recall in the pool on the diffs that matter most.
 
@@ -285,7 +285,7 @@ If `gh-style-review` refuses to proceed (closed PR, missing skill, etc.), return
 ### Why each sub-agent uses `--raw`
 
 Both `in-depth-review` and `gh-style-review` default to discarding anything `< 70`. This
-orchestrator's threshold is **60** (lower than each sub-skill's default because the 4×
+orchestrator's threshold is **60** (lower than each sub-skill's default because the 4x
 cross-instance triangulation — three from the specialized-role structure, one from the
 GitHub-Action mirror — raises confidence in 60-69 findings). `--raw` makes the sub-agents
 return all scored findings; we apply the 60 cutoff in Step 2 after merging.
@@ -309,6 +309,17 @@ lens yourself and attribute it, and do not carry a result forward from elsewhere
 
 - If `reviewers_missing` is non-empty, or any instance came back `"partial"`, this run's coverage
   is **partial**. Carry that flag through to Step 4 and to the clean-PR path.
+- **Coverage computed here is provisional.** The approach stage (Step 2.7) has not run yet, and it
+  is a reviewer too. If the proposer or the judge does not report, set `approach_stage_missing` and
+  make coverage **partial** at that point. Coverage is final only after Step 2.7. Do not treat the
+  Step 2 value as settled, or a run whose finders were all clean will report `complete` while the
+  approach stage never ran.
+- **A miss is reported immediately, not retried.** `review-and-fix` gives a missing reviewer kind
+  one retry per run before marking it unavailable, and this skill deliberately does not. That skill
+  loops, so it has a next iteration to relaunch into and a cheap way to spend one. This skill is
+  one-shot, so there is no next pass, and a relaunch here would mean holding the whole review open
+  on one sub-agent. Reporting partial coverage is the honest and cheaper answer. The asymmetry is
+  intentional. Do not add a retry here to match the other skill.
 - The "all clear" line in Step 4 asserts that N independent reviewers found nothing. **Do not emit
   it when fewer than N reported.** Say how many reported and which did not.
 - Proceed with the review anyway. A partial review that says it is partial is useful; one that
@@ -318,7 +329,7 @@ lens yourself and attribute it, and do not carry a result forward from elsewhere
 run its two-stage confidence filter, so its numbers are self-assessments by the same model that
 proposed the findings, not scores.
 
-- **Do not feed its findings into the ≥60 filter as though they were scored.** Treat them as
+- **Do not feed its findings into the >=60 filter as though they were scored.** Treat them as
   unscored leads: exclude them from the posted review, list them separately in the Step 4 report as
   unfiltered, and name the instance that produced them.
 - Any finding carrying `unscored: true` is likewise never posted.
@@ -350,7 +361,7 @@ Once all four sub-agents have returned:
      This is the name `review-and-fix` already uses. Do not invent a third.
      **Compute it yourself. Never reuse the `role_agreement` value on an incoming finding as this
      count.** The denominators differ. `role_agreement` is how many of ONE instance's
-     9-12 role lenses raised the finding, and this is how many of the four independent instances
+     8-12 role lenses raised the finding, and this is how many of the four independent instances
      did. Roles share a model and a context window and are prompted to look at different things,
      so several converging is correlated evidence. Separate instances converging is the
      independent signal, and it is the one that should drive ordering.
@@ -365,10 +376,23 @@ Once all four sub-agents have returned:
    - `permalink`: take any one valid permalink from the group.
    - `ticket_id`: preserved from `ticket`-category findings (the Jira ID the gap traces to);
      `null` for all other findings. Never merge two findings that name different `ticket_id`s.
+   - `citation_verified`: **merges DOWNWARD, unlike confidence.** If ANY member of the group carries
+     `citation_verified: false`, the merged finding carries `false`. Never let a verified member's
+     `true` overwrite an unverified member's `false`, and never drop the field during the merge. An
+     absent field on the merged finding reads as "nothing to verify", which is how an unverified
+     citation slips past the Step 5 exclusion.
+   - `unscored`: merges downward the same way. Any `unscored: true` in the group makes the merged
+     finding `unscored: true`.
+   - **Then re-cap.** If the merged finding came out `citation_verified: false`, re-apply the 60 cap
+     to the max confidence computed above. Confidence merges upward and this field merges downward,
+     so without the re-cap a verified member scoring 85 would carry an unverified finding to 85 and
+     straight through the filter. `in-depth-review` applies the same merge-down-then-recap rule
+     inside its own dedup. This is the identical hazard one layer up, across instances rather than
+     across roles.
 
 4. **Snapshot the full merged set as `merged_all` BEFORE filtering.** `merged_all` is the
    complete list of merged findings with their max `confidence`, including the 51–59 ones that
-   the next step discards. Step 2.7 (approach dedup) needs it — once you apply the ≥60 cut
+   the next step discards. Step 2.7 (approach dedup) needs it — once you apply the >=60 cut
    you can no longer tell whether a 51–59 finding "was already proposed by another reviewer."
    `merged_all` is used only by Step 2.7; it never affects posting on its own.
 
@@ -383,6 +407,12 @@ Once all four sub-agents have returned:
    These never enter the findings pool, the INLINE/GLOBAL classification, or the ordering
    below — they are notes, not findings. (Threshold is 60.)
 
+   Note the two exclusions only ever fire on `in-depth-review`-sourced findings, because
+   `gh-style-review` does not emit `citation_verified` or `unscored` at all. That is expected, not a
+   gap to close. A gh-style finding has no commit citation to verify and is scored by its own
+   skill. Do not read the exclusions as gating gh-style findings, and do not add the fields to
+   gh-style's schema to make the filter symmetric.
+
 6. **Order the surviving findings:**
    1. `confidence` descending
    2. `cross_instance_agreement` descending (4/4 > 2/4 > 1/4 when scores tie)
@@ -390,7 +420,10 @@ Once all four sub-agents have returned:
       a same-confidence-and-agreement finding from a single source)
    4. `role_agreement` descending. A finding several role lenses independently raised beats one
       a single lens raised, once the stronger cross-instance signal has already tied
-   5. `category` priority: bug > types > AGENTS.md > history > prior PR > comment guidance > ticket
+   5. `category` priority: bug > types > security > db > error-handling > AGENTS.md > history >
+      prior PR > test coverage > motivation > comment guidance > ticket > approach. This chain
+      covers every category the finding schema allows, so two tied findings always have a defined
+      order. Any category not named here ranks last, immediately above nothing.
 
    **Do not deprioritize a solo finding from sub-agent 3 (the Opus finder) on agreement alone.**
    Catching what the Sonnet reviewers miss is precisely its job, so `cross_instance_agreement: 1` from that
@@ -408,7 +441,7 @@ not rendered at all.
 
 Because exactly ONE instance produces this block, there is no cross-instance dedup, no
 disagreement detection, and no agreement count. This is the deliberate trade of the asymmetric
-split: Discussion Context is now a single-reviewer judgement. Treat its entries as leads
+split. Discussion Context is now a single-reviewer judgement. Treat its entries as leads
 grounded in a real comment URL, not as triangulated findings.
 
 1. **Take the instance's `unaddressed` array** as `unaddressed_pool` directly. Each entry
@@ -465,15 +498,15 @@ The proposer's job is recall over design issues, and measured approach-finding r
 general Sonnet reviewer had already caught the same design issues unaided, so Opus was paying
 1.67x for nothing at the proposing step. The judge stays on Opus because the debate IS the
 filter, and that is genuine judgment rather than recall. Note this specific split is
-**untested**: the experiments measured the proposer's recall, never the debate's convergence
+**untested**. The experiments measured the proposer's recall, never the debate's convergence
 quality, so if agreed-but-wrong findings start appearing, promote the proposer back to Opus and
 say so here.
 
-It is cheap either way: one pair, run once (not 3×), ≤3 rounds.
+It is cheap either way: one pair, run once (not 3x), <=3 rounds.
 
 This stage runs **after** the merge because the dedup in Step 2.7b below compares against
 `merged_all`, which only exists once Step 2 has merged the four reviewers. The pair runs **once**
-(not 3×) — the internal debate is the filter, so cross-instance triangulation is not needed.
+(not 3x) — the internal debate is the filter, so cross-instance triangulation is not needed.
 
 **Both agents are read-only with respect to GitHub** — same forbidden-write list as sub-agents
 1–4. The approach reviewer **explores the wider codebase** to ground its judgment. It reads
@@ -510,13 +543,32 @@ finding's `rounds` is the 1-based round at which it converged.
    Anything converged to `no`, or still *contested* after round 3, is **dropped** — agreement
    is required, ties go to drop.
 
+#### Worked example
+
+Three findings, to make the round accounting concrete.
+
+- **Round 1.** The proposer raises A, B, and C, all at `approach_verdict = yes`. The judge returns
+  `yes` on A, `no` on B, `no` on C. Classify: A is *converged-keep* and frozen. B and C are
+  *contested*, since the proposer says yes and the judge says no.
+- **Round 2.** Only B and C are re-sent. A is frozen and is NOT re-sent, so its verdicts never
+  change again. The proposer concedes on B, setting `approach_verdict = no`, and holds on C. The
+  judge then holds `no` on both. Re-classify: B is now *converged-drop*, both `no`. C is still
+  *contested*.
+- **Round 3.** Only C is re-sent. Both sides hold. Rounds reach the cap of 3 with C still
+  *contested*, so **C is dropped** under "ties go to drop".
+- **Result.** A survives to Step 2.7b. B and C do not. The debate ran 3 rounds because C stayed
+  contested, even though A settled in round 1 and B in round 2.
+
+The count that matters is TOTAL rounds run, not rounds per finding. A finding that converges in
+round 1 costs no further rounds, and one finding still contested keeps the loop going for the rest.
+
 ### Step 2.7b: Dedup survivors against the existing findings
 
 For each surviving finding, **drop it if it duplicates any entry in `merged_all` (Step 2)
 whose max `confidence` > 50** — "duplicate" uses the same test as Step 2: same `file` +
 overlapping `line_range` + substantially the same problem (paraphrases count). This suppresses
 approach findings that another reviewer already proposed with confidence > 50, *including*
-the 51–59 ones that did not clear the ≥60 posting bar. A surviving finding that matches nothing
+the 51–59 ones that did not clear the >=60 posting bar. A surviving finding that matches nothing
 in `merged_all` over 50 is kept.
 
 ### Step 2.7c: Tag and fold into the findings pool
@@ -532,7 +584,7 @@ Each kept approach finding becomes a normal finding for Step 3 with:
   `**N.**` block omits the permalink paragraph for them.
 
 **Agreement is the gate, not the score.** Approach findings are added to the Step 2 findings
-pool **without** re-applying the ≥60 filter — they already passed the mutual-agreement bar in
+pool **without** re-applying the >=60 filter — they already passed the mutual-agreement bar in
 2.7a. Order them within the pool by `confidence` like the others (for the tiebreakers, treat
 `cross_instance_agreement = null` as lowest, an approach finding as single-source — never both — for the
 both-sources tiebreaker, `role_agreement = null` as lowest since approach findings never pass through
@@ -671,7 +723,7 @@ From that, derive ONLY the notes worth showing a human — never a roll-call of 
 - **Above-threshold ticket gaps** are already Code review findings (category `ticket`, prefixed
   `[<ticket_id>]`). Do NOT repeat them in the Tickets examined section.
 - **Sub-threshold ticket observations** = the `sub_threshold_ticket_notes` retained in Step 2
-  (ticket findings that scored < 60) — an AC a reviewer flagged that did not clear the ≥60 bar.
+  (ticket findings that scored < 60) — an AC a reviewer flagged that did not clear the >=60 bar.
 - **Unread/unverified tickets** = any `id` whose aggregated `status` is `unread` (no instance
   could read it).
 
@@ -752,7 +804,7 @@ I left <K_inline> comment(s) directly in the diff for those.
 ### Tickets examined
 
 <One short paragraph. Surface ONLY: sub-threshold ticket observations — name the ticket and
-the AC, and say it did not clear the ≥60 bar and why — plus any unread/unverified ticket. Do
+the AC, and say it did not clear the >=60 bar and why — plus any unread/unverified ticket. Do
 NOT list tickets that passed. Do NOT repeat above-threshold ticket gaps; those already appear
 as Code review findings above, prefixed [<ticket_id>].>
 <<endif>>
@@ -935,7 +987,7 @@ inline" subsection) and re-issue the call. Do not silently drop findings.
 
 **The posted review is the only PR review this skill writes** (via the GitHub MCP review-create
 tool, or `gh api` when no MCP is connected), and only when at least one of {a surviving finding
-≥ 60, a surviving approach finding (Step 2.7), an unaddressed prior concern} is present. The
+>= 60, a surviving approach finding (Step 2.7), an unaddressed prior concern} is present. The
 skill's only other permitted writes are the opt-in in-progress comment (Step 0.7) and its
 deletion (Step 3e) — both orchestrator-only. Do not edit the PR, add reviewers, change labels,
 request changes, approve, or alter any other PR state.
@@ -971,11 +1023,11 @@ the user's request, then still give the tallies below.
 
 - The PR URL.
 - How many findings each sub-agent originally returned (pre-merge counts), broken down by
-  source and tier: `2 × in-depth-review (sonnet): [N1, N2]`,
-  `1 × in-depth-review (opus): [N3]`, `1 × gh-style-review: [N4]`. Call out separately how many
+  source and tier: `2 x in-depth-review (sonnet): [N1, N2]`,
+  `1 x in-depth-review (opus): [N3]`, `1 x gh-style-review: [N4]`. Call out separately how many
   findings the Opus finder contributed that NO Sonnet finder raised — that number is the direct
   measure of whether the mixed tier is earning its cost on this PR.
-- How many unique findings survived the ≥ 60 filter (post-merge count), broken down as
+- How many unique findings survived the >= 60 filter (post-merge count), broken down as
   GLOBAL vs INLINE, and how many were both-source vs single-source.
 - How many unaddressed prior concerns surfaced: `unaddressed: K`.
 - **Approach stage:** how many findings the approach reviewer raised, how many the pair
@@ -985,10 +1037,11 @@ the user's request, then still give the tallies below.
 - Sub-agents that returned `skipped_reason` (if any) and why. Distinguish these from sub-agents
   that returned nothing. A `skipped_reason` is a deliberate refusal the run cannot recover from,
   whereas an empty response may just have flaked. Say which kind each one was.
-- **Coverage:** `complete` or `partial`. When partial, name every reviewer in
-  `reviewers_missing` and every role in the unioned `roles_missing`, and state which lenses the
-  diff was therefore NOT reviewed against. Never omit this line — its absence reads as complete
-  coverage.
+- **Coverage:** `complete` or `partial`. Partial when `reviewers_missing` is non-empty, when the
+  unioned `roles_missing` is non-empty, or when `approach_stage_missing` is set. When partial, name
+  every missing reviewer, every missing role, and the approach role if it was the one missing, and
+  state which lenses the diff was therefore NOT reviewed against. Never omit this line — its
+  absence reads as complete coverage.
 - The PR review's HTML URL (the `html_url` returned by the `gh api .../reviews` response).
 - Any inline comments that had to be demoted to GLOBAL because GitHub rejected them
   (line not in diff), with a brief explanation.
@@ -998,10 +1051,13 @@ the user's request, then still give the tallies below.
 
 **If no review was posted (clean PR):**
 
-- **Only when coverage is complete**, lead with a clear "all clear" line, e.g. ✅ `PR #<PR> looks
-good — four independent reviewers
-(2 × in-depth on Sonnet, 1 × in-depth on Opus, 1 × gh-style) raised no findings at confidence ≥ 60, the approach pair
+- **Only when coverage is complete AND the approach stage ran**, lead with a clear "all clear"
+  line, e.g. ✅ `PR #<PR> looks good — four independent reviewers
+(2 x in-depth on Sonnet, 1 x in-depth on Opus, 1 x gh-style) raised no findings at confidence >= 60, the approach pair
 converged on nothing, and there are no unaddressed discussion items. Nothing posted to GitHub.`
+  That line asserts the pair converged on nothing, which is a claim about a stage that ran and
+  agreed. It is false when the stage never ran, so `approach_stage_missing` blocks this line the
+  same way a missing finder does.
 - **When coverage is partial, do NOT emit that line.** It asserts a clean result from N reviewers,
   which is false if fewer than N reported. Lead instead with what actually happened, e.g.
   ⚠️ `PR #<PR>: no findings from the 3 of 4 reviewers that reported. Sub-agent 3 (in-depth, Opus)
@@ -1012,19 +1068,23 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
 - The PR URL.
 - How many findings each sub-agent originally returned (pre-merge counts), broken down by
   source as above.
-- How many were filtered out by the ≥ 60 threshold (so the user can see whether reviewers
+- How many were filtered out by the >= 60 threshold (so the user can see whether reviewers
   flagged anything below the bar).
 - **Approach stage:** how many findings the approach reviewer raised, how many the pair
   converged on as needing a change, and how many were dropped as `> 50` duplicates. If the
   approach stage is the reason there is anything at all, note that nothing else was posted
-  only because the pair converged on nothing (or every survivor was a duplicate).
+  only because the pair converged on nothing (or every survivor was a duplicate). **If
+  `approach_stage_missing` is set, write `approach stage did not run: <reason>` here instead**,
+  naming which role was missing, e.g. `approach stage did not run: judge returned nothing`. Never
+  report a missing stage as a converged-on-nothing stage.
 - Sub-agents that returned `skipped_reason` (if any) and why. Distinguish these from sub-agents
   that returned nothing. A `skipped_reason` is a deliberate refusal the run cannot recover from,
   whereas an empty response may just have flaked. Say which kind each one was.
-- **Coverage:** `complete` or `partial`. When partial, name every reviewer in
-  `reviewers_missing` and every role in the unioned `roles_missing`, and state which lenses the
-  diff was therefore NOT reviewed against. Never omit this line — its absence reads as complete
-  coverage.
+- **Coverage:** `complete` or `partial`. Partial when `reviewers_missing` is non-empty, when the
+  unioned `roles_missing` is non-empty, or when `approach_stage_missing` is set. When partial, name
+  every missing reviewer, every missing role, and the approach role if it was the one missing, and
+  state which lenses the diff was therefore NOT reviewed against. Never omit this line — its
+  absence reads as complete coverage.
 - Tickets examined and their outcome: `<id> ✅ | ⚠️ N gaps | ❓ unread`. If any in-depth-review
   sub-agent reported `ticket_review.status` of `denied` (user denied access) or `unavailable`
   (no Jira tooling), say so explicitly.
@@ -1033,7 +1093,7 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
 
 - **At most one PR review per run.** The orchestrator posts a single `POST .../pulls/<PR>/reviews`
   call (which atomically carries the global body AND all inline comments) — only when there is
-  at least one surviving finding ≥ 60, at least one surviving approach finding (Step 2.7), OR
+  at least one surviving finding >= 60, at least one surviving approach finding (Step 2.7), OR
   at least one unaddressed prior concern. When all of those are empty, the orchestrator posts
   no review (a sub-threshold ticket note alone is not enough to post). The only other writes the
   orchestrator may make are the opt-in in-progress comment (Step 0.7) and its later deletion
@@ -1052,11 +1112,11 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
   user — do not proceed to post the merged review, since the inner skill could have posted
   from a sub-agent. **The approach and nuanced agents (Step 2.7) are read-only too** — same
   forbidden-write list; abort the orchestration if either appears about to write to GitHub.
-- **Four parallel sub-agents (2 × in-depth-review on Sonnet + 1 × in-depth-review on Opus +
-  1 × gh-style-review).** Launch all four in a single message with concurrent Agent tool calls.
+- **Four parallel sub-agents (2 x in-depth-review on Sonnet + 1 x in-depth-review on Opus +
+  1 x gh-style-review).** Launch all four in a single message with concurrent Agent tool calls.
   Do not fall back to fewer sub-agents for "speed"; the cross-source triangulation is the point.
   Do not use only one source — both prompt structures contribute, and dropping gh-style also
-  drops Discussion Context. The pool is deliberately asymmetric in BOTH source and tier: do not
+  drops Discussion Context. The pool is deliberately asymmetric in BOTH source and tier. Do not
   "balance" the sources back to 2 + 2, and do not make the tiers uniform in either direction
   (see the overview).
 - **Comment-punctuation findings are in scope but low priority.** The sub-skills flag comments
@@ -1071,19 +1131,19 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
   at effort `high` (judging is judgment; proposing is recall). Finders sit at effort `medium`.
   Their inner reviewers/scorers self-tier (Sonnet/Haiku) per those skills. **Never let any of
   these inherit the session model or the session effort** — inheritance is what let a `/effort
-  xhigh` session silently run the whole fan-out at `xhigh`. What protects quality is the ≥60
+  xhigh` session silently run the whole fan-out at `xhigh`. What protects quality is the >=60
   triangulation, the converge stage, and exactly one Opus finder — not a bigger model or more
   thinking on every agent.
 - **Threshold is 60.** Do not raise or lower it on the fly. This applies to the four reviewers'
   findings only. Approach findings (Step 2.7) do NOT use this threshold — they are gated on
   the two agents *converging* on "needs a code change," not on a confidence score.
 - **Approach stage: one pair, agreement is the gate, split tiers.** Run exactly one approach
-  reviewer (proposer, **Sonnet**) + one nuanced agent (judge, **Opus**), once (not 3×). The
+  reviewer (proposer, **Sonnet**) + one nuanced agent (judge, **Opus**), once (not 3x). The
   approach reviewer judges design, architecture, and
   code placement only — not bugs — and explores the wider codebase to do so. A finding posts
   only if (a) the pair converges to both "needs change" within the 3-round cap AND (b) it does
   not duplicate a `merged_all` finding with confidence > 50. Approach findings carry
-  `source = "approach"` and the `[approach, …]` tag, bypass the ≥60 filter, and otherwise post
+  `source = "approach"` and the `[approach, …]` tag, bypass the >=60 filter, and otherwise post
   through the same single review as everything else. The approach stage runs **regardless of
   `--skip-ticket`** — it is independent of the ticket logic.
 - **Flat-pool merging.** Findings from in-depth-review and gh-style-review are merged into

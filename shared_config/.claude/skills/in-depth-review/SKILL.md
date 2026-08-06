@@ -2,10 +2,11 @@
 name: in-depth-review
 description: >
   Performs one in-depth multi-perspective code review of either a pull request or a commit
-  range. Launches NINE TO TWELVE specialized parallel reviewer roles. Nine always run (AGENTS.md
-  compliance, shallow bug scan, git history context, prior PR comments, in-file code comments,
-  error handling, test coverage, headline-benefit / motivation delivery, and — unless
-  `--skip-ticket` is passed — ticket intent compliance). Three are gated on what the diff actually
+  range. Launches EIGHT TO TWELVE specialized parallel reviewer roles. Eight are unconditional
+  (AGENTS.md compliance, shallow bug scan, git history context, prior PR comments, in-file code
+  comments, error handling, test coverage, headline-benefit / motivation delivery). A ninth, ticket
+  intent compliance, runs unless `--skip-ticket` is passed, which is why the floor is eight rather
+  than nine. Three are gated on what the diff actually
   contains: database / data-layer (only when the diff touches data-layer code), OWASP Top 10
   security (skipped only for a diff with no executable code, no dependency change, and no config
   change), and TypeScript type safety (only when the diff touches TypeScript). It then scores each finding
@@ -23,7 +24,7 @@ description: >
 # In-Depth Review
 
 This skill performs ONE complete review pass over a target scope (a PR or a commit range)
-using nine to twelve specialized reviewer roles, then scores, filters, and deduplicates findings. It
+using eight to twelve specialized reviewer roles, then scores, filters, and deduplicates findings. It
 returns the result — it does NOT post anywhere, fix anything, or loop.
 
 The multi-role specialization gives **cross-domain coverage** (style/standards, raw bugs, history,
@@ -65,7 +66,7 @@ fallback `main`).
 Example invocations:
 
 ```
-/in-depth-review 1234              # PR mode, default filter (≥ 70)
+/in-depth-review 1234              # PR mode, default filter (>= 70)
 /in-depth-review #1234 --raw       # PR mode, no filter (return all scored)
 /in-depth-review 1234 --skip-ticket # PR mode, skip the ticket-intent role
 /in-depth-review origin/main..HEAD # branch mode, default filter
@@ -115,9 +116,12 @@ abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git bl
    - Matches `^--roles$` (followed by its value) or `^--roles=...$` → flag; parse the
      comma-separated value into `<ROLE_SET>` (role numbers 1..12 and/or category names via
      the Step 1 table). When the flag is absent, `<ROLE_SET>` = all roles. `--skip-ticket`
-     removes Role #10 from `<ROLE_SET>`, and the three conditional roles (#6, #7, #12) are
-     removed when their Step 1 gates are false. If `<ROLE_SET>` is empty, abort: "no roles
-     selected".
+     removes Role #10 from `<ROLE_SET>` here, since that needs no diff data.
+     **Do NOT evaluate the conditional gates (#6, #7, #12) in Step 0, and do not run the
+     empty-`<ROLE_SET>` abort check here.** Those gates read the changed-file list, which Step 0
+     only records as `<FILES_COMMAND>` without running. Step 1 fetches the file list once,
+     evaluates all three gates, narrows `<ROLE_SET>` further, and owns the abort. Step 0 records
+     the caller's selection. Step 1 finalizes it.
    - Anything else → **branch mode**; `<RANGE>` = the arg.
    - If no positional arg: branch mode with `<RANGE>` = `origin/<default-branch>..HEAD`.
 
@@ -158,12 +162,15 @@ the role entirely (not counted in the total) when its gate is false:
 | #7 OWASP security | almost always — skip only a provably no-surface diff | see Role #7 |
 | #12 TypeScript type safety | the diff touches `*.ts` / `*.tsx` / `*.mts` / `*.cts` | see Role #12 |
 
-So the launch count is **9 to 12**: nine always-on, plus up to three gated, minus #10 under
-`--skip-ticket`. Do not try to memorize a single number — evaluate the gates.
+So the launch count is **9 to 12** normally, and **8 to 11 with `--skip-ticket`**. Nine always run,
+plus up to three gated, minus #10 when `--skip-ticket` drops it. Do not try to memorize a single
+number. Evaluate the gates.
 
-Get the file list once (`gh pr diff <PR> --name-only` in PR mode,
-`git --no-pager diff --name-only <RANGE>` in branch mode) and reuse it for all three gates rather
-than re-running it per role.
+**This step owns gate evaluation and the abort.** Get the file list once
+(`gh pr diff <PR> --name-only` in PR mode, `git --no-pager diff --name-only <RANGE>` in branch mode)
+and reuse it for all three gates rather than re-running it per role. Then narrow `<ROLE_SET>` by the
+gate results, and if that leaves it empty, abort with "no roles selected". Step 0 cannot do any of
+this, because the file list does not exist yet when arguments are parsed.
 
 ### The role → parent return contract
 
@@ -183,13 +190,13 @@ This is a hard requirement, not a default:
   Classify it as missing per Step 2.0. Do not go looking for its output in another channel and
   splice it in — that makes delivery depend on luck rather than on the contract.
 
-This exists because the alternative has already failed in practice: roles pushed results over a
+This exists because the alternative has already failed in practice. Roles pushed results over a
 side channel, the push failed, and the findings survived only because those roles happened to also
 echo them into their text output. Findings arriving is a property the design has to guarantee, not
 an accident it can hope for.
 
 When a caller passed `--roles`, launch only that subset (e.g. two sub-agents for `--roles 1,5`).
-**A gate still wins over explicit selection**: `--roles 6` on a diff with no data-layer code skips
+**A gate still wins over explicit selection.** `--roles 6` on a diff with no data-layer code skips
 Role #6, and if that empties `<ROLE_SET>` the run aborts per Step 0. Naming a role does not
 override its gate, because a gated-off role has nothing to review.
 
@@ -213,7 +220,7 @@ finding:
 
 **Model: spawn every reviewer on Sonnet** (Agent-tool `model: sonnet`) — do NOT let them
 inherit the session model. Each role is a bounded, tightly-specified recall pass over the
-diff; that is exactly the work Sonnet does well and Opus does at ~5× the cost. Confidence is
+diff; that is exactly the work Sonnet does well and Opus does at ~5x the cost. Confidence is
 recovered downstream by the cross-role agreement count and (for the orchestrators) the
 triangulation + adversarial converge stage — not by making each finder more expensive.
 
@@ -394,7 +401,7 @@ minor suggestions; never let them crowd out a real bug.
   database.
 
 Skip it when none hold — a data-layer lens on a diff with no data layer has nothing to read.
-This gate is mechanical: data-layer code is identifiable from the diff without judgement calls,
+This gate is mechanical. Data-layer code is identifiable from the diff without judgement calls,
 which is why this role is gated and #7 is not gated the same way.
 
 **When in doubt, run it.** A missed N+1, unbounded SELECT, or transaction bug is a production
@@ -424,7 +431,7 @@ builder" complaints. If a pattern isn't a real production risk, don't flag it.
 
 ### Reviewer Role #7 — OWASP Top 10 security scan (conditional, but bias hard toward running)
 
-**This gate is inverted relative to #6 and #12: it is defined by what lets you SKIP, not by what
+**This gate is inverted relative to #6 and #12.** It is defined by what lets you SKIP, not by what
 makes it run.** Default to running this role. Skip it only when the diff is provably free of
 security surface, which means ALL of these hold:
 
@@ -661,7 +668,7 @@ files. Ignore every other language in the diff.
 
 Flag these, in the diff's added or modified lines:
 - `value as SomeType` used to force a shape the compiler cannot verify.
-- `value as unknown as SomeType` — the double cast. Treat this as the highest-severity form: it
+- `value as unknown as SomeType` — the double cast. Treat this as the highest-severity form. It
   means the compiler actively disagreed and was overruled twice.
 - `as any`, including in a type parameter or a return position.
 - The non-null assertion `!` on a value that can genuinely be null or undefined at runtime.
@@ -744,7 +751,7 @@ After all reviewers return:
 3. **Launch a scoring sub-agent for each unique finding in parallel** (one sub-agent per
    finding, all in a single message). **Spawn each scorer on Haiku** (Agent-tool
    `model: haiku`) — scoring one finding against the rubric is a small, structured judgment
-   with the diff and AGENTS.md handed in, not open-ended reasoning; Haiku is ~15–20× cheaper
+   with the diff and AGENTS.md handed in, not open-ended reasoning; Haiku is ~15–20x cheaper
    than Opus for it. Give each scorer:
    - The finding (file, line, severity, description, suggested fix)
    - The path of every AGENTS.md / CLAUDE.md file referenced by any reviewer that raised it
@@ -864,6 +871,12 @@ because the cited line is outside the diff — the PR's stated purpose puts that
    contradicts "never resolve an unverified citation upward". The cap applies to the merged entry,
    not just to the members.
 
+   The order matters, so here it is concretely. A group holds member A scoring 60 with
+   `citation_verified: false`, and member B scoring 85 with `citation_verified: true`. The field
+   merges downward to `false`. Confidence takes the max, 85. The re-cap then applies because the
+   merged entry is unverified, giving a final **60**, not 85. Do it in the other order and the
+   finding ships at 85 with an unverified citation.
+
 ## Step 4: Return / report
 
 Order surviving findings by:
@@ -953,7 +966,7 @@ Render a chat report:
 ```
 # In-Depth Review — <SCOPE_DESCRIPTION>
 
-**Findings (confidence ≥ 70):** N
+**Findings (confidence >= 70):** N
 
 1. <title> &nbsp;`[severity, roles N, confidence X]`
    <file>:<line_range>
@@ -971,7 +984,7 @@ prominent warning: `⚠️ **Ticket review NOT performed** — <note>. Install/a
 the Atlassian MCP, or re-run with --skip-ticket.` When the status is `denied`, show:
 `ℹ️ Ticket review skipped — access denied.`
 
-If zero findings survive: report `✅ No issues found at confidence ≥ 70.`
+If zero findings survive: report `✅ No issues found at confidence >= 70.`
 
 If `--raw` was set, the chat report header changes to `**All scored findings (no filter):**`
 and the threshold note is dropped.
@@ -981,8 +994,9 @@ and the threshold note is dropped.
 - **No GitHub writes, ever.** Prefer the equally read-only GitHub MCP PR-read tools; read-only
   `gh` calls (list, view, diff, search) are the fallback when no MCP is connected.
   Sub-agents that try to issue a write should be aborted and surfaced to the caller.
-- **9 to 12 parallel reviewers per pass.** Nine always run (#1, #2, #3, #4, #5, #8, #9, #11, plus
-  #10 unless `--skip-ticket`). Three are gated on the diff: #6 data-layer, #7 security, #12
+- **9 to 12 parallel reviewers per pass, or 8 to 11 with `--skip-ticket`.** Eight are
+  unconditional (#1, #2, #3, #4, #5, #8, #9, #11). #10 runs unless `--skip-ticket` drops it, which
+  is what lowers the floor to eight. Three are gated on the diff: #6 data-layer, #7 security, #12
   TypeScript — see the Step 1 gate table. A caller may run a smaller subset via
   `--roles` (Step 0/1) for iterative reruns — that is the ONLY reason to drop a role beyond the
   gates. Never serialize, and never drop an ungated role for speed on a standalone or first-pass

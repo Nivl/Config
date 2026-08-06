@@ -558,6 +558,8 @@ Review error-handling patterns introduced or modified by the diff:
    a rollback / compensation / retry path on partial failure.
 6. Context preservation — errors that lose the underlying cause (re-throwing a new error
    without wrapping the original; using `throw new Error(e.message)` instead of `cause: e`).
+7. Log level. A failure that needs human attention logged below error level. Error is what
+   monitors are keyed to, so a bug logged at `warn` is a bug nobody is paged for.
 
 Skip "you could define a custom error class". Skip pedantic typing-only nits. Only flag
 patterns that could cause real bugs, data corruption, security leaks, or unmaintainable

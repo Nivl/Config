@@ -117,6 +117,22 @@ These are fine and are not what this rule is about:
 
 When a cast looks unavoidable, that is usually a signal that a type is wrong further upstream or that a boundary is missing its validation step. Fix the upstream type or add the guard. Do not paper over it at the use site.
 
+## Logging levels
+
+Error level is what monitors are keyed to. Anything a human needs to see and act on emits at error, even when the code handled it and recovered. A bug logged at warn is a bug nobody is paged for.
+
+Warn is for a condition you expected, handled, and nobody needs to act on. If you can name who must act on it and what they would do about it, it was not a condition you expected, so it is an error. A condition nobody must act on does not belong at error, since every false error dilutes the level monitors page on.
+
+A `catch` block that logs and continues must say why continuing is correct. Swallowing a failure converts it into silent wrong behavior, which is harder to diagnose than a crash. If the fallback path is genuinely fine, a comment naming why belongs there. If it is not fine, the log is an error and the failure propagates.
+
+## Emitting metrics
+
+Emit a metric only when something will consume it. Be able to name the consumer before adding the metric, meaning a dashboard, a monitor, or an experiment readout. A cron is the clear yes case. Nobody watches it run, so the monitor keyed to its success or its absence is the consumer. Unread telemetry is not free. It persists indefinitely, and it advertises a monitoring story that does not exist, so a later reader trusts a signal no alert is keyed to.
+
+- A counter next to an error-level log for the same failure usually fails this test (`calmLogger.error` in Calm repos). The error log is already the loud, alertable signal, so the counter earns its place only if you specifically need the aggregate volume as well. See "Logging levels" above.
+- Prefer deriving a number from data already kept, such as a table you can count or an event already emitted, over a new counter whose only purpose is to be counted.
+- Splitting one condition across several counters needs a reason a reader can check. If two counters exist so a dashboard can tell two causes apart, say which dashboard. Otherwise emit one, or none.
+
 ## Plain ASCII in authored prose
 
 Text you write for humans -- commit messages, code comments, PR and issue descriptions, docs -- uses plain, keyboard-typable ASCII punctuation. The fancy Unicode glyphs read as AI-written, and most people can't type them to match. Substitute:

@@ -343,7 +343,16 @@ Once all four sub-agents have returned:
 3. **For each group, produce one merged finding:**
    - `confidence`: **max** of the group's scores (any one reviewer with high confidence is strong
      evidence; merging by max is intentionally non-conservative).
-   - `agreement`: count of distinct sub-agents (1..4) that raised this finding.
+   - `cross_instance_agreement`: count of distinct sub-agents (1..4) that raised this finding.
+     This is the name `review-and-fix` already uses; do not invent a third.
+     **Compute it yourself. Never reuse the `role_agreement` value on an incoming finding as this
+     count.** The denominators differ. `role_agreement` is how many of ONE instance's
+     9-12 role lenses raised the finding, and this is how many of the four independent instances
+     did. Roles share a model and a context window and are prompted to look at different things,
+     so several converging is correlated evidence. Separate instances converging is the
+     independent signal, and it is the one that should drive ordering.
+   - `role_agreement`: carry through the MAX across the group, for use as a lower tiebreaker.
+     Keeping it preserves the role-level signal rather than discarding it.
    - `sources`: set of distinct sources (`{"in-depth-review"}`, `{"gh-style-review"}`, or both).
      A finding raised by both sources is stronger signal than a finding raised by only one;
      used as a tiebreaker in step 6.
@@ -368,13 +377,15 @@ Once all four sub-agents have returned:
 
 6. **Order the surviving findings:**
    1. `confidence` descending
-   2. `agreement` descending (4/4 > 2/4 > 1/4 when scores tie)
+   2. `cross_instance_agreement` descending (4/4 > 2/4 > 1/4 when scores tie)
    3. Both-sources first (a finding raised by both in-depth-review and gh-style-review beats
       a same-confidence-and-agreement finding from a single source)
-   4. `category` priority: bug > types > AGENTS.md > history > prior PR > comment guidance > ticket
+   4. `role_agreement` descending. A finding several role lenses independently raised beats one
+      a single lens raised, once the stronger cross-instance signal has already tied
+   5. `category` priority: bug > types > AGENTS.md > history > prior PR > comment guidance > ticket
 
    **Do not deprioritize a solo finding from sub-agent 3 (the Opus finder) on agreement alone.**
-   Catching what the Sonnet reviewers miss is precisely its job, so `agreement: 1` from that
+   Catching what the Sonnet reviewers miss is precisely its job, so `cross_instance_agreement: 1` from that
    instance is expected rather than weak evidence. When an Opus-only finding ties on
    `confidence` with a multi-reviewer Sonnet finding, rank the Opus-only one first. This
    overrides tiebreaker 2 for that case and nothing else.
@@ -489,7 +500,7 @@ in `merged_all` over 50 is kept.
 
 Each kept approach finding becomes a normal finding for Step 3 with:
 
-- `source = "approach"`, `agreement = null` (it is not one of the 6 reviewers).
+- `source = "approach"`, `cross_instance_agreement = null` (it is not one of the four reviewers).
 - `confidence` = the approach reviewer's own round-1 score — used **only** for
   ordering/display. The rebut rounds do not re-emit `confidence`, so carry the round-1 value
   forward.
@@ -500,7 +511,7 @@ Each kept approach finding becomes a normal finding for Step 3 with:
 **Agreement is the gate, not the score.** Approach findings are added to the Step 2 findings
 pool **without** re-applying the ≥60 filter — they already passed the mutual-agreement bar in
 2.7a. Order them within the pool by `confidence` like the others (for the tiebreakers, treat
-`agreement = null` as lowest, an approach finding as single-source — never both — for the
+`cross_instance_agreement = null` as lowest, an approach finding as single-source — never both — for the
 both-sources tiebreaker, and lowest for the category-priority tiebreaker). They then flow
 through Step 3's INLINE/GLOBAL classification and posting unchanged, except for the annotation
 in Step 3b.

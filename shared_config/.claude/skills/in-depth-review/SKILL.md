@@ -734,7 +734,7 @@ After all reviewers return:
    from any role is an empty (clean) response.
 2. **Pre-score deduplication** — group findings that look like duplicates (same file +
    overlapping line range + substantially the same problem). For each group, keep one canonical
-   entry and record the **agreement count** (how many of the role outputs raised it).
+   entry and record **`role_agreement`** (how many of the role outputs raised it).
    Highest severity in the group wins.
 3. **Launch a scoring sub-agent for each unique finding in parallel** (one sub-agent per
    finding, all in a single message). **Spawn each scorer on Haiku** (Agent-tool
@@ -744,7 +744,7 @@ After all reviewers return:
    - The finding (file, line, severity, description, suggested fix)
    - The path of every AGENTS.md / CLAUDE.md file referenced by any reviewer that raised it
    - The diff for the relevant lines
-   - The agreement count
+   - The `role_agreement` count
 
    **The scoring stage is MANDATORY and is not yours to perform.** Confidence is a second-stage
    judgment by a different model than the one that proposed the finding. That two-stage split is
@@ -808,7 +808,7 @@ consequences:
   or below the line. Reachability (can the path EVER execute) is a truth question and bounds
   confidence; frequency (how OFTEN, how big the blast radius) is impact and does not.
 
-When scoring, the agreement count and the diff are inputs to *truth*, not impact — more roles
+When scoring, `role_agreement` and the diff are inputs to *truth*, not impact — more roles
 raising the same provable violation supports a higher confidence, never a lower one.
 
 **Ticket-category findings** (from Role #10) are scored on the same 0–100 scale. The question
@@ -847,14 +847,14 @@ because the cited line is outside the diff — the PR's stated purpose puts that
 
 2. **Post-score dedup** — re-check for duplicates one more time, in case scoring revealed two
    findings that scored identically and pointed at the same locus. Keep the highest severity,
-   max confidence, union of categories, and max agreement.
+   max confidence, union of categories, and max `role_agreement`.
 
 ## Step 4: Return / report
 
 Order surviving findings by:
 
 1. Severity descending (critical → major → minor → suggestion)
-2. Agreement count descending (more roles raised it → higher priority)
+2. `role_agreement` descending (more roles raised it, higher priority)
 3. Confidence descending
 
 ### If invoked as a sub-agent (by `review-and-fix` or `pr-review`)
@@ -879,7 +879,7 @@ Return this exact JSON shape:
       "description": "<full text>",
       "suggested_fix": "<text or code snippet>",
       "confidence": <0..100, or null when unscored>,
-      "agreement": <1..10>,
+      "role_agreement": <1..12>,
       "citation_verified": <true | false | null>,
       "unscored": <true when no scorer produced this finding's confidence; omit or false otherwise>,
       "permalink": "<github blob URL with full SHA, if available; null otherwise>"
@@ -940,7 +940,7 @@ Render a chat report:
 
 **Findings (confidence ≥ 70):** N
 
-1. <title> &nbsp;`[severity, agreement N, confidence X]`
+1. <title> &nbsp;`[severity, roles N, confidence X]`
    <file>:<line_range>
    <description>
    *Suggested fix:* <fix>

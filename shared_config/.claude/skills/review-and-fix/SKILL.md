@@ -48,10 +48,9 @@ Each iteration:
    iterations).
 
 The triangulation lives **here**, not inside the sub-skills. Each `in-depth-review` pass
-is itself a multi-role review (up to 12 roles; the 10th is ticket intent compliance, on by
-default, and the 12th is TypeScript type safety, which runs only when the diff touches
-TypeScript). Each `gh-style-review` pass is the @claude review GitHub Action prompt with full PR
-context (when in PR mode).
+is itself a multi-role review (9 to 12 roles; nine always run, and three are gated on what the
+diff contains — data-layer, security, and TypeScript). Each `gh-style-review` pass is the
+@claude review GitHub Action prompt with full PR context (when in PR mode).
 
 ## Adaptive rerun (why later iterations run fewer reviewers)
 

@@ -2,11 +2,13 @@
 name: in-depth-review
 description: >
   Performs one in-depth multi-perspective code review of either a pull request or a commit
-  range. Launches up to TWELVE specialized parallel reviewer roles (AGENTS.md compliance, shallow bug
-  scan, git history context, prior PR comments, in-file code comments, database / data-layer,
-  OWASP Top 10 security, error handling, test coverage, headline-benefit / motivation delivery,
-  — unless `--skip-ticket` is passed — ticket intent compliance, and — only when the diff touches
-  TypeScript — TypeScript type safety), then scores each finding
+  range. Launches NINE TO TWELVE specialized parallel reviewer roles. Nine always run (AGENTS.md
+  compliance, shallow bug scan, git history context, prior PR comments, in-file code comments,
+  error handling, test coverage, headline-benefit / motivation delivery, and — unless
+  `--skip-ticket` is passed — ticket intent compliance). Three are gated on what the diff actually
+  contains: database / data-layer (only when the diff touches data-layer code), OWASP Top 10
+  security (skipped only for a diff with no executable code, no dependency change, and no config
+  change), and TypeScript type safety (only when the diff touches TypeScript). It then scores each finding
   0–100 for confidence, filters anything below 70, and deduplicates. Returns the surviving findings.
   Never writes to GitHub.
   Used as one of two parallel review primitives (the other being `gh-style-review`) by
@@ -21,7 +23,7 @@ description: >
 # In-Depth Review
 
 This skill performs ONE complete review pass over a target scope (a PR or a commit range)
-using up to twelve specialized reviewer roles, then scores, filters, and deduplicates findings. It
+using nine to twelve specialized reviewer roles, then scores, filters, and deduplicates findings. It
 returns the result — it does NOT post anywhere, fix anything, or loop.
 
 The multi-role specialization gives **cross-domain coverage** (style/standards, raw bugs, history,
@@ -113,8 +115,9 @@ abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git bl
    - Matches `^--roles$` (followed by its value) or `^--roles=...$` → flag; parse the
      comma-separated value into `<ROLE_SET>` (role numbers 1..12 and/or category names via
      the Step 1 table). When the flag is absent, `<ROLE_SET>` = all roles. `--skip-ticket`
-     removes Role #10 from `<ROLE_SET>`, and a diff with no TypeScript removes Role #12. If
-     `<ROLE_SET>` is empty, abort: "no roles selected".
+     removes Role #10 from `<ROLE_SET>`, and the three conditional roles (#6, #7, #12) are
+     removed when their Step 1 gates are false. If `<ROLE_SET>` is empty, abort: "no roles
+     selected".
    - Anything else → **branch mode**; `<RANGE>` = the arg.
    - If no positional arg: branch mode with `<RANGE>` = `origin/<default-branch>..HEAD`.
 
@@ -142,13 +145,30 @@ abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git bl
 ## Step 1: Launch the specialized reviewers in parallel
 
 Spawn the reviewer sub-agents in a single message (concurrent tool-use blocks). Launch
-exactly the roles in `<ROLE_SET>` (Step 0). By default `<ROLE_SET>` is all roles — **12**
-when ticket review is active and the diff touches TypeScript, **11** when either one of those
-does not hold, or **10** when neither does. Role #10 is omitted by `--skip-ticket`; Role #12 is
-omitted when the diff has no `*.ts` / `*.tsx` / `*.mts` / `*.cts` file (see Role #12); Role #11
-always runs. When a caller passed `--roles`, launch only that subset (e.g. two
-sub-agents for `--roles 1,5`) — a `--roles` set naming 12 still skips it on a diff with no
-TypeScript. Sequential launches defeat the purpose of this design — never serialize.
+exactly the roles in `<ROLE_SET>` (Step 0). Sequential launches defeat the purpose of this
+design — never serialize.
+
+**Nine roles always run: #1, #2, #3, #4, #5, #8, #9, #11**, plus #10 unless `--skip-ticket`.
+Three more are **conditional** — evaluate each gate against the diff before launching, and skip
+the role entirely (not counted in the total) when its gate is false:
+
+| role | runs when | gate detail |
+|---|---|---|
+| #6 database / data-layer | the diff touches data-layer code | see Role #6 |
+| #7 OWASP security | almost always — skip only a provably no-surface diff | see Role #7 |
+| #12 TypeScript type safety | the diff touches `*.ts` / `*.tsx` / `*.mts` / `*.cts` | see Role #12 |
+
+So the launch count is **9 to 12**: nine always-on, plus up to three gated, minus #10 under
+`--skip-ticket`. Do not try to memorize a single number — evaluate the gates.
+
+Get the file list once (`gh pr diff <PR> --name-only` in PR mode,
+`git --no-pager diff --name-only <RANGE>` in branch mode) and reuse it for all three gates rather
+than re-running it per role.
+
+When a caller passed `--roles`, launch only that subset (e.g. two sub-agents for `--roles 1,5`).
+**A gate still wins over explicit selection**: `--roles 6` on a diff with no data-layer code skips
+Role #6, and if that empties `<ROLE_SET>` the run aborts per Step 0. Naming a role does not
+override its gate, because a gated-off role has nothing to review.
 
 The role number ↔ category mapping used by `--roles` and by the `category` field of every
 finding:
@@ -305,7 +325,27 @@ Do NOT flag hyphenated words (`read-only`), CLI flags (`-c`), ranges (`1-10`), l
 minor suggestions; never let them crowd out a real bug.
 ```
 
-### Reviewer Role #6 — Database / data-layer scan
+### Reviewer Role #6 — Database / data-layer scan (conditional)
+
+**Runs only when the diff touches data-layer code.** Launch it when ANY of these hold:
+
+- A changed file is a migration or schema file (`migrations/`, `db/migrate/`, `schema.rb`,
+  `schema.prisma`, `*.sql`).
+- A changed file sits in a data-layer path (`models/`, `repositories/`, `repos/`, `dao/`,
+  `entities/`, `queries/`, `persistence/`).
+- The diff's added or modified lines contain SQL (`SELECT`, `INSERT`, `UPDATE`, `DELETE`,
+  `JOIN`, `CREATE TABLE`, `ALTER TABLE`) in a string, heredoc, or query builder.
+- The diff touches an ORM or query builder (Prisma, Sequelize, TypeORM, Knex, Drizzle, Mongoose,
+  ActiveRecord, SQLAlchemy, Django ORM, GORM, Ecto, Diesel) or imports the repo's own db module.
+- The diff changes transaction handling, connection pooling, or a caching layer that fronts a
+  database.
+
+Skip it when none hold — a data-layer lens on a diff with no data layer has nothing to read.
+This gate is mechanical: data-layer code is identifiable from the diff without judgement calls,
+which is why this role is gated and #7 is not gated the same way.
+
+**When in doubt, run it.** A missed N+1, unbounded SELECT, or transaction bug is a production
+incident; a wasted agent is not. Prefer a false positive on the gate over a false negative.
 
 ```
 Your job: read ONLY the diff itself. Do NOT read surrounding context unless you absolutely must.
@@ -329,7 +369,31 @@ Skip nitpicks. Skip anything a linter would catch. Skip "could use a more idioma
 builder" complaints. If a pattern isn't a real production risk, don't flag it.
 ```
 
-### Reviewer Role #7 — OWASP Top 10 security scan
+### Reviewer Role #7 — OWASP Top 10 security scan (conditional, but bias hard toward running)
+
+**This gate is inverted relative to #6 and #12: it is defined by what lets you SKIP, not by what
+makes it run.** Default to running this role. Skip it only when the diff is provably free of
+security surface, which means ALL of these hold:
+
+- No changed file is executable code. The diff touches only documentation, comments, markdown,
+  changelogs, or a formatting-only reflow.
+- No dependency manifest or lockfile changed (`package.json`, `requirements.txt`, `go.mod`,
+  `Gemfile`, `Cargo.toml`, any `*.lock`) — a version change is a supply-chain surface.
+- No configuration, environment, secret, IAM, or CI/CD file changed.
+
+If you find yourself constructing an argument for why some code change is safe, stop and run the
+role. The gate is a formality for docs-only diffs, not a judgement call about code.
+
+**Why this gate is narrow, unlike #6's.** Security surface is not mechanically identifiable the
+way data-layer code is. Almost anything touching input, I/O, rendering, deserialization, paths,
+or dependencies has one. Measurement backs this up: in the role-subsetting experiment the security
+lens returned empty on a TTL cache and a CSV parser, and both of those DO have surface — a cache
+with unbounded user-controllable keys is a DoS vector, and a CSV parser consumes untrusted input.
+Those empty results meant "looked, found no vulnerability", which is a successful review, not a
+wasted agent. Do not mistake one for the other and widen this gate.
+
+A false negative here is the most expensive miss in the whole role set. Asymmetric cost gets an
+asymmetric gate.
 
 ```
 Your job: read ONLY the diff itself. Do NOT read surrounding context unless you absolutely must.
@@ -746,18 +810,22 @@ and the threshold note is dropped.
 - **No GitHub writes, ever.** Prefer the equally read-only GitHub MCP PR-read tools; read-only
   `gh` calls (list, view, diff, search) are the fallback when no MCP is connected.
   Sub-agents that try to issue a write should be aborted and surfaced to the caller.
-- **Up to 12 parallel reviewers per pass** — 11 by default (the 11th is headline-benefit /
-  motivation delivery, always-on; the 10th is ticket intent compliance), 12 when the diff also
-  touches TypeScript (Role #12), and one fewer in each case when `--skip-ticket` drops Role #10.
-  A caller may run a smaller subset via
-  `--roles` (Step 0/1) for iterative reruns — that is the ONLY reason to drop a role. Never
-  serialize, and never drop a role for speed on a standalone or first-pass review. The role
-  specialization is the point.
-- **Role #12 is conditional, not optional.** Skip it when the diff contains no `*.ts` / `*.tsx` /
-  `*.mts` / `*.cts` file, and run it whenever the diff does. This is a cost guard, not a quality
-  dial: a language-specific lens is pure waste on a diff without that language, and skipping it
-  there is what pays for the extra recall on the diffs that have it. Do not skip it on a
-  TypeScript diff to save an agent.
+- **9 to 12 parallel reviewers per pass.** Nine always run (#1, #2, #3, #4, #5, #8, #9, #11, plus
+  #10 unless `--skip-ticket`). Three are gated on the diff: #6 data-layer, #7 security, #12
+  TypeScript — see the Step 1 gate table. A caller may run a smaller subset via
+  `--roles` (Step 0/1) for iterative reruns — that is the ONLY reason to drop a role beyond the
+  gates. Never serialize, and never drop an ungated role for speed on a standalone or first-pass
+  review. The role specialization is the point.
+- **The three gated roles are conditional, not optional.** A gate answers "is there anything in
+  this diff for this lens to read", and it is a cost guard, not a quality dial. Skipping a
+  language- or domain-specific lens on a diff without that language or domain is free; skipping
+  it on a diff that HAS one is a missed finding. Never resolve a gate as false to save an agent.
+  When a gate is genuinely ambiguous, run the role.
+- **#7's gate is deliberately narrower than #6's and #12's.** Data-layer code and TypeScript files
+  are mechanically identifiable; security surface is not. Skip #7 only for a diff with no
+  executable code, no dependency or lockfile change, and no config/secret/CI change. An empty
+  result from #7 means "looked, found no vulnerability" — a successful review, NOT evidence that
+  the role should have been gated off. Do not widen this gate on the strength of empty results.
 - **Role #10 is read-only and abortable.** It may use `acli jira workitem view` (Jira read)
   and read-only Datadog MCP tools — nothing else. On any denied permission it returns
   `TICKET_REVIEW_SKIPPED: access denied` and stops. This is the user's "ignore this reviewer"

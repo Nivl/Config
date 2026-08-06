@@ -22,7 +22,7 @@ description: >
 # PR Review (4x-reviewed, mixed-tier)
 
 This skill orchestrates **four** parallel reviewer sub-agents against a single PR: **two
-instances of `in-depth-review` on Sonnet** (each runs eleven roles by default, twelve when the diff touches TypeScript, one fewer with `--skip-ticket`; all raw scored findings),
+instances of `in-depth-review` on Sonnet** (each runs nine to twelve roles depending on what the diff contains, one fewer with `--skip-ticket`; all raw scored findings),
 **one instance of `in-depth-review` on Opus** (the subtle-bug catcher — see Mixed-tier finders
 below), and
 **one instance of `gh-style-review`** (the `@claude review` GitHub Action prompt

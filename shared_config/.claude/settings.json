@@ -347,6 +347,7 @@
       "Bash(which *)",
       "Bash(xxd *)",
       "Skill(code-review:code-review)",
+      "WebFetch(domain:developer.apple.com)",
       "WebFetch(domain:docs.stripe.com)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:go.dev)",

@@ -73,9 +73,10 @@ comments or formatting. The loop adapts based on what a completed iteration actu
 
 This is safe without any final full-sweep because the pruned state is only ever entered after
 a no-logic-change iteration, and the moment any fix touches logic the loop re-escalates to a
-full rerun. So every logic reviewer that was still available has validated the final logic before
-the loop ends. A kind in `reviewer_unavailable` validated nothing, and Coverage reports such a run
-as `partial`. See the worked example at the end of Step 3.
+full rerun. So every logic reviewer that was still available has validated the final logic by the
+time the loop stops on row 1, row 1c, or row 2. An interrupted run carries no such guarantee. A kind
+in `reviewer_unavailable` validated nothing, and Coverage reports such a run as `partial`. See the
+worked example in Step 3.
 
 **Flag:** pass `--skip-ticket` to disable ticket intent compliance (Role #10) in both
 `in-depth-review` instances and skip the Jira-tooling preflight.
@@ -227,9 +228,9 @@ and therefore inherited the session value.
 **Why this matters more here than anywhere else.** The Agent tool has no `effort` parameter, so
 unset effort **inherits the session effort**. This skill runs its fan-out in a *loop* with no cap
 on the iteration count, so an inherited `xhigh` is multiplied by however many iterations the run
-takes. Pinning it in the agent definition is the only way to fix both knobs together. Effort is `medium` because that is the
-level the cost-efficiency study measured; recall was flat from `low` through `xhigh` while
-latency scaled ~3.9x, so `low` is a plausible further saving worth trialling.
+takes. Pinning it in the agent definition is the only way to fix both knobs together. Effort is
+`medium` because that is the level the cost-efficiency study measured; recall was flat from `low`
+through `xhigh` while latency scaled ~3.9x, so `low` is a plausible further saving worth trialling.
 
 `in-depth-review` / `gh-style-review` still pin their own internal tiers (their inner reviewers ->
 Sonnet, scorers -> Haiku). The fix step (Step 2) stays on the **session model.** Applying and
@@ -597,7 +598,8 @@ Track state explicitly:
   `batch_incomplete` too, because an `unavailable` kind is never launched and so never shows up in
   the per-iteration `reviewers_missing`. Without that third condition `batch_clean` would compute
   true on the very iteration row 1c stops as partial.
-- `reviewers_missing`, `roles_missing`: per-iteration; carried into the summary and Final Report
+- `reviewers_missing`, `roles_missing`: per-iteration; carried into the per-iteration summary and
+  Final Report
 - `reviewer_unavailable`: per-RUN set of reviewer kinds that will not be relaunched (deterministic
   refusal, or a transient shortfall that already used its one retry)
 - `reviewer_retries`: per-RUN count per kind, capped at 1. Increment it on any relaunch of a kind
@@ -624,8 +626,8 @@ ever skipped while the logic it already approved is unchanged, and by the time t
 row 1, row 1c, or row 2 every logic reviewer that was still available has validated the final
 logic. An interrupted run carries no such guarantee, because an interrupt can land right after a
 logic-change commit. A kind in `reviewer_unavailable` validated nothing, so a run that stops with
-one reports `partial` coverage instead. A fix that sneaks a logic change past a "comment" finding is caught by the diff
-classifier, not by re-running everyone.
+one reports `partial` coverage instead. A fix that sneaks a logic change past a "comment" finding
+is caught by the diff classifier, not by re-running everyone.
 
 Note: a non-empty `unaddressed_pool` in PR mode does NOT prevent the loop from terminating.
 "Still unaddressed" items are surfaced for the user to consider, but the fix loop is
@@ -724,7 +726,7 @@ Summarise the entire session in a clear report to the user:
 ### Tickets examined
 - <id>: ✅ implemented | ⚠️ N gap(s) — <user decision> | ❓ unread
 
-### Remaining Issues (if iteration limit reached)
+### Remaining Issues (omit when every surviving finding was fixed)
 - <finding description> [severity, cross-instance N/M active, sources <in-depth|gh-style|both>, confidence X] — <file:line>
 - ...
 
@@ -739,8 +741,8 @@ Summarise the entire session in a clear report to the user:
   ⚠️ <gap>
 
 (This reflects the LATEST iteration's gh-style-review snapshot. If the loop ran many
-iterations, intermediate snapshots are not reproduced. They're available in the
-per-iteration logs above.)
+iterations, intermediate snapshots are not reproduced here. The per-iteration summaries
+above track them as counts plus what changed each iteration.)
 
 ### Coverage
 complete | partial — `partial` whenever `reviewer_unavailable` is non-empty for the run, OR a kind's
@@ -770,8 +772,9 @@ else the run achieved. Names what made it partial and says what went unreviewed,
 that stopped the run. Row 1c is the empty-findings case with an `unavailable` kind. A row 2 stop
 uses this outcome too whenever Coverage is `partial`, adding that nothing was committed.
 — OR —
-✅ Converged — the last iteration committed no changes and Coverage is `complete`. Nothing left to
-fix. Done.
+✅ Converged — the last iteration committed no changes and Coverage is `complete`. Every finding it
+surfaced was deferred, dismissed, or left unfixed, and Remaining Issues (or Tickets examined, for
+ticket gaps) lists them. Done.
 ```
 
 **Selecting the Outcome line: a green check requires Coverage to be `complete`.** Key it on Coverage
@@ -783,6 +786,13 @@ partial and what went unreviewed. So "✅ Clean batch" is reachable only from ro
 coverage, and "✅ Converged" only from a row 2 stop with complete coverage. Never pair a green check
 with `partial` coverage. The two sections are read together, and a green check above a `partial`
 Coverage line is exactly the unearned clean result this machinery exists to prevent.
+
+For the **Remaining Issues** section: emit it whenever a finding that passed the `>=50` filter did
+not become a commit. The row 2 stop is the common case, since findings existed and nothing was
+committed, so every one of them is still open. A fix abandoned because lint or tests failed belongs
+here too. Deferred and dismissed ticket findings do not. They are listed under Tickets examined
+with their decision. Omit the section when every surviving finding either became a commit or was a
+deferred or dismissed ticket finding.
 
 For the **Tickets examined** section: omit it entirely when no ticket IDs were found or
 `--skip-ticket` was passed. List any deferred or dismissed ticket findings (from

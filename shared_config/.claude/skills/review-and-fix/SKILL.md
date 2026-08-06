@@ -306,8 +306,8 @@ return the abort reason to me instead of proceeding.
 **First, account for every sub-agent this iteration launched.** Classify each as *reported* or
 *missing* (nothing returned, errored, or unparseable output). Then roll the per-instance verdict up
 to the reviewer kind, since that is what the bookkeeping below is keyed on. Record every kind that
-fell short in `reviewers_missing`, keep the per-instance detail for the summary, and union the
-`roles_missing` arrays the in-depth-review instances report.
+fell short in `reviewers_missing`, keep the per-instance detail for the per-iteration summary, and
+union the `roles_missing` arrays the in-depth-review instances report.
 Read every result from the Agent tool's return value. A sub-agent whose returned text is empty
 has reported nothing, whatever it may have sent over any other channel.
 
@@ -668,6 +668,43 @@ Traces the retry union, row 1b, and row 1c. All three are absent from the exampl
 - **Row 1b, for contrast.** Had Iter 1's findings list been empty when gh-style fell short, row 1b
   would have fired instead of row 5, and the active set would have been the short kind ONLY. Same
   retry, reached by a different row. That is the path the union generalizes to every other row.
+
+### Per-iteration summary
+
+Every iteration ends by emitting one summary block to chat. Emit it last in Step 3, after the
+table has picked a row and after the union and the subtraction have computed the next active set.
+That is the earliest point at which every item below exists. The table's "go to Step 1" and
+"proceed to Final Report" actions both happen after the block is out. Never batch two iterations
+into one block, and never hold a block back to the end of the run.
+
+There is no iteration cap, so the user stops a run that is not converging by interrupting it, and
+an interrupted run never reaches Step 4. These blocks plus the commits are then the only record of
+what the run did. Emit it to chat, the same as the iteration-start announcement. Do not write it to
+a file in the working tree, because Step 2 commits with `git add -A` and would sweep that file into
+the next fix commit.
+
+Cover these in this order, one line each, and drop any line that has nothing to say:
+
+- The `iteration` number and the active reviewer set that ran.
+- Which kinds reported and which fell short, keeping the per-instance detail, plus the unioned
+  `roles_missing` and the retry or `unavailable` state of any short kind. A shortfall that a later
+  relaunch cleared is recorded here and nowhere else.
+- Each finding kept by the `>=50` filter with its outcome, meaning the short commit hash, or
+  deferred, or dismissed, or abandoned because lint or tests failed.
+- Unfiltered leads, naming the instance and which rule excluded them (`scoring.complete` false,
+  `unscored`, or `citation_verified` false).
+- `any_logic_change` for the iteration.
+- Discussion Context in PR mode, as resolved and unaddressed counts plus whatever changed since
+  the previous iteration. Say so instead when gh-style was not active and the previous snapshot
+  carries forward unchanged.
+- Any anomaly with no other home, such as a `subagent_type` that did not resolve and left effort
+  inherited.
+- The row that fired, and either the next iteration's active set or the stop.
+
+Keep it terse. The loop is uncapped, so this cost is paid on every iteration, and the Final Report
+carries the detail. An interrupt during the fix phase leaves that iteration with no block at all.
+The commits are already in `git log`, one per fix. Do not reconstruct a Final Report for an
+interrupted run, and do not relaunch reviewers to recover state that was never printed.
 
 ## Step 4: Final Report
 

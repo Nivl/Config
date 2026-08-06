@@ -46,12 +46,12 @@ Single positional arg, optional. Auto-detects mode:
 
 - **PR mode** — arg looks like `123`, `#123`, or a GitHub PR URL. Diff source = `gh pr diff`.
   Pre-fetches the full PR conversation context (comments, review threads, prior reviews) so
-  the review can cross-reference what humans have already raised. **Draft PRs are accepted**
-  — reviewing a draft is a valid workflow.
+  the review can cross-reference what humans have already raised. **Draft PRs are accepted.**
+  Reviewing a draft is a valid workflow.
 - **Branch mode** — arg is a git revision range (e.g. `origin/main..HEAD`, `HEAD~5..HEAD`).
   Diff source = `git diff <RANGE>`. No PR required. The comment-derived XML sections
   (`<comments>`, `<review_comments>`, `<prior_reviews>`) and the `## Discussion Context`
-  output section are **omitted** in this mode — there's nothing to fetch.
+  output section are **omitted** in this mode. There's nothing to fetch.
 
 If no arg is supplied:
 1. First try PR mode by detecting an open PR for the current branch via
@@ -97,7 +97,7 @@ tools with `ToolSearch "github pull request"` and call the operation matching th
 | `gh api …/contents/<path>?ref=<SHA>` | get file contents at a ref |
 
 Prefer the GitHub MCP when connected; fall back to `gh` only when no MCP is available. Both
-paths are **read-only** here — read calls map to read tools, so the "never writes to GitHub"
+paths are **read-only** here. Read calls map to read tools, so the "never writes to GitHub"
 constraint is unchanged. If NEITHER a GitHub MCP nor `gh` is available, surface that and stop:
 PR mode cannot proceed without PR context. Local `git` calls (`git show`, `git fetch`,
 `git diff`, `git log`) need no `gh` and are unaffected.
@@ -118,7 +118,7 @@ PR mode cannot proceed without PR context. Local `git` calls (`git show`, `git f
    ```
    Save `<OWNER>`, `<REPO>`, `<PR_NUM>`, `<BASE_REF>`, `<HEAD_REF>`, `<HEAD_SHA>` (= `headRefOid`), `<IS_DRAFT>`.
 
-   Make the reviewed code readable locally **without disturbing the working tree** — the PR
+   Make the reviewed code readable locally **without disturbing the working tree.** The PR
    head may not be the branch you're on, and parallel sub-agents share one checkout, so do
    NOT `gh pr checkout`. Best-effort fetch the head commit (idempotent; ignore a failure from
    a concurrent run):
@@ -142,14 +142,14 @@ PR mode cannot proceed without PR context. Local `git` calls (`git show`, `git f
    Save `<RANGE>` and `<BASE_REF>` = the left side of the range (`origin/main` in
    `origin/main..HEAD`).
 
-4. Read the repo's `CLAUDE.md` (if any) so the review honors project-specific guidance —
-   the GitHub Action enforces this and so should we.
+4. Read the repo's `CLAUDE.md` (if any) so the review honors project-specific guidance.
+   The GitHub Action enforces this and so should we.
 
 ## Step 1: Pre-fetch context
 
 Fetch the sections relevant to the active `<MODE>` in parallel (single Bash message with
 multiple calls), then format into the matching XML section. **Drop any section whose fetch
-returns empty** — don't inject `<comments></comments>` when there are no comments; just
+returns empty.** Don't inject `<comments></comments>` when there are no comments. Just
 omit the tag. When a GitHub MCP is connected (the preferred path), each `gh`/`gh api` call in the tables below uses its
 GitHub MCP equivalent (see **GitHub access**); the MCP returns JSON, so format from that
 instead of the `gh` output.
@@ -158,7 +158,7 @@ instead of the `gh` output.
 
 | XML section | gh call | Notes |
 |---|---|---|
-| `<formatted_context>` | from the `gh pr view` JSON in Step 0 | title, author, base→head, state, createdAt |
+| `<formatted_context>` | from the `gh pr view` JSON in Step 0 | title, author, base->head, state, createdAt |
 | `<pr_or_issue_body>` | `.body` from the same JSON | render markdown verbatim |
 | `<comments>` | `gh api repos/<O>/<R>/issues/<N>/comments` | issue-thread comments on the PR |
 | `<review_comments>` | `gh api repos/<O>/<R>/pulls/<N>/comments` | inline diff-thread comments |
@@ -177,8 +177,8 @@ instead of the `gh` output.
 | `<diff>` | `git diff <RANGE>` | the full diff |
 | `<metadata>` | constructed locally | range, base_ref, head_ref |
 
-**Branch mode deliberately omits** `<comments>`, `<review_comments>`, and `<prior_reviews>`
-— there's no PR to fetch them from. The reviewer is told (in Step 2) that these tags are
+**Branch mode deliberately omits** `<comments>`, `<review_comments>`, and `<prior_reviews>`.
+There's no PR to fetch them from. The reviewer is told (in Step 2) that these tags are
 absent so it won't search for a Discussion Context to surface.
 
 ### Common formatting
@@ -204,7 +204,7 @@ they can re-run with `--with-images` (not implemented in v1; punt to a future it
 
 ## Step 2: Assemble the prompt
 
-Concatenate in this exact order — the order mirrors `create-prompt/index.ts` and matters
+Concatenate in this exact order. The order mirrors `create-prompt/index.ts` and matters
 because the trailing instructions reference earlier tags by name. **Sections marked
 "PR-only" are omitted in branch mode.**
 
@@ -262,14 +262,14 @@ task: do NOT edit files, commit, push, or post to GitHub. Read and report only.
 
 1. Gather context.
    - The diff against `origin/<BASE_REF>` (NOT main/master) shows WHAT changed.
-   - Use the Read tool to look at the relevant files for better context — read the FULL
+   - Use the Read tool to look at the relevant files for better context. Read the FULL
      changed files, not just the diff hunks, so each change is seen in its real surroundings.
    - (PR mode) The reviewed code is at the PR head `<HEAD_SHA>`, which may differ from your
      local working tree. Read the authoritative version with `git show <HEAD_SHA>:<path>`,
      not whatever branch happens to be checked out.
    - Read the repo's CLAUDE.md and honor it.
 
-2. Verify the PR delivers its stated benefit — reason from MOTIVATION, not just the diff.
+2. Verify the PR delivers its stated benefit. Reason from MOTIVATION, not just the diff.
    The diff shows WHAT changed; the <pr_or_issue_body> / <commit_log> / linked ticket say
    WHY. A diff can be locally correct yet still NOT deliver its headline benefit — e.g. it
    fixes a helper that has no live callers while the real behavior runs through a different,
@@ -280,17 +280,17 @@ task: do NOT edit files, commit, push, or post to GitHub. Read and report only.
      metric emit, or handler the goal names. `git grep` for it. It is frequently NOT in the
      diff, and that is exactly what diff-anchored review misses.
    - Confirm the diff makes the benefit land THERE. If the changed code has no live callers
-     (grep proves zero), do NOT stop at "forward-looking, no change needed" — that is the
+     (grep proves zero), do NOT stop at "forward-looking, no change needed". That is the
      near-miss trap. Pull the thread: where does the live behavior run today, and does it
      still carry the bug the PR set out to fix? Flag that site (REQUEST CHANGES) even though
-     it is outside the diff — delivering the stated benefit there is in scope.
+     it is outside the diff. Delivering the stated benefit there is in scope.
 
-3. Investigate impact — this is where diff-only review fails.
+3. Investigate impact. This is where diff-only review fails.
    - For each change, trace it into the code it touches: the functions it calls, the callers
      that reach it, and any previously-dormant, conditional, or dead code paths the change
      newly activates or makes reachable.
    - Read those surrounding and downstream files (Read/Grep/Glob) EVEN WHEN THEY ARE NOT IN
-     THE DIFF. A correct diff can still surface or activate a latent bug elsewhere — that
+     THE DIFF. A correct diff can still surface or activate a latent bug elsewhere. That
      defect is in scope, and is exactly the kind diff-anchored review misses.
    - Follow the data flow to its real endpoints (DB writes, emails, partner/external calls,
      state transitions) and confirm the change's effect two hops out, not just locally.
@@ -301,13 +301,13 @@ task: do NOT edit files, commit, push, or post to GitHub. Read and report only.
    email, emit an event, persist, or clean up) and that branch is guarded by `X.field ===
    'LITERAL'`:
    - `git grep` the FIELD to list (i) every literal COMPARED against it and (ii) every site that
-     ASSIGNS or persists it — and QUOTE the assignment line(s).
+     ASSIGNS or persists it. QUOTE the assignment line(s).
    - If the field is written verbatim from a source object (e.g. `model.status =
-     apiObject.status`), it holds THAT source's values — trace what the source actually
+     apiObject.status`), it holds THAT source's values. Trace what the source actually
      produces. Do NOT assume the field carries a separate "internal" value just because a
      guard's literal looks plausible. A literal sitting next to a near-duplicate of itself
      (`'PastDue'` vs a persisted `'Past Due'`; `'in_trial'` vs `'inTrial'`) is almost always a
-     typo, not a deliberate distinction — prove which from the assignment, don't rationalize.
+     typo, not a deliberate distinction. Prove which from the assignment, don't rationalize.
    - A guard whose literal never appears among the values actually written is a DEAD branch: the
      dependent email / event / cleanup silently never happens. Flag it (REQUEST CHANGES) with
      the exact line and the one-line fix. Reject any "it's intentional / it's a different field"
@@ -318,7 +318,7 @@ task: do NOT edit files, commit, push, or post to GitHub. Read and report only.
    coverage — including coverage gaps for unchanged code the change newly exercises.
    - (PR mode only) Cross-reference <comments>, <review_comments>, and <prior_reviews>:
      confirm a prior human concern is resolved by the diff, or flag it unresolved; don't
-     duplicate a point a human already made. In branch mode these tags are absent — skip the
+     duplicate a point a human already made. In branch mode these tags are absent, so skip the
      Discussion Context output section.
    - On comments the diff ADDS or edits, flag AGENTS.md comment-punctuation violations
      (severity `suggestion`): a comment that joins two independent clauses with ` - `
@@ -358,17 +358,17 @@ consequences:
   scores by provability ALONE. Do NOT discount it because the current blast radius is small:
   an empty or feature-gated table, low live traffic, or a cheap fix. That low impact belongs
   in the **severity** field (`minor` / `suggestion`), not in the confidence number. Deflating
-  a provably-true finding by today's table size is the calibration error to avoid — it buries
+  a provably-true finding by today's table size is the calibration error to avoid. It buries
   real, cheap-to-fix findings below the caller's threshold.
 - This is NOT a blanket "score every real-ish finding high." For a latent *bug*, confidence
-  still reflects whether it is genuinely a defect and whether its path is reachable at all — a
+  still reflects whether it is genuinely a defect and whether its path is reachable at all. A
   rare, marginal conjunction that may not even constitute a real defect legitimately sits near
   or below the line. Reachability (can the path EVER execute) is a truth question and bounds
   confidence; frequency (how OFTEN, how big the blast radius) is impact and does not.
 
 **Scope note for the motivation-delivery step (step 2).** A finding that the PR's stated
 benefit fails to land at its live call site is NOT disqualified as a "pre-existing issue
-unrelated to the diff" — the PR's stated purpose puts that site in scope. Score it on whether
+unrelated to the diff". The PR's stated purpose puts that site in scope. Score it on whether
 the benefit is genuinely undelivered, not on whether the line sits inside the diff.
 
 **Default filter:** discard findings with `confidence < 70`. (Matches `in-depth-review`'s
@@ -447,10 +447,10 @@ headers, don't print the verdict, don't pad.
 - Keep `file:line` citations tight — single backticks, no full URLs.
 - For ranged findings (e.g. a whole function), use `file:LINE_START-LINE_END`.
 - Code blocks in fixes: use the file's actual language, not pseudo-code.
-- Never invent line numbers — if you can't pin a finding to specific lines, classify it
+- Never invent line numbers. If you can't pin a finding to specific lines, classify it
   one severity bucket lower, drop the `:LINE` suffix, and explain in prose where it lives.
 - The `[confidence X]` tag is mandatory on every finding (including Suggestions).
-  Don't omit it because you're "pretty sure" — pick a rubric number.
+  Don't omit it because you're "pretty sure". Pick a rubric number.
 - Severity headings are plain words (`### Critical`, etc.) — no emoji, no bold, no colons.
 
 ## If invoked as a sub-agent (by `pr-review` or `review-and-fix`)
@@ -506,13 +506,13 @@ When the caller's prompt asks for structured JSON output (typically alongside `-
 
 Notes on the JSON contract:
 
-- **Order of `findings`:** same as terminal mode — severity desc (critical → major →
-  minor → suggestion), then confidence desc within each severity.
+- **Order of `findings`:** same as terminal mode — severity desc (critical -> major ->
+  minor -> suggestion), then confidence desc within each severity.
 - **`--raw` semantics:** when `raw=true`, include every scored finding (no filter applied).
   When `raw=false`, only findings with `confidence >= 70` appear in the array. The caller
   (`pr-review` at >=60, `review-and-fix` at >=50) will apply its own threshold post-merge.
 - **`discussion_context` in branch mode:** both arrays are always empty `[]` (no PR comments
-  to fetch). Don't omit the key — orchestrators expect a stable shape.
+  to fetch). Don't omit the key. Orchestrators expect a stable shape.
 - **`verdict` in branch mode:** still computed (`APPROVE` / `REQUEST CHANGES` / `COMMENT`),
   treating the commit range as if it were a hypothetical PR. Orchestrators may ignore it
   and roll their own per-iteration verdict.
@@ -525,15 +525,15 @@ Notes on the JSON contract:
 
 - **No GitHub writes.** `gh pr comment`, `gh pr review`, `gh pr edit`, `gh pr merge`,
   `gh pr close`, `gh issue create`, `gh issue comment` are all forbidden. Only read-only
-  `gh` calls (the ones in Step 1) are permitted. The GitHub MCP path is read-only too —
-  use only its PR-read tools; never a review-create / comment / merge / edit tool.
-- **Compare against `origin/<BASE_REF>`**, never `main`/`master` directly — the PR may be
+  `gh` calls (the ones in Step 1) are permitted. The GitHub MCP path is read-only too.
+  Use only its PR-read tools, never a review-create / comment / merge / edit tool.
+- **Compare against `origin/<BASE_REF>`**, never `main`/`master` directly. The PR may be
   targeting a non-default branch (release branch, stacked PR, etc.).
 - **Always follow the target repo's `CLAUDE.md`** if present.
 - **Print to the terminal only.** Do not write the review to a file unless the user asks.
-- **Single review pass.** This skill is not iterative — for the iterate-and-fix loop see
+- **Single review pass.** This skill is not iterative. For the iterate-and-fix loop see
   `review-and-fix`; for cross-instance triangulation see `pr-review` or `in-depth-review`.
-- **Model policy (cost):** this skill spawns no sub-agents — it runs in one agent, so its
+- **Model policy (cost):** this skill spawns no sub-agents. It runs in one agent, so its
   tier is set by whoever invokes it. When a caller (`pr-review`, `review-and-fix`) spawns it
   as a sub-agent it MUST run on **Sonnet** (`model: sonnet`): a single bounded recall pass,
   not worth Opus or a `[1m]` variant. Run directly by a user, it just uses the session model.

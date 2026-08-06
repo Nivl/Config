@@ -41,8 +41,8 @@ one thing only — is this the right way to build it (design, architecture, code
 over/under-engineering) — not bugs. Only the findings the pair *converges* on as genuinely
 needing a code change survive, and only if no other reviewer already proposed the same thing
 with confidence > 50. Survivors join the same posting pipeline, tagged `approach`. This pair
-runs once (not 3x), and its findings post on agreement alone —
-they do not have to clear the >= 60 confidence bar the other findings do.
+runs once (not 3x), and its findings post on agreement alone.
+They do not have to clear the >= 60 confidence bar the other findings do.
 
 The point: four independent passes from two different prompt structures (specialized-role
 vs. GitHub-Action mirror) and two model tiers catch different issues, AND converge on the real
@@ -61,12 +61,12 @@ raised that the diff still hasn't addressed" section.
 A fixed all-Sonnet pool is provisioned for the easy case and quietly loses recall on the hard
 one. Adding a single Opus in-depth instance covers the hard case without paying Opus rates on
 every finder. Keep it at exactly one. The point is coverage of the subtle tail, not tier parity.
-Do NOT promote the Sonnet finders to Opus, and do NOT drop the Opus one to save cost — it is the
+Do NOT promote the Sonnet finders to Opus, and do NOT drop the Opus one to save cost. It is the
 cheapest recall in the pool on the diffs that matter most.
 
 **Why the source split is asymmetric (3 in-depth, 1 gh-style).** Measured on fixtures with planted
 issues, `gh-style-review`'s findings were a strict SUBSET of `in-depth-review`'s on every
-fixture — it surfaced nothing in-depth missed, and skipped test-coverage findings entirely.
+fixture. It surfaced nothing in-depth missed, and skipped test-coverage findings entirely.
 So a second gh-style instance buys no incremental finding recall. It stays at **one** instance
 because its real contribution is **Discussion Context**: cross-referencing prior human comments
 against the diff, which `in-depth-review` cannot do at all and which the fixtures could not
@@ -76,7 +76,7 @@ pass. Do not drop gh-style to zero, and do not raise it back to parity.
 ## Prerequisites
 
 - The current branch (or the PR specified as the skill argument) must have an **open PR**.
-  Draft PRs are accepted — reviewing a draft is a valid workflow (you get feedback before
+  Draft PRs are accepted. Reviewing a draft is a valid workflow (you get feedback before
   marking the PR ready). Both `in-depth-review` and `gh-style-review` accept drafts.
 - Both the `in-depth-review` and `gh-style-review` skills must be installed and available
   (they live alongside this skill in `shared_config/.claude/skills/`).
@@ -109,7 +109,7 @@ tools with `ToolSearch "github pull request"` and call the operation matching th
 | `gh api -X DELETE …/issues/comments/<id>` | delete issue comment — removes the in-progress comment at the end of the run (Step 3e) |
 
 Prefer the GitHub MCP when connected; fall back to `gh` only when no MCP is available. If NEITHER
-a GitHub MCP nor `gh` is available, abort in Step 0 and tell the user — this skill cannot
+a GitHub MCP nor `gh` is available, abort in Step 0 and tell the user. This skill cannot
 resolve or post to the PR without one. The reviewer sub-agents (`in-depth-review`,
 `gh-style-review`) carry their own identical fallback for the reads they do. Local `git` calls
 need no `gh`.
@@ -126,53 +126,53 @@ need no `gh`.
    accepted**; note `isDraft = true` so the final-report step (Step 4) can mention "PR is in
    draft" alongside the review URL.
 3. Save the resolved PR number as `<PR>` and the draft flag as `<IS_DRAFT>`.
-4. Re-confirm that **both** `in-depth-review` AND `gh-style-review` are available — check the
+4. Re-confirm that **both** `in-depth-review` AND `gh-style-review` are available. Check the
    available-skills list for both entries. If either is missing, abort the orchestration
    and tell the user which one to install.
 5. If the invocation included `--skip-ticket`, set `<SKIP_TICKET> = true` (default `false`).
    When `true`, every in-depth-review sub-agent is invoked with `--skip-ticket`, so Role #10
    never runs. When `false`, all three in-depth-review instances run Role #10 (three ticket
-   reviewers). `gh-style-review` is unaffected either way — it has no ticket role.
+   reviewers). `gh-style-review` is unaffected either way. It has no ticket role.
 6. **Jira-tooling preflight** (skip this step entirely if `<SKIP_TICKET>` is true). Before
    launching any reviewers, confirm a Jira reader is available AND authenticated:
-   - acli: installed (`command -v acli`) and able to read Jira — run a lightweight
+   - acli: installed (`command -v acli`) and able to read Jira. Run a lightweight
      authenticated acli call; if it fails with an auth/login error, treat acli as
      unauthenticated. In a sandboxed session, skip the acli probe and treat acli as
-     unavailable — sandboxed acli fails even when installed and authenticated — and rely
+     unavailable, since sandboxed acli fails even when installed and authenticated, and rely
      on the MCP check below; OR
-   - a Jira/Atlassian MCP: connected and authenticated — search available tools (e.g.
-     ToolSearch "atlassian jira"); if the only exposed tool is an `authenticate` tool, it is
+   - a Jira/Atlassian MCP: connected and authenticated. Search available tools (e.g.
+     ToolSearch "atlassian jira"). If the only exposed tool is an `authenticate` tool, it is
      connected but not yet authed.
      If neither is ready, ASK the user to choose:
-     (a) install/authenticate acli or the Atlassian MCP, then continue — re-check after they confirm;
+     (a) install/authenticate acli or the Atlassian MCP, then continue. Re-check after they confirm;
      (b) proceed now with `--skip-ticket` — set `<SKIP_TICKET> = true` and run the other
      reviewers without the ticket check;
      (c) abort the review.
      Do not launch any reviewers until this is resolved. If a re-check after choice (a) still
      fails, present the three choices again rather than proceeding.
-7. **Announcement decision.** Do this last — once every check above has passed and the
-   reviewers are about to launch — so a preflight abort never leaves a stray comment. Resolve
+7. **Announcement decision.** Do this last, once every check above has passed and the
+   reviewers are about to launch, so a preflight abort never leaves a stray comment. Resolve
    whether to post a "review in progress" comment:
    - `--announce` -> yes; `--no-announce` -> no; neither flag -> ask the user one yes/no
      question ("Post a 'review in progress' comment to the PR?").
-   - If **no**, leave `<ANNOUNCE_COMMENT_ID>` empty and continue — nothing else changes.
+   - If **no**, leave `<ANNOUNCE_COMMENT_ID>` empty and continue. Nothing else changes.
    - If **yes**, post ONE PR conversation comment (a GitHub issue comment, not a review) with
      exactly this body:
 
      > I've started an automated review of this PR. It usually takes about 30 minutes to complete.
 
      Prefer the GitHub MCP add-issue-comment tool; fall back to `gh pr comment <PR> --body "..."`.
-     Save the created comment's numeric id as `<ANNOUNCE_COMMENT_ID>` for deletion in Step 3e —
-     the MCP response returns the id directly; the `gh pr comment` fallback returns only the
+     Save the created comment's numeric id as `<ANNOUNCE_COMMENT_ID>` for deletion in Step 3e.
+     The MCP response returns the id directly. The `gh pr comment` fallback returns only the
      comment URL, so take the numeric id from its `#issuecomment-<id>` fragment.
      If the post fails (e.g. no write access), warn the user in chat, leave
-     `<ANNOUNCE_COMMENT_ID>` empty, and run the review anyway — the review is the deliverable and
+     `<ANNOUNCE_COMMENT_ID>` empty, and run the review anyway. The review is the deliverable and
      the comment is best-effort.
 
 ## Step 1: Launch four reviewer sub-agents in parallel
 
 Spawn **four sub-agents in a single message** (four concurrent Agent tool calls). Sequential
-launches defeat the purpose — never serialize. Each is a thin wrapper that invokes a recall-pass
+launches defeat the purpose. Never serialize. Each is a thin wrapper that invokes a recall-pass
 skill and relays its JSON.
 
 **Spawn each one by `subagent_type`, and do NOT pass a `model` override.** Tier and effort are
@@ -198,21 +198,21 @@ wrong effort is recoverable; a review that fails to launch is not.
 **Why `subagent_type` rather than an inline `model:`.** The Agent tool has no `effort` parameter,
 so effort cannot be pinned at the call site the way `model` can. Left unset it **inherits the
 session effort**, which means review cost silently tracks whatever the user last typed into
-`/effort` — a session at `xhigh` ran this entire fan-out at `xhigh`. Agent definitions are the
+`/effort`. A session at `xhigh` ran this entire fan-out at `xhigh`. Agent definitions are the
 only place both knobs can be fixed together. Effort is `medium` on the finders because that is
 the level the whole cost-efficiency study was run at, so it is the only level whose recall numbers
 are actually evidenced here. Measured recall was flat from `low` through `xhigh` while latency
-scaled ~3.9x, so `low` is a plausible further saving — trial it before adopting it.
+scaled ~3.9x, so `low` is a plausible further saving. Trial it before adopting it.
 
 Sub-agent 3 is the mixed-tier finder described in the overview. It is the only finder on Opus.
 Note that `in-depth-review` and `gh-style-review` also pin their own *internal* tiers (their
-inner reviewers → Sonnet, scorers → Haiku); the agent definition governs the wrapper sub-agent.
+inner reviewers -> Sonnet, scorers -> Haiku); the agent definition governs the wrapper sub-agent.
 
 ### Sub-agents 1–3 prompt (in-depth-review)
 
 Identical prompt for all three; only the `subagent_type` differs (1 and 2 use
 `pr-review-finder-indepth`, 3 uses `pr-review-finder-indepth-deep`). Do not tell the sub-agent
-which tier it is on — it should review the same way either way, and the orchestrator attributes
+which tier it is on. It should review the same way either way, and the orchestrator attributes
 findings by `sub_agent` number.
 
 ```
@@ -222,7 +222,7 @@ skill, then return its result to me unchanged.
 
 Concretely:
 
-1. Invoke the `in-depth-review` skill with the arguments: `<PR> --raw` — and append
+1. Invoke the `in-depth-review` skill with the arguments: `<PR> --raw`. Append
    ` --skip-ticket` when the orchestrator's `<SKIP_TICKET>` is true (so the args become
    `<PR> --raw --skip-ticket`). When `<SKIP_TICKET>` is false, pass `<PR> --raw` unchanged
    so Role #10 runs.
@@ -261,7 +261,7 @@ Concretely:
    - The `<PR>` arg puts it in PR mode against this PR.
    - The `--raw` flag tells gh-style-review to skip its internal <70 confidence filter so we
      get every scored finding. The orchestrator will apply its own >=60 threshold.
-2. Tell gh-style-review you are invoking it as a sub-agent — it must return the JSON shape
+2. Tell gh-style-review you are invoking it as a sub-agent. It must return the JSON shape
    documented in its "If invoked as a sub-agent" section, NOT its terminal-formatted output.
 3. Wait for gh-style-review to finish and return its structured JSON output.
 4. Return that JSON verbatim, with two additions at the top level:
@@ -300,7 +300,7 @@ partial here too.
 
 **Reviewer results must arrive in the sub-agent's returned text.** Read each one from the Agent
 tool's return value. Do not wait on a pushed message and do not go hunting for a result in another
-channel — a sub-agent whose returned text is empty has reported nothing, and belongs in
+channel. A sub-agent whose returned text is empty has reported nothing, and belongs in
 `reviewers_missing`.
 
 **A missing reviewer is not a clean reviewer, and must never be filled in.** Do not write findings
@@ -346,13 +346,13 @@ Once all four sub-agents have returned:
 
 1. **Pool every finding** across the four result sets into one flat pool. Each finding carries
    its `confidence`, `file`, `line_range`, originating `sub_agent` (1..4), and `source`
-   (`"in-depth-review"` or `"gh-style-review"`). Don't pre-segregate by source — the cross-
+   (`"in-depth-review"` or `"gh-style-review"`). Don't pre-segregate by source. The cross-
    prompt triangulation is the point.
 
 2. **Group duplicates.** Two findings are duplicates if they refer to the **same file** and have
    **overlapping line ranges** AND describe substantially the same problem (paraphrases count).
    Findings from different sources (one from in-depth-review, one from gh-style-review) that
-   describe the same problem are duplicates — merge them.
+   describe the same problem are duplicates, so merge them.
 
 3. **For each group, produce one merged finding:**
    - `confidence`: **max** of the group's scores (any one reviewer with high confidence is strong
@@ -392,7 +392,7 @@ Once all four sub-agents have returned:
 
 4. **Snapshot the full merged set as `merged_all` BEFORE filtering.** `merged_all` is the
    complete list of merged findings with their max `confidence`, including the 51–59 ones that
-   the next step discards. Step 2.7 (approach dedup) needs it — once you apply the >=60 cut
+   the next step discards. Step 2.7 (approach dedup) needs it, because once you apply the >=60 cut
    you can no longer tell whether a 51–59 finding "was already proposed by another reviewer."
    `merged_all` is used only by Step 2.7; it never affects posting on its own.
 
@@ -405,7 +405,7 @@ Once all four sub-agents have returned:
    exception: retain any discarded `ticket`-category finding (confidence < 60) in a separate
    `sub_threshold_ticket_notes` list. Step 3a.5 uses it for the "Tickets examined" section.
    These never enter the findings pool, the INLINE/GLOBAL classification, or the ordering
-   below — they are notes, not findings. (Threshold is 60.)
+   below. They are notes, not findings. (Threshold is 60.)
 
    Note the two exclusions only ever fire on `in-depth-review`-sourced findings, because
    `gh-style-review` does not emit `citation_verified` or `unscored` at all. That is expected, not a
@@ -434,9 +434,9 @@ Once all four sub-agents have returned:
 ## Step 2.5: Aggregate Discussion Context (from the gh-style sub-agent only)
 
 The single `gh-style-review` sub-agent returns a `discussion_context` block with `resolved` and
-`unaddressed` arrays. `in-depth-review` returns no such block — it contributes nothing here.
+`unaddressed` arrays. `in-depth-review` returns no such block, so it contributes nothing here.
 Only the **unaddressed** concerns are rendered (the "Addressed by this PR" section was dropped
-as noise — listing what the diff already fixed is not actionable). The `resolved` entries are
+as noise, because listing what the diff already fixed is not actionable). The `resolved` entries are
 not rendered at all.
 
 Because exactly ONE instance produces this block, there is no cross-instance dedup, no
@@ -450,12 +450,12 @@ grounded in a real comment URL, not as triangulated findings.
 2. **Deduplicate by `url`** within that array (the GitHub comment URL is the canonical identity
    of a discussion item). A single instance can still list the same comment twice; collapse those.
 
-3. **Retain all entries** — there's no confidence threshold here because every entry is
+3. **Retain all entries.** There's no confidence threshold here because every entry is
    grounded in a real human comment URL. Order `unaddressed_pool` by the comment's `created_at`
    ascending (oldest unresolved concern first).
 
 4. **If `unaddressed_pool` is empty after dedup, the "Still unaddressed" section is skipped.**
-   If it is empty AND the findings list from Step 2 is also empty, Step 3 still applies — no
+   If it is empty AND the findings list from Step 2 is also empty, Step 3 still applies. No
    review is posted.
 
 ## Step 2.7: Approach review stage (one pair, run once)
@@ -506,7 +506,7 @@ It is cheap either way: one pair, run once (not 3x), <=3 rounds.
 
 This stage runs **after** the merge because the dedup in Step 2.7b below compares against
 `merged_all`, which only exists once Step 2 has merged the four reviewers. The pair runs **once**
-(not 3x) — the internal debate is the filter, so cross-instance triangulation is not needed.
+(not 3x). The internal debate is the filter, so cross-instance triangulation is not needed.
 
 **Both agents are read-only with respect to GitHub** — same forbidden-write list as sub-agents
 1–4. The approach reviewer **explores the wider codebase** to ground its judgment. It reads
@@ -527,21 +527,21 @@ finding's `rounds` is the 1-based round at which it converged.
    `findings` list, each with `{id, title, file, line_range, description, suggested_fix,
    confidence (0–100), argument}`. Every proposed finding starts at `approach_verdict = yes`. Then
    spawn the nuanced agent with the diff + that `findings` list; it returns a `needs_change`
-   (`yes`/`no`) + `argument` per finding id → set `nuanced_verdict`.
+   (`yes`/`no`) + `argument` per finding id -> set `nuanced_verdict`.
 2. **Classify each finding:** *converged-keep* (both `yes`), *converged-drop* (both `no`), or
    *contested* (verdicts differ).
 3. **Rounds 2–3 — rebut.** While there is at least one *contested* finding AND fewer than 3
    total rounds have run: re-spawn the approach reviewer with, for each contested finding,
    the nuanced agent's latest `argument`; it returns an updated `{needs_change, argument}` per
-   id (it may concede to `no` or hold at `yes`) → update `approach_verdict`. Then re-spawn the
+   id (it may concede to `no` or hold at `yes`) -> update `approach_verdict`. Then re-spawn the
    nuanced agent with the approach reviewer's latest `argument` per contested finding; it
    returns an updated `{needs_change, argument}` per id (it may concede to `yes` or hold at
-   `no`) → update `nuanced_verdict`. Re-classify. Only *contested* findings are carried
+   `no`) -> update `nuanced_verdict`. Re-classify. Only *contested* findings are carried
    forward; once a finding is *converged-keep* or *converged-drop* its verdicts are frozen and
    it is not re-sent.
 4. **Convergence cap = 3 rounds.** A finding **survives only if it converges to BOTH `yes`**.
-   Anything converged to `no`, or still *contested* after round 3, is **dropped** — agreement
-   is required, ties go to drop.
+   Anything converged to `no`, or still *contested* after round 3, is **dropped.** Agreement
+   is required, and ties go to drop.
 
 #### Worked example
 
@@ -565,7 +565,7 @@ round 1 costs no further rounds, and one finding still contested keeps the loop 
 ### Step 2.7b: Dedup survivors against the existing findings
 
 For each surviving finding, **drop it if it duplicates any entry in `merged_all` (Step 2)
-whose max `confidence` > 50** — "duplicate" uses the same test as Step 2: same `file` +
+whose max `confidence` > 50.** "Duplicate" uses the same test as Step 2: same `file` +
 overlapping `line_range` + substantially the same problem (paraphrases count). This suppresses
 approach findings that another reviewer already proposed with confidence > 50, *including*
 the 51–59 ones that did not clear the >=60 posting bar. A surviving finding that matches nothing
@@ -580,11 +580,11 @@ Each kept approach finding becomes a normal finding for Step 3 with:
   ordering/display. The rebut rounds do not re-emit `confidence`, so carry the round-1 value
   forward.
 - `rounds` = how many debate rounds it took to converge.
-- no `permalink` — approach findings skip the Step 2 merge that assigns one, so the global
+- no `permalink`, because approach findings skip the Step 2 merge that assigns one, so the global
   `**N.**` block omits the permalink paragraph for them.
 
 **Agreement is the gate, not the score.** Approach findings are added to the Step 2 findings
-pool **without** re-applying the >=60 filter — they already passed the mutual-agreement bar in
+pool **without** re-applying the >=60 filter. They already passed the mutual-agreement bar in
 2.7a. Order them within the pool by `confidence` like the others (for the tiebreakers, treat
 `cross_instance_agreement = null` as lowest, an approach finding as single-source — never both — for the
 both-sources tiebreaker, `role_agreement = null` as lowest since approach findings never pass through
@@ -602,7 +602,7 @@ nothing and the rest of the run is unchanged.
 ```
 You are the APPROACH reviewer in a pr-review orchestration reviewing PR #<PR>. You judge ONE
 thing: is this the right way to build it? You do NOT hunt for bugs, edge cases, race
-conditions, security holes, or missing error handling — other reviewers cover those, and a
+conditions, security holes, or missing error handling. Other reviewers cover those, and a
 defect finding here will be ignored. Assume the author is new to this codebase. Their code may
 run, yet still be the worst possible implementation. Your job is to catch that.
 
@@ -629,7 +629,7 @@ For every issue you can defend, return one finding. Return STRICT JSON:
 } ] }
 
 `confidence` is your own 0–100 estimate (used only for display ordering). Do not invent issues
-you cannot defend — a weak finding will be argued down in the debate that follows. Return
+you cannot defend. A weak finding will be argued down in the debate that follows. Return
 `{"findings": []}` if the approach is sound.
 
 Forbidden (you are read-only w.r.t. GitHub): `gh pr comment`, `gh pr review`, `gh pr edit`,
@@ -640,13 +640,13 @@ Forbidden (you are read-only w.r.t. GitHub): `gh pr comment`, `gh pr review`, `g
 
 ```
 You are the NUANCED reviewer in a pr-review orchestration, the pragmatic counterweight to an
-approach reviewer on PR #<PR>. The approach reviewer critiques design and structure — whether
+approach reviewer on PR #<PR>. The approach reviewer critiques design and structure, meaning whether
 the code is over- or under-engineered, in the wrong place, duct-taped, or reinvents something
 the repo already has. For each finding it raises, decide whether the rework GENUINELY warrants
 a code change in THIS PR. Weigh the design tradeoff: how much better the proposed approach
 really is, the cost and risk of the rework, whether "works but not ideal" is acceptable here,
 and whether the change is in scope or better left to a follow-up. You are not here to
-rubber-stamp and not here to reflexively dismiss — judge each on its merits, given the diff and
+rubber-stamp and not here to reflexively dismiss. Judge each on its merits, given the diff and
 the surrounding codebase.
 
 You receive the PR diff and a list of findings — the approach reviewer's full proposal set in
@@ -655,7 +655,7 @@ reviewer's latest `argument`. Return STRICT JSON:
 { "verdicts": [ { "id": "A1", "needs_change": "yes" | "no", "argument": "<your reasoning>" } ] }
 
 Use "yes" only when you agree the rework is warranted in this PR. Use "no" when it is not worth
-a change. Respond to the approach reviewer's specific argument — concede when they are right,
+a change. Respond to the approach reviewer's specific argument. Concede when they are right,
 push back when they overreach.
 
 Forbidden (read-only w.r.t. GitHub): `gh pr comment`, `gh pr review`, `gh pr edit`,
@@ -672,12 +672,12 @@ holding at `yes` only where it can still defend the issue, conceding to `no` oth
 
 **If the findings list AND `unaddressed_pool` are BOTH EMPTY, do NOT post anything to GitHub.**
 The findings list here is the Step 2 filtered findings PLUS any approach survivors folded in
-by Step 2.7c — so a single agreed approach finding is on its own enough to post a review.
+by Step 2.7c, so a single agreed approach finding is on its own enough to post a review.
 When both pools are empty, skip to Step 3e (which deletes the in-progress comment if one was
 posted) and then Step 4, and tell the user in chat that the PR looks clean. No review is
-posted and no PR state changes — deleting the opt-in in-progress comment leaves the PR with
+posted and no PR state changes. Deleting the opt-in in-progress comment leaves the PR with
 nothing on it, so silence on GitHub stays the success signal. A
-sub-threshold ticket note on its own is NOT enough to post — if there are no findings and
+sub-threshold ticket note on its own is NOT enough to post. If there are no findings and
 nothing unaddressed, there is nothing worth saying on GitHub (the note is reported only in the
 Step 4 chat summary).
 
@@ -696,7 +696,7 @@ A finding is **INLINE-eligible** if ALL of these hold:
 - `line_range` parses to a `<start>..<end>` (or single line) range with `start <= end`.
 - The lines lie inside an actual diff hunk on the **RIGHT side** (i.e. added or context lines
   in the new revision). If a finding's lines are not in the diff hunks at all, the GitHub API
-  will reject the inline comment — demote to GLOBAL.
+  will reject the inline comment, so demote to GLOBAL.
 - The finding describes a defect at that specific location, not a cross-cutting / architectural
   concern that happens to be visible there.
 
@@ -718,7 +718,7 @@ in-depth-review sub-agents (each entry has `id` and `status` ∈ {`ok`, `gaps`, 
 each `id`, `status` is `gaps` if any instance reported gaps, else `unread` if any reported
 unread, else `ok`.
 
-From that, derive ONLY the notes worth showing a human — never a roll-call of what passed:
+From that, derive ONLY the notes worth showing a human. Never emit a roll-call of what passed:
 
 - **Above-threshold ticket gaps** are already Code review findings (category `ticket`, prefixed
   `[<ticket_id>]`). Do NOT repeat them in the Tickets examined section.
@@ -733,12 +733,12 @@ nothing and are never named.
 
 ### Step 3b: Build the global body
 
-The global body **must start** with the disclosure line below — verbatim, as the first
+The global body **must start** with the disclosure line below, verbatim, as the first
 paragraph, on its own line. Do not change its wording. Do not append any branding footer,
 "Generated with Claude Code" line, or ensemble-stats `<sub>` tag at the end.
 
 **Never emit a section that has no content, and never report what passed.** Every
-`###`/`####` block below is conditional on its count — when the count is zero, omit the
+`###`/`####` block below is conditional on its count. When the count is zero, omit the
 header and the block entirely. No "all clear", no "no gaps", no roll-call of green tickets.
 The review surfaces only what needs attention.
 
@@ -824,17 +824,17 @@ Concerns raised by reviewers earlier that this PR does not appear to address:
 
 A global body is produced whenever Step 3 reaches here (at least one finding or one
 unaddressed concern). The disclosure line is the only unconditional content. The `### Code
-review` section — and its `#### global` / `#### local` subsections — "Tickets examined", and
+review` section (and its `#### global` / `#### local` subsections), "Tickets examined", and
 "Still unaddressed" are each emitted only when their count is non-zero. A body carrying just
 the disclosure line is impossible: Step 3 gates entry on having something to say.
 
 **Pluralize the headers.** In the `#### ... issue(s)` headers, render the real word: "issue"
-when the count is 1, "issues" otherwise — e.g. `#### 1 global issue`, `#### 3 local issues`.
+when the count is 1, "issues" otherwise, e.g. `#### 1 global issue`, `#### 3 local issues`.
 The `Found <N> issue(s):` count is `K_global + K_inline` (the (s) shorthand is fine there).
 
 **Global issues use a bold `**N.**` marker, NOT a real Markdown ordered list.** Each global
 finding spans several paragraphs (title, description, permalink), and a multi-paragraph ("loose")
-`1.` list item gets its marker re-printed before every paragraph by some renderers — so the
+`1.` list item gets its marker re-printed before every paragraph by some renderers, so the
 whole block shows up as `1.` on every line. A bold `**1.**` marker with flush-left paragraphs
 renders identically on GitHub and elsewhere (a line starting with `**` is never parsed as a list
 item, so nothing re-numbers). Number them `**1.**`, `**2.**`, … by hand. Do not convert this
@@ -846,7 +846,7 @@ ordinary `-` list is fine here). The full text rides on the inline diff comment 
 trailing "I left <K_inline> comment(s) directly in the diff for those." line points the reader
 at them.
 
-**Section order is fixed:** code review (global then local) → tickets examined → still
+**Section order is fixed:** code review (global then local) -> tickets examined -> still
 unaddressed.
 
 **Ticket findings:** when a finding has a non-null `ticket_id`, prepend `[<ticket_id>] ` to
@@ -963,7 +963,7 @@ Build the JSON payload (single review with body + inline comments):
 }
 ```
 
-`event=COMMENT` is important — it leaves the review as comments, not as approval or
+`event=COMMENT` is important. It leaves the review as comments, not as approval or
 change-requested. This skill never approves a PR or requests changes; it only comments.
 
 Post it:
@@ -977,7 +977,7 @@ EOF
 **When a GitHub MCP is connected (the preferred path), post the review through it** (see
 **GitHub access**): use a create-and-submit-pull-request-review tool with the same `body` and
 `event=COMMENT`; when there are inline comments, use the pending-review trio (create a pending
-review → add one review comment per INLINE finding at its `path`/`line`/`side` → submit the
+review -> add one review comment per INLINE finding at its `path`/`line`/`side` -> submit the
 pending review as `COMMENT`). This is still ONE logical review. The 422 handling below applies
 either way.
 
@@ -995,17 +995,17 @@ request changes, approve, or alter any other PR state.
 ## Step 3e: Delete the in-progress comment
 
 If `<ANNOUNCE_COMMENT_ID>` is set (an in-progress comment was posted in Step 0.7), delete it
-now — on every path, whether or not a review was posted. The clean-PR path routes here too, so
+now, on every path, whether or not a review was posted. The clean-PR path routes here too, so
 do not assume Step 3d ran or that `OWNER_REPO` is set. Prefer the GitHub MCP delete-issue-comment
 tool (pass owner/repo plus the comment id). Fall back to
 `gh api -X DELETE "/repos/<owner>/<repo>/issues/comments/<ANNOUNCE_COMMENT_ID>"`, resolving
 owner/repo with `gh repo view --json owner,name` if not already known. If deletion fails, note
-it in the Step 4 report and continue — the review is already delivered, so a failed cleanup
+it in the Step 4 report and continue. The review is already delivered, so a failed cleanup
 never fails the run. If `<ANNOUNCE_COMMENT_ID>` is empty, do nothing here.
 
 ## Step 4: Final report (to the user, not GitHub)
 
-Summarise to the user in chat — this report happens whether or not a review was posted.
+Summarise to the user in chat. This report happens whether or not a review was posted.
 
 If `<IS_DRAFT>` was true, prepend a short note: `ℹ️ PR #<PR> is still a draft.` so the user
 remembers their PR isn't ready-for-review yet.
@@ -1025,7 +1025,7 @@ the user's request, then still give the tallies below.
 - How many findings each sub-agent originally returned (pre-merge counts), broken down by
   source and tier: `2 x in-depth-review (sonnet): [N1, N2]`,
   `1 x in-depth-review (opus): [N3]`, `1 x gh-style-review: [N4]`. Call out separately how many
-  findings the Opus finder contributed that NO Sonnet finder raised — that number is the direct
+  findings the Opus finder contributed that NO Sonnet finder raised. That number is the direct
   measure of whether the mixed tier is earning its cost on this PR.
 - How many unique findings survived the >= 60 filter (post-merge count), broken down as
   GLOBAL vs INLINE, and how many were both-source vs single-source.
@@ -1040,7 +1040,7 @@ the user's request, then still give the tallies below.
 - **Coverage:** `complete` or `partial`. Partial when `reviewers_missing` is non-empty, when the
   unioned `roles_missing` is non-empty, or when `approach_stage_missing` is set. When partial, name
   every missing reviewer, every missing role, and the approach role if it was the one missing, and
-  state which lenses the diff was therefore NOT reviewed against. Never omit this line — its
+  state which lenses the diff was therefore NOT reviewed against. Never omit this line. Its
   absence reads as complete coverage.
 - The PR review's HTML URL (the `html_url` returned by the `gh api .../reviews` response).
 - Any inline comments that had to be demoted to GLOBAL because GitHub rejected them
@@ -1062,7 +1062,7 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
   which is false if fewer than N reported. Lead instead with what actually happened, e.g.
   ⚠️ `PR #<PR>: no findings from the 3 of 4 reviewers that reported. Sub-agent 3 (in-depth, Opus)
   returned nothing, so the subtle-bug pass did not run. Roles missing across instances: #7
-  security. This is NOT an all-clear — the diff has not been reviewed for security. Nothing posted
+  security. This is NOT an all-clear. The diff has not been reviewed for security. Nothing posted
   to GitHub.` Name every missing reviewer and every missing role, and state plainly which lenses
   the PR therefore has NOT been checked against.
 - The PR URL.
@@ -1083,7 +1083,7 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
 - **Coverage:** `complete` or `partial`. Partial when `reviewers_missing` is non-empty, when the
   unioned `roles_missing` is non-empty, or when `approach_stage_missing` is set. When partial, name
   every missing reviewer, every missing role, and the approach role if it was the one missing, and
-  state which lenses the diff was therefore NOT reviewed against. Never omit this line — its
+  state which lenses the diff was therefore NOT reviewed against. Never omit this line. Its
   absence reads as complete coverage.
 - Tickets examined and their outcome: `<id> ✅ | ⚠️ N gaps | ❓ unread`. If any in-depth-review
   sub-agent reported `ticket_review.status` of `denied` (user denied access) or `unavailable`
@@ -1092,7 +1092,7 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
 ## Constraints
 
 - **At most one PR review per run.** The orchestrator posts a single `POST .../pulls/<PR>/reviews`
-  call (which atomically carries the global body AND all inline comments) — only when there is
+  call (which atomically carries the global body AND all inline comments), only when there is
   at least one surviving finding >= 60, at least one surviving approach finding (Step 2.7), OR
   at least one unaddressed prior concern. When all of those are empty, the orchestrator posts
   no review (a sub-threshold ticket note alone is not enough to post). The only other writes the
@@ -1101,7 +1101,7 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
 - **Posting is gated on human approval (Step 3c.7).** Whenever there is something to post, the
   assembled findings are first written to `/tmp/claude/pr-review-<PR>-comments.md`, one block
   per finding split by `=============` dividers, and the run pauses. Only the findings the user
-  approves are posted; a declined gate posts nothing. This makes the skill interactive — a
+  approves are posted; a declined gate posts nothing. This makes the skill interactive. A
   headless run stops at the file with nothing posted, which is the intended safe default. The
   clean-PR path (nothing to post) does not write a file or pause.
 - **The review event MUST be `COMMENT`.** Never `APPROVE`, never `REQUEST_CHANGES`. This skill
@@ -1109,13 +1109,13 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
 - **Sub-agents are read-only with respect to GitHub.** They invoke `in-depth-review` or
   `gh-style-review` (both write-free) and just relay scored findings back. If any sub-agent
   appears about to issue a GitHub write, abort the entire orchestration and surface to the
-  user — do not proceed to post the merged review, since the inner skill could have posted
-  from a sub-agent. **The approach and nuanced agents (Step 2.7) are read-only too** — same
+  user. Do not proceed to post the merged review, since the inner skill could have posted
+  from a sub-agent. **The approach and nuanced agents (Step 2.7) are read-only too,** with the same
   forbidden-write list; abort the orchestration if either appears about to write to GitHub.
 - **Four parallel sub-agents (2 x in-depth-review on Sonnet + 1 x in-depth-review on Opus +
   1 x gh-style-review).** Launch all four in a single message with concurrent Agent tool calls.
   Do not fall back to fewer sub-agents for "speed"; the cross-source triangulation is the point.
-  Do not use only one source — both prompt structures contribute, and dropping gh-style also
+  Do not use only one source. Both prompt structures contribute, and dropping gh-style also
   drops Discussion Context. The pool is deliberately asymmetric in BOTH source and tier. Do not
   "balance" the sources back to 2 + 2, and do not make the tiers uniform in either direction
   (see the overview).
@@ -1130,22 +1130,22 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
   approach proposer on Sonnet (its recall measured identical to Opus), the nuanced judge on Opus
   at effort `high` (judging is judgment; proposing is recall). Finders sit at effort `medium`.
   Their inner reviewers/scorers self-tier (Sonnet/Haiku) per those skills. **Never let any of
-  these inherit the session model or the session effort** — inheritance is what let a `/effort
+  these inherit the session model or the session effort.** Inheritance is what let a `/effort
   xhigh` session silently run the whole fan-out at `xhigh`. What protects quality is the >=60
-  triangulation, the converge stage, and exactly one Opus finder — not a bigger model or more
+  triangulation, the converge stage, and exactly one Opus finder, not a bigger model or more
   thinking on every agent.
 - **Threshold is 60.** Do not raise or lower it on the fly. This applies to the four reviewers'
-  findings only. Approach findings (Step 2.7) do NOT use this threshold — they are gated on
+  findings only. Approach findings (Step 2.7) do NOT use this threshold. They are gated on
   the two agents *converging* on "needs a code change," not on a confidence score.
 - **Approach stage: one pair, agreement is the gate, split tiers.** Run exactly one approach
   reviewer (proposer, **Sonnet**) + one nuanced agent (judge, **Opus**), once (not 3x). The
   approach reviewer judges design, architecture, and
-  code placement only — not bugs — and explores the wider codebase to do so. A finding posts
+  code placement only, not bugs, and explores the wider codebase to do so. A finding posts
   only if (a) the pair converges to both "needs change" within the 3-round cap AND (b) it does
   not duplicate a `merged_all` finding with confidence > 50. Approach findings carry
   `source = "approach"` and the `[approach, …]` tag, bypass the >=60 filter, and otherwise post
   through the same single review as everything else. The approach stage runs **regardless of
-  `--skip-ticket`** — it is independent of the ticket logic.
+  `--skip-ticket`.** It is independent of the ticket logic.
 - **Flat-pool merging.** Findings from in-depth-review and gh-style-review are merged into
   one pool, dedup'd by file+line+description regardless of source, then filtered. Do not
   keep the two sources separate in the final output (they're attributed via `sources` on

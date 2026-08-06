@@ -25,12 +25,12 @@ description: >
 
 This skill performs ONE complete review pass over a target scope (a PR or a commit range)
 using eight to twelve specialized reviewer roles, then scores, filters, and deduplicates findings. It
-returns the result — it does NOT post anywhere, fix anything, or loop.
+returns the result. It does NOT post anywhere, fix anything, or loop.
 
 The multi-role specialization gives **cross-domain coverage** (style/standards, raw bugs, history,
 prior PR feedback, in-file guidance, DB, security, error handling, tests, ticket intent). Within-role
 triangulation (running the same role multiple times) is the **caller's** responsibility, not
-this skill's — `review-and-fix` runs 2 of these per iteration; `pr-review` runs 3.
+this skill's. `review-and-fix` runs 2 of these per iteration, and `pr-review` runs 3.
 
 ## Argument
 
@@ -57,7 +57,7 @@ fallback `main`).
 - `--roles <csv>` — run ONLY the listed roles instead of all of them. Accepts role numbers
   (`1`..`12`) and/or their category names, comma-separated, e.g. `--roles 1,5` or
   `--roles "AGENTS.md,comment guidance"`. The number/name mapping is the table in Step 1.
-  When the flag is **absent, all roles run** (the normal, complete review) — so this flag is
+  When the flag is **absent, all roles run** (the normal, complete review), so this flag is
   purely additive and existing callers are unaffected. It exists for iterative callers
   (`review-and-fix`) that rerun only the reviewers that were productive in the previous
   iteration. `--skip-ticket` still wins: it removes Role #10 from whatever set `--roles`
@@ -102,18 +102,18 @@ available (or its tools don't cover the call).** Discover the MCP tools with
 | `gh pr view <N> --comments` | get pull request review comments + issue comments |
 
 Prefer the GitHub MCP when connected; fall back to `gh` only when no MCP is available. Both
-paths are **read-only** here — read calls map to read tools, so the "never writes to GitHub"
+paths are **read-only** here. Read calls map to read tools, so the "never writes to GitHub"
 constraint is unchanged. If NEITHER a GitHub MCP nor `gh` is available, PR mode cannot proceed:
 abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git blame`,
-`git rev-list`) need no `gh` and are unaffected — branch mode works without GitHub entirely.
+`git rev-list`) need no `gh` and are unaffected. Branch mode works without GitHub entirely.
 
 ## Step 0: Resolve scope
 
 1. Parse the argument. First split it on whitespace into tokens; classify each token, then apply mode detection to the lone non-flag token:
-   - Matches `^#?[0-9]+$` or a GitHub PR URL → **PR mode**; `<PR>` = the number.
-   - Matches `^--raw$` → flag (defer until Step 4).
-   - Matches `^--skip-ticket$` → flag; when set, Role #10 is omitted in Step 1.
-   - Matches `^--roles$` (followed by its value) or `^--roles=...$` → flag; parse the
+   - Matches `^#?[0-9]+$` or a GitHub PR URL -> **PR mode**; `<PR>` = the number.
+   - Matches `^--raw$` -> flag (defer until Step 4).
+   - Matches `^--skip-ticket$` -> flag; when set, Role #10 is omitted in Step 1.
+   - Matches `^--roles$` (followed by its value) or `^--roles=...$` -> flag; parse the
      comma-separated value into `<ROLE_SET>` (role numbers 1..12 and/or category names via
      the Step 1 table). When the flag is absent, `<ROLE_SET>` = all roles. `--skip-ticket`
      removes Role #10 from `<ROLE_SET>` here, since that needs no diff data.
@@ -122,7 +122,7 @@ abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git bl
      only records as `<FILES_COMMAND>` without running. Step 1 fetches the file list once,
      evaluates all three gates, narrows `<ROLE_SET>` further, and owns the abort. Step 0 records
      the caller's selection. Step 1 finalizes it.
-   - Anything else → **branch mode**; `<RANGE>` = the arg.
+   - Anything else -> **branch mode**; `<RANGE>` = the arg.
    - If no positional arg: branch mode with `<RANGE>` = `origin/<default-branch>..HEAD`.
 
 2. **PR mode preflight:**
@@ -132,7 +132,7 @@ abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git bl
    ```
 
    If exit non-zero or `state != "OPEN"`, abort with a clear reason. **Draft PRs are
-   accepted** — reviewing early is a valid workflow. Store `<PR_HEAD_SHA>` for downstream
+   accepted.** Reviewing early is a valid workflow. Store `<PR_HEAD_SHA>` for downstream
    tooling (e.g. permalink construction); also note `isDraft` so callers that care (e.g.
    `pr-review`) can mention it in their output.
 
@@ -150,10 +150,10 @@ abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git bl
 
 Spawn the reviewer sub-agents in a single message (concurrent tool-use blocks). Launch
 exactly the roles in `<ROLE_SET>` (Step 0). Sequential launches defeat the purpose of this
-design — never serialize.
+design. Never serialize.
 
 **Nine roles always run: #1, #2, #3, #4, #5, #8, #9, #11**, plus #10 unless `--skip-ticket`.
-Three more are **conditional** — evaluate each gate against the diff before launching, and skip
+Three more are **conditional.** Evaluate each gate against the diff before launching, and skip
 the role entirely (not counted in the total) when its gate is false:
 
 | role | runs when | gate detail |
@@ -172,7 +172,7 @@ and reuse it for all three gates rather than re-running it per role. Then narrow
 gate results, and if that leaves it empty, abort with "no roles selected". Step 0 cannot do any of
 this, because the file list does not exist yet when arguments are parsed.
 
-### The role → parent return contract
+### The role -> parent return contract
 
 **A role's findings reach the parent through the Agent tool's return value, and nowhere else.**
 Every role prompt must end by instructing the role to put its COMPLETE findings list in its FINAL
@@ -181,14 +181,14 @@ TEXT OUTPUT.
 This is a hard requirement, not a default:
 
 - **Never depend on a message arriving.** If a role also sends results via `SendMessage`, agent
-  teams, a shared file, or any other side channel, that is additive only — the complete findings
+  teams, a shared file, or any other side channel, that is additive only. The complete findings
   must still be in the returned text. A side channel that silently fails must not be able to lose
   a finding.
 - **Do not have roles address the parent, and do not have the parent wait on a push.** The parent
   spawns and reads return values. There is no addressing step to get wrong.
 - **A role that returns empty text has reported nothing**, whatever it may have sent elsewhere.
   Classify it as missing per Step 2.0. Do not go looking for its output in another channel and
-  splice it in — that makes delivery depend on luck rather than on the contract.
+  splice it in. That makes delivery depend on luck rather than on the contract.
 
 This exists because the alternative has already failed in practice. Roles pushed results over a
 side channel, the push failed, and the findings survived only because those roles happened to also
@@ -218,7 +218,7 @@ finding:
 | 11 | Headline-benefit / motivation | `motivation` |
 | 12 | TypeScript type safety (conditional) | `types` |
 
-**Model: spawn every reviewer on Sonnet** (Agent-tool `model: sonnet`) — do NOT let them
+**Model: spawn every reviewer on Sonnet** (Agent-tool `model: sonnet`). Do NOT let them
 inherit the session model. Each role is a bounded, tightly-specified recall pass over the
 diff; that is exactly the work Sonnet does well and Opus does at ~5x the cost. Confidence is
 recovered downstream by the cross-role agreement count and (for the orchestrators) the
@@ -244,7 +244,7 @@ Discount or downscore findings that look like:
 - Pre-existing issues (on lines the diff didn't touch)
 - Things that look like bugs but aren't on closer inspection
 - Pedantic nitpicks a senior engineer wouldn't raise
-- Issues a linter / typechecker / compiler would catch (assume CI runs these — don't run them)
+- Issues a linter / typechecker / compiler would catch (assume CI runs these, so don't run them)
 - General code-quality complaints (test coverage, generic security advice, doc) unless explicitly
   required by AGENTS.md (these have dedicated roles below; don't generalize from them)
 - Issues called out in AGENTS.md but explicitly silenced in code (e.g. a lint-ignore comment)
@@ -265,7 +265,7 @@ IMPORTANT: Do not run `gh pr comment`, `gh pr review`, `gh pr edit`, or any comm
 writes to GitHub. Read-only gh commands (gh pr list / view / diff / search) are permitted
 only if your role below explicitly requires them. Prefer the GitHub MCP read tools (find them with
 ToolSearch "github pull request"); fall back to those read-only `gh` commands only when no MCP
-is connected — both are equally read-only; never use a write tool.
+is connected. Both are equally read-only. Never use a write tool.
 ```
 
 ### Reviewer Role #1 — AGENTS.md compliance
@@ -275,7 +275,7 @@ Your job: audit the changes for compliance with the relevant AGENTS.md / CLAUDE.
 (root + any sub-project AGENTS.md whose directory the diff touches). Read each one in full.
 
 Note that AGENTS.md is guidance for Claude as it WRITES code, so not every rule is a review
-criterion — ignore any that clearly only apply at authoring time (e.g. "use TodoWrite for tasks").
+criterion. Ignore any that clearly only apply at authoring time (e.g. "use TodoWrite for tasks").
 Focus on rules about what the resulting code must look like, contain, or avoid.
 
 When flagging, cite the specific AGENTS.md file and the rule text.
@@ -318,7 +318,7 @@ rests on a commit that does not exist. For each SHA you intend to cite:
   git branch -r --contains <sha>     # empty output means it is on no remote branch
 
 Do not emit a finding whose commit fails the existence check. Do not paraphrase it into a vaguer
-claim to keep it — a finding whose stated evidence does not exist is not a finding. If you cannot
+claim to keep it. A finding whose stated evidence does not exist is not a finding. If you cannot
 run verification at all (shallow clone, SHA below fetch depth), you may still report, but you MUST
 state "citation unverified" in the finding text so the parent can cap its score.
 
@@ -350,7 +350,7 @@ each PR you intend to reference:
 
 Do not emit a finding citing a PR that fails this check, and do not soften it into a vaguer claim
 to keep it. Quote the specific past comment you are relying on rather than summarizing "reviewers
-previously said" — an unquotable comment is one you should not be citing. If you cannot verify at
+previously said". An unquotable comment is one you should not be citing. If you cannot verify at
 all (no `gh`, no MCP), you may still report, but you MUST state "citation unverified" in the
 finding text.
 
@@ -367,8 +367,8 @@ and note the limitation.
 ### Reviewer Role #5 — In-file code comments
 
 ```
-Your job: read the inline code comments and docstrings in the modified files (not just the diff —
-the whole file is fair game). Surface any place where the change contradicts guidance written in
+Your job: read the inline code comments and docstrings in the modified files (not just the diff,
+since the whole file is fair game). Surface any place where the change contradicts guidance written in
 those comments.
 
 Typical signals:
@@ -400,7 +400,7 @@ minor suggestions; never let them crowd out a real bug.
 - The diff changes transaction handling, connection pooling, or a caching layer that fronts a
   database.
 
-Skip it when none hold — a data-layer lens on a diff with no data layer has nothing to read.
+Skip it when none hold. A data-layer lens on a diff with no data layer has nothing to read.
 This gate is mechanical. Data-layer code is identifiable from the diff without judgement calls,
 which is why this role is gated and #7 is not gated the same way.
 
@@ -438,7 +438,7 @@ security surface, which means ALL of these hold:
 - No changed file is executable code. The diff touches only documentation, comments, markdown,
   changelogs, or a formatting-only reflow.
 - No dependency manifest or lockfile changed (`package.json`, `requirements.txt`, `go.mod`,
-  `Gemfile`, `Cargo.toml`, any `*.lock`) — a version change is a supply-chain surface.
+  `Gemfile`, `Cargo.toml`, any `*.lock`). A version change is a supply-chain surface.
 - No configuration, environment, secret, IAM, or CI/CD file changed.
 
 If you find yourself constructing an argument for why some code change is safe, stop and run the
@@ -447,7 +447,7 @@ role. The gate is a formality for docs-only diffs, not a judgement call about co
 **Why this gate is narrow, unlike #6's.** Security surface is not mechanically identifiable the
 way data-layer code is. Almost anything touching input, I/O, rendering, deserialization, paths,
 or dependencies has one. Measurement backs this up: in the role-subsetting experiment the security
-lens returned empty on a TTL cache and a CSV parser, and both of those DO have surface — a cache
+lens returned empty on a TTL cache and a CSV parser, and both of those DO have surface. A cache
 with unbounded user-controllable keys is a DoS vector, and a CSV parser consumes untrusted input.
 Those empty results meant "looked, found no vulnerability", which is a successful review, not a
 wasted agent. Do not mistake one for the other and widen this gate.
@@ -543,7 +543,7 @@ for non-trivial new behavior, or tests that exist but don't actually test anythi
 
 ### Reviewer Role #10 — Ticket intent compliance
 
-**Skip this role entirely if `--skip-ticket` was passed** — do not launch it. Otherwise it is
+**Skip this role entirely if `--skip-ticket` was passed.** Do not launch it. Otherwise it is
 the 10th concurrent reviewer. Unlike the diff-focused roles, this one reads the change's
 tickets and checks the code against them.
 
@@ -565,22 +565,22 @@ each ticket's stated intent against what the diff actually does.
 
 3. Read each ticket, preferring acli: acli jira workitem view <ID>
    If acli is not installed, errors because it is not authenticated, or the session runs
-   Bash inside a sandbox (sandboxed acli fails even when installed and authenticated — its
+   Bash inside a sandbox (sandboxed acli fails even when installed and authenticated, because its
    credentials are unreadable there, so don't misread the failure as an auth problem), fall
-   back to a Jira/Atlassian MCP — search the available tools (e.g. ToolSearch
+   back to a Jira/Atlassian MCP. Search the available tools (e.g. ToolSearch
    "atlassian jira") for an issue-read tool and use it. Pull the title, description, and
    acceptance criteria.
 
    If NEITHER acli (installed + authenticated) NOR a Jira/Atlassian MCP (connected +
    authenticated) is available, you cannot perform this review. Stop and return exactly:
    TICKET_REVIEW_UNAVAILABLE: <one-line reason>
-   This is NOT "no issues" — it tells the caller the ticket check did not run, so the caller
+   This is NOT "no issues". It tells the caller the ticket check did not run, so the caller
    can warn the user.
 
    If one specific ticket cannot be read while the tooling works (bad ID, no access), mark
    just that ticket as unread and continue with the rest.
 
-4. If a ticket references Datadog — a trace ID, a trace or dashboard URL, or a log query —
+4. If a ticket references Datadog (a trace ID, a trace or dashboard URL, or a log query),
    investigate it through the Datadog MCP to understand the actual failure and whether the
    diff addresses it. Load the relevant Datadog skill first, per that MCP's own instructions.
    Keep this bounded to what the ticket explicitly references. Do NOT go fishing.
@@ -613,14 +613,14 @@ Never comment on, transition, or otherwise write to a ticket.
 
 ### Reviewer Role #11 — Headline-benefit / motivation delivery
 
-This role **always runs** (it needs no ticket tooling — the PR body / commit messages are
+This role **always runs** (it needs no ticket tooling, since the PR body / commit messages are
 always present). It reasons from the change's STATED PURPOSE down to the live call site, to
 catch the case where the diff is locally correct but does not actually deliver the benefit it
-claims — the gap diff-anchored reviewers miss because a pre-existing, untouched call site sits
+claims. This is the gap diff-anchored reviewers miss because a pre-existing, untouched call site sits
 outside their lens.
 
 ```
-Your job: verify the change delivers the benefit its description claims — reasoning from
+Your job: verify the change delivers the benefit its description claims, reasoning from
 MOTIVATION, not from the diff.
 
 1. Restate the stated goal in one sentence. Sources: the PR title/body (PR mode:
@@ -633,14 +633,14 @@ MOTIVATION, not from the diff.
    THE DIFF, and finding it is the whole point of this role.
 
 3. Confirm the diff makes the benefit land THERE. Two failure modes to hunt:
-   - The changed code has no live callers (`git grep` the changed symbol → zero production
-     call sites). Do NOT conclude "forward-looking, no change needed" and stop — that is the
+   - The changed code has no live callers (`git grep` the changed symbol -> zero production
+     call sites). Do NOT conclude "forward-looking, no change needed" and stop. That is the
      exact near-miss this role exists to prevent. Pull the thread: where does the live
      behavior run today, and does that path still carry the very bug the change set out to fix?
    - The live path is a different, untouched implementation (e.g. an inlined handler) that
      still has the defect the change fixes elsewhere.
 
-   When either holds, flag the LIVE site — even though it is outside the diff. Set the
+   When either holds, flag the LIVE site, even though it is outside the diff. Set the
    finding's category to "motivation" and anchor it to the live call site's file and line(s).
 
 UNLIKE the other roles, the common "discount pre-existing issues / lines the diff didn't
@@ -674,7 +674,7 @@ Flag these, in the diff's added or modified lines:
 - The non-null assertion `!` on a value that can genuinely be null or undefined at runtime.
   `arr.find(...)!` is the classic case, since `find` returns `T | undefined`.
 
-For each finding, say what the correct narrowing would be — a `typeof` / `instanceof` / `in`
+For each finding, say what the correct narrowing would be, whether a `typeof` / `instanceof` / `in`
 check, a user-defined type predicate (`function isX(v: unknown): v is X`), a discriminated union
 plus `switch`, or validation at the trust boundary that makes the value arrive already typed.
 A finding without a concrete alternative is not actionable; either supply one or drop it.
@@ -724,7 +724,7 @@ describe coverage you did not get. Concretely:
 - If `roles_missing` is non-empty, the review is **partial**. Say so in the output, name the roles,
   and never emit a bare "no issues found" that implies the full set ran.
 - Do not assert or imply a conclusion that depends on a role that did not report. If Role #7 never
-  returned, the review has NOT cleared the diff on security — it is silent on security.
+  returned, the review has NOT cleared the diff on security. It is silent on security.
 - Report the partial result anyway. A review missing one role is still useful; a review that
   silently claims completeness it does not have is worse than no review.
 
@@ -736,7 +736,7 @@ After all reviewers return:
 
 1. Before pooling, scan every reviewer response: if a response begins with
    `TICKET_REVIEW_UNAVAILABLE:` or `TICKET_REVIEW_SKIPPED:`, set it aside to populate
-   `ticket_review` (Step 4) — it is NOT a finding, so do not pool it or send it to a scorer.
+   `ticket_review` (Step 4). It is NOT a finding, so do not pool it or send it to a scorer.
    Then pool every remaining non-clean response (each is a list of findings). `NO_ISSUES_FOUND`
    from any role is an empty (clean) response.
 2. **Pre-score deduplication** — group findings that look like duplicates (same file +
@@ -750,7 +750,7 @@ After all reviewers return:
    citation past that exclusion.
 3. **Launch a scoring sub-agent for each unique finding in parallel** (one sub-agent per
    finding, all in a single message). **Spawn each scorer on Haiku** (Agent-tool
-   `model: haiku`) — scoring one finding against the rubric is a small, structured judgment
+   `model: haiku`). Scoring one finding against the rubric is a small, structured judgment
    with the diff and AGENTS.md handed in, not open-ended reasoning; Haiku is ~15–20x cheaper
    than Opus for it. Give each scorer:
    - The finding (file, line, severity, description, suggested fix)
@@ -771,7 +771,7 @@ After all reviewers return:
    - **Count what you spawned.** Record `scorers_spawned` and compare it to the number of unique
      findings after dedup. They must be equal.
    - **A finding with no scorer is `unscored`, not confident.** Set its confidence to `null`,
-     mark it `unscored`, and treat it as BELOW every caller threshold — it must never be posted
+     mark it `unscored`, and treat it as BELOW every caller threshold. It must never be posted
      or reported as a finding. List it separately as unscored so the gap is visible.
    - If `scorers_spawned` is 0 while unique findings exist, the run is **degraded, not clean**:
      emit `scoring.complete: false`, report every finding as unscored, and say plainly that no
@@ -794,7 +794,7 @@ Each scorer returns a number 0–100 with this rubric:
 **Hard cap: a finding whose citation is unverified cannot score above 60.** Roles #3 and #4 verify
 their own commit and PR citations at emit time and report `citation_verified` (see their prompts),
 so this cap holds even if that verification could not run. It is a backstop, not the primary
-enforcement — the roles drop fabricated citations before they ever reach you.
+enforcement. The roles drop fabricated citations before they ever reach you.
 
 - `citation_verified: true` — score normally against the rubric above.
 - `citation_verified: false` — cap at **60** and preserve it as a lead. Never resolve an unverified
@@ -815,15 +815,15 @@ consequences:
   is scored by provability ALONE. Do NOT discount it because the current blast radius is
   small: an empty or feature-gated table, low live traffic, or a cheap fix. That low impact
   belongs in the **severity** field (`minor` / `suggestion`), not in the confidence number.
-  Deflating a provably-true finding by today's table size is the calibration error to avoid —
-  it buries real, cheap-to-fix findings below the caller's threshold.
+  Deflating a provably-true finding by today's table size is the calibration error to avoid.
+  It buries real, cheap-to-fix findings below the caller's threshold.
 - This is NOT a blanket "score every real-ish finding high." For a latent *bug*, confidence
-  still reflects whether it is genuinely a defect and whether its path is reachable at all — a
+  still reflects whether it is genuinely a defect and whether its path is reachable at all. A
   rare, marginal conjunction that may not even constitute a real defect legitimately sits near
   or below the line. Reachability (can the path EVER execute) is a truth question and bounds
   confidence; frequency (how OFTEN, how big the blast radius) is impact and does not.
 
-When scoring, `role_agreement` and the diff are inputs to *truth*, not impact — more roles
+When scoring, `role_agreement` and the diff are inputs to *truth*, not impact. More roles
 raising the same provable violation supports a higher confidence, never a lower one.
 
 **Ticket-category findings** (from Role #10) are scored on the same 0–100 scale. The question
@@ -839,7 +839,7 @@ Score the divergence, not the importance of the ticket.
 
 **Motivation-category findings** (from Role #11) are scored on "how sure are we the PR's
 stated benefit fails to land at the live call site?" Do NOT score one of these as 0 merely
-because the cited line is outside the diff — the PR's stated purpose puts that site in scope:
+because the cited line is outside the diff. The PR's stated purpose puts that site in scope:
 
 - 100 — the stated goal demonstrably does not occur (the live call site still has the bug, or
   the changed code has zero live callers and the real path is untouched)
@@ -851,7 +851,7 @@ because the cited line is outside the diff — the PR's stated purpose puts that
 ## Step 3: Filter and dedup
 
 1. **Filter** — unless invoked with `--raw`, discard findings with `confidence < 70`. The
-   70 threshold is slightly more permissive than upstream `code-review`'s default of 80 —
+   70 threshold is slightly more permissive than upstream `code-review`'s default of 80. That is
    intentional, because the multi-role rubric here is wider than upstream's 5 roles and the extra
    roles (DB, security, error-handling, test coverage) tend to score in the 70-79 band even
    when they're genuinely useful.
@@ -881,7 +881,7 @@ because the cited line is outside the diff — the PR's stated purpose puts that
 
 Order surviving findings by:
 
-1. Severity descending (critical → major → minor → suggestion)
+1. Severity descending (critical -> major -> minor -> suggestion)
 2. `role_agreement` descending (more roles raised it, higher priority)
 3. Confidence descending
 
@@ -931,7 +931,7 @@ Return this exact JSON shape:
 }
 ```
 
-`roles_launched`, `roles_missing`, and `coverage` are **required** — emit them even when
+`roles_launched`, `roles_missing`, and `coverage` are **required.** Emit them even when
 `roles_missing` is empty and `coverage` is `"complete"`. `coverage` is `"partial"` whenever
 `roles_missing` is non-empty. A caller that sees `"partial"` knows not to read a short findings
 list as a clean bill of health. Callers aggregating several instances (`pr-review`,
@@ -939,7 +939,7 @@ list as a clean bill of health. Callers aggregating several instances (`pr-revie
 
 `scoring` is **required**, and it exists so a caller can tell a filtered result from an unfiltered
 one. `scoring.complete: false` means the confidence numbers in `findings` did not all come from the
-two-stage process and must not be trusted as a filter — a caller seeing it should treat the run as
+two-stage process and must not be trusted as a filter. A caller seeing it should treat the run as
 leads, not conclusions. Never omit the block to make a run look clean. Any finding carrying
 `unscored: true` has `confidence: null` and sits below every threshold by construction.
 
@@ -948,10 +948,10 @@ resolved, `false` when it cites one that could not be verified, and `null` when 
 verify. Roles #3 and #4 set it at emit time, so it survives a skipped scoring stage. A `false`
 caps the finding at 60 regardless of any score.
 
-Populate `ticket_review` from Role #10's response: a findings list or `NO_ISSUES_FOUND` →
-`{ "status": "ran", "note": null }`; `TICKET_REVIEW_SKIPPED: access denied` →
-`{ "status": "denied", "note": "access denied" }`; `TICKET_REVIEW_UNAVAILABLE: <r>` →
-`{ "status": "unavailable", "note": "<r>" }`; `--skip-ticket` passed (role not launched) →
+Populate `ticket_review` from Role #10's response: a findings list or `NO_ISSUES_FOUND` ->
+`{ "status": "ran", "note": null }`; `TICKET_REVIEW_SKIPPED: access denied` ->
+`{ "status": "denied", "note": "access denied" }`; `TICKET_REVIEW_UNAVAILABLE: <r>` ->
+`{ "status": "unavailable", "note": "<r>" }`; `--skip-ticket` passed (role not launched) ->
 `{ "status": "skipped", "note": null }`.
 
 Populate `tickets_examined` from Role #10's `TICKETS_EXAMINED:` line: one entry per `<id>=<status>`,
@@ -997,8 +997,8 @@ and the threshold note is dropped.
 - **9 to 12 parallel reviewers per pass, or 8 to 11 with `--skip-ticket`.** Eight are
   unconditional (#1, #2, #3, #4, #5, #8, #9, #11). #10 runs unless `--skip-ticket` drops it, which
   is what lowers the floor to eight. Three are gated on the diff: #6 data-layer, #7 security, #12
-  TypeScript — see the Step 1 gate table. A caller may run a smaller subset via
-  `--roles` (Step 0/1) for iterative reruns — that is the ONLY reason to drop a role beyond the
+  TypeScript. See the Step 1 gate table. A caller may run a smaller subset via
+  `--roles` (Step 0/1) for iterative reruns, and that is the ONLY reason to drop a role beyond the
   gates. Never serialize, and never drop an ungated role for speed on a standalone or first-pass
   review. The role specialization is the point.
 - **The three gated roles are conditional, not optional.** A gate answers "is there anything in
@@ -1014,7 +1014,7 @@ and the threshold note is dropped.
 - **Role #10 is read-only and abortable.** It may use `acli jira workitem view` (Jira read)
   and read-only Datadog MCP tools — nothing else. On any denied permission it returns
   `TICKET_REVIEW_SKIPPED: access denied` and stops. This is the user's "ignore this reviewer"
-  control — Role #10 never writes to Jira, Datadog, or GitHub.
+  control. Role #10 never writes to Jira, Datadog, or GitHub.
 - **Single pass per invocation** — no looping inside this skill. Callers that want iteration
   (like `review-and-fix`) loop externally.
 - **Threshold default is `< 70` discard.** `--raw` bypasses the filter for callers that apply

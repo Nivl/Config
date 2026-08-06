@@ -1,8 +1,8 @@
 ---
 name: pr-review
 description: >
-  Reviews a pull request with SIX parallel reviewer sub-agents — THREE `in-depth-review` + THREE
-  `gh-style-review`, all invoked `--raw`. The orchestrator merges and deduplicates the six
+  Reviews a pull request with FOUR parallel reviewer sub-agents — TWO `in-depth-review` + TWO
+  `gh-style-review`, all invoked `--raw`. The orchestrator merges and deduplicates the four
   result sets into one pool, keeps findings scoring >= 60, and classifies each as INLINE
   (specific diff lines) or GLOBAL (broad/architectural). The `gh-style-review` instances also
   return Discussion Context — prior human comments the diff still leaves open — surfaced as a
@@ -18,21 +18,21 @@ description: >
   than a single `/in-depth-review` run would produce.
 ---
 
-# PR Review (6x-reviewed)
+# PR Review (4x-reviewed)
 
-This skill orchestrates **six** parallel reviewer sub-agents against a single PR: **three
+This skill orchestrates **four** parallel reviewer sub-agents against a single PR: **two
 instances of `in-depth-review`** (each runs ten roles by default, or nine with `--skip-ticket`; all raw scored findings) and
-**three instances of `gh-style-review`** (the `@claude review` GitHub Action prompt
+**two instances of `gh-style-review`** (the `@claude review` GitHub Action prompt
 replicated locally, which adds Discussion Context — prior-human-comment cross-referencing
-— on top of standard findings). All six are invoked with `--raw`; the orchestrator merges and
-deduplicates the six result sets into one flat pool, applies a final **score ≥ 60** filter,
+— on top of standard findings). All four are invoked with `--raw`; the orchestrator merges and
+deduplicates the four result sets into one flat pool, applies a final **score ≥ 60** filter,
 classifies each surviving finding as INLINE (local) or GLOBAL, aggregates the still-unaddressed
-`discussion_context` across the three gh-style instances, and posts a single PR review whose body
+`discussion_context` across the two gh-style instances, and posts a single PR review whose body
 carries the global findings in full, a names-only list of the local findings, and the
 still-unaddressed prior concerns. Inline comments are attached to the diff lines they refer to.
 Sections with no content are never emitted.
 
-On top of the six reviewers, a single **approach reviewer** debates a single
+On top of the four reviewers, a single **approach reviewer** debates a single
 **more-nuanced counterpart agent** over the issues it raises (Step 2.7). This reviewer judges
 one thing only — is this the right way to build it (design, architecture, code placement,
 over/under-engineering) — not bugs. Only the findings the pair *converges* on as genuinely
@@ -41,9 +41,9 @@ with confidence > 50. Survivors join the same posting pipeline, tagged `approach
 runs once (not 3×), and its findings post on agreement alone —
 they do not have to clear the ≥ 60 confidence bar the other findings do.
 
-The point: six independent passes from two different prompt structures (specialized-role
+The point: four independent passes from two different prompt structures (specialized-role
 vs. GitHub-Action mirror) catch different issues, AND converge on the real ones. One
-review entry, six reviewers' worth of recall, plus an explicit "what humans already raised
+review entry, four reviewers' worth of recall, plus an explicit "what humans already raised
 that the diff still hasn't addressed" section.
 
 ## Prerequisites
@@ -56,8 +56,8 @@ that the diff still hasn't addressed" section.
 - A GitHub MCP server must be connected and authenticated — OR `gh` must be installed and
   authenticated, which the skill falls back to when no GitHub MCP is available (see **GitHub access**).
 
-**Flag:** pass `--skip-ticket` to disable ticket intent compliance (Role #10) across all
-three `in-depth-review` instances and skip the Jira-tooling preflight.
+**Flag:** pass `--skip-ticket` to disable ticket intent compliance (Role #10) across both
+`in-depth-review` instances and skip the Jira-tooling preflight.
 
 **Flag:** `--announce` / `--no-announce` control the optional "review in progress" comment
 (Step 0.7). With neither flag the skill prompts once; the flag pre-answers and skips the
@@ -104,7 +104,7 @@ need no `gh`.
    and tell the user which one to install.
 5. If the invocation included `--skip-ticket`, set `<SKIP_TICKET> = true` (default `false`).
    When `true`, every in-depth-review sub-agent is invoked with `--skip-ticket`, so Role #10
-   never runs. When `false`, all three in-depth-review instances run Role #10 (three ticket
+   never runs. When `false`, both in-depth-review instances run Role #10 (two ticket
    reviewers). `gh-style-review` is unaffected either way — it has no ticket role.
 6. **Jira-tooling preflight** (skip this step entirely if `<SKIP_TICKET>` is true). Before
    launching any reviewers, confirm a Jira reader is available AND authenticated:
@@ -142,22 +142,22 @@ need no `gh`.
      `<ANNOUNCE_COMMENT_ID>` empty, and run the review anyway — the review is the deliverable and
      the comment is best-effort.
 
-## Step 1: Launch six reviewer sub-agents in parallel
+## Step 1: Launch four reviewer sub-agents in parallel
 
-Spawn **six sub-agents in a single message** (six concurrent Agent tool calls). Sequential
-launches defeat the purpose — never serialize. **Spawn all six on Sonnet** (Agent-tool
+Spawn **four sub-agents in a single message** (four concurrent Agent tool calls). Sequential
+launches defeat the purpose — never serialize. **Spawn all four on Sonnet** (Agent-tool
 `model: sonnet`): each is a thin wrapper that invokes a recall-pass skill and relays its JSON,
 and `in-depth-review` / `gh-style-review` already pin their own internal tiers (reviewers →
 Sonnet, scorers → Haiku). Never let these inherit the session model (it may be Opus / `[1m]`).
 The split is:
 
-- **Sub-agents 1–3:** invoke `in-depth-review`
-- **Sub-agents 4–6:** invoke `gh-style-review`
+- **Sub-agents 1–2:** invoke `in-depth-review`
+- **Sub-agents 3–4:** invoke `gh-style-review`
 
-### Sub-agents 1–3 prompt (in-depth-review)
+### Sub-agents 1–2 prompt (in-depth-review)
 
 ```
-You are sub-agent N of 6 in a pr-review orchestration (N is 1, 2, or 3). Your job:
+You are sub-agent N of 4 in a pr-review orchestration (N is 1 or 2). Your job:
 perform one independent in-depth review of PR #<PR> by invoking the `in-depth-review`
 skill, then return its result to me unchanged.
 
@@ -172,7 +172,7 @@ Concretely:
      get every scored finding. The orchestrator will apply its own >=60 threshold.
 2. Wait for `in-depth-review` to finish and return its structured JSON output.
 3. Return that JSON verbatim, with two additions at the top level:
-   - `"sub_agent": N` (which of the 6 instances you are)
+   - `"sub_agent": N` (which of the 4 instances you are)
    - `"source": "in-depth-review"` (so the orchestrator can attribute findings)
 
 Forbidden:
@@ -189,10 +189,10 @@ If `in-depth-review` refuses to proceed (closed/merged PR, or other ineligibilit
 `skipped_reason` field unchanged so the orchestrator can report it.
 ```
 
-### Sub-agents 4–6 prompt (gh-style-review)
+### Sub-agents 3–4 prompt (gh-style-review)
 
 ```
-You are sub-agent N of 6 in a pr-review orchestration (N is 4, 5, or 6). Your job:
+You are sub-agent N of 4 in a pr-review orchestration (N is 3 or 4). Your job:
 perform one independent gh-style review of PR #<PR> by invoking the `gh-style-review`
 skill, then return its result to me unchanged.
 
@@ -206,7 +206,7 @@ Concretely:
    documented in its "If invoked as a sub-agent" section, NOT its terminal-formatted output.
 3. Wait for gh-style-review to finish and return its structured JSON output.
 4. Return that JSON verbatim, with two additions at the top level:
-   - `"sub_agent": N` (which of the 6 instances you are)
+   - `"sub_agent": N` (which of the 4 instances you are)
    - `"source": "gh-style-review"` (so the orchestrator can attribute findings)
 
 Forbidden:
@@ -226,17 +226,17 @@ If `gh-style-review` refuses to proceed (closed PR, missing skill, etc.), return
 ### Why each sub-agent uses `--raw`
 
 Both `in-depth-review` and `gh-style-review` default to discarding anything `< 70`. This
-orchestrator's threshold is **60** (lower than each sub-skill's default because the 6×
-cross-instance triangulation — three from each prompt structure — raises confidence in
+orchestrator's threshold is **60** (lower than each sub-skill's default because the 4×
+cross-instance triangulation — two from each prompt structure — raises confidence in
 60-69 findings). `--raw` makes the sub-agents return all scored findings; we apply the
 60 cutoff in Step 2 after merging.
 
 ## Step 2: Merge and deduplicate (findings)
 
-Once all six sub-agents have returned:
+Once all four sub-agents have returned:
 
-1. **Pool every finding** across the six result sets into one flat pool. Each finding carries
-   its `confidence`, `file`, `line_range`, originating `sub_agent` (1..6), and `source`
+1. **Pool every finding** across the four result sets into one flat pool. Each finding carries
+   its `confidence`, `file`, `line_range`, originating `sub_agent` (1..4), and `source`
    (`"in-depth-review"` or `"gh-style-review"`). Don't pre-segregate by source — the cross-
    prompt triangulation is the point.
 
@@ -248,7 +248,7 @@ Once all six sub-agents have returned:
 3. **For each group, produce one merged finding:**
    - `confidence`: **max** of the group's scores (any one reviewer with high confidence is strong
      evidence; merging by max is intentionally non-conservative).
-   - `agreement`: count of distinct sub-agents (1..6) that raised this finding.
+   - `agreement`: count of distinct sub-agents (1..4) that raised this finding.
    - `sources`: set of distinct sources (`{"in-depth-review"}`, `{"gh-style-review"}`, or both).
      A finding raised by both sources is stronger signal than a finding raised by only one;
      used as a tiebreaker in step 6.
@@ -273,7 +273,7 @@ Once all six sub-agents have returned:
 
 6. **Order the surviving findings:**
    1. `confidence` descending
-   2. `agreement` descending (6/6 > 3/6 > 1/6 when scores tie)
+   2. `agreement` descending (4/4 > 2/4 > 1/4 when scores tie)
    3. Both-sources first (a finding raised by both in-depth-review and gh-style-review beats
       a same-confidence-and-agreement finding from a single source)
    4. `category` priority: bug > AGENTS.md > history > prior PR > comment guidance > ticket
@@ -286,7 +286,7 @@ Only the **unaddressed** concerns are rendered (the "Addressed by this PR" secti
 as noise — listing what the diff already fixed is not actionable). The `resolved` entries are
 read solely to detect reviewer disagreement in step 2.
 
-1. **Pool every `unaddressed` entry** across the three `gh-style-review` result sets into one
+1. **Pool every `unaddressed` entry** across the two `gh-style-review` result sets into one
    flat `unaddressed_pool`. Each entry carries `quote`, `author`, `url`, and `gap`.
 
 2. **Deduplicate by `url`** (the GitHub comment URL is the canonical identity of a discussion
@@ -311,7 +311,7 @@ read solely to detect reviewer disagreement in step 2.
 A single **approach reviewer** and a single **more-nuanced counterpart agent** debate the
 issues the approach reviewer raises. This stage judges one thing only: **is this the right way
 to build it?** The approach reviewer does not hunt for bugs, edge cases, races, security, or
-error-handling gaps. The six reviewers already cover those. It weighs the design instead. Is
+error-handling gaps. The four reviewers already cover those. It weighs the design instead. Is
 the approach and the implementation the best available? Is the code over- or under-engineered?
 Is it in the right place (a DD count stat emitted in the wrong layer, say)? Is the architecture
 solid or duct-taped? Does a pattern or utility for this already exist in the repo that the
@@ -327,11 +327,11 @@ model. It is also cheap to keep there: one pair, run once (not 3×), ≤3 rounds
 else in this skill runs on Sonnet/Haiku.
 
 This stage runs **after** the merge because the dedup in Step 2.7b below compares against
-`merged_all`, which only exists once Step 2 has merged the six reviewers. The pair runs **once**
+`merged_all`, which only exists once Step 2 has merged the four reviewers. The pair runs **once**
 (not 3×) — the internal debate is the filter, so cross-instance triangulation is not needed.
 
 **Both agents are read-only with respect to GitHub** — same forbidden-write list as sub-agents
-1–6. The approach reviewer **explores the wider codebase** to ground its judgment. It reads
+1–4. The approach reviewer **explores the wider codebase** to ground its judgment. It reads
 neighboring modules, greps for existing patterns and utilities, and checks where similar code
 already lives, not just the PR diff. Neither agent is given the **other reviewers'** findings,
 so this pass stays independent (the dedup happens here, at the orchestrator, not inside the
@@ -515,7 +515,7 @@ ergonomics. When in doubt, prefer INLINE if a single line range is identifiable.
 
 ### Step 3a.5: Identify ticket notes worth surfacing (no "all clear" roll-call)
 
-Build `tickets_examined` = union by `id` of the `tickets_examined` arrays returned by the three
+Build `tickets_examined` = union by `id` of the `tickets_examined` arrays returned by the two
 in-depth-review sub-agents (each entry has `id` and `status` ∈ {`ok`, `gaps`, `unread`}). For
 each `id`, `status` is `gaps` if any instance reported gaps, else `unread` if any reported
 unread, else `ok`.
@@ -619,7 +619,7 @@ Concerns raised by reviewers earlier that this PR does not appear to address:
 
 - > <quote> — ([link](url))
   >
-  > ⚠️ <gap> &nbsp;`[agreement: <N>/3]`
+  > ⚠️ <gap> &nbsp;`[agreement: <N>/2]`
 - ...
   <<endif>>
 ```
@@ -825,7 +825,7 @@ the user's request, then still give the tallies below.
 
 - The PR URL.
 - How many findings each sub-agent originally returned (pre-merge counts), broken down by
-  source: `3 × in-depth-review: [N1, N2, N3]`, `3 × gh-style-review: [N4..N6]`.
+  source: `2 × in-depth-review: [N1, N2]`, `2 × gh-style-review: [N3, N4]`.
 - How many unique findings survived the ≥ 60 filter (post-merge count), broken down as
   GLOBAL vs INLINE, and how many were both-source vs single-source.
 - How many unaddressed prior concerns surfaced: `unaddressed: K`.
@@ -843,8 +843,8 @@ the user's request, then still give the tallies below.
 
 **If no review was posted (clean PR):**
 
-- Lead with a clear "all clear" line, e.g. ✅ `PR #<PR> looks good — six independent reviewers
-(3 × in-depth + 3 × gh-style) raised no findings at confidence ≥ 60, the approach pair
+- Lead with a clear "all clear" line, e.g. ✅ `PR #<PR> looks good — four independent reviewers
+(2 × in-depth + 2 × gh-style) raised no findings at confidence ≥ 60, the approach pair
 converged on nothing, and there are no unaddressed discussion items. Nothing posted to GitHub.`
 - The PR URL.
 - How many findings each sub-agent originally returned (pre-merge counts), broken down by
@@ -883,7 +883,7 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
   user — do not proceed to post the merged review, since the inner skill could have posted
   from a sub-agent. **The approach and nuanced agents (Step 2.7) are read-only too** — same
   forbidden-write list; abort the orchestration if either appears about to write to GitHub.
-- **Six parallel sub-agents (3 × in-depth-review + 3 × gh-style-review).** Launch all six
+- **Four parallel sub-agents (2 × in-depth-review + 2 × gh-style-review).** Launch all four
   in a single message with concurrent Agent tool calls. Do not fall back to fewer sub-agents
   for "speed"; the cross-source triangulation is the point. Do not use only one source —
   both prompt structures contribute distinct findings.
@@ -891,13 +891,13 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
   the diff adds or edits that join clauses with ` - ` (space-hyphen-space) or a sentence-splitting
   `:`, per AGENTS.md. These are `suggestion`-severity: keep them if they survive the threshold,
   but never let them displace correctness findings in the posted review.
-- **Model policy (cost):** the six reviewer sub-agents run on **Sonnet** (`model: sonnet`);
+- **Model policy (cost):** the four reviewer sub-agents run on **Sonnet** (`model: sonnet`);
   their inner reviewers/scorers self-tier (Sonnet/Haiku) per those skills. Only the
   approach + nuanced pair (Step 2.7) runs on **Opus** (`model: opus`, standard 200k — never
   `[1m]`), because that stage is judgment, not recall. Never let any of these inherit the
   session model. The ≥60 triangulation and the converge stage are what protect quality — not a
   bigger model on every finder.
-- **Threshold is 60.** Do not raise or lower it on the fly. This applies to the six reviewers'
+- **Threshold is 60.** Do not raise or lower it on the fly. This applies to the four reviewers'
   findings only. Approach findings (Step 2.7) do NOT use this threshold — they are gated on
   the two agents *converging* on "needs a code change," not on a confidence score.
 - **Approach stage: one pair, agreement is the gate.** Run exactly one approach reviewer

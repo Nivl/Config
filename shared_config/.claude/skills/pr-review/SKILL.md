@@ -293,15 +293,37 @@ return all scored findings; we apply the 60 cutoff in Step 2 after merging.
 ## Step 2: Merge and deduplicate (findings)
 
 **First, account for every sub-agent you launched.** Classify each of the four as *reported*
-(returned parseable JSON) or *missing* (returned nothing, errored, or returned output you cannot
-parse). Record the missing ones in `reviewers_missing`. Then union the `roles_missing` arrays that
-the in-depth-review instances report, and treat any instance whose `coverage` is `"partial"` as
-partial here too.
+(returned parseable JSON) or *missing* (returned nothing, errored, returned output you cannot
+parse, or never notified before the give-up bound). Record the missing ones in
+`reviewers_missing`. Then union the `roles_missing` arrays that the in-depth-review instances
+report, and treat any instance whose `coverage` is `"partial"` as
+partial here too. Never reason that running several in-depth instances means every lens ran at least once.
+Measured: in one run two roles were silent in BOTH instances, so the union of what the instances DID return
+covered neither. A lens that no instance reported on is a hole, not a covered lens, and the union
+of findings can never be used to claim `complete`.
 
-**Reviewer results must arrive in the sub-agent's returned text.** Read each one from the Agent
-tool's return value. Do not wait on a pushed message and do not go hunting for a result in another
-channel. A sub-agent whose returned text is empty has reported nothing, and belongs in
-`reviewers_missing`.
+**Reviewer results arrive in each sub-agent's own final text, on a later turn than the launch.** The
+Agent tool launches asynchronously. Its result carries launch metadata and an `agentId`, and never the
+sub-agent's findings, so there is nothing to read at launch. Record the `agentId` of all four
+sub-agents when you launch them. Then take a turn, harvest every `<task-notification>` in front of
+you, match each `<task-id>` to a recorded `agentId`, and keep its `<result>` body. Keep taking turns
+until all four are accounted for, OR until THREE CONSECUTIVE COLLECTING TURNS have brought zero new
+arrivals. A collecting turn is ONE substantive tool call that names the sub-agent it checked on, so
+re-read the diff for a sub-agent you are still waiting on. Three repeats of the same no-op are not
+three turns.
+Do NOT start the zero-arrival counter until you have taken at least as many collecting turns as you
+launched sub-agents, with a floor of five, whether or not anything has arrived. The three zero-arrival
+turns are counted FRESH from the moment the counter arms, so turns taken before arming never count
+toward them. Sub-agents take minutes, not seconds, so a counter armed at launch measures your own
+polling speed rather than a failure. If you reach the bound and have not yet re-armed the counter,
+re-arm it EXACTLY ONCE and keep collecting. After that, honor the bound. Never end your turn with a
+recorded `agentId` unaccounted for unless you have already used your single re-arm and are recording it
+in `reviewers_missing` on that same turn. If you stop while one is outstanding you will not receive it
+at all. A notification that arrives after the bound is still that sub-agent's
+report. Fold it into the pool and remove it from `reviewers_missing`. The accounting is final only
+when you emit your report. Do not go hunting for a result in any other channel, and do not treat the
+absence of a launch value as a failure. A sub-agent that reported, but whose returned text is empty,
+has reported nothing and belongs in `reviewers_missing`.
 
 **A missing reviewer is not a clean reviewer, and must never be filled in.** Do not write findings
 on behalf of a reviewer that did not report, do not infer what it would have found, do not run its
@@ -342,7 +364,7 @@ proposed the findings, not scores.
 An unfiltered instance is not a free extra reviewer. Posting its findings puts a single model's
 self-graded output into a PR review, which is how a fabricated finding gets published.
 
-Once all four sub-agents have returned:
+Once collection has ended, whether all four reported or the give-up bound above was reached:
 
 1. **Pool every finding** across the four result sets into one flat pool. Each finding carries
    its `confidence`, `file`, `line_range`, originating `sub_agent` (1..4), and `source`

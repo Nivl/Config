@@ -45,9 +45,10 @@ Each iteration:
    has human reviewer comments.
 5. Fixes each unique finding, one commit per fix, and classifies each committed fix as a
    logic change or not.
-6. Loops until the findings list is empty with every launched reviewer kind reported and none
-   `unavailable`, or an iteration commits nothing, or a kind is `unavailable` with an empty
-   findings list (which stops with partial coverage).
+6. Loops until the findings list is empty with every launched reviewer kind reported, none
+   `unavailable`, and the unioned `roles_missing` empty, or an iteration commits nothing, or the
+   findings list is empty with a kind `unavailable` or the unioned `roles_missing` non-empty
+   (which stops with partial coverage).
 
 The triangulation lives **here**, not inside the sub-skills. Each `in-depth-review` pass
 is itself a multi-role review (9 to 12 roles, or 8 to 11 with `--skip-ticket`, and three of those
@@ -111,9 +112,10 @@ for the reads they do. Local `git` calls need no `gh`.
 5. Fix each unique finding, asking for clarification on ambiguous items, committing each fix,
    and recording whether each committed fix changed logic and which reviewer it came from
 6. Decide the next iteration's active set (full rerun / pruned / stop) and repeat from step 2
-   until the findings list is empty with every launched reviewer kind reported and none
-   `unavailable` (row 1, clean), or the findings list is empty with a kind `unavailable`
-   (row 1c, which stops with partial coverage), or an iteration commits nothing
+   until the findings list is empty with every launched reviewer kind reported, none
+   `unavailable`, and the unioned `roles_missing` empty (row 1, clean), or the findings list is
+   empty with a kind `unavailable` or the unioned `roles_missing` non-empty (row 1c, which stops
+   with partial coverage), or an iteration commits nothing
 7. Emit the per-iteration summary before the loop returns to step 2 or falls through to the
    report
 8. Deliver a final summary report
@@ -305,12 +307,34 @@ return the abort reason to me instead of proceeding.
 ### Aggregating across the active instances
 
 **First, account for every sub-agent this iteration launched.** Classify each as *reported* or
-*missing* (nothing returned, errored, or unparseable output). Then roll the per-instance verdict up
+*missing* (nothing returned, errored, unparseable output, or never notified before the give-up
+bound). Then roll the per-instance verdict up
 to the reviewer kind, since that is what the bookkeeping below is keyed on. Record every kind that
 fell short in `reviewers_missing`, keep the per-instance detail for the per-iteration summary, and
-union the `roles_missing` arrays the in-depth-review instances report.
-Read every result from the Agent tool's return value. A sub-agent whose returned text is empty
-has reported nothing, whatever it may have sent over any other channel.
+union the `roles_missing` arrays the in-depth-review instances report. Never reason that running several
+in-depth instances means every lens ran at least once. Measured: in one run two roles were silent in BOTH
+instances, so the union of what the instances DID return covered neither. A lens that no instance reported on
+is a hole, not a covered lens, and the union of findings can never be used to claim `complete`.
+Results arrive in each sub-agent's own final text, on a later turn than the launch, never in the
+Agent tool's launch result. Record every sub-agent's `agentId` at launch, then take turns and
+harvest each `<task-notification>`, matching its `<task-id>` to a recorded `agentId`. Keep taking
+turns until every sub-agent this iteration launched is accounted for, OR until THREE CONSECUTIVE
+COLLECTING TURNS have brought zero new arrivals. A collecting turn is ONE substantive tool call
+naming the sub-agent it checked on, so re-read the diff for a sub-agent you are still waiting on.
+Three repeats of the same no-op are not three turns.
+Do NOT start the zero-arrival counter until you have taken at least as many collecting turns as you
+launched sub-agents, with a floor of five, whether or not anything has arrived. The three zero-arrival
+turns are counted FRESH from the moment the counter arms, so turns taken before arming never count
+toward them. Sub-agents take minutes, not seconds, so a counter armed at launch measures your own
+polling speed rather than a failure. If you reach the bound and have not yet re-armed the counter,
+re-arm it EXACTLY ONCE and keep collecting. After that, honor the bound. If you have no other work,
+re-read the diff for a sub-agent you are still waiting on. Never end your turn with a recorded
+`agentId` unaccounted for unless the give-up bound's single re-arm has already been used and you are
+recording it in `reviewers_missing` on that same turn. If you stop while one is outstanding you will
+not receive it at all. A notification that arrives after the bound is still
+that sub-agent's report. Fold it into the pool and remove it from `reviewers_missing`. The
+accounting is final only when you emit your report. A sub-agent that reported, but whose returned
+text is empty, has reported nothing, whatever it may have sent over any other channel.
 
 **Never fabricate a missing reviewer's findings**, and never fix on an inferred finding. Do not
 write what a missing reviewer would have found, do not run its lens in the parent and attribute it,
@@ -359,8 +383,9 @@ because this skill acts on findings rather than just posting them:
   not earn.
 - Never count a non-response as "found nothing".
 - **A short kind must not satisfy the loop-exit condition.** A batch is only clean when every kind
-  launched this iteration reported, reported nothing, AND `reviewer_unavailable` is empty. All three
-  are required. Step 3's table is the authority on which row fires. Whether to relaunch a short
+  launched this iteration reported, reported nothing, `reviewer_unavailable` is empty, AND the
+  unioned `roles_missing` is empty. All four are required. Step 3's table is the authority on which
+  row fires. Whether to relaunch a short
   kind follows the retry rule above rather than being automatic. Relaunch it only while it still
   has retry budget, never relaunch a kind already in `reviewer_unavailable`, and let row 1c
   terminate the run once a kind is `unavailable`.
@@ -385,7 +410,8 @@ proposed the findings, not scores.
   and commits code, so the cost of acting on a self-graded finding is a commit that encodes an
   invented problem. When in doubt, leave it and report it.
 
-After all active sub-agents return (up to 3; fewer when the iteration is pruned):
+Once collection has ended, whether every active sub-agent reported or the give-up bound above was
+reached (up to 3 active; fewer when the iteration is pruned):
 
 1. **Pool every finding** from the active result sets into one flat pool. Each finding carries
    its raw `confidence` (0–100), `file`, `line_range`, `category`, originating `sub_agent`,
@@ -538,12 +564,15 @@ The first that matches wins:
 
 | # | Condition                                                                  | Action                                                        |
 | - | -------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| 1 | Findings list empty, every reviewer **launched this iteration** reported, **and `reviewer_unavailable` is empty** | **Stop** — clean. Proceed to Final Report |
+| 1 | Findings list empty, every reviewer **launched this iteration** reported, **`reviewer_unavailable` is empty**, **and the unioned `roles_missing` is empty** | **Stop** — clean. Proceed to Final Report |
 | 1b | Findings list empty BUT a reviewer launched this iteration is missing and still has retry budget | **Not clean.** Relaunch it next iteration; go to Step 1 |
-| 1c | Findings list empty, every reviewer launched this iteration either reported or is `unavailable`, **and `reviewer_unavailable` is non-empty** | **Stop** — coverage is `partial`, not clean. Use the incomplete-coverage outcome. |
+| 1c | Findings list empty, every reviewer launched this iteration either reported or is `unavailable`, **and EITHER `reviewer_unavailable` is non-empty OR the unioned `roles_missing` is non-empty** | **Stop** — coverage is `partial`, not clean. Use the incomplete-coverage outcome. |
 | 2 | `any_commit == false` (findings existed but nothing was committed)         | **Stop** — proceed to Final Report                            |
 | 4 | `any_logic_change == true`                                                 | **Full rerun**: set active set to ALL reviewers; go to Step 1 |
 | 5 | Otherwise (committed, but no logic change)                                 | **Pruned rerun**: set active set to `productive_reviewers`; go to Step 1 |
+
+A role-level shortfall is deliberately NOT retried. It blocks the clean exit and surfaces in Coverage
+as `partial`, which is why row 1 now requires an empty unioned `roles_missing`.
 
 **There is no iteration cap, and the number column is a label column, not an index.** Rows 1, 1c,
 and 2 are the only stops. Rows 1b, 4, and 5 are the only rows that go back to Step 1. Row 1b is
@@ -593,10 +622,12 @@ Track state explicitly:
 
 - `iteration`: starts at 1, increments before each Step 1 launch
 - `batch_clean`: per-iteration flag, true iff the deduplicated findings list was empty AND
-  `reviewers_missing` was empty AND `reviewer_unavailable` was empty. An empty findings list with a
-  short kind sets `batch_incomplete`, not `batch_clean`. A non-empty `reviewer_unavailable` forces
-  `batch_incomplete` too, because an `unavailable` kind is never launched and so never shows up in
-  the per-iteration `reviewers_missing`. Without that third condition `batch_clean` would compute
+  `reviewers_missing` was empty AND `reviewer_unavailable` was empty AND the unioned `roles_missing`
+  was empty. An empty findings list with a short kind sets `batch_incomplete`, not `batch_clean`. A
+  non-empty `reviewer_unavailable` forces `batch_incomplete` too, because an `unavailable` kind is
+  never launched and so never shows up in the per-iteration `reviewers_missing`. A non-empty unioned
+  `roles_missing` forces `batch_incomplete` the same way, because a lens no instance reported on
+  never shows up in `reviewers_missing` either. Without those conditions `batch_clean` would compute
   true on the very iteration row 1c stops as partial.
 - `reviewers_missing`, `roles_missing`: per-iteration; carried into the per-iteration summary and
   Final Report
@@ -769,7 +800,8 @@ reviewers ALL reported, they found nothing actionable, and Coverage is `complete
 — OR —
 ⚠️ Stopped with incomplete coverage — Coverage is `partial`, so this is not a clean result whatever
 else the run achieved. Names what made it partial and says what went unreviewed, and names the row
-that stopped the run. Row 1c is the empty-findings case with an `unavailable` kind. A row 2 stop
+that stopped the run. Row 1c is the empty-findings case with either an `unavailable` kind or a
+non-empty unioned `roles_missing`. A row 2 stop
 uses this outcome too whenever Coverage is `partial`, adding that nothing was committed.
 — OR —
 ✅ Converged — the last iteration committed no changes and Coverage is `complete`. Every finding it

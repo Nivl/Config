@@ -152,6 +152,11 @@ Spawn the reviewer sub-agents in a single message (concurrent tool-use blocks). 
 exactly the roles in `<ROLE_SET>` (Step 0). Sequential launches defeat the purpose of this
 design. Never serialize.
 
+**Record the `agentId` of every role you launch.** That set is what you collect against, and it is
+the accounting baseline for Step 2.0. The launch result does NOT contain a role's findings. Read
+"How a role's findings reach the parent" below before you decide what to do after launching, because the
+obvious next action is the one that loses roles.
+
 **Nine roles always run: #1, #2, #3, #4, #5, #8, #9, #11**, plus #10 unless `--skip-ticket`.
 Three more are **conditional.** Evaluate each gate against the diff before launching, and skip
 the role entirely (not counted in the total) when its gate is false:
@@ -172,28 +177,77 @@ and reuse it for all three gates rather than re-running it per role. Then narrow
 gate results, and if that leaves it empty, abort with "no roles selected". Step 0 cannot do any of
 this, because the file list does not exist yet when arguments are parsed.
 
-### The role -> parent return contract
+### How a role's findings reach the parent
 
-**A role's findings reach the parent through the Agent tool's return value, and nowhere else.**
-Every role prompt must end by instructing the role to put its COMPLETE findings list in its FINAL
+**A role's findings reach the parent through the text that role returns, and nowhere else.**
+Every role prompt must instruct the role to put its COMPLETE findings list in its FINAL
 TEXT OUTPUT.
 
-This is a hard requirement, not a default:
+**Roles send nothing anywhere.** Never instruct a role to use `SendMessage`, agent teams, or a shared
+file. A role has no resolvable address for you. An agent TYPE is not an agent id, so an attempt fails
+every time with `no reachable agent named <your agent type>`. One measured run burned 256 such
+attempts and delivered nothing. The findings go in the returned text, and that is the only channel.
 
-- **Never depend on a message arriving.** If a role also sends results via `SendMessage`, agent
-  teams, a shared file, or any other side channel, that is additive only. The complete findings
-  must still be in the returned text. A side channel that silently fails must not be able to lose
-  a finding.
-- **Do not have roles address the parent, and do not have the parent wait on a push.** The parent
-  spawns and reads return values. There is no addressing step to get wrong.
-- **A role that returns empty text has reported nothing**, whatever it may have sent elsewhere.
-  Classify it as missing per Step 2.0. Do not go looking for its output in another channel and
-  splice it in. That makes delivery depend on luck rather than on the contract.
+**How that returned text actually reaches you.** The Agent tool here launches ASYNCHRONOUSLY. Read
+this before deciding what to do after launching, because the intuitive reading is wrong:
 
-This exists because the alternative has already failed in practice. Roles pushed results over a
-side channel, the push failed, and the findings survived only because those roles happened to also
-echo them into their text output. Findings arriving is a property the design has to guarantee, not
-an accident it can hope for.
+- The Agent tool result gives you launch metadata and an `agentId`. It does NOT contain the role's
+  output. There is nothing to read at launch. Do not wait on a launch-time return value, and do not
+  treat its absence as a failure.
+- A role's output arrives LATER, inside a `<task-notification>` block, usually several batched into
+  one turn. That block's `<result>` body holds the role's final text, and its `<task-id>` is
+  byte-identical to the `agentId` you recorded at launch.
+- **You receive notifications only while you keep taking turns.** Any tool call is a turn.
+- **A parent that ends its turn is FINALIZED and stops receiving.** Its outstanding roles' results
+  then surface in the session root, where you cannot see them. This is the one behaviour that loses
+  roles. It is why "wait for the results" is not an instruction anyone can follow, and why a progress
+  note is not a safe thing to emit. Emitting one ends your turn.
+
+**The collection protocol.** Follow it exactly.
+
+1. Record every `agentId` the launch returned.
+2. Take a turn. Harvest every `<task-notification>` in front of you, match each `<task-id>` to a
+   recorded `agentId`, and keep its `<result>` body.
+3. If any recorded `agentId` is still unaccounted for, take another turn. If you have no productive
+   work, re-read the diff for a role you are still waiting on. An unproductive turn still collects.
+4. Repeat until every recorded `agentId` is accounted for, OR until THREE CONSECUTIVE COLLECTING
+   TURNS have brought zero new arrivals. A collecting turn is ONE substantive tool call that names
+   the artifact it read, so re-read the diff or a changed file. Three repeats of the same no-op are
+   not three turns.
+   Do NOT start the zero-arrival counter until you have taken at least as many collecting turns as you
+   launched roles, with a floor of five, whether or not anything has arrived. The three zero-arrival
+   turns are counted FRESH from the moment the counter arms, so turns taken before arming never count
+   toward them. Roles take minutes, not seconds, so a counter armed at launch measures your own
+   polling speed rather than a failure. If you reach the bound and have not yet re-armed the counter,
+   re-arm it EXACTLY ONCE and keep collecting. After that, honor the bound.
+5. At that bound, once you have already used your single re-arm, record every still-unaccounted role
+   in `roles_missing` per Step 2.0, close the accounting, and continue to Step 2.0. Do not wait
+   longer. Do not treat a give-up as clean.
+
+A notification that arrives AFTER the bound is still that role's report. Fold it into the pool and
+remove that role from `roles_missing`. The accounting is final only at the moment you emit your Step 4
+output, not at the moment the bound fires.
+
+**Never end your turn while a recorded `agentId` is unaccounted for**, unless you are declaring it in
+`roles_missing` on that same turn.
+
+**Your final output is the report, never a status update.** If roles are still unaccounted for when
+you hit the bound, emit the report with them in `roles_missing`. Never return a progress note saying
+you are still waiting, because that ends your turn and finalizes you with less than you could have
+collected.
+
+`TaskOutput` appears in the deferred-tool listing and looks like exactly the right tool for this. It
+is NOT available to a nested agent. `ToolSearch select:TaskOutput` returns no match from inside a
+role parent, though the same query resolves at the session root. Do not build on it. The protocol
+above is the mechanism.
+
+**A role that never reports has reported nothing**, whatever it may have produced elsewhere.
+Classify it as missing per Step 2.0. Do not hunt for its output in another channel and splice it in.
+That makes delivery depend on luck rather than on the contract.
+
+This section is written this way because the shorter version failed in practice. A parent told only
+to read a result that the launch never produced had nothing to read, stopped, and then invented
+findings for three roles it never heard from.
 
 When a caller passed `--roles`, launch only that subset (e.g. two sub-agents for `--roles 1,5`).
 **A gate still wins over explicit selection.** `--roles 6` on a diff with no data-layer code skips
@@ -701,10 +755,13 @@ Build `roles_launched` = the role numbers you actually spawned in Step 1 (after 
 
 - **Reported** — returned a parseable findings list, `NO_ISSUES_FOUND`, or one of the documented
   `TICKET_REVIEW_*` sentinels.
-- **Missing** — returned nothing, errored, was skipped by the harness, or returned output you
-  cannot parse as any of the above.
+- **Missing** — returned nothing, errored, was skipped by the harness, returned output you
+  cannot parse as any of the above, or never reported before Step 1's give-up bound.
 
-Record every missing one in `roles_missing` (role number + why, e.g. `4=empty response`).
+Record every missing one in `roles_missing` (role number + why, e.g. `4=empty response`). When a role
+was launched but no `<task-notification>` for it arrived before Step 1's give-up bound, the reason is
+`no notification received`. That is a distinct cause from an empty or unparseable response, because
+the role may still be running.
 
 **NEVER FABRICATE A MISSING ROLE'S OUTPUT.** This is the sharpest rule in this step. When a role
 does not report, the correct output is a hole, explicitly labelled. Do not:
@@ -725,14 +782,15 @@ describe coverage you did not get. Concretely:
   and never emit a bare "no issues found" that implies the full set ran.
 - Do not assert or imply a conclusion that depends on a role that did not report. If Role #7 never
   returned, the review has NOT cleared the diff on security. It is silent on security.
-- Report the partial result anyway. A review missing one role is still useful; a review that
-  silently claims completeness it does not have is worse than no review.
+- Report the partial result anyway. A review missing one role is still useful. A review that
+  silently claims completeness it does not have is worse than no review. Three honest roles beat
+  twelve invented ones.
 
 `roles_missing` is a required field of the Step 4 output even when empty.
 
 ### Step 2.1: Pool and score
 
-After all reviewers return:
+Once collection has ended, whether every role reported or the Step 1 give-up bound was reached:
 
 1. Before pooling, scan every reviewer response: if a response begins with
    `TICKET_REVIEW_UNAVAILABLE:` or `TICKET_REVIEW_SKIPPED:`, set it aside to populate
@@ -750,7 +808,29 @@ After all reviewers return:
    citation past that exclusion.
 3. **Launch a scoring sub-agent for each unique finding in parallel** (one sub-agent per
    finding, all in a single message). **Spawn each scorer on Haiku** (Agent-tool
-   `model: haiku`). Scoring one finding against the rubric is a small, structured judgment
+   `model: haiku`).
+   **Collect the scorers the same way you collected the roles.** Record every scorer's `agentId`
+   at launch. The launch result carries no score. Take turns and harvest each
+   `<task-notification>`, matching its `<task-id>` to a recorded `agentId`, and keep the score
+   from its `<result>` body. Keep taking turns until every scorer is accounted for, OR until THREE
+   CONSECUTIVE COLLECTING TURNS have brought zero new arrivals. A collecting turn is ONE substantive
+   tool call that names the finding it checked on, so re-read the finding and the diff lines it
+   cites. Three repeats of the same no-op are not three turns.
+   Do NOT start the zero-arrival counter until you have taken at least as many collecting turns as you
+   launched scorers, with a floor of five, whether or not anything has arrived. The three zero-arrival
+   turns are counted FRESH from the moment the counter arms, so turns taken before arming never count
+   toward them. Scorers take minutes, not seconds, so a counter armed at launch measures your own
+   polling speed rather than a failure. If you reach the bound and have not yet re-armed the counter,
+   re-arm it EXACTLY ONCE and keep collecting. After that, honor the bound.
+   A scorer you never hear from does NOT get a self-assigned number. Its finding carries
+   `unscored: true` and `confidence: null`, exactly as it would if no scorer had been spawned. If
+   you end your turn with scorers outstanding you are finalized and they are lost, unless you are
+   finalizing at the bound, once you have already used your single re-arm, with those findings
+   marked `unscored`. Do not stop to report progress otherwise.
+   A notification that arrives AFTER the bound is still that scorer's score. Fold it into its
+   finding and clear that finding's `unscored` mark. The scoring accounting is final only when you
+   emit your output.
+   Scoring one finding against the rubric is a small, structured judgment
    with the diff and AGENTS.md handed in, not open-ended reasoning; Haiku is ~15–20x cheaper
    than Opus for it. Give each scorer:
    - The finding (file, line, severity, description, suggested fix)
@@ -915,7 +995,10 @@ Return this exact JSON shape:
   ],
   "roles_launched": [<role numbers actually spawned, after gates and any --roles subset>],
   "roles_missing": [
-    { "role": <number>, "reason": "<empty response | unparseable | errored | skipped by harness>" }
+    {
+      "role": <number>,
+      "reason": "<empty response | unparseable | errored | skipped by harness | no notification received>"
+    }
   ],
   "coverage": "complete | partial",
   "scoring": {
@@ -966,6 +1049,10 @@ Render a chat report:
 ```
 # In-Depth Review — <SCOPE_DESCRIPTION>
 
+**Coverage:** complete | partial (when partial, list every missing role number and the lenses not
+applied). Never omit this line. Its absence reads as complete coverage.
+**Unscored:** N findings had no scorer (omit this line when N is 0)
+
 **Findings (confidence >= 70):** N
 
 1. <title> &nbsp;`[severity, roles N, confidence X]`
@@ -984,7 +1071,14 @@ prominent warning: `⚠️ **Ticket review NOT performed** — <note>. Install/a
 the Atlassian MCP, or re-run with --skip-ticket.` When the status is `denied`, show:
 `ℹ️ Ticket review skipped — access denied.`
 
-If zero findings survive: report `✅ No issues found at confidence >= 70.`
+If zero findings survive, coverage is complete, AND no finding was left `unscored`: report
+`✅ No issues found at confidence >= 70.`
+If zero findings survive but any role is missing, you MUST NOT report a bare green check. Replace
+the ✅ line with `⚠️ No issues found, but coverage was PARTIAL.` The Coverage line above already
+names every missing role and the lenses not applied; do not repeat that list here.
+If zero findings survive, coverage is complete, but any finding was left `unscored`, you MUST NOT
+report a bare green check either. Replace the ✅ line with `⚠️ No issues found, but N finding(s)
+were never scored.` The Unscored line above already states the count; do not repeat it here.
 
 If `--raw` was set, the chat report header changes to `**All scored findings (no filter):**`
 and the threshold note is dropped.

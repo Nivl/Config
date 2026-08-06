@@ -11,7 +11,7 @@ description: >
   fix changed program logic the next iteration reruns ALL reviewers, but if an iteration's
   fixes were non-logic only (comments/formatting/docs) it reruns just the reviewers whose
   findings were fixed — role-level for in-depth-review via its `--roles` flag. In PR mode,
-  the gh-style instances also return Discussion Context (which prior human comments the diff
+  the gh-style instance also returns Discussion Context (which prior human comments the diff
   resolves vs. still leaves open); the orchestrator surfaces this in the per-iteration
   summary. The loop stops as soon as an iteration's active reviewers find nothing actionable,
   or an iteration commits nothing, or after 10 iterations. No GitHub write commands are ever
@@ -39,7 +39,7 @@ Each iteration:
    sub-skills' default of 70 because we want to spend the fix loop's iteration budget on
    moderately-confident findings too. The triangulation gives us enough cross-pass
    evidence that 50–69 findings are worth attempting.
-4. (PR mode only) Aggregates Discussion Context across the gh-style instances and shows
+4. (PR mode only) Aggregates Discussion Context from the gh-style instance and shows
    it in the per-iteration summary — useful when the loop is iterating on a PR that already
    has human reviewer comments.
 5. Fixes each unique finding, one commit per fix, and classifies each committed fix as a
@@ -54,7 +54,7 @@ diff contains — data-layer, security, and TypeScript). Each `gh-style-review` 
 
 ## Adaptive rerun (why later iterations run fewer reviewers)
 
-Re-running all four passes every iteration is wasteful when the iteration only touched
+Re-running all three passes every iteration is wasteful when the iteration only touched
 comments or formatting. The loop adapts based on what a completed iteration actually changed:
 
 - **A committed fix changed program logic** → the next iteration reruns the **full** set. A
@@ -102,7 +102,7 @@ for the reads they do. Local `git` calls need no `gh`.
    2 × in-depth-review + 1 × gh-style-review; later iterations: possibly a subset — see the
    adaptive-rerun rule) against that target
 3. Merge + deduplicate findings across the active instances into one flat pool
-4. (PR mode only) Aggregate Discussion Context across the active gh-style instances
+4. (PR mode only) Aggregate Discussion Context from the active gh-style instance
 5. Fix each unique finding, asking for clarification on ambiguous items, committing each fix,
    and recording whether each committed fix changed logic and which reviewer it came from
 6. Decide the next iteration's active set (full rerun / pruned / stop) and repeat from step 2

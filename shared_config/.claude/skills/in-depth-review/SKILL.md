@@ -12,10 +12,10 @@ description: >
   0–100 for confidence, filters anything below 70, and deduplicates. Returns the surviving findings.
   Never writes to GitHub.
   Used as one of two parallel review primitives (the other being `gh-style-review`) by
-  `review-and-fix` (which spawns up to 3 of each per iteration, may rerun only a subset of
-  roles via `--roles` on later iterations, and adds a fix/commit loop) and `pr-review` (which
-  spawns 5 of each, merges them into one flat pool, and posts a single PR review with inline
-  + global comments).
+  `review-and-fix` (which spawns 2 of these plus 1 `gh-style-review` per iteration, may rerun only
+  a subset of roles via `--roles` on later iterations, and adds a fix/commit loop) and `pr-review`
+  (which spawns 3 of these — 2 on Sonnet, 1 on Opus — plus 1 `gh-style-review`, merges them into
+  one flat pool, and posts a single PR review with inline + global comments).
   Use this skill when the user asks for "in-depth review", "deep review", "thorough review",
   "code review without fixing", or invokes it directly to get a one-shot review report.
 ---
@@ -29,7 +29,7 @@ returns the result — it does NOT post anywhere, fix anything, or loop.
 The multi-role specialization gives **cross-domain coverage** (style/standards, raw bugs, history,
 prior PR feedback, in-file guidance, DB, security, error handling, tests, ticket intent). Within-role
 triangulation (running the same role multiple times) is the **caller's** responsibility, not
-this skill's — `review-and-fix` runs 3 of these per iteration; `pr-review` runs 5.
+this skill's — `review-and-fix` runs 2 of these per iteration; `pr-review` runs 3.
 
 ## Argument
 
@@ -54,7 +54,7 @@ fallback `main`).
   them. Pass this to skip all ticket reading (no `acli` / Datadog calls, no related prompts).
   The orchestrators forward this flag from their own `--skip-ticket`.
 - `--roles <csv>` — run ONLY the listed roles instead of all of them. Accepts role numbers
-  (`1`..`11`) and/or their category names, comma-separated, e.g. `--roles 1,5` or
+  (`1`..`12`) and/or their category names, comma-separated, e.g. `--roles 1,5` or
   `--roles "AGENTS.md,comment guidance"`. The number/name mapping is the table in Step 1.
   When the flag is **absent, all roles run** (the normal, complete review) — so this flag is
   purely additive and existing callers are unaffected. It exists for iterative callers
@@ -251,7 +251,7 @@ Return a structured list of findings. For each finding include:
 
 If you find NO issues, respond with exactly: "NO_ISSUES_FOUND"
 
-You are one of the reviewers running concurrently (up to 11; fewer when the caller
+You are one of the reviewers running concurrently (up to 12; fewer when the caller
 restricted the set via `--roles`). Do NOT coordinate with the others.
 
 IMPORTANT: Do not run `gh pr comment`, `gh pr review`, `gh pr edit`, or any command that

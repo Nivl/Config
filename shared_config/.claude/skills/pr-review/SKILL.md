@@ -5,8 +5,8 @@ description: >
   Sonnet, ONE `in-depth-review` on OPUS (the subtle-bug catcher), and ONE `gh-style-review` —
   all invoked `--raw`. The orchestrator merges and deduplicates the four
   result sets into one pool, keeps findings scoring >= 60, and classifies each as INLINE
-  (specific diff lines) or GLOBAL (broad/architectural). The `gh-style-review` instances also
-  return Discussion Context — prior human comments the diff still leaves open — surfaced as a
+  (specific diff lines) or GLOBAL (broad/architectural). The `gh-style-review` instance also
+  returns Discussion Context — prior human comments the diff still leaves open — surfaced as a
   "Still unaddressed" section. Everything posts as a SINGLE PR review: global findings in full,
   a names-only list of local findings (also left as inline diff comments), and the unaddressed
   concerns. Empty sections are never emitted; if nothing survives, NOTHING is posted and the
@@ -64,7 +64,7 @@ every finder. Keep it at exactly one: the point is coverage of the subtle tail, 
 Do NOT promote the Sonnet finders to Opus, and do NOT drop the Opus one to save cost — it is the
 cheapest recall in the pool on the diffs that matter most.
 
-**Why the source split is asymmetric (2 in-depth, 1 gh-style).** Measured on fixtures with planted
+**Why the source split is asymmetric (3 in-depth, 1 gh-style).** Measured on fixtures with planted
 issues, `gh-style-review`'s findings were a strict SUBSET of `in-depth-review`'s on every
 fixture — it surfaced nothing in-depth missed, and skipped test-coverage findings entirely.
 So a second gh-style instance buys no incremental finding recall. It stays at **one** instance
@@ -83,7 +83,7 @@ pass. Do not drop gh-style to zero, and do not raise it back to parity.
 - A GitHub MCP server must be connected and authenticated — OR `gh` must be installed and
   authenticated, which the skill falls back to when no GitHub MCP is available (see **GitHub access**).
 
-**Flag:** pass `--skip-ticket` to disable ticket intent compliance (Role #10) across both
+**Flag:** pass `--skip-ticket` to disable ticket intent compliance (Role #10) across all three
 `in-depth-review` instances and skip the Jira-tooling preflight.
 
 **Flag:** `--announce` / `--no-announce` control the optional "review in progress" comment
@@ -131,7 +131,7 @@ need no `gh`.
    and tell the user which one to install.
 5. If the invocation included `--skip-ticket`, set `<SKIP_TICKET> = true` (default `false`).
    When `true`, every in-depth-review sub-agent is invoked with `--skip-ticket`, so Role #10
-   never runs. When `false`, both in-depth-review instances run Role #10 (two ticket
+   never runs. When `false`, all three in-depth-review instances run Role #10 (three ticket
    reviewers). `gh-style-review` is unaffected either way — it has no ticket role.
 6. **Jira-tooling preflight** (skip this step entirely if `<SKIP_TICKET>` is true). Before
    launching any reviewers, confirm a Jira reader is available AND authenticated:
@@ -286,9 +286,9 @@ If `gh-style-review` refuses to proceed (closed PR, missing skill, etc.), return
 
 Both `in-depth-review` and `gh-style-review` default to discarding anything `< 70`. This
 orchestrator's threshold is **60** (lower than each sub-skill's default because the 4×
-cross-instance triangulation — two from each prompt structure — raises confidence in
-60-69 findings). `--raw` makes the sub-agents return all scored findings; we apply the
-60 cutoff in Step 2 after merging.
+cross-instance triangulation — three from the specialized-role structure, one from the
+GitHub-Action mirror — raises confidence in 60-69 findings). `--raw` makes the sub-agents
+return all scored findings; we apply the 60 cutoff in Step 2 after merging.
 
 ## Step 2: Merge and deduplicate (findings)
 
@@ -637,7 +637,7 @@ ergonomics. When in doubt, prefer INLINE if a single line range is identifiable.
 
 ### Step 3a.5: Identify ticket notes worth surfacing (no "all clear" roll-call)
 
-Build `tickets_examined` = union by `id` of the `tickets_examined` arrays returned by the two
+Build `tickets_examined` = union by `id` of the `tickets_examined` arrays returned by the three
 in-depth-review sub-agents (each entry has `id` and `status` ∈ {`ok`, `gaps`, `unread`}). For
 each `id`, `status` is `gaps` if any instance reported gaps, else `unread` if any reported
 unread, else `ok`.

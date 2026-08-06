@@ -488,13 +488,16 @@ user can see the diff's effect on the PR's discussion thread evolving across ite
 
 ## Step 2: Fix
 
-At the start of the iteration's fix phase, reset three per-iteration accumulators used by
-Step 3 to decide the next active set:
+At the start of the iteration's fix phase, reset four per-iteration accumulators. The first
+three are what Step 3 reads to decide the next active set. The fourth is what Step 3's commit
+table is built from:
 - `any_commit` = false — set true the moment any fix is committed.
 - `any_logic_change` = false — set true if any committed fix changes program logic.
 - `productive_reviewers` = empty — the reviewers whose findings were fixed AND committed this
   iteration (in-depth-review role numbers via each finding's `category`, and/or the
   `gh-style-review` unit). This is the pruned set a non-logic-only iteration reruns.
+- `iteration_commits` = empty — one `(short sha, finding title)` pair per committed fix, in
+  commit order. Step 3's commit table is this list.
 
 Process each finding from the ordered work list (Step 1) one at a time. Skip any
 `ticket`-category finding already recorded in `resolved_ticket_findings` (deferred or
@@ -540,8 +543,10 @@ Report.
    `feat`, `refactor`, `docs`, etc.) and ensure the message is clear and concise. If the file
    is missing try to figure out what the correct type should be.
 
-5. **Record what this commit was**, for Step 3's next-active-set decision:
+5. **Record what this commit was**, for Step 3's next-active-set decision and its commit table:
    - Set `any_commit = true`.
+   - Append the commit's short sha plus the finding's `title` to `iteration_commits`. Take the
+     title verbatim from the merged finding. It is the `Fix` cell in both tables.
    - Add the fixed finding's reviewer(s) to `productive_reviewers`: map its `category`(ies)
      to in-depth role number(s) via the table in in-depth-review's Step 1, and add the
      `gh-style-review` unit if the finding came (also) from that source. A finding merged
@@ -640,6 +645,14 @@ Track state explicitly:
   caps the iteration count, so the relaunches become unbounded.
 - `any_commit`, `any_logic_change`, `productive_reviewers`: per-iteration accumulators from
   Step 2, consumed by the table above
+- `iteration_commits`: per-iteration; the `(short sha, finding title)` pairs Step 2 appended, in
+  commit order. The per-iteration commit table is this list.
+- `run_commits`: per-RUN list of `(iteration, short sha, finding title)`. Append
+  `iteration_commits` to it once that iteration's commit table has been emitted. The Final
+  Report's Changes Made table is this list. Never reset it between iterations. Empty
+  `iteration_commits` as soon as its pairs are appended here. Step 1 sends a clean batch straight
+  to Step 3, so Step 2's reset never runs on that iteration, and a stale list would reprint the
+  previous iteration's rows under this iteration's header.
 - `<ACTIVE_ROLES>`, `<ACTIVE_GH_STYLE>`: the next iteration's active reviewer set
 - `discussion_context_snapshot`: per-iteration snapshot of resolved/unaddressed pools (PR
   mode only) — useful for the per-iteration summary
@@ -722,8 +735,9 @@ Cover these in this order, one line each, and drop any line that has nothing to 
 - Which kinds reported and which fell short, keeping the per-instance detail, plus the unioned
   `roles_missing` and the retry or `unavailable` state of any short kind. A shortfall that a later
   relaunch cleared is recorded here and nowhere else.
-- Each finding kept by the `>=50` filter with its outcome, meaning the short commit hash, or
-  deferred, or dismissed, or abandoned because lint or tests failed.
+- Every finding kept by the `>=50` filter that did NOT become a commit, and what happened to it,
+  meaning deferred, dismissed, abandoned because lint or tests failed, or moot because an
+  earlier commit this iteration already fixed it. Committed findings are the table below instead.
 - Unfiltered leads, naming the instance and which rule excluded them (`scoring.complete` false,
   `unscored`, or `citation_verified` false).
 - `any_logic_change` for the iteration.
@@ -733,6 +747,32 @@ Cover these in this order, one line each, and drop any line that has nothing to 
 - Any anomaly with no other home, such as a `subagent_type` that did not resolve and left effort
   inherited.
 - The row that fired, and either the next iteration's active set or the stop.
+
+Then close the block with the iteration's commit table, so the last thing every iteration emits
+is the work it actually did:
+
+**Iteration N - M commits**
+
+| Commit | Fix |
+|---|---|
+| <short sha> | <the finding's title> |
+
+`M` is the row count, and it reads "1 commit" when there is one. One row per entry in
+`iteration_commits`, in commit order. Write it as a markdown table and let the terminal draw the
+borders. Do not hand-draw a box. A hand-drawn one freezes the column widths at whatever the
+template guessed.
+
+`Fix` is the merged finding's `title` verbatim. Step 2 commits one fix per finding, so the
+mapping is 1:1 and there is always exactly one title per row. Taking it verbatim is deliberate.
+Every cell is then either git output or a string a reviewer wrote, so the table has no room to
+describe work that was not done. This file forbids invented findings and invented commits
+everywhere else, and a paraphrased `Fix` cell would be the one place that guard is missing. Do
+not paraphrase the title, do not substitute the commit subject, and do not add a status column.
+Findings that produced no commit are the bullet above, not a row here.
+
+When `M` is 0, emit the header line alone and no table. An empty-findings iteration committed
+nothing, and neither did a row 2 stop. An empty table frame says less than the header already
+does.
 
 Keep it terse. The loop is uncapped, so this cost is paid on every iteration, and the Final Report
 carries the detail. An interrupt during the fix phase leaves that iteration with no block at all.
@@ -750,9 +790,11 @@ Summarise the entire session in a clear report to the user:
 **Iterations completed:** N
 **Total commits made:** N
 
-### Changes Made
-- <commit hash (short)>: <commit message>
-- ...
+### Changes Made (omit when the run committed nothing)
+
+| Iteration | Commit | Fix |
+|---|---|---|
+| Iteration <n> | <short sha> | <the finding's title> |
 
 ### Tickets examined
 - <id>: ✅ implemented | ⚠️ N gap(s) — <user decision> | ❓ unread
@@ -819,12 +861,25 @@ coverage, and "✅ Converged" only from a row 2 stop with complete coverage. Nev
 with `partial` coverage. The two sections are read together, and a green check above a `partial`
 Coverage line is exactly the unearned clean result this machinery exists to prevent.
 
+For the **Changes Made** section: it is `run_commits`, which is the per-iteration commit tables
+concatenated with an `Iteration` column added, in commit order across the run. Every row of every
+per-iteration table appears here exactly once, and the `Fix` cell is the same finding title, so
+the final table never says anything an iteration did not already show. Repeat the iteration label
+on every row instead of blank-filling the repeats, so a row read on its own still names its
+iteration. **Total commits made** above must equal this table's row count. **Iterations
+completed** can exceed the highest iteration label here, because any iteration that
+committed nothing contributes no rows. The labels need not be contiguous either. Omit the
+section when `run_commits` is empty. That is a run that committed nothing, and the Outcome
+line already says so.
+
 For the **Remaining Issues** section: emit it whenever a finding that passed the `>=50` filter did
 not become a commit. The row 2 stop is the common case, since findings existed and nothing was
 committed, so every one of them is still open. A fix abandoned because lint or tests failed belongs
 here too. Deferred and dismissed ticket findings do not. They are listed under Tickets examined
-with their decision. Omit the section when every surviving finding either became a commit or was a
-deferred or dismissed ticket finding.
+with their decision. A finding made moot because an earlier commit this iteration already fixed it
+does not either. Nothing about it is still open, and the per-iteration summary already recorded it
+as moot. Omit the section when every surviving finding either became a commit, was made moot by
+an earlier commit, or was a deferred or dismissed ticket finding.
 
 For the **Tickets examined** section: omit it entirely when no ticket IDs were found or
 `--skip-ticket` was passed. List any deferred or dismissed ticket findings (from

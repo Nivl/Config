@@ -165,6 +165,29 @@ Get the file list once (`gh pr diff <PR> --name-only` in PR mode,
 `git --no-pager diff --name-only <RANGE>` in branch mode) and reuse it for all three gates rather
 than re-running it per role.
 
+### The role → parent return contract
+
+**A role's findings reach the parent through the Agent tool's return value, and nowhere else.**
+Every role prompt must end by instructing the role to put its COMPLETE findings list in its FINAL
+TEXT OUTPUT.
+
+This is a hard requirement, not a default:
+
+- **Never depend on a message arriving.** If a role also sends results via `SendMessage`, agent
+  teams, a shared file, or any other side channel, that is additive only — the complete findings
+  must still be in the returned text. A side channel that silently fails must not be able to lose
+  a finding.
+- **Do not have roles address the parent, and do not have the parent wait on a push.** The parent
+  spawns and reads return values. There is no addressing step to get wrong.
+- **A role that returns empty text has reported nothing**, whatever it may have sent elsewhere.
+  Classify it as missing per Step 2.0. Do not go looking for its output in another channel and
+  splice it in — that makes delivery depend on luck rather than on the contract.
+
+This exists because the alternative has already failed in practice: roles pushed results over a
+side channel, the push failed, and the findings survived only because those roles happened to also
+echo them into their text output. Findings arriving is a property the design has to guarantee, not
+an accident it can hope for.
+
 When a caller passed `--roles`, launch only that subset (e.g. two sub-agents for `--roles 1,5`).
 **A gate still wins over explicit selection**: `--roles 6` on a diff with no data-layer code skips
 Role #6, and if that empties `<ROLE_SET>` the run aborts per Step 0. Naming a role does not
@@ -634,6 +657,44 @@ without otherwise changing is pre-existing, not new. Set every finding's categor
 
 ## Step 2: Confidence scoring
 
+### Step 2.0: Account for every launched role BEFORE pooling anything
+
+Build `roles_launched` = the role numbers you actually spawned in Step 1 (after the gates and any
+`--roles` subset). Then, for each one, classify its response:
+
+- **Reported** — returned a parseable findings list, `NO_ISSUES_FOUND`, or one of the documented
+  `TICKET_REVIEW_*` sentinels.
+- **Missing** — returned nothing, errored, was skipped by the harness, or returned output you
+  cannot parse as any of the above.
+
+Record every missing one in `roles_missing` (role number + why, e.g. `4=empty response`).
+
+**NEVER FABRICATE A MISSING ROLE'S OUTPUT.** This is the sharpest rule in this step. When a role
+does not report, the correct output is a hole, explicitly labelled. Do not:
+
+- write findings you think that role *would* have found;
+- infer its verdict from the other roles' results;
+- run its lens yourself in the parent and present the result as that role's report;
+- reuse a previous iteration's output for it.
+
+A hole is a fact about the run. Filling it in converts "we did not check" into "we checked and it
+was fine", which is the single most damaging thing this skill can emit. If you catch yourself
+reasoning about what the missing role would have said, stop and record it as missing.
+
+**A missing role is NOT a clean role.** Never treat a non-response as `NO_ISSUES_FOUND`, and never
+describe coverage you did not get. Concretely:
+
+- If `roles_missing` is non-empty, the review is **partial**. Say so in the output, name the roles,
+  and never emit a bare "no issues found" that implies the full set ran.
+- Do not assert or imply a conclusion that depends on a role that did not report. If Role #7 never
+  returned, the review has NOT cleared the diff on security — it is silent on security.
+- Report the partial result anyway. A review missing one role is still useful; a review that
+  silently claims completeness it does not have is worse than no review.
+
+`roles_missing` is a required field of the Step 4 output even when empty.
+
+### Step 2.1: Pool and score
+
 After all reviewers return:
 
 1. Before pooling, scan every reviewer response: if a response begins with
@@ -756,6 +817,11 @@ Return this exact JSON shape:
       "permalink": "<github blob URL with full SHA, if available; null otherwise>"
     }
   ],
+  "roles_launched": [<role numbers actually spawned, after gates and any --roles subset>],
+  "roles_missing": [
+    { "role": <number>, "reason": "<empty response | unparseable | errored | skipped by harness>" }
+  ],
+  "coverage": "complete | partial",
   "tickets_examined": [
     { "id": "<JIRA-ID>", "gaps": <count of surviving ticket findings for this id>, "status": "ok | gaps | unread" }
   ],
@@ -763,6 +829,12 @@ Return this exact JSON shape:
   "skipped_reason": "<if the skill bailed out early, why; otherwise omit>"
 }
 ```
+
+`roles_launched`, `roles_missing`, and `coverage` are **required** — emit them even when
+`roles_missing` is empty and `coverage` is `"complete"`. `coverage` is `"partial"` whenever
+`roles_missing` is non-empty. A caller that sees `"partial"` knows not to read a short findings
+list as a clean bill of health. Callers aggregating several instances (`pr-review`,
+`review-and-fix`) rely on these fields to avoid asserting coverage nobody delivered.
 
 Populate `ticket_review` from Role #10's response: a findings list or `NO_ISSUES_FOUND` →
 `{ "status": "ran", "note": null }`; `TICKET_REVIEW_SKIPPED: access denied` →

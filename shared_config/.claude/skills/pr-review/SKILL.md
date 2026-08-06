@@ -292,6 +292,28 @@ cross-instance triangulation — two from each prompt structure — raises confi
 
 ## Step 2: Merge and deduplicate (findings)
 
+**First, account for every sub-agent you launched.** Classify each of the four as *reported*
+(returned parseable JSON) or *missing* (returned nothing, errored, or returned output you cannot
+parse). Record the missing ones in `reviewers_missing`. Then union the `roles_missing` arrays that
+the in-depth-review instances report, and treat any instance whose `coverage` is `"partial"` as
+partial here too.
+
+**Reviewer results must arrive in the sub-agent's returned text.** Read each one from the Agent
+tool's return value. Do not wait on a pushed message and do not go hunting for a result in another
+channel — a sub-agent whose returned text is empty has reported nothing, and belongs in
+`reviewers_missing`.
+
+**A missing reviewer is not a clean reviewer, and must never be filled in.** Do not write findings
+on behalf of a reviewer that did not report, do not infer what it would have found, do not run its
+lens yourself and attribute it, and do not carry a result forward from elsewhere. Then:
+
+- If `reviewers_missing` is non-empty, or any instance came back `"partial"`, this run's coverage
+  is **partial**. Carry that flag through to Step 4 and to the clean-PR path.
+- The "all clear" line in Step 4 asserts that N independent reviewers found nothing. **Do not emit
+  it when fewer than N reported.** Say how many reported and which did not.
+- Proceed with the review anyway. A partial review that says it is partial is useful; one that
+  claims completeness it does not have is worse than none.
+
 Once all four sub-agents have returned:
 
 1. **Pool every finding** across the four result sets into one flat pool. Each finding carries
@@ -912,6 +934,10 @@ the user's request, then still give the tallies below.
   existing finding, and how many were posted (and the round count). If it surfaced or posted
   nothing, say so.
 - Sub-agents that returned `skipped_reason` (if any) and why.
+- **Coverage:** `complete` or `partial`. When partial, name every reviewer in
+  `reviewers_missing` and every role in the unioned `roles_missing`, and state which lenses the
+  diff was therefore NOT reviewed against. Never omit this line — its absence reads as complete
+  coverage.
 - The PR review's HTML URL (the `html_url` returned by the `gh api .../reviews` response).
 - Any inline comments that had to be demoted to GLOBAL because GitHub rejected them
   (line not in diff), with a brief explanation.
@@ -921,9 +947,17 @@ the user's request, then still give the tallies below.
 
 **If no review was posted (clean PR):**
 
-- Lead with a clear "all clear" line, e.g. ✅ `PR #<PR> looks good — four independent reviewers
+- **Only when coverage is complete**, lead with a clear "all clear" line, e.g. ✅ `PR #<PR> looks
+good — four independent reviewers
 (2 × in-depth on Sonnet, 1 × in-depth on Opus, 1 × gh-style) raised no findings at confidence ≥ 60, the approach pair
 converged on nothing, and there are no unaddressed discussion items. Nothing posted to GitHub.`
+- **When coverage is partial, do NOT emit that line.** It asserts a clean result from N reviewers,
+  which is false if fewer than N reported. Lead instead with what actually happened, e.g.
+  ⚠️ `PR #<PR>: no findings from the 3 of 4 reviewers that reported. Sub-agent 3 (in-depth, Opus)
+  returned nothing, so the subtle-bug pass did not run. Roles missing across instances: #7
+  security. This is NOT an all-clear — the diff has not been reviewed for security. Nothing posted
+  to GitHub.` Name every missing reviewer and every missing role, and state plainly which lenses
+  the PR therefore has NOT been checked against.
 - The PR URL.
 - How many findings each sub-agent originally returned (pre-merge counts), broken down by
   source as above.
@@ -934,6 +968,10 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
   approach stage is the reason there is anything at all, note that nothing else was posted
   only because the pair converged on nothing (or every survivor was a duplicate).
 - Sub-agents that returned `skipped_reason` (if any) and why.
+- **Coverage:** `complete` or `partial`. When partial, name every reviewer in
+  `reviewers_missing` and every role in the unioned `roles_missing`, and state which lenses the
+  diff was therefore NOT reviewed against. Never omit this line — its absence reads as complete
+  coverage.
 - Tickets examined and their outcome: `<id> ✅ | ⚠️ N gaps | ❓ unread`. If any in-depth-review
   sub-agent reported `ticket_review.status` of `denied` (user denied access) or `unavailable`
   (no Jira tooling), say so explicitly.

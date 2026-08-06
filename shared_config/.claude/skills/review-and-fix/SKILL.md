@@ -294,6 +294,30 @@ return the abort reason to me instead of proceeding.
 
 ### Aggregating across the active instances
 
+**First, account for every sub-agent this iteration launched.** Classify each as *reported* or
+*missing* (nothing returned, errored, or unparseable output), record the missing ones in
+`reviewers_missing`, and union the `roles_missing` arrays the in-depth-review instances report.
+Read every result from the Agent tool's return value — a sub-agent whose returned text is empty
+has reported nothing, whatever it may have sent over any other channel.
+
+**Never fabricate a missing reviewer's findings**, and never fix on an inferred finding. Do not
+write what a missing reviewer would have found, do not run its lens in the parent and attribute it,
+and do not reuse a previous iteration's output for it. This skill commits code, so an invented
+finding becomes an invented commit.
+
+**A missing reviewer is not a clean reviewer**, and the stakes are higher here than in `pr-review`
+because this skill acts on findings rather than just posting them:
+
+- Never count a non-response as "found nothing".
+- **A missing reviewer must not satisfy the loop-exit condition.** Step 3 row 1 stops the loop when
+  "the active batch was clean". A batch is only clean when every launched reviewer REPORTED and
+  reported nothing. If a reviewer went missing, the batch is `incomplete`, not clean — do not stop
+  on it. Re-run the missing reviewer on the next iteration instead, and count that iteration
+  against the 10-iteration cap as usual.
+- Surface `reviewers_missing` and the unioned `roles_missing` in the per-iteration summary, and
+  again in the Final Report. A run that fixed everything the reviewers that *did* report found is
+  not a run that fixed everything.
+
 After all active sub-agents return (up to 3; fewer when the iteration is pruned):
 
 1. **Pool every finding** from the active result sets into one flat pool. Each finding carries
@@ -447,7 +471,8 @@ the first that matches wins:
 
 | # | Condition                                                                  | Action                                                        |
 | - | -------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| 1 | The active batch was clean (deduplicated findings list empty)              | **Stop** — proceed to Final Report                            |
+| 1 | The active batch was clean (findings list empty **AND** every launched reviewer reported) | **Stop** — proceed to Final Report                            |
+| 1b | Findings list empty BUT a launched reviewer went missing                   | **Not clean.** Re-run the missing reviewer(s) next iteration; go to Step 1 |
 | 2 | `any_commit == false` (findings existed but nothing was committed)         | **Stop** — proceed to Final Report                            |
 | 3 | `iteration` reached 10                                                     | **Stop** — proceed to Final Report (include limit notice)     |
 | 4 | `any_logic_change == true`                                                 | **Full rerun**: set active set to ALL reviewers; go to Step 1 |
@@ -464,7 +489,10 @@ Computing the next active set for rows 4 and 5:
 Track state explicitly:
 
 - `iteration`: starts at 1, increments before each Step 1 launch
-- `batch_clean`: per-iteration flag, true iff the deduplicated findings list was empty
+- `batch_clean`: per-iteration flag, true iff the deduplicated findings list was empty AND
+  `reviewers_missing` was empty. An empty findings list with a missing reviewer sets
+  `batch_incomplete`, not `batch_clean`.
+- `reviewers_missing`, `roles_missing`: per-iteration; carried into the summary and Final Report
 - `any_commit`, `any_logic_change`, `productive_reviewers`: per-iteration accumulators from
   Step 2, consumed by the table above
 - `<ACTIVE_ROLES>`, `<ACTIVE_GH_STYLE>`: the next iteration's active reviewer set
@@ -537,8 +565,17 @@ Summarise the entire session in a clear report to the user:
 iterations, intermediate snapshots are not reproduced — they're available in the
 per-iteration logs above.)
 
+### Coverage
+complete | partial — when partial, name every reviewer in `reviewers_missing` and every role in
+the unioned `roles_missing`, and state which lenses the branch was NOT reviewed against. Never
+omit this section; its absence reads as complete coverage.
+
 ### Outcome
-✅ Clean batch — the final iteration's active reviewers found nothing actionable. Done.
+✅ Clean batch — the final iteration's active reviewers ALL reported and found nothing
+actionable. Done.
+— OR —
+⚠️ Stopped with incomplete coverage — the findings list was empty but one or more reviewers never
+reported, so this is not a clean result. Names them and says what went unreviewed.
 — OR —
 ✅ Converged — the last iteration committed no changes; nothing left to fix. Done.
 — OR —

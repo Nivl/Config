@@ -363,11 +363,20 @@ survive, and only if no other reviewer already raised the same thing with confid
 Survivors are added to the findings pool (Step 2 output) so Step 3 posts them exactly like
 every other finding — distinguished only by an `approach` tag.
 
-**Model: spawn the approach reviewer and the nuanced agent on Opus** (Agent-tool
-`model: opus` — the standard 200k tier, NOT a `[1m]` variant). This is the one stage that is
-genuine judgment rather than recall — the debate IS the filter — so it keeps the strongest
-model. It is also cheap to keep there: one pair, run once (not 3×), ≤3 rounds. Everything
-else in this skill runs on Sonnet/Haiku.
+**Model: split the pair by role.** Spawn the **approach reviewer (the proposer) on Sonnet**
+(`model: sonnet`) and the **nuanced agent (the judge) on Opus** (`model: opus` — the standard
+200k tier, NOT a `[1m]` variant).
+
+The proposer's job is recall over design issues, and measured approach-finding recall was
+**identical on Sonnet and Opus** (50% on one fixture, 100% on the other, for both tiers). A
+general Sonnet reviewer had already caught the same design issues unaided, so Opus was paying
+1.67x for nothing at the proposing step. The judge stays on Opus because the debate IS the
+filter, and that is genuine judgment rather than recall. Note this specific split is
+**untested**: the experiments measured the proposer's recall, never the debate's convergence
+quality, so if agreed-but-wrong findings start appearing, promote the proposer back to Opus and
+say so here.
+
+It is cheap either way: one pair, run once (not 3×), ≤3 rounds.
 
 This stage runs **after** the merge because the dedup in Step 2.7b below compares against
 `merged_all`, which only exists once Step 2 has merged the four reviewers. The pair runs **once**
@@ -943,15 +952,17 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
 - **Model policy (cost):** the finder pool is **mixed-tier by design**. Sub-agents 1, 2, and 4
   run on **Sonnet** (`model: sonnet`); sub-agent 3 runs on **Opus** (`model: opus`) as the
   subtle-bug catcher. Their inner reviewers/scorers self-tier (Sonnet/Haiku) per those skills.
-  The approach + nuanced pair (Step 2.7) also runs on **Opus** (standard 200k — never `[1m]`),
-  because that stage is judgment, not recall. Never let any of these inherit the session model.
-  What protects quality is the ≥60 triangulation, the converge stage, and exactly one Opus
-  finder — not a bigger model on every finder.
+  The Step 2.7 pair is **split by role**: the approach proposer runs on **Sonnet** (its recall
+  measured identical to Opus), the nuanced judge on **Opus** (standard 200k — never `[1m]`),
+  because judging is judgment and proposing is recall. Never let any of these inherit the
+  session model. What protects quality is the ≥60 triangulation, the converge stage, and
+  exactly one Opus finder — not a bigger model on every agent.
 - **Threshold is 60.** Do not raise or lower it on the fly. This applies to the four reviewers'
   findings only. Approach findings (Step 2.7) do NOT use this threshold — they are gated on
   the two agents *converging* on "needs a code change," not on a confidence score.
-- **Approach stage: one pair, agreement is the gate.** Run exactly one approach reviewer
-  + one nuanced agent, once (not 3×). The approach reviewer judges design, architecture, and
+- **Approach stage: one pair, agreement is the gate, split tiers.** Run exactly one approach
+  reviewer (proposer, **Sonnet**) + one nuanced agent (judge, **Opus**), once (not 3×). The
+  approach reviewer judges design, architecture, and
   code placement only — not bugs — and explores the wider codebase to do so. A finding posts
   only if (a) the pair converges to both "needs change" within the 3-round cap AND (b) it does
   not duplicate a `merged_all` finding with confidence > 50. Approach findings carry

@@ -308,6 +308,23 @@ finding becomes an invented commit.
 **A missing reviewer is not a clean reviewer**, and the stakes are higher here than in `pr-review`
 because this skill acts on findings rather than just posting them:
 
+- **Separate a deterministic refusal from a transient failure.** A reviewer that returned a
+  `skipped_reason` bailed out on purpose (an empty `--roles` set, PR mode with no `gh`, a closed
+  PR). Re-running it cannot change the outcome. A reviewer that returned nothing at all, or
+  unparseable output, may simply have flaked.
+
+  | reviewer state | meaning | action |
+  |---|---|---|
+  | missing WITH `skipped_reason` | deterministic refusal | mark `unavailable` immediately; never relaunch it this run |
+  | missing WITHOUT `skipped_reason` | possibly transient | relaunch **at most once per run**; on the second miss mark `unavailable` |
+
+  The retry budget is **one per reviewer per RUN, not per iteration.** A per-iteration budget would
+  still permit ten relaunches across ten iterations, which is the bug with extra bookkeeping.
+- **An `unavailable` reviewer is excluded from the batch-clean test, and the loop MAY stop with
+  one.** It has to be able to, or the loop never terminates. But stopping that way is not a clean
+  result. Coverage stays `partial` and the run ends on the "Stopped with incomplete coverage"
+  outcome, naming the reviewer and what went unreviewed. Both properties hold at once. The loop
+  always terminates, and it never claims a clean result it did not earn.
 - Never count a non-response as "found nothing".
 - **A missing reviewer must not satisfy the loop-exit condition.** Step 3 row 1 stops the loop when
   "the active batch was clean". A batch is only clean when every launched reviewer REPORTED and
@@ -483,8 +500,9 @@ the first that matches wins:
 
 | # | Condition                                                                  | Action                                                        |
 | - | -------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| 1 | The active batch was clean (findings list empty **AND** every launched reviewer reported) | **Stop** — proceed to Final Report                            |
-| 1b | Findings list empty BUT a launched reviewer went missing                   | **Not clean.** Re-run the missing reviewer(s) next iteration; go to Step 1 |
+| 1 | Findings list empty, every reviewer **launched this iteration** reported, **and `reviewer_unavailable` is empty** | **Stop** — clean. Proceed to Final Report |
+| 1b | Findings list empty BUT a reviewer launched this iteration is missing and still has retry budget | **Not clean.** Relaunch it next iteration; go to Step 1 |
+| 1c | Findings list empty, every reviewer launched this iteration either reported or is `unavailable`, **and `reviewer_unavailable` is non-empty** | **Stop** — coverage is `partial`, not clean. Use the incomplete-coverage outcome. |
 | 2 | `any_commit == false` (findings existed but nothing was committed)         | **Stop** — proceed to Final Report                            |
 | 3 | `iteration` reached 10                                                     | **Stop** — proceed to Final Report (include limit notice)     |
 | 4 | `any_logic_change == true`                                                 | **Full rerun**: set active set to ALL reviewers; go to Step 1 |
@@ -505,6 +523,10 @@ Track state explicitly:
   `reviewers_missing` was empty. An empty findings list with a missing reviewer sets
   `batch_incomplete`, not `batch_clean`.
 - `reviewers_missing`, `roles_missing`: per-iteration; carried into the summary and Final Report
+- `reviewer_unavailable`: per-RUN set of reviewers that will not be relaunched (deterministic
+  refusal, or a transient miss that already used its one retry)
+- `reviewer_retries`: per-RUN count per reviewer, capped at 1. Never reset between iterations —
+  resetting it recreates the ten-retry loop.
 - `any_commit`, `any_logic_change`, `productive_reviewers`: per-iteration accumulators from
   Step 2, consumed by the table above
 - `<ACTIVE_ROLES>`, `<ACTIVE_GH_STYLE>`: the next iteration's active reviewer set
@@ -578,9 +600,13 @@ iterations, intermediate snapshots are not reproduced — they're available in t
 per-iteration logs above.)
 
 ### Coverage
-complete | partial — when partial, name every reviewer in `reviewers_missing` and every role in
-the unioned `roles_missing`, and state which lenses the branch was NOT reviewed against. Never
-omit this section; its absence reads as complete coverage.
+complete | partial — `partial` whenever `reviewers_missing` is non-empty for any iteration, OR
+`reviewer_unavailable` is non-empty for the run, OR the unioned `roles_missing` is non-empty.
+Consult all three. `reviewer_unavailable` is the per-run set and is the one that survives a
+reviewer being dropped from later iterations, so a run that gave up on a reviewer still reports
+`partial` here rather than looking complete. When partial, name every reviewer and role involved
+and state which lenses the branch was NOT reviewed against. Never omit this section; its absence
+reads as complete coverage.
 
 ### Outcome
 ✅ Clean batch — the final iteration's active reviewers ALL reported and found nothing

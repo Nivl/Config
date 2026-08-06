@@ -947,7 +947,9 @@ the user's request, then still give the tallies below.
   *converged* on as needing a change, how many of those were dropped as `> 50` duplicates of an
   existing finding, and how many were posted (and the round count). If it surfaced or posted
   nothing, say so.
-- Sub-agents that returned `skipped_reason` (if any) and why.
+- Sub-agents that returned `skipped_reason` (if any) and why. Distinguish these from sub-agents
+  that returned nothing. A `skipped_reason` is a deliberate refusal the run cannot recover from,
+  whereas an empty response may just have flaked. Say which kind each one was.
 - **Coverage:** `complete` or `partial`. When partial, name every reviewer in
   `reviewers_missing` and every role in the unioned `roles_missing`, and state which lenses the
   diff was therefore NOT reviewed against. Never omit this line — its absence reads as complete
@@ -981,7 +983,9 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
   converged on as needing a change, and how many were dropped as `> 50` duplicates. If the
   approach stage is the reason there is anything at all, note that nothing else was posted
   only because the pair converged on nothing (or every survivor was a duplicate).
-- Sub-agents that returned `skipped_reason` (if any) and why.
+- Sub-agents that returned `skipped_reason` (if any) and why. Distinguish these from sub-agents
+  that returned nothing. A `skipped_reason` is a deliberate refusal the run cannot recover from,
+  whereas an empty response may just have flaked. Say which kind each one was.
 - **Coverage:** `complete` or `partial`. When partial, name every reviewer in
   `reviewers_missing` and every role in the unioned `roles_missing`, and state which lenses the
   diff was therefore NOT reviewed against. Never omit this line — its absence reads as complete

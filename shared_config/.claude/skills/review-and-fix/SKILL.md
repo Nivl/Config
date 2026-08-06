@@ -2,10 +2,10 @@
 name: review-and-fix
 description: >
   Iteratively reviews recent code changes and fixes identified issues or implements
-  improvements. The first iteration spawns FOUR concurrent reviewer sub-agents — TWO
-  `in-depth-review` and TWO `gh-style-review` — all invoked with `--raw` against the
+  improvements. The first iteration spawns THREE concurrent reviewer sub-agents — TWO
+  `in-depth-review` and ONE `gh-style-review` — all invoked with `--raw` against the
   current branch (PR mode if an open PR exists for the branch, branch mode otherwise).
-  Their raw scored findings are merged and deduplicated across all four instances into
+  Their raw scored findings are merged and deduplicated across all three instances into
   one flat pool, filtered to keep anything with confidence >= 50, then fixes are applied
   and committed one at a time. Later iterations adapt the reviewer set: if any committed
   fix changed program logic the next iteration reruns ALL reviewers, but if an iteration's
@@ -27,7 +27,7 @@ This skill wraps `in-depth-review` AND `gh-style-review` with an iterate-and-fix
 Each iteration:
 
 1. Runs a set of `in-depth-review` + `gh-style-review` instances in parallel, each invoked
-   with `--raw`. **Iteration 1 runs the full set** (2 in-depth + 2 gh-style). Later
+   with `--raw`. **Iteration 1 runs the full set** (2 in-depth + 1 gh-style). Later
    iterations may run a smaller set — see the adaptive-rerun rule below. The 2 in-depth
    instances also run Role #10 (ticket intent compliance) unless `--skip-ticket` was passed.
    The target is the branch's PR if one exists for the current branch, otherwise the branch's
@@ -98,8 +98,8 @@ for the reads they do. Local `git` calls need no `gh`.
 
 1. Determine the target: PR if one exists for the current branch, else commit range
    (current branch vs. default branch)
-2. Launch the iteration's **active reviewer sub-agents** in parallel (iteration 1: all 4 =
-   2 × in-depth-review + 2 × gh-style-review; later iterations: possibly a subset — see the
+2. Launch the iteration's **active reviewer sub-agents** in parallel (iteration 1: all 3 =
+   2 × in-depth-review + 1 × gh-style-review; later iterations: possibly a subset — see the
    adaptive-rerun rule) against that target
 3. Merge + deduplicate findings across the active instances into one flat pool
 4. (PR mode only) Aggregate Discussion Context across the active gh-style instances
@@ -167,15 +167,24 @@ for the reads they do. Local `git` calls need no `gh`.
    Step 3 recomputes both before each subsequent iteration. Iteration 1 always runs the full
    set.
 
-## Step 1: Review — Active Parallel Sub-Agents (up to 2 in-depth-review + 2 gh-style-review)
+## Step 1: Review — Active Parallel Sub-Agents (up to 2 in-depth-review + 1 gh-style-review)
 
 Launch the iteration's **active** reviewers only:
 - If `<ACTIVE_ROLES>` is non-empty, launch **2 in-depth-review** instances, each passed
   `--roles <ACTIVE_ROLES>` (comma-separated role numbers). When `<ACTIVE_ROLES>` is the full
   default set, you may omit the flag (identical result) — but passing it is fine.
-- If `<ACTIVE_GH_STYLE>` is true, launch **2 gh-style-review** instances.
-- Keep the 2× multiplicity for whichever reviewers are active (triangulation on the active
-  set). The count of live sub-agents is `2 × (in-depth active?) + 2 × (gh-style active?)`.
+- If `<ACTIVE_GH_STYLE>` is true, launch **1 gh-style-review** instance.
+- Keep the 2× multiplicity for in-depth-review whenever it is active (triangulation on the
+  active set). gh-style-review is **1× by design** — see the asymmetry note below. The count of
+  live sub-agents is `2 × (in-depth active?) + 1 × (gh-style active?)`.
+
+**Why gh-style-review is 1x and in-depth is 2x.** Measured on fixtures with planted issues,
+gh-style's findings were a strict SUBSET of in-depth's on every fixture — it surfaced nothing
+in-depth missed, and skipped test-coverage findings entirely. A second gh-style instance buys no
+incremental finding recall. It stays at one rather than zero because its real contribution is
+Discussion Context, which in-depth cannot produce at all. This matters more here than in
+`pr-review`: this skill re-runs its fan-out up to 10 times, so a redundant instance is paid per
+iteration. Do not raise gh-style back to parity, and do not drop it to zero.
 
 Announce at iteration start, reflecting the ACTUAL active set, e.g.:
 
@@ -184,7 +193,7 @@ Announce at iteration start, reflecting the ACTUAL active set, e.g.:
 
 or, for a full iteration:
 
-> Iter N: launching 4 reviewer passes in parallel (2 × in-depth-review [all roles], 2 × gh-style-review).
+> Iter N: launching 3 reviewer passes in parallel (2 × in-depth-review [all roles], 1 × gh-style-review).
 > Target: PR #<PR> [draft]  ←  or  Target: branch range <RANGE>
 
 Spawn the active sub-agents **in a single message** (concurrent tool-use blocks). Sequential
@@ -229,10 +238,10 @@ If `in-depth-review`'s internal logic appears to be about to invoke one of these
 return the abort reason to me instead of proceeding.
 ```
 
-### gh-style-review sub-agents prompt
+### gh-style-review sub-agent prompt
 
 Launched only when `<ACTIVE_GH_STYLE>` is true. gh-style-review has no roles, so it is
-rerun as a whole unit (or skipped entirely). Each of the (up to) two sub-agents receives:
+rerun as a whole unit (or skipped entirely). The single sub-agent receives:
 
 ```
 You are a gh-style-review sub-agent in a review-and-fix iteration.
@@ -263,7 +272,7 @@ return the abort reason to me instead of proceeding.
 
 ### Aggregating across the active instances
 
-After all active sub-agents return (up to 4; fewer when the iteration is pruned):
+After all active sub-agents return (up to 3; fewer when the iteration is pruned):
 
 1. **Pool every finding** from the active result sets into one flat pool. Each finding carries
    its raw `confidence` (0–100), `file`, `line_range`, `category`, originating `sub_agent`,
@@ -319,14 +328,18 @@ If `<HAS_PR>` is false, **skip this step entirely** — gh-style-review returned
 If `<HAS_PR>` is true (and `<ACTIVE_GH_STYLE>` is true — when gh-style-review was not active
 this iteration there is no new Discussion Context, so carry forward the previous snapshot):
 
-1. **Pool every entry** across the active gh-style-review `discussion_context` blocks into two
-   flat lists: `resolved_pool` and `unaddressed_pool`. (in-depth-review has no equivalent.)
-2. **Deduplicate by `url`** (the GitHub comment URL is canonical). If the same URL appears
-   in both `resolved` and `unaddressed` across instances, keep it in `unaddressed_pool`
-   (be conservative — surface anything a reviewer is uncertain about).
-3. **For each deduplicated entry** pick the clearest `quote`/`resolution`/`gap` text across
-   instances. Record `agreement` (1..N over the active gh-style instances).
-4. **Retain all entries** — no confidence filter; every entry is grounded in a real human
+Because exactly ONE instance produces this block, there is no cross-instance dedup, no
+disagreement detection, and no agreement count. That is the deliberate trade of the 1× gh-style
+split: Discussion Context is a single-reviewer judgement. Treat entries as leads grounded in a
+real comment URL, not as triangulated findings.
+
+1. **Take the instance's blocks directly** as `resolved_pool` and `unaddressed_pool`.
+   (in-depth-review has no equivalent and contributes nothing here.)
+2. **Deduplicate by `url`** within each list (the GitHub comment URL is canonical). A single
+   instance can still list the same comment twice; collapse those. If a URL somehow appears in
+   both lists, keep it in `unaddressed_pool` (be conservative — surface anything the reviewer is
+   uncertain about).
+3. **Retain all entries** — no confidence filter; every entry is grounded in a real human
    comment URL.
 
 This block does NOT trigger fix actions in Step 2 (resolved items are already addressed;
@@ -525,16 +538,17 @@ iterations. If an in-depth-review sub-agent reported `ticket_review.status` of `
   `gh pr diff`, `gh search pulls`, `gh search issues`, plus the `gh api` reads
   gh-style-review uses to pull PR comments / review threads / prior reviews. If a sub-agent
   appears about to issue a write command, abort and surface the attempt to the user.
-- **Iteration 1 runs the full set: 4 parallel sub-agents (2 × in-depth-review + 2 ×
+- **Iteration 1 runs the full set: 3 parallel sub-agents (2 × in-depth-review + 1 ×
   gh-style-review)** — launch them in a single message with concurrent tool calls. Do not
   fall back to fewer instances "for speed" on the first pass; the cross-source triangulation
   is the point. Do not skip gh-style-review when in branch mode — it still contributes
-  findings even with empty Discussion Context arrays.
+  findings even with empty Discussion Context arrays. The split is deliberately asymmetric:
+  do not "balance" gh-style back to 2× (see Step 1).
 - **Later iterations use the adaptive active set (Step 3), never an arbitrary reduction.** The
   ONLY reason to run fewer reviewers is the pruned-rerun rule (a committed, no-logic-change
-  iteration reruns just `productive_reviewers`). Any logic change forces a full 4-agent rerun.
-  Never drop a reviewer for "speed" outside this rule. Keep the 2× multiplicity for whichever
-  reviewers are active.
+  iteration reruns just `productive_reviewers`). Any logic change forces a full 3-agent rerun.
+  Never drop a reviewer for "speed" outside this rule. Keep in-depth-review at 2× whenever it is
+  active, and gh-style-review at 1×.
 - **Each sub-skill is invoked WITH `--raw`** — we want every scored finding (0–100), not
   the sub-skill's default `< 70` filtered output. The orchestrator applies its own
   `confidence >= 50` threshold after cross-instance, cross-source dedup.

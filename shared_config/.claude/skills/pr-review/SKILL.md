@@ -173,26 +173,47 @@ need no `gh`.
 
 Spawn **four sub-agents in a single message** (four concurrent Agent tool calls). Sequential
 launches defeat the purpose — never serialize. Each is a thin wrapper that invokes a recall-pass
-skill and relays its JSON. **Pin the model explicitly on every one** (Agent-tool `model:`) —
-never let any of them inherit the session model, which may be a `[1m]` variant.
-The split is:
+skill and relays its JSON.
 
-| sub-agent | skill | model |
-|---|---|---|
-| 1 | `in-depth-review` | `sonnet` |
-| 2 | `in-depth-review` | `sonnet` |
-| 3 | `in-depth-review` | **`opus`** (subtle-bug catcher) |
-| 4 | `gh-style-review` | `sonnet` |
+**Spawn each one by `subagent_type`, and do NOT pass a `model` override.** Tier and effort are
+pinned in the agent definitions under `.claude/agents/`, which is the single source of truth for
+both. The split is:
+
+| sub-agent | `subagent_type` | skill it invokes | model | effort |
+|---|---|---|---|---|
+| 1 | `pr-review-finder-indepth` | `in-depth-review` | `sonnet` | `medium` |
+| 2 | `pr-review-finder-indepth` | `in-depth-review` | `sonnet` | `medium` |
+| 3 | `pr-review-finder-indepth-deep` | `in-depth-review` | **`opus`** | `medium` |
+| 4 | `pr-review-finder-ghstyle` | `gh-style-review` | `sonnet` | `medium` |
+
+The model and effort columns are **documentation of what those files declare**, not a second
+control point. Change the agent file, not this table.
+
+**If a `subagent_type` above does not resolve** (the agent files have not been synced to
+`~/.claude/agents/` yet, or were renamed), do not abort the review. Fall back to a plain Agent
+call with the matching `model:` from the table, and state plainly in the Step 4 report that
+effort could not be pinned and therefore inherited the session value. A review that runs at the
+wrong effort is recoverable; a review that fails to launch is not.
+
+**Why `subagent_type` rather than an inline `model:`.** The Agent tool has no `effort` parameter,
+so effort cannot be pinned at the call site the way `model` can. Left unset it **inherits the
+session effort**, which means review cost silently tracks whatever the user last typed into
+`/effort` — a session at `xhigh` ran this entire fan-out at `xhigh`. Agent definitions are the
+only place both knobs can be fixed together. Effort is `medium` on the finders because that is
+the level the whole cost-efficiency study was run at, so it is the only level whose recall numbers
+are actually evidenced here. Measured recall was flat from `low` through `xhigh` while latency
+scaled ~3.9x, so `low` is a plausible further saving — trial it before adopting it.
 
 Sub-agent 3 is the mixed-tier finder described in the overview. It is the only finder on Opus.
 Note that `in-depth-review` and `gh-style-review` also pin their own *internal* tiers (their
-inner reviewers → Sonnet, scorers → Haiku); the `model:` here governs the wrapper sub-agent.
+inner reviewers → Sonnet, scorers → Haiku); the agent definition governs the wrapper sub-agent.
 
 ### Sub-agents 1–3 prompt (in-depth-review)
 
-Identical prompt for all three; only the Agent-tool `model:` differs (1 and 2 on `sonnet`,
-3 on `opus`). Do not tell the sub-agent which tier it is on — it should review the same way
-either way, and the orchestrator attributes findings by `sub_agent` number.
+Identical prompt for all three; only the `subagent_type` differs (1 and 2 use
+`pr-review-finder-indepth`, 3 uses `pr-review-finder-indepth-deep`). Do not tell the sub-agent
+which tier it is on — it should review the same way either way, and the orchestrator attributes
+findings by `sub_agent` number.
 
 ```
 You are sub-agent N of 4 in a pr-review orchestration (N is 1, 2, or 3). Your job:
@@ -363,9 +384,11 @@ survive, and only if no other reviewer already raised the same thing with confid
 Survivors are added to the findings pool (Step 2 output) so Step 3 posts them exactly like
 every other finding — distinguished only by an `approach` tag.
 
-**Model: split the pair by role.** Spawn the **approach reviewer (the proposer) on Sonnet**
-(`model: sonnet`) and the **nuanced agent (the judge) on Opus** (`model: opus` — the standard
-200k tier, NOT a `[1m]` variant).
+**Model and effort: split the pair by role, pinned in agent definitions.** Spawn the proposer as
+`subagent_type: pr-review-approach-proposer` (Sonnet, effort `medium`) and the judge as
+`subagent_type: pr-review-nuanced-judge` (Opus, effort `high`). Pass no `model` override; both
+knobs live in `.claude/agents/`. The judge is deliberately the one stage held at the top tier and
+at high effort.
 
 The proposer's job is recall over design issues, and measured approach-finding recall was
 **identical on Sonnet and Opus** (50% on one fixture, 100% on the other, for both tiers). A
@@ -949,14 +972,17 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
   the diff adds or edits that join clauses with ` - ` (space-hyphen-space) or a sentence-splitting
   `:`, per AGENTS.md. These are `suggestion`-severity: keep them if they survive the threshold,
   but never let them displace correctness findings in the posted review.
-- **Model policy (cost):** the finder pool is **mixed-tier by design**. Sub-agents 1, 2, and 4
-  run on **Sonnet** (`model: sonnet`); sub-agent 3 runs on **Opus** (`model: opus`) as the
-  subtle-bug catcher. Their inner reviewers/scorers self-tier (Sonnet/Haiku) per those skills.
-  The Step 2.7 pair is **split by role**: the approach proposer runs on **Sonnet** (its recall
-  measured identical to Opus), the nuanced judge on **Opus** (standard 200k — never `[1m]`),
-  because judging is judgment and proposing is recall. Never let any of these inherit the
-  session model. What protects quality is the ≥60 triangulation, the converge stage, and
-  exactly one Opus finder — not a bigger model on every agent.
+- **Model and effort policy (cost): pinned in agent definitions, never inherited.** Every agent
+  this skill spawns is addressed by `subagent_type`, and its tier and effort come from its file
+  in `.claude/agents/`. Pass no `model` override from this skill. The pool is **mixed-tier by
+  design**: sub-agents 1, 2, and 4 on Sonnet, sub-agent 3 on Opus as the subtle-bug catcher, the
+  approach proposer on Sonnet (its recall measured identical to Opus), the nuanced judge on Opus
+  at effort `high` (judging is judgment; proposing is recall). Finders sit at effort `medium`.
+  Their inner reviewers/scorers self-tier (Sonnet/Haiku) per those skills. **Never let any of
+  these inherit the session model or the session effort** — inheritance is what let a `/effort
+  xhigh` session silently run the whole fan-out at `xhigh`. What protects quality is the ≥60
+  triangulation, the converge stage, and exactly one Opus finder — not a bigger model or more
+  thinking on every agent.
 - **Threshold is 60.** Do not raise or lower it on the fly. This applies to the four reviewers'
   findings only. Approach findings (Step 2.7) do NOT use this threshold — they are gated on
   the two agents *converging* on "needs a code change," not on a confidence score.

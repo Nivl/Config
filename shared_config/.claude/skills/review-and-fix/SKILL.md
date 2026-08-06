@@ -197,12 +197,34 @@ or, for a full iteration:
 > Target: PR #<PR> [draft]  ←  or  Target: branch range <RANGE>
 
 Spawn the active sub-agents **in a single message** (concurrent tool-use blocks). Sequential
-launches defeat the purpose — never serialize. **Spawn every active sub-agent on Sonnet**
-(Agent-tool `model: sonnet`): each wraps a recall-pass skill, and `in-depth-review` /
-`gh-style-review` already pin their internal tiers (reviewers → Sonnet, scorers → Haiku).
-Never let them inherit the session model. The fix step (Step 2) stays on the session model —
-applying and committing code is where the strong model earns its cost; the recall fan-out is
-not.
+launches defeat the purpose — never serialize.
+
+**Spawn each one by `subagent_type`, and pass no `model` override:**
+
+| reviewer | `subagent_type` | model | effort |
+|---|---|---|---|
+| in-depth-review | `pr-review-finder-indepth` | `sonnet` | `medium` |
+| gh-style-review | `pr-review-finder-ghstyle` | `sonnet` | `medium` |
+
+Tier and effort are pinned in those files under `.claude/agents/`; the columns above are
+documentation of what the files declare, not a second control point. Both agents are shared with
+the `pr-review` skill.
+
+**If a `subagent_type` above does not resolve** (the agent files have not been synced to
+`~/.claude/agents/` yet, or were renamed), do not abort the iteration. Fall back to a plain Agent
+call with `model: sonnet`, and note in the per-iteration summary that effort could not be pinned
+and therefore inherited the session value.
+
+**Why this matters more here than anywhere else.** The Agent tool has no `effort` parameter, so
+unset effort **inherits the session effort**. This skill runs its fan-out in a *loop*, up to 10
+iterations, so an inherited `xhigh` is multiplied by every iteration. Pinning it in the agent
+definition is the only way to fix both knobs together. Effort is `medium` because that is the
+level the cost-efficiency study measured; recall was flat from `low` through `xhigh` while
+latency scaled ~3.9x, so `low` is a plausible further saving worth trialling.
+
+`in-depth-review` / `gh-style-review` still pin their own internal tiers (their inner reviewers →
+Sonnet, scorers → Haiku). The fix step (Step 2) stays on the **session model** — applying and
+committing code is where the strong model earns its cost; the recall fan-out is not.
 
 ### In-depth-review sub-agents prompt
 
@@ -563,11 +585,15 @@ iterations. If an in-depth-review sub-agent reported `ticket_review.status` of `
   attempt to synthesize Discussion Context from in-depth-review findings. Do not fail an
   iteration because Discussion Context is empty — that's expected in branch mode.
 - **Confidence threshold is 50.** Do not raise or lower it on the fly.
-- **Model policy (cost):** every active reviewer sub-agent runs on **Sonnet** (`model: sonnet`);
-  their inner reviewers/scorers self-tier (Sonnet/Haiku) per those skills. The fix step (Step 2) —
-  reading, editing, lint/test, committing — stays on the **session model**, since applying code
-  is where a strong model is worth its cost. Never let the reviewer fan-out inherit the session
-  model (it may be Opus / a `[1m]` variant).
+- **Model and effort policy (cost): pinned in agent definitions, never inherited.** Every active
+  reviewer sub-agent is addressed by `subagent_type` (`pr-review-finder-indepth`,
+  `pr-review-finder-ghstyle`), and its tier and effort come from its file in `.claude/agents/` —
+  Sonnet at effort `medium`. Pass no `model` override. Their inner reviewers/scorers self-tier
+  (Sonnet/Haiku) per those skills. **Never let the reviewer fan-out inherit the session model or
+  the session effort**: the model may be Opus or a `[1m]` variant, and unset effort silently
+  tracks whatever the user last set with `/effort` — multiplied by up to 10 loop iterations. The
+  fix step (Step 2) — reading, editing, lint/test, committing — stays on the **session model**,
+  since applying code is where a strong model is worth its cost.
 - **One commit per fix** — never squash or amend.
 - **Never commit broken code** — lint and tests must pass before committing.
 - **Never push** — only local commits; the user decides when to push.

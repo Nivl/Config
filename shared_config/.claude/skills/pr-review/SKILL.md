@@ -314,6 +314,20 @@ lens yourself and attribute it, and do not carry a result forward from elsewhere
 - Proceed with the review anyway. A partial review that says it is partial is useful; one that
   claims completeness it does not have is worse than none.
 
+**Check `scoring.complete` on every in-depth-review result.** An instance reporting `false` did not
+run its two-stage confidence filter, so its numbers are self-assessments by the same model that
+proposed the findings, not scores.
+
+- **Do not feed its findings into the ≥60 filter as though they were scored.** Treat them as
+  unscored leads: exclude them from the posted review, list them separately in the Step 4 report as
+  unfiltered, and name the instance that produced them.
+- Any finding carrying `unscored: true` is likewise never posted.
+- A finding arriving with `citation_verified: false` is capped at 60 however it is scored, so it
+  never reaches the posting bar on its own.
+
+An unfiltered instance is not a free extra reviewer. Posting its findings puts a single model's
+self-graded output into a PR review, which is how a fabricated finding gets published.
+
 Once all four sub-agents have returned:
 
 1. **Pool every finding** across the four result sets into one flat pool. Each finding carries

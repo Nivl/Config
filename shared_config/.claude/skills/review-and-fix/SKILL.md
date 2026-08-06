@@ -318,6 +318,18 @@ because this skill acts on findings rather than just posting them:
   again in the Final Report. A run that fixed everything the reviewers that *did* report found is
   not a run that fixed everything.
 
+**Check `scoring.complete` on every in-depth-review result.** An instance reporting `false` did not
+run its two-stage confidence filter, so its numbers are self-assessments by the same model that
+proposed the findings, not scores.
+
+- **Do not run them through the ≥50 filter, and do not fix on them.** Report them in the
+  per-iteration summary as unfiltered leads, name the instance, and leave them unfixed.
+- Findings carrying `unscored: true`, and any finding with `citation_verified: false`, are treated
+  the same way.
+- **Fixing on an unscored finding is how a fabricated finding becomes a commit.** This skill edits
+  and commits code, so the cost of acting on a self-graded finding is a commit that encodes an
+  invented problem. When in doubt, leave it and report it.
+
 After all active sub-agents return (up to 3; fewer when the iteration is pruned):
 
 1. **Pool every finding** from the active result sets into one flat pool. Each finding carries

@@ -302,6 +302,21 @@ Flag bugs that are visible only in light of that history. Common patterns:
 - A fix is being reverted (search the log for the commit that introduced the line being deleted)
 - A change reintroduces a previously fixed bug
 - A change contradicts a documented invariant from a past commit message
+
+VERIFY EVERY COMMIT YOU CITE, BEFORE YOU EMIT THE FINDING. You are reasoning about artifacts
+outside the diff, which makes you the role most able to produce a confident-looking finding that
+rests on a commit that does not exist. For each SHA you intend to cite:
+
+  git cat-file -e <sha>^{commit}     # non-zero exit means the SHA does not exist
+  git branch -r --contains <sha>     # empty output means it is on no remote branch
+
+Do not emit a finding whose commit fails the existence check. Do not paraphrase it into a vaguer
+claim to keep it — a finding whose stated evidence does not exist is not a finding. If you cannot
+run verification at all (shallow clone, SHA below fetch depth), you may still report, but you MUST
+state "citation unverified" in the finding text so the parent can cap its score.
+
+Report `citation_verified: true` on findings whose SHA you checked and resolved, and
+`citation_verified: false` on findings you are reporting unverified.
 ```
 
 ### Reviewer Role #4 — Prior PR comments (read-only)
@@ -319,6 +334,21 @@ For the top few hits, read review comments:
 Surface any past feedback that applies to the current change. Past reviewers may have already
 flagged the same class of issue, or there may be agreed-upon conventions documented in the
 discussion.
+
+VERIFY EVERY PR YOU CITE, BEFORE YOU EMIT THE FINDING. `gh pr list --search` is a fuzzy match, so
+it is easy to end up citing a PR number that does not exist or does not touch these files. For
+each PR you intend to reference:
+
+  gh pr view <N> --json number,title,url    # non-zero exit means it does not exist
+
+Do not emit a finding citing a PR that fails this check, and do not soften it into a vaguer claim
+to keep it. Quote the specific past comment you are relying on rather than summarizing "reviewers
+previously said" — an unquotable comment is one you should not be citing. If you cannot verify at
+all (no `gh`, no MCP), you may still report, but you MUST state "citation unverified" in the
+finding text.
+
+Report `citation_verified: true` on findings whose PR you checked and resolved, and
+`citation_verified: false` on findings you are reporting unverified.
 
 You are READ-ONLY. Do not run `gh pr comment`, `gh pr review`, or any write command. If the
 GitHub MCP read tools (find them with ToolSearch "github pull request") are preferred for
@@ -716,6 +746,29 @@ After all reviewers return:
    - The diff for the relevant lines
    - The agreement count
 
+   **The scoring stage is MANDATORY and is not yours to perform.** Confidence is a second-stage
+   judgment by a different model than the one that proposed the finding. That two-stage split is
+   the whole reason a confidence number means anything here.
+
+   - **Never self-assign a confidence value.** If you find yourself writing a score without
+     having spawned a scorer for that finding, you have collapsed the two stages into one model
+     grading its own work, and the number is worthless.
+   - **A reviewer-authored confidence value is not a score.** Roles emit `severity`, which is
+     theirs to judge. If a role also emits a confidence number, DISCARD it and score the finding
+     properly. Never pass a role's own number through as the score.
+   - **Count what you spawned.** Record `scorers_spawned` and compare it to the number of unique
+     findings after dedup. They must be equal.
+   - **A finding with no scorer is `unscored`, not confident.** Set its confidence to `null`,
+     mark it `unscored`, and treat it as BELOW every caller threshold — it must never be posted
+     or reported as a finding. List it separately as unscored so the gap is visible.
+   - If `scorers_spawned` is 0 while unique findings exist, the run is **degraded, not clean**:
+     emit `scoring.complete: false`, report every finding as unscored, and say plainly that no
+     confidence filtering happened.
+
+   Skipping this stage is not a shortcut, it is a correctness failure. It has already produced a
+   fabricated finding that scored 100 and survived the filter, because the model that invented the
+   precedent was also the model that graded it.
+
 Each scorer returns a number 0–100 with this rubric:
 
 | Score | Meaning                                                                                                                                              |
@@ -725,6 +778,19 @@ Each scorer returns a number 0–100 with this rubric:
 | 50    | Moderately confident — the mechanism is real, but residual uncertainty remains about whether it truly applies                                        |
 | 75    | Highly confident — verified the code definitively does this; OR a provable convention / AGENTS.md violation                                          |
 | 100   | Absolutely certain — evidence directly confirms it                                                                                                   |
+
+**Hard cap: a finding whose citation is unverified cannot score above 60.** Roles #3 and #4 verify
+their own commit and PR citations at emit time and report `citation_verified` (see their prompts),
+so this cap holds even if that verification could not run. It is a backstop, not the primary
+enforcement — the roles drop fabricated citations before they ever reach you.
+
+- `citation_verified: true` — score normally against the rubric above.
+- `citation_verified: false` — cap at **60**, keeping it below the posting bar callers use while
+  preserving it as a lead. Never resolve an unverified citation upward.
+- A finding that cites nothing has nothing to verify; score it normally.
+
+If a finding cites a commit or PR and carries no `citation_verified` field at all, treat it as
+`false` and cap it. An absent field means the role did not verify.
 
 **Calibration — confidence is the TRUTH axis, not current impact.** Confidence answers "how
 sure are we this finding is real and valid," NOT "how big is the blast radius today." Two
@@ -812,8 +878,10 @@ Return this exact JSON shape:
       "ticket_id": "<JIRA-ID this gap traces to, or null for non-ticket findings>",
       "description": "<full text>",
       "suggested_fix": "<text or code snippet>",
-      "confidence": <0..100>,
+      "confidence": <0..100, or null when unscored>,
       "agreement": <1..10>,
+      "citation_verified": <true | false | null>,
+      "unscored": <true when no scorer produced this finding's confidence; omit or false otherwise>,
       "permalink": "<github blob URL with full SHA, if available; null otherwise>"
     }
   ],
@@ -822,6 +890,11 @@ Return this exact JSON shape:
     { "role": <number>, "reason": "<empty response | unparseable | errored | skipped by harness>" }
   ],
   "coverage": "complete | partial",
+  "scoring": {
+    "unique_findings": <count after pre-score dedup>,
+    "scorers_spawned": <count of scoring sub-agents actually spawned>,
+    "complete": <true when scorers_spawned == unique_findings, else false>
+  },
   "tickets_examined": [
     { "id": "<JIRA-ID>", "gaps": <count of surviving ticket findings for this id>, "status": "ok | gaps | unread" }
   ],
@@ -835,6 +908,17 @@ Return this exact JSON shape:
 `roles_missing` is non-empty. A caller that sees `"partial"` knows not to read a short findings
 list as a clean bill of health. Callers aggregating several instances (`pr-review`,
 `review-and-fix`) rely on these fields to avoid asserting coverage nobody delivered.
+
+`scoring` is **required**, and it exists so a caller can tell a filtered result from an unfiltered
+one. `scoring.complete: false` means the confidence numbers in `findings` did not all come from the
+two-stage process and must not be trusted as a filter — a caller seeing it should treat the run as
+leads, not conclusions. Never omit the block to make a run look clean. Any finding carrying
+`unscored: true` has `confidence: null` and sits below every threshold by construction.
+
+`citation_verified` is `true` when the finding cites a commit / PR / branch that was checked and
+resolved, `false` when it cites one that could not be verified, and `null` when there is nothing to
+verify. Roles #3 and #4 set it at emit time, so it survives a skipped scoring stage. A `false`
+caps the finding at 60 regardless of any score.
 
 Populate `ticket_review` from Role #10's response: a findings list or `NO_ISSUES_FOUND` →
 `{ "status": "ran", "note": null }`; `TICKET_REVIEW_SKIPPED: access denied` →

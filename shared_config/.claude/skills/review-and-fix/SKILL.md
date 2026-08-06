@@ -15,8 +15,8 @@ description: >
   resolves vs. still leaves open); the orchestrator surfaces this in the per-iteration
   summary. The loop stops as soon as an iteration's active reviewers find nothing actionable,
   or an iteration commits nothing, or a reviewer kind is unavailable and the findings list is
-  empty (which ends the run with partial coverage), or after 10 iterations. No GitHub write
-  commands are ever issued. Produces a final summary report.
+  empty (which ends the run with partial coverage). No GitHub write commands are ever issued.
+  Produces a final summary report.
   Use this skill when the user asks to "review and fix", "review my changes", "clean up my
   code", "improve my recent commits", or similar requests to audit and improve uncommitted or
   branch-local changes.
@@ -36,10 +36,10 @@ Each iteration:
 2. Cross-instance dedups their findings into one flat pool (each instance already
    pre-dedupes internally; the triangulation across independent passes from two prompt
    structures catches the rest).
-3. Applies the orchestrator's own **`confidence >= 50`** filter — more permissive than the
-   sub-skills' default of 70 because we want to spend the fix loop's iteration budget on
-   moderately-confident findings too. The triangulation gives us enough cross-pass
-   evidence that 50–69 findings are worth attempting.
+3. Applies the orchestrator's own **`confidence >= 50`** filter. It is more permissive than the
+   sub-skills' default of 70 because the fix loop attempts moderately-confident findings too.
+   The triangulation gives us enough cross-pass evidence that 50–69 findings are worth
+   attempting.
 4. (PR mode only) Aggregates Discussion Context from the gh-style instance and shows
    it in the per-iteration summary — useful when the loop is iterating on a PR that already
    has human reviewer comments.
@@ -47,7 +47,7 @@ Each iteration:
    logic change or not.
 6. Loops until the findings list is empty with every launched reviewer kind reported and none
    `unavailable`, or an iteration commits nothing, or a kind is `unavailable` with an empty
-   findings list (which stops with partial coverage), or 10 iterations.
+   findings list (which stops with partial coverage).
 
 The triangulation lives **here**, not inside the sub-skills. Each `in-depth-review` pass
 is itself a multi-role review (9 to 12 roles, or 8 to 11 with `--skip-ticket`, and three of those
@@ -112,9 +112,10 @@ for the reads they do. Local `git` calls need no `gh`.
 6. Decide the next iteration's active set (full rerun / pruned / stop) and repeat from step 2
    until the findings list is empty with every launched reviewer kind reported and none
    `unavailable` (row 1, clean), or the findings list is empty with a kind `unavailable`
-   (row 1c, which stops with partial coverage), or an iteration commits nothing, OR 10
-   iterations are reached
-7. Deliver a final summary report
+   (row 1c, which stops with partial coverage), or an iteration commits nothing
+7. Emit the per-iteration summary before the loop returns to step 2 or falls through to the
+   report
+8. Deliver a final summary report
 
 ## Step 0: Setup
 
@@ -190,8 +191,9 @@ gh-style's findings were a strict SUBSET of in-depth's on every fixture. It surf
 in-depth missed, and skipped test-coverage findings entirely. A second gh-style instance buys no
 incremental finding recall. It stays at one rather than zero because its real contribution is
 Discussion Context, which in-depth cannot produce at all. This matters more here than in
-`pr-review`. This skill re-runs its fan-out up to 10 times, so a redundant instance is paid per
-iteration. Do not raise gh-style back to parity, and do not drop it to zero.
+`pr-review`, which fans out once. This skill re-runs its fan-out on every iteration and nothing
+caps the iteration count, so a redundant instance is paid again on every pass. Do not raise
+gh-style back to parity, and do not drop it to zero.
 
 Announce at iteration start, reflecting the ACTUAL active set, e.g.:
 
@@ -223,9 +225,9 @@ call with `model: sonnet`, and note in the per-iteration summary that effort cou
 and therefore inherited the session value.
 
 **Why this matters more here than anywhere else.** The Agent tool has no `effort` parameter, so
-unset effort **inherits the session effort**. This skill runs its fan-out in a *loop*, up to 10
-iterations, so an inherited `xhigh` is multiplied by every iteration. Pinning it in the agent
-definition is the only way to fix both knobs together. Effort is `medium` because that is the
+unset effort **inherits the session effort**. This skill runs its fan-out in a *loop* with no cap
+on the iteration count, so an inherited `xhigh` is multiplied by however many iterations the run
+takes. Pinning it in the agent definition is the only way to fix both knobs together. Effort is `medium` because that is the
 level the cost-efficiency study measured; recall was flat from `low` through `xhigh` while
 latency scaled ~3.9x, so `low` is a plausible further saving worth trialling.
 
@@ -345,21 +347,22 @@ because this skill acts on findings rather than just posting them:
   | missing WITHOUT `skipped_reason` | possibly transient | relaunch **at most once per run**; on the second miss mark `unavailable` |
 
   The retry budget is **one per reviewer per RUN, not per iteration.** A per-iteration budget would
-  still permit ten relaunches across ten iterations, which is the bug with extra bookkeeping.
+  grant a fresh relaunch on every pass, and nothing caps the iteration count, so it would permit
+  unbounded relaunches. That is the same bug with extra bookkeeping.
 - **An `unavailable` reviewer does not have to report for the loop to stop, and the loop MAY stop
   with one.** It has to be able to, or the loop never terminates. But stopping that way is not a
   clean result. An `unavailable` kind forces `batch_clean` false rather than being excluded from
   that test, Coverage stays `partial`, and the run ends on the "Stopped with incomplete coverage"
-  outcome, naming the reviewer and what went unreviewed. Both properties hold at once. The loop
-  always terminates, and it never claims a clean result it did not earn.
+  outcome, naming the reviewer and what went unreviewed. Both properties hold at once. A lost
+  reviewer can never block the loop from stopping, and the loop never claims a clean result it did
+  not earn.
 - Never count a non-response as "found nothing".
 - **A short kind must not satisfy the loop-exit condition.** A batch is only clean when every kind
   launched this iteration reported, reported nothing, AND `reviewer_unavailable` is empty. All three
   are required. Step 3's table is the authority on which row fires. Whether to relaunch a short
   kind follows the retry rule above rather than being automatic. Relaunch it only while it still
-  has retry budget, never relaunch a kind already in
-  `reviewer_unavailable`, and let row 1c terminate the run once a kind is `unavailable`. A relaunch
-  iteration counts against the 10-iteration cap as usual.
+  has retry budget, never relaunch a kind already in `reviewer_unavailable`, and let row 1c
+  terminate the run once a kind is `unavailable`.
 - Surface `reviewers_missing` and the unioned `roles_missing` in the per-iteration summary. The
   unioned `roles_missing` also feeds the Final Report's Coverage section. A shortfall that a later
   relaunch cleared stays in the per-iteration summary and goes no further, since it left nothing
@@ -538,9 +541,20 @@ The first that matches wins:
 | 1b | Findings list empty BUT a reviewer launched this iteration is missing and still has retry budget | **Not clean.** Relaunch it next iteration; go to Step 1 |
 | 1c | Findings list empty, every reviewer launched this iteration either reported or is `unavailable`, **and `reviewer_unavailable` is non-empty** | **Stop** — coverage is `partial`, not clean. Use the incomplete-coverage outcome. |
 | 2 | `any_commit == false` (findings existed but nothing was committed)         | **Stop** — proceed to Final Report                            |
-| 3 | `iteration` reached 10                                                     | **Stop** — proceed to Final Report (include limit notice)     |
 | 4 | `any_logic_change == true`                                                 | **Full rerun**: set active set to ALL reviewers; go to Step 1 |
 | 5 | Otherwise (committed, but no logic change)                                 | **Pruned rerun**: set active set to `productive_reviewers`; go to Step 1 |
+
+**There is no iteration cap, and the number column is a label column, not an index.** Rows 1, 1c,
+and 2 are the only stops. Rows 1b, 4, and 5 are the only rows that go back to Step 1. Row 1b is
+bounded at one retry per reviewer kind per run, and rows 4 and 5 both require `any_commit == true`,
+because row 2 stops the run the moment an iteration commits nothing. So the loop continues only
+while every single iteration commits at least one fix. That is real progress on almost every run.
+It is not a termination proof. One iteration's fixes can introduce a defect the next iteration then
+finds, and that cycle can sustain itself. A run that is going nowhere is stopped by the user
+interrupting it, which is why every iteration emits a per-iteration summary. `iteration` is a label
+for the announce line, that summary, and the Final Report header. No stop rule reads it. Do not add
+a cap row, an iteration count of any size, a periodic check-in, or an oscillation detector, and do
+not renumber the rows that remain.
 
 Computing the next active set, for every row that goes back to Step 1 (1b, 4, and 5):
 - **Row 1b (retry):** the active set is the short kind ONLY. `<ACTIVE_ROLES>` = the roles this
@@ -589,7 +603,8 @@ Track state explicitly:
 - `reviewer_retries`: per-RUN count per kind, capped at 1. Increment it on any relaunch of a kind
   that fell short in a prior iteration, whichever row triggered that relaunch. A row-4 full rerun
   that happens to relaunch a previously-short kind consumes that kind's budget too. Never reset it
-  between iterations. Resetting it recreates the ten-retry loop.
+  between iterations. Resetting it turns a per-run budget into a per-iteration one, and nothing
+  caps the iteration count, so the relaunches become unbounded.
 - `any_commit`, `any_logic_change`, `productive_reviewers`: per-iteration accumulators from
   Step 2, consumed by the table above
 - `<ACTIVE_ROLES>`, `<ACTIVE_GH_STYLE>`: the next iteration's active reviewer set
@@ -606,9 +621,10 @@ strongly; requiring two consecutive clean batches would just waste an iteration.
 reviewers last cleared. The diff-based classifier in Step 2 flips `any_logic_change` and
 forces a full rerun (row 4) the instant any fix touches logic. So a logic reviewer is only
 ever skipped while the logic it already approved is unchanged, and by the time the loop stops on
-row 1 or row 2 every logic reviewer that was still available has validated the final logic. A kind
-in `reviewer_unavailable` validated nothing, so a run that stops with one reports `partial`
-coverage instead. A fix that sneaks a logic change past a "comment" finding is caught by the diff
+row 1, row 1c, or row 2 every logic reviewer that was still available has validated the final
+logic. An interrupted run carries no such guarantee, because an interrupt can land right after a
+logic-change commit. A kind in `reviewer_unavailable` validated nothing, so a run that stops with
+one reports `partial` coverage instead. A fix that sneaks a logic change past a "comment" finding is caught by the diff
 classifier, not by re-running everyone.
 
 Note: a non-empty `unaddressed_pool` in PR mode does NOT prevent the loop from terminating.
@@ -661,7 +677,7 @@ Summarise the entire session in a clear report to the user:
 ## Review and Fix Report
 
 **Target:** PR #<PR>  <-  or  branch range <RANGE>
-**Iterations completed:** N / 10
+**Iterations completed:** N
 **Total commits made:** N
 
 ### Changes Made
@@ -696,9 +712,9 @@ Consult all three. `reviewer_unavailable` is the per-run set and is the one that
 being dropped from later iterations, so a run that gave up on a reviewer still reports `partial` here
 rather than looking complete. A shortfall is **outstanding** when a kind fell short and has not
 reported since. The retry union above relaunches such a kind on the next pass, so the only way one
-survives to the end of the run is a stop that fires before the retry can happen, which is a row 2 or
-row 3 stop. Report that as `partial`, because that kind's lenses really were not applied to the final
-tree.
+survives to the end of the run is a stop that fires before the retry can happen. That is a row 2
+stop, and nothing else. Report it as `partial`, because that kind's lenses really were not applied
+to the final tree.
 
 Do NOT decide `partial` from the per-iteration `reviewers_missing` on its own. Report a shortfall that
 a later relaunch cleared as history in the per-iteration summary, never as a coverage gap. A kind that
@@ -714,14 +730,11 @@ reviewers ALL reported, they found nothing actionable, and Coverage is `complete
 — OR —
 ⚠️ Stopped with incomplete coverage — Coverage is `partial`, so this is not a clean result whatever
 else the run achieved. Names what made it partial and says what went unreviewed, and names the row
-that stopped the run. Row 1c is the empty-findings case with an `unavailable` kind. A row 2 or row 3
-stop uses this outcome too whenever Coverage is `partial`, adding that nothing was committed or that
-the iteration cap was reached.
+that stopped the run. Row 1c is the empty-findings case with an `unavailable` kind. A row 2 stop
+uses this outcome too whenever Coverage is `partial`, adding that nothing was committed.
 — OR —
 ✅ Converged — the last iteration committed no changes and Coverage is `complete`. Nothing left to
 fix. Done.
-— OR —
-⚠️ Stopped after 10 iterations. See remaining issues above.
 ```
 
 **Selecting the Outcome line: a green check requires Coverage to be `complete`.** Key it on Coverage
@@ -785,8 +798,9 @@ iterations. If an in-depth-review sub-agent reported `ticket_review.status` of `
   Sonnet at effort `medium`. Pass no `model` override. Their inner reviewers/scorers self-tier
   (Sonnet/Haiku) per those skills. **Never let the reviewer fan-out inherit the session model or
   the session effort.** The model may be Opus or a `[1m]` variant, and unset effort silently
-  tracks whatever the user last set with `/effort` — multiplied by up to 10 loop iterations. The
-  fix step (Step 2) — reading, editing, lint/test, committing — stays on the **session model**,
+  tracks whatever the user last set with `/effort`. Nothing caps the iteration count, so either
+  mistake is paid again on every pass. The fix step (Step 2) — reading, editing, lint/test,
+  committing — stays on the **session model**,
   since applying code is where a strong model is worth its cost.
 - **One commit per fix** — never squash or amend.
 - **Never commit broken code** — lint and tests must pass before committing.

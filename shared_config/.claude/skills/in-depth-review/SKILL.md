@@ -735,7 +735,12 @@ After all reviewers return:
 2. **Pre-score deduplication** — group findings that look like duplicates (same file +
    overlapping line range + substantially the same problem). For each group, keep one canonical
    entry and record **`role_agreement`** (how many of the role outputs raised it).
-   Highest severity in the group wins.
+   Highest severity in the group wins. **`citation_verified` merges downward**: if ANY member of
+   the group has `citation_verified: false`, the canonical entry carries `false`. Never let a
+   verified member's `true` overwrite an unverified member's `false`. Merging is not verification.
+   The pessimistic direction is the only safe one here, because callers exclude
+   `citation_verified: false` outright and an upward merge would silently smuggle an unverified
+   citation past that exclusion.
 3. **Launch a scoring sub-agent for each unique finding in parallel** (one sub-agent per
    finding, all in a single message). **Spawn each scorer on Haiku** (Agent-tool
    `model: haiku`) — scoring one finding against the rubric is a small, structured judgment
@@ -785,8 +790,11 @@ so this cap holds even if that verification could not run. It is a backstop, not
 enforcement — the roles drop fabricated citations before they ever reach you.
 
 - `citation_verified: true` — score normally against the rubric above.
-- `citation_verified: false` — cap at **60**, keeping it below the posting bar callers use while
-  preserving it as a lead. Never resolve an unverified citation upward.
+- `citation_verified: false` — cap at **60** and preserve it as a lead. Never resolve an unverified
+  citation upward. The cap is not what keeps such a finding out of a caller's output. Callers
+  exclude `citation_verified: false` outright, `pr-review` from posting and `review-and-fix` from
+  fixing, whatever the score. Do not describe the cap as sitting below a caller's threshold. It does
+  not. `pr-review` filters at `confidence >= 60`, which 60 satisfies.
 - A finding that cites nothing has nothing to verify; score it normally.
 
 If a finding cites a commit or PR and carries no `citation_verified` field at all, treat it as
@@ -847,7 +855,14 @@ because the cited line is outside the diff — the PR's stated purpose puts that
 
 2. **Post-score dedup** — re-check for duplicates one more time, in case scoring revealed two
    findings that scored identically and pointed at the same locus. Keep the highest severity,
-   max confidence, union of categories, and max `role_agreement`.
+   union of categories, and max `role_agreement`. `citation_verified` merges downward here too.
+   Any `false` in the group makes the merged entry `false`.
+
+   **Confidence is max, then re-capped.** Take the max confidence in the group, but if the merged
+   entry ends up `citation_verified: false`, re-apply the 60 cap afterwards. Taking a verified
+   member's higher score and keeping it would launder an unverified finding above its cap, which
+   contradicts "never resolve an unverified citation upward". The cap applies to the merged entry,
+   not just to the members.
 
 ## Step 4: Return / report
 

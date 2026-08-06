@@ -14,8 +14,9 @@ description: >
   the gh-style instance also returns Discussion Context (which prior human comments the diff
   resolves vs. still leaves open); the orchestrator surfaces this in the per-iteration
   summary. The loop stops as soon as an iteration's active reviewers find nothing actionable,
-  or an iteration commits nothing, or after 10 iterations. No GitHub write commands are ever
-  issued. Produces a final summary report.
+  or an iteration commits nothing, or a reviewer kind is unavailable and the findings list is
+  empty (which ends the run with partial coverage), or after 10 iterations. No GitHub write
+  commands are ever issued. Produces a final summary report.
   Use this skill when the user asks to "review and fix", "review my changes", "clean up my
   code", "improve my recent commits", or similar requests to audit and improve uncommitted or
   branch-local changes.
@@ -44,8 +45,9 @@ Each iteration:
    has human reviewer comments.
 5. Fixes each unique finding, one commit per fix, and classifies each committed fix as a
    logic change or not.
-6. Loops until the active reviewers' batch is clean, or an iteration commits nothing (or 10
-   iterations).
+6. Loops until the findings list is empty with every launched reviewer kind reported and none
+   `unavailable`, or an iteration commits nothing, or a kind is `unavailable` with an empty
+   findings list (which stops with partial coverage), or 10 iterations.
 
 The triangulation lives **here**, not inside the sub-skills. Each `in-depth-review` pass
 is itself a multi-role review (9 to 12 roles; nine always run, and three are gated on what the
@@ -70,8 +72,9 @@ comments or formatting. The loop adapts based on what a completed iteration actu
 
 This is safe without any final full-sweep because the pruned state is only ever entered after
 a no-logic-change iteration, and the moment any fix touches logic the loop re-escalates to a
-full rerun. So every logic reviewer has validated the final logic before the loop ends. See
-the worked example at the end of Step 3.
+full rerun. So every logic reviewer that was still available has validated the final logic before
+the loop ends. A kind in `reviewer_unavailable` validated nothing, and Coverage reports such a run
+as `partial`. See the worked example at the end of Step 3.
 
 **Flag:** pass `--skip-ticket` to disable ticket intent compliance (Role #10) in both
 `in-depth-review` instances and skip the Jira-tooling preflight.
@@ -106,7 +109,10 @@ for the reads they do. Local `git` calls need no `gh`.
 5. Fix each unique finding, asking for clarification on ambiguous items, committing each fix,
    and recording whether each committed fix changed logic and which reviewer it came from
 6. Decide the next iteration's active set (full rerun / pruned / stop) and repeat from step 2
-   until the active batch is clean, an iteration commits nothing, OR 10 iterations are reached
+   until the findings list is empty with every launched reviewer kind reported and none
+   `unavailable` (row 1, clean), or the findings list is empty with a kind `unavailable`
+   (row 1c, which stops with partial coverage), or an iteration commits nothing, OR 10
+   iterations are reached
 7. Deliver a final summary report
 
 ## Step 0: Setup
@@ -295,8 +301,10 @@ return the abort reason to me instead of proceeding.
 ### Aggregating across the active instances
 
 **First, account for every sub-agent this iteration launched.** Classify each as *reported* or
-*missing* (nothing returned, errored, or unparseable output), record the missing ones in
-`reviewers_missing`, and union the `roles_missing` arrays the in-depth-review instances report.
+*missing* (nothing returned, errored, or unparseable output). Then roll the per-instance verdict up
+to the reviewer kind, since that is what the bookkeeping below is keyed on. Record every kind that
+fell short in `reviewers_missing`, keep the per-instance detail for the summary, and union the
+`roles_missing` arrays the in-depth-review instances report.
 Read every result from the Agent tool's return value — a sub-agent whose returned text is empty
 has reported nothing, whatever it may have sent over any other channel.
 
@@ -304,6 +312,23 @@ has reported nothing, whatever it may have sent over any other channel.
 write what a missing reviewer would have found, do not run its lens in the parent and attribute it,
 and do not reuse a previous iteration's output for it. This skill commits code, so an invented
 finding becomes an invented commit.
+
+**Unavailability is keyed by reviewer KIND, not by instance.** Two kinds exist, the
+`in-depth-review` unit and the `gh-style-review` unit. A kind **fell short** in an iteration when
+fewer of its instances reported than were launched. A shortfall is retried by relaunching the kind
+at FULL multiplicity, once per run. On a second shortfall the kind is marked `unavailable` for the
+rest of the run. `unavailable` affects only future launches. It never discards a report already
+received. `reviewers_missing`, `reviewer_unavailable`, and `reviewer_retries` are all keyed by kind.
+
+**Why kind and not instance.** A deterministic `skipped_reason` is derived from the invocation
+arguments, and both in-depth instances receive identical arguments, so both refuse identically.
+Deterministic unavailability is inherently per-kind. The 2x in-depth multiplicity exists for
+triangulation, not to supply two different lenses, so a shortfall is a coverage question about the
+kind rather than the loss of a distinct lens. Keying by kind also keeps `<ACTIVE_ROLES>` plus
+`<ACTIVE_GH_STYLE>` sufficient to express every launch decision. Keying by instance would need a
+new launch variable and an exception to the multiplicity rule in the Constraints. The cost is that
+one flaky instance triggers a full 2x relaunch of its kind. That is mildly wasteful and it is the
+accepted tradeoff, and the path is rare. Do not add reduced-multiplicity support.
 
 **A missing reviewer is not a clean reviewer**, and the stakes are higher here than in `pr-review`
 because this skill acts on findings rather than just posting them:
@@ -320,20 +345,25 @@ because this skill acts on findings rather than just posting them:
 
   The retry budget is **one per reviewer per RUN, not per iteration.** A per-iteration budget would
   still permit ten relaunches across ten iterations, which is the bug with extra bookkeeping.
-- **An `unavailable` reviewer is excluded from the batch-clean test, and the loop MAY stop with
-  one.** It has to be able to, or the loop never terminates. But stopping that way is not a clean
-  result. Coverage stays `partial` and the run ends on the "Stopped with incomplete coverage"
+- **An `unavailable` reviewer does not have to report for the loop to stop, and the loop MAY stop
+  with one.** It has to be able to, or the loop never terminates. But stopping that way is not a
+  clean result. An `unavailable` kind forces `batch_clean` false rather than being excluded from
+  that test, Coverage stays `partial`, and the run ends on the "Stopped with incomplete coverage"
   outcome, naming the reviewer and what went unreviewed. Both properties hold at once. The loop
   always terminates, and it never claims a clean result it did not earn.
 - Never count a non-response as "found nothing".
-- **A missing reviewer must not satisfy the loop-exit condition.** Step 3 row 1 stops the loop when
-  "the active batch was clean". A batch is only clean when every launched reviewer REPORTED and
-  reported nothing. If a reviewer went missing, the batch is `incomplete`, not clean — do not stop
-  on it. Re-run the missing reviewer on the next iteration instead, and count that iteration
-  against the 10-iteration cap as usual.
-- Surface `reviewers_missing` and the unioned `roles_missing` in the per-iteration summary, and
-  again in the Final Report. A run that fixed everything the reviewers that *did* report found is
-  not a run that fixed everything.
+- **A short kind must not satisfy the loop-exit condition.** A batch is only clean when every kind
+  launched this iteration reported, reported nothing, AND `reviewer_unavailable` is empty. All three
+  are required. Step 3's table is the authority on which row fires. Whether to relaunch a short
+  kind follows the retry rule above rather than being automatic. Relaunch it only while it still
+  has retry budget, never relaunch a kind already in
+  `reviewer_unavailable`, and let row 1c terminate the run once a kind is `unavailable`. A relaunch
+  iteration counts against the 10-iteration cap as usual.
+- Surface `reviewers_missing` and the unioned `roles_missing` in the per-iteration summary. The
+  unioned `roles_missing` also feeds the Final Report's Coverage section. A shortfall that a later
+  relaunch cleared stays in the per-iteration summary and goes no further, since it left nothing
+  unreviewed. A run that fixed everything the reviewers that *did* report found is not a run that
+  fixed everything.
 
 **Check `scoring.complete` on every in-depth-review result.** An instance reporting `false` did not
 run its two-stage confidence filter, so its numbers are self-assessments by the same model that
@@ -508,7 +538,11 @@ the first that matches wins:
 | 4 | `any_logic_change == true`                                                 | **Full rerun**: set active set to ALL reviewers; go to Step 1 |
 | 5 | Otherwise (committed, but no logic change)                                 | **Pruned rerun**: set active set to `productive_reviewers`; go to Step 1 |
 
-Computing the next active set for rows 4 and 5:
+Computing the next active set, for every row that goes back to Step 1 (1b, 4, and 5):
+- **Row 1b (retry):** the active set is the short kind ONLY. `<ACTIVE_ROLES>` = the roles this
+  iteration ran if the `in-depth-review` kind fell short, otherwise empty. `<ACTIVE_GH_STYLE>` =
+  true iff the `gh-style-review` kind fell short. The diff is unchanged since the other reviewers
+  cleared it, so relaunching them buys nothing. The short kind relaunches at full multiplicity.
 - **Row 4 (full):** `<ACTIVE_ROLES>` = all roles `1..12` (drop `10` when `<SKIP_TICKET>`),
   `<ACTIVE_GH_STYLE>` = true.
 - **Row 5 (pruned):** `<ACTIVE_ROLES>` = the in-depth role numbers in `productive_reviewers`;
@@ -516,17 +550,42 @@ Computing the next active set for rows 4 and 5:
   least one is non-empty here, because `any_commit` was true and every committed fix
   attributes to a reviewer.)
 
+**First union in any kind still owed a retry, whichever row fired.** Before launching, add back every
+kind that fell short this iteration and still has retry budget, even when the row that fired computed
+a set without it. Row 5 is why this is needed. It builds its set from `productive_reviewers`, and a
+kind that reported nothing contributed no findings, so it cannot be in that set. Without the union, a
+kind that fell short while OTHER reviewers had findings that got fixed is dropped from the next
+launch, never retried, and never reaches the second shortfall that would mark it `unavailable`. The
+run could then stop on row 1 and report `complete` coverage with a reviewer silently gone. The union
+gives a shortfall the same one-retry treatment on every path back to Step 1. That is what makes the
+retry rule's "at most once per run" a real guarantee rather than "only when row 1b happened to fire".
+
+**Then subtract `reviewer_unavailable`, whichever row fired.** This runs after the union, so a kind
+that just used its last retry cannot be added back. Before launching, drop every kind in
+`reviewer_unavailable` from the set the row computed. If the `gh-style-review` kind is unavailable,
+`<ACTIVE_GH_STYLE>` = false no matter which row set it. If the `in-depth-review` kind is
+unavailable, `<ACTIVE_ROLES>` is empty and no in-depth instance launches. This subtraction is the
+only enforcement point for the table's "never relaunch it this run", so it runs on every path back
+to Step 1, not just rows 4 and 5. If the subtraction empties the set entirely, launch nothing and
+evaluate Step 3 as usual. Row 1c is then the row that fires, and the run stops with partial
+coverage.
+
 Track state explicitly:
 
 - `iteration`: starts at 1, increments before each Step 1 launch
 - `batch_clean`: per-iteration flag, true iff the deduplicated findings list was empty AND
-  `reviewers_missing` was empty. An empty findings list with a missing reviewer sets
-  `batch_incomplete`, not `batch_clean`.
+  `reviewers_missing` was empty AND `reviewer_unavailable` was empty. An empty findings list with a
+  short kind sets `batch_incomplete`, not `batch_clean`. A non-empty `reviewer_unavailable` forces
+  `batch_incomplete` too, because an `unavailable` kind is never launched and so never shows up in
+  the per-iteration `reviewers_missing`. Without that third condition `batch_clean` would compute
+  true on the very iteration row 1c stops as partial.
 - `reviewers_missing`, `roles_missing`: per-iteration; carried into the summary and Final Report
-- `reviewer_unavailable`: per-RUN set of reviewers that will not be relaunched (deterministic
-  refusal, or a transient miss that already used its one retry)
-- `reviewer_retries`: per-RUN count per reviewer, capped at 1. Never reset between iterations —
-  resetting it recreates the ten-retry loop.
+- `reviewer_unavailable`: per-RUN set of reviewer kinds that will not be relaunched (deterministic
+  refusal, or a transient shortfall that already used its one retry)
+- `reviewer_retries`: per-RUN count per kind, capped at 1. Increment it on any relaunch of a kind
+  that fell short in a prior iteration, whichever row triggered that relaunch. A row-4 full rerun
+  that happens to relaunch a previously-short kind consumes that kind's budget too. Never reset it
+  between iterations. Resetting it recreates the ten-retry loop.
 - `any_commit`, `any_logic_change`, `productive_reviewers`: per-iteration accumulators from
   Step 2, consumed by the table above
 - `<ACTIVE_ROLES>`, `<ACTIVE_GH_STYLE>`: the next iteration's active reviewer set
@@ -542,9 +601,11 @@ strongly; requiring two consecutive clean batches would just waste an iteration.
 (row 5) after an iteration whose fixes left program logic identical to what the logic
 reviewers last cleared. The diff-based classifier in Step 2 flips `any_logic_change` and
 forces a full rerun (row 4) the instant any fix touches logic. So a logic reviewer is only
-ever skipped while the logic it already approved is unchanged — and by the time the loop stops
-(row 1 or 2) every logic reviewer has validated the final logic. A fix that sneaks a logic
-change past a "comment" finding is caught by the diff classifier, not by re-running everyone.
+ever skipped while the logic it already approved is unchanged, and by the time the loop stops on
+row 1 or row 2 every logic reviewer that was still available has validated the final logic. A kind
+in `reviewer_unavailable` validated nothing, so a run that stops with one reports `partial`
+coverage instead. A fix that sneaks a logic change past a "comment" finding is caught by the diff
+classifier, not by re-running everyone.
 
 Note: a non-empty `unaddressed_pool` in PR mode does NOT prevent the loop from terminating.
 "Still unaddressed" items are surfaced for the user to consider, but the fix loop is
@@ -600,25 +661,49 @@ iterations, intermediate snapshots are not reproduced — they're available in t
 per-iteration logs above.)
 
 ### Coverage
-complete | partial — `partial` whenever `reviewers_missing` is non-empty for any iteration, OR
-`reviewer_unavailable` is non-empty for the run, OR the unioned `roles_missing` is non-empty.
-Consult all three. `reviewer_unavailable` is the per-run set and is the one that survives a
-reviewer being dropped from later iterations, so a run that gave up on a reviewer still reports
-`partial` here rather than looking complete. When partial, name every reviewer and role involved
-and state which lenses the branch was NOT reviewed against. Never omit this section; its absence
-reads as complete coverage.
+complete | partial — `partial` whenever `reviewer_unavailable` is non-empty for the run, OR a kind's
+shortfall was still outstanding when the run stopped, OR the unioned `roles_missing` is non-empty.
+Consult all three. `reviewer_unavailable` is the per-run set and is the one that survives a reviewer
+being dropped from later iterations, so a run that gave up on a reviewer still reports `partial` here
+rather than looking complete. A shortfall is **outstanding** when a kind fell short and has not
+reported since. The retry union above relaunches such a kind on the next pass, so the only way one
+survives to the end of the run is a stop that fires before the retry can happen, which is a row 2 or
+row 3 stop. Report that as `partial`, because that kind's lenses really were not applied to the final
+tree.
+
+Do NOT decide `partial` from the per-iteration `reviewers_missing` on its own. Report a shortfall that
+a later relaunch cleared as history in the per-iteration summary, never as a coverage gap. A kind that
+fell short once and then reported after its one relaunch left nothing unreviewed, so latching
+`partial` on it would demand a sentence about unreviewed lenses that is not true. That is the
+difference the "still outstanding" wording draws. A cleared shortfall is history, an uncleared one is
+a coverage gap. When partial, name every reviewer kind and role involved and state which lenses the
+branch was NOT reviewed against. Never omit this section; its absence reads as complete coverage.
 
 ### Outcome
-✅ Clean batch — the final iteration's active reviewers ALL reported and found nothing
-actionable. Done.
+✅ Clean batch — the loop stopped on row 1, so `batch_clean` was true. The final iteration's active
+reviewers ALL reported, they found nothing actionable, and Coverage is `complete`. Done.
 — OR —
-⚠️ Stopped with incomplete coverage — the findings list was empty but one or more reviewers never
-reported, so this is not a clean result. Names them and says what went unreviewed.
+⚠️ Stopped with incomplete coverage — Coverage is `partial`, so this is not a clean result whatever
+else the run achieved. Names what made it partial and says what went unreviewed, and names the row
+that stopped the run. Row 1c is the empty-findings case with an `unavailable` kind. A row 2 or row 3
+stop uses this outcome too whenever Coverage is `partial`, adding that nothing was committed or that
+the iteration cap was reached.
 — OR —
-✅ Converged — the last iteration committed no changes; nothing left to fix. Done.
+✅ Converged — the last iteration committed no changes and Coverage is `complete`. Nothing left to
+fix. Done.
 — OR —
 ⚠️ Stopped after 10 iterations. See remaining issues above.
 ```
+
+**Selecting the Outcome line: a green check requires Coverage to be `complete`.** Key it on Coverage
+itself, not on any single one of Coverage's inputs. `reviewer_unavailable` is only one of three things
+that force `partial`, so a rule keyed on that variable alone would let a green check sit above a
+`partial` Coverage line as soon as another input fired. This governs every stop, not just row 1c.
+Whenever Coverage is `partial` the Outcome MUST be the incomplete-coverage line, naming what made it
+partial and what went unreviewed. So "✅ Clean batch" is reachable only from row 1 with complete
+coverage, and "✅ Converged" only from a row 2 stop with complete coverage. Never pair a green check
+with `partial` coverage. The two sections are read together, and a green check above a `partial`
+Coverage line is exactly the unearned clean result this machinery exists to prevent.
 
 For the **Tickets examined** section: omit it entirely when no ticket IDs were found or
 `--skip-ticket` was passed. List any deferred or dismissed ticket findings (from
@@ -641,11 +726,15 @@ iterations. If an in-depth-review sub-agent reported `ticket_review.status` of `
   is the point. Do not skip gh-style-review when in branch mode — it still contributes
   findings even with empty Discussion Context arrays. The split is deliberately asymmetric:
   do not "balance" gh-style back to 2× (see Step 1).
-- **Later iterations use the adaptive active set (Step 3), never an arbitrary reduction.** The
-  ONLY reason to run fewer reviewers is the pruned-rerun rule (a committed, no-logic-change
-  iteration reruns just `productive_reviewers`). Any logic change forces a full 3-agent rerun.
-  Never drop a reviewer for "speed" outside this rule. Keep in-depth-review at 2× whenever it is
-  active, and gh-style-review at 1×.
+- **Later iterations use the adaptive active set (Step 3), never an arbitrary reduction.** Step 3
+  has exactly three reasons to run fewer reviewers. The pruned-rerun rule (a committed,
+  no-logic-change iteration reruns just `productive_reviewers`), the row-1b retry (which
+  relaunches only the kind that fell short), and the `reviewer_unavailable` subtraction (which
+  never relaunches an unavailable kind). Any logic change forces a full 3-agent rerun. Never drop
+  a reviewer for "speed" outside these rules. Keep in-depth-review at 2× whenever it is
+  active, and gh-style-review at 1×. An `unavailable` in-depth kind is not launched at all, so this
+  multiplicity rule applies only while the kind is active (Step 3). There is no reduced-multiplicity
+  path. A kind either relaunches in full or does not relaunch.
 - **Each sub-skill is invoked WITH `--raw`** — we want every scored finding (0–100), not
   the sub-skill's default `< 70` filtered output. The orchestrator applies its own
   `confidence >= 50` threshold after cross-instance, cross-source dedup.

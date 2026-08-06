@@ -322,8 +322,11 @@ proposed the findings, not scores.
   unscored leads: exclude them from the posted review, list them separately in the Step 4 report as
   unfiltered, and name the instance that produced them.
 - Any finding carrying `unscored: true` is likewise never posted.
-- A finding arriving with `citation_verified: false` is capped at 60 however it is scored, so it
-  never reaches the posting bar on its own.
+- A finding arriving with `citation_verified: false` is **never posted**, whatever its score. It is
+  capped at 60 upstream, but do not rely on that cap to keep it out. This skill's filter is
+  `confidence >= 60`, which a capped finding satisfies exactly, so the cap alone would post it.
+  Exclude it the same way `review-and-fix` excludes it from fixing. List it in the Step 4 report as
+  an unverified-citation lead instead.
 
 An unfiltered instance is not a free extra reviewer. Posting its findings puts a single model's
 self-graded output into a PR review, which is how a fabricated finding gets published.
@@ -344,7 +347,7 @@ Once all four sub-agents have returned:
    - `confidence`: **max** of the group's scores (any one reviewer with high confidence is strong
      evidence; merging by max is intentionally non-conservative).
    - `cross_instance_agreement`: count of distinct sub-agents (1..4) that raised this finding.
-     This is the name `review-and-fix` already uses; do not invent a third.
+     This is the name `review-and-fix` already uses. Do not invent a third.
      **Compute it yourself. Never reuse the `role_agreement` value on an incoming finding as this
      count.** The denominators differ. `role_agreement` is how many of ONE instance's
      9-12 role lenses raised the finding, and this is how many of the four independent instances
@@ -369,7 +372,12 @@ Once all four sub-agents have returned:
    you can no longer tell whether a 51–59 finding "was already proposed by another reviewer."
    `merged_all` is used only by Step 2.7; it never affects posting on its own.
 
-5. **Filter:** keep only findings with `confidence >= 60`. Discard the rest — with one
+5. **Filter:** keep only findings with `confidence >= 60`. Then drop every finding with
+   `citation_verified: false` or `unscored: true` regardless of score. The threshold does not
+   remove them. An unverified citation is capped at 60 upstream, and this filter is inclusive, so
+   60 passes it. These two exclusions are what keep an unverified or self-graded finding out of the
+   posted review, so apply them here and not only where unfiltered instances are discussed. Report
+   the dropped ones in Step 4 as leads. Discard everything else below the bar — with one
    exception: retain any discarded `ticket`-category finding (confidence < 60) in a separate
    `sub_threshold_ticket_notes` list. Step 3a.5 uses it for the "Tickets examined" section.
    These never enter the findings pool, the INLINE/GLOBAL classification, or the ordering
@@ -390,7 +398,7 @@ Once all four sub-agents have returned:
    `confidence` with a multi-reviewer Sonnet finding, rank the Opus-only one first. This
    overrides tiebreaker 2 for that case and nothing else.
 
-## Step 2.5: Aggregate Discussion Context (from gh-style sub-agents only)
+## Step 2.5: Aggregate Discussion Context (from the gh-style sub-agent only)
 
 The single `gh-style-review` sub-agent returns a `discussion_context` block with `resolved` and
 `unaddressed` arrays. `in-depth-review` returns no such block — it contributes nothing here.
@@ -413,7 +421,7 @@ grounded in a real comment URL, not as triangulated findings.
    grounded in a real human comment URL. Order `unaddressed_pool` by the comment's `created_at`
    ascending (oldest unresolved concern first).
 
-5. **If `unaddressed_pool` is empty after dedup, the "Still unaddressed" section is skipped.**
+4. **If `unaddressed_pool` is empty after dedup, the "Still unaddressed" section is skipped.**
    If it is empty AND the findings list from Step 2 is also empty, Step 3 still applies — no
    review is posted.
 
@@ -436,6 +444,21 @@ every other finding — distinguished only by an `approach` tag.
 `subagent_type: pr-review-nuanced-judge` (Opus, effort `high`). Pass no `model` override; both
 knobs live in `.claude/agents/`. The judge is deliberately the one stage held at the top tier and
 at high effort.
+
+**If either `subagent_type` does not resolve**, apply the same fallback Step 1 uses for the
+finders. Fall back to a plain Agent call with the matching model, Sonnet for the proposer and Opus
+for the judge, and state in the Step 4 report that effort could not be pinned for that role and
+therefore inherited the session value.
+
+**If the proposer or the judge returns nothing**, errored output, or output you cannot parse, the
+approach stage did NOT run. Report it in Step 4 as `approach stage did not run: <reason>`, naming
+which role was missing. Do not treat a non-response as "no approach findings", and do not run the
+missing role's lens yourself and attribute it to the pair. Silence from the proposer means nothing
+was proposed to judge, so no approach findings post. Silence from the judge means nothing was
+adjudicated, so the proposer's findings do NOT post on their own. The debate is the filter for this
+stage, and posting an unjudged proposal would skip the filter entirely. A missing approach stage is
+an absence of coverage, exactly as a missing finder is, and it is reported rather than read as a
+clean result.
 
 The proposer's job is recall over design issues, and measured approach-finding recall was
 **identical on Sonnet and Opus** (50% on one fixture, 100% on the other, for both tiers). A
@@ -512,7 +535,8 @@ Each kept approach finding becomes a normal finding for Step 3 with:
 pool **without** re-applying the ≥60 filter — they already passed the mutual-agreement bar in
 2.7a. Order them within the pool by `confidence` like the others (for the tiebreakers, treat
 `cross_instance_agreement = null` as lowest, an approach finding as single-source — never both — for the
-both-sources tiebreaker, and lowest for the category-priority tiebreaker). They then flow
+both-sources tiebreaker, `role_agreement = null` as lowest since approach findings never pass through
+the Step 2 merge that would assign one, and lowest for the category-priority tiebreaker). They then flow
 through Step 3's INLINE/GLOBAL classification and posting unchanged, except for the annotation
 in Step 3b.
 

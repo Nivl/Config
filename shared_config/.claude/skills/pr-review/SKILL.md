@@ -787,6 +787,33 @@ finding can bypass that bar and read `Low` -- e.g. a score of 42 shows as `Low`.
 is just `` `[confidence: <Low|Medium|High|Critical>]` `` (plus the `approach` marker for
 those findings, and a `[<ticket_id>]` title prefix for ticket findings).
 
+**Rule attribution (what the reader sees).** A finding may arrive citing the convention file it
+came from, `AGENTS.md` or `CLAUDE.md`, together with the rule text. Role #1 of `in-depth-review`
+is told to cite both, and `gh-style-review` carries its own convention-compliance directive, so
+either sub-skill can produce a doc-attributed finding. That citation is what lets the scorer
+check the rule says what the finding claims. It is internal mechanics, the same as the confidence
+number. **Never post the file name, whichever file it is, and never post a phrase like "AGENTS.md
+says" or "CLAUDE.md says".** The reviewer's convention files are usually not in the repo under
+review, so a reader goes looking for a rule that is not there and concludes the finding was
+invented. This holds even when the file IS in the repo under review. A reader cannot tell which
+copy you mean, and the repo's copy may differ from yours, so a citation that looks checkable can
+still mislead.
+
+State the rule directly instead, as a norm with no source attached, and keep whatever the rule
+permits, since the permitted list is what tells the author where the boundary is. For the comment
+that prompted this rule, that reads:
+
+> One thought per sentence, and don't glue two clauses with a colon or a dash. The colon after
+> "DB I/O" splits a claim from its elaboration. Hyphenated words, CLI flags, ranges, label
+> prefixes, ratios and times, and code, paths, or URLs are fine, but this is not one of those.
+
+This governs the title as well as the description, and inline comments as well as global ones.
+
+Two ways to get this wrong. Do not swap the citation for a vaguer authority such as "the project
+requires" or "the team convention is". That is worse than naming the file, because it asserts
+something about this repo that is not true. And do not soften the rule into a preference, because
+the finding still has to read as actionable rather than as one reviewer's taste.
+
 ```markdown
 I used an AI agent with a custom prompt to generate this review.
 
@@ -802,7 +829,7 @@ Found <K_global + K_inline> issue(s):
 
 **1.** <title> &nbsp;`[confidence: <Low|Medium|High|Critical>]`
 
-<description, including category and any suggested-fix alternatives>
+<description, including any suggested-fix alternatives>
 
 <permalink>
 
@@ -899,6 +926,10 @@ anchors the comment to the line for you):
 **Approach findings:** for a finding with `source = "approach"`, use the
 `` `[approach, confidence: <Low|Medium|High|Critical>]` `` tag here instead. See Step 3b.
 
+**Rule attribution:** Step 3b's rule applies here unchanged. An inline comment reuses the same
+`<description>`, so strip the convention file name and any phrasing that attributes the rule to a
+document here too.
+
 GitHub line-range encoding:
 
 - Single line: `{ "path": "<file>", "line": <N>, "side": "RIGHT", "body": "<body>" }`
@@ -930,6 +961,10 @@ straight to Step 3e as before. No file is written and there is no pause.
      will (e.g. `#3 [INLINE] src/auth.ts:40..52  [confidence: High]`).
    - the rendered comment body below it: title + description for a finding, or the
      `quote` + `gap` for an unaddressed concern.
+   - for a finding that arrived with a convention-file citation, that citation on its own line
+     beneath the body, prefixed `source:`. This file never reaches GitHub, and the user owns the
+     convention file, so the citation is what lets them check a finding against their own rule
+     before approving it.
 
    Separate every block from the next with a divider line that is exactly thirteen `=`
    characters on its own line, nothing else:

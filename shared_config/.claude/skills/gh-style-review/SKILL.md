@@ -173,9 +173,20 @@ instead of the `gh` output.
 |---|---|---|
 | `<formatted_context>` | constructed locally | range, base_ref, current_branch, commit_count |
 | `<commit_log>` | `git log --pretty=format:'%h %s%n%b' <RANGE>` | replaces `<pr_or_issue_body>`; one entry per commit |
-| `<changed_files>` | `git diff --name-status <RANGE>` | status + path; no SHAs (range-relative) |
-| `<diff>` | `git diff <RANGE>` | the full diff |
+| `<changed_files>` | `git diff --name-status <BASE>...<HEAD>` | status + path; no SHAs (range-relative) |
+| `<diff>` | `git diff <BASE>...<HEAD>` | the full diff |
 | `<metadata>` | constructed locally | range, base_ref, head_ref |
+
+For the two `git diff` rows, convert `<RANGE>`'s two dots to three (`<BASE>..<HEAD>` becomes
+`<BASE>...<HEAD>`) — do not pass the literal `<RANGE>` string through to `git diff`. Unlike
+`git log`/`git rev-list`, where two dots already means "commits in HEAD not in BASE" (merge-base
+aware), `git diff`'s two-dot form is a literal comparison of the two commits' trees with no
+merge-base logic at all. If `<BASE>` has advanced independently since the branch diverged (an
+ordinary state for any feature branch that has sat for a while), a two-dot `git diff` shows every
+one of those independent `<BASE>`-side commits reverted, on top of the branch's real changes.
+Three-dot diffs from the merge-base instead, which is what "what did this branch change" means,
+and is a no-op change when there's no divergence to begin with. `git rev-list --count <RANGE>` in
+Step 0 and `git log <RANGE>` above are unaffected; their two-dot form was already correct.
 
 **Branch mode deliberately omits** `<comments>`, `<review_comments>`, and `<prior_reviews>`.
 There's no PR to fetch them from. The reviewer is told (in Step 2) that these tags are
@@ -294,6 +305,14 @@ task: do NOT edit files, commit, push, or post to GitHub. Read and report only.
      defect is in scope, and is exactly the kind diff-anchored review misses.
    - Follow the data flow to its real endpoints (DB writes, emails, partner/external calls,
      state transitions) and confirm the change's effect two hops out, not just locally.
+   - For code that runs in a loop or gets re-invoked repeatedly (a paginated sweep, a cron,
+     a retry), count how many times each piece of logic actually runs, not just whether it
+     runs once. Two specific things to check: (a) work inside the loop body that doesn't
+     change between iterations should be computed once outside it, not recomputed on every
+     page; (b) state meant to persist across separate invocations (a cursor, a dedup marker,
+     an exclusion list) that instead resets on every run can make the same rows get
+     reprocessed, or a bounded budget get consumed by the same dead rows, run after run.
+     Prove either by quoting the loop/call site and counting.
 
 4. Reachability proof for any branch the change depends on — the check that catches dead-guard
    / latent-typo bugs, done ADVERSARIALLY: default to the branch being BROKEN until you can
@@ -314,8 +333,16 @@ task: do NOT edit files, commit, push, or post to GitHub. Read and report only.
      explanation you cannot back with a quoted write line.
 
 5. Review thoroughly. Look for: correctness bugs, security issues, performance problems,
-   missing edge cases, project-convention violations (CLAUDE.md), error handling, and test
-   coverage — including coverage gaps for unchanged code the change newly exercises.
+   missing edge cases, project-convention violations (CLAUDE.md), error handling, test
+   coverage — including coverage gaps for unchanged code the change newly exercises — and
+   code duplication / reuse.
+   - Duplication and reuse are first-class findings here, not optional polish. Check two
+     shapes: (a) the diff repeats a control-flow or query shape that already exists
+     elsewhere in the same file (e.g. a second or third hand-copy of a paging loop), and
+     (b) a new file re-implements a composition that another file in the diff already
+     builds and could export instead of hand-copying. Either is provable by placing the
+     two pieces of code side by side and quoting where they match; that proof is what
+     makes it a real finding, not a stylistic preference.
    - (PR mode only) Cross-reference <comments>, <review_comments>, and <prior_reviews>:
      confirm a prior human concern is resolved by the diff, or flag it unresolved; don't
      duplicate a point a human already made. In branch mode these tags are absent, so skip the
@@ -353,13 +380,17 @@ Each finding is graded on **two orthogonal axes** — same scheme as `in-depth-r
 **Calibration — confidence is the TRUTH axis, not current impact.** Confidence answers "how
 sure are we this finding is real and valid," NOT "how big is the blast radius today." Two
 consequences:
-- A finding whose truth is *provable and binary* — a convention or safety violation (e.g. a
-  non-`CONCURRENTLY` index build on a pre-existing table, checkable against repo convention) —
-  scores by provability ALONE. Do NOT discount it because the current blast radius is small:
-  an empty or feature-gated table, low live traffic, or a cheap fix. That low impact belongs
-  in the **severity** field (`minor` / `suggestion`), not in the confidence number. Deflating
-  a provably-true finding by today's table size is the calibration error to avoid. It buries
-  real, cheap-to-fix findings below the caller's threshold.
+- A finding whose truth is *provable and binary* — you can quote the exact code that settles
+  it, with nothing left to verify — scores by provability ALONE. This covers a convention or
+  safety violation (e.g. a non-`CONCURRENTLY` index build on a pre-existing table, checkable
+  against repo convention) just as much as a duplication finding (two pieces of code quoted
+  side by side showing the same composition) or a repeated-execution finding (counting the
+  call sites that make the same query run N times in a loop where it needs to run once). Do
+  NOT discount any of these because the current blast radius is small: an empty or
+  feature-gated table, low live traffic, a small excluded-id list, or a cheap fix. That low
+  impact belongs in the **severity** field (`minor` / `suggestion`), not in the confidence
+  number. Deflating a provably-true finding by today's impact is the calibration error to
+  avoid. It buries real, cheap-to-fix findings below the caller's threshold.
 - This is NOT a blanket "score every real-ish finding high." For a latent *bug*, confidence
   still reflects whether it is genuinely a defect and whether its path is reachable at all. A
   rare, marginal conjunction that may not even constitute a real defect legitimately sits near

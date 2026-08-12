@@ -247,7 +247,7 @@ override its gate, because a gated-off role has nothing to review.
 
 The role number ↔ category mapping used by `--roles` and by the `category` field of every
 finding. Gate criteria for #6, #7, and #12 are in Conditional role gates above; the `File`
-column below holds only the text sent to the launched sub-agent:
+column below holds the role's prompt text (the fenced block):
 
 | # | Role | `category` | File |
 |---|------|------------|------|
@@ -273,8 +273,8 @@ triangulation + adversarial converge stage — not by making each finder more ex
 ### Common reviewer prompt fragment
 
 Every reviewer prompt starts with the block in [roles/_common-fragment.md](roles/_common-fragment.md).
-Read it once per run and prepend it to each launched role's prompt (from its file below) before
-sending.
+Read it once per run and prepend it to each launched role's prompt (from the File column in the
+table above) before sending.
 
 ## Step 2: Confidence scoring
 

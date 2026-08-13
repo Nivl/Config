@@ -28,7 +28,8 @@ Accepts a positional arg plus optional modifier flags (`--raw`, `--skip-ticket`,
 - **PR mode** — arg looks like `123`, `#123`, or a GitHub PR URL. Diff source = `gh pr diff`.
   Prerequisites: open PR (draft PRs are accepted) + `gh` authenticated.
 - **Branch mode** — arg is a git revision range (e.g. `origin/main..HEAD`, `HEAD~5..HEAD`).
-  Diff source = `git diff <RANGE>`. No PR required.
+  Diff source = `git diff` from the merge base (see Step 0 note on two-dot vs three-dot). No PR
+  required.
 
 If no arg is supplied: default to branch mode with range `origin/<default-branch>..HEAD`
 (default branch detected via `git remote show origin | grep 'HEAD branch' | awk '{print $NF}'`,
@@ -129,11 +130,22 @@ abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git bl
    - `git rev-list --count <RANGE>` — if 0, abort: "no commits in <RANGE>".
    - `<PR_HEAD_SHA>` is unset in branch mode; permalinks for findings are produced
      against `git rev-parse HEAD` as a best-effort fallback.
+   - Convert `<RANGE>`'s two dots to three (`<BASE>..<HEAD>` becomes `<BASE>...<HEAD>`) before
+     using it in a `git diff` command — do not pass the literal `<RANGE>` string through to
+     `git diff`. Unlike `git log` / `git rev-list`, where two dots already means "commits in
+     HEAD not in BASE" (merge-base aware), `git diff`'s two-dot form is a literal comparison of
+     the two commits' trees with no merge-base logic at all. If `<BASE>` has advanced
+     independently since the branch diverged, a two-dot `git diff` shows every one of those
+     independent `<BASE>`-side commits reverted, on top of the branch's real changes. Three-dot
+     diffs from the merge-base instead, which is what "what did this branch change" means, and
+     is a no-op change when there's no divergence to begin with. The `git rev-list --count
+     <RANGE>` call above keeps its two-dot form; it is unaffected.
 
 4. Save:
    - `<SCOPE_DESCRIPTION>` — human-readable scope (e.g. `PR #1234` or `origin/main..HEAD`)
-   - `<DIFF_COMMAND>` — `gh pr diff <PR>` (PR mode) or `git --no-pager diff <RANGE>` (branch)
-   - `<FILES_COMMAND>` — `gh pr diff <PR> --name-only` or `git --no-pager diff --name-only <RANGE>`
+   - `<DIFF_COMMAND>` — `gh pr diff <PR>` (PR mode) or `git --no-pager diff <BASE>...<HEAD>` (branch)
+   - `<FILES_COMMAND>` — `gh pr diff <PR> --name-only` or
+     `git --no-pager diff --name-only <BASE>...<HEAD>` (branch)
 
 ## Step 1: Launch the specialized reviewers in parallel
 
@@ -161,8 +173,9 @@ plus up to three gated, minus #10 when `--skip-ticket` drops it. Do not try to m
 number. Evaluate the gates.
 
 **This step owns gate evaluation and the abort.** Get the file list once
-(`gh pr diff <PR> --name-only` in PR mode, `git --no-pager diff --name-only <RANGE>` in branch mode)
-and reuse it for all three gates rather than re-running it per role. Then narrow `<ROLE_SET>` by the
+(`gh pr diff <PR> --name-only` in PR mode, `git --no-pager diff --name-only <BASE>...<HEAD>` in
+branch mode — three dots, per the Step 0 note) and reuse it for all three gates rather than
+re-running it per role. Then narrow `<ROLE_SET>` by the
 gate results, and if that leaves it empty, abort with "no roles selected". Step 0 cannot do any of
 this, because the file list does not exist yet when arguments are parsed.
 
@@ -226,8 +239,8 @@ asymmetric gate.
 
 **This role runs ONLY when the diff touches a TypeScript file** (`*.ts`, `*.tsx`, `*.mts`,
 `*.cts`). Check with `gh pr diff <PR> --name-only` (PR mode) or
-`git --no-pager diff --name-only <RANGE>` (branch mode) before launching it. If the diff has no
-TypeScript, skip this role entirely and do not count it against the role total.
+`git --no-pager diff --name-only <BASE>...<HEAD>` (branch mode, three dots) before launching it.
+If the diff has no TypeScript, skip this role entirely and do not count it against the role total.
 
 It exists because a narrow lens catches what a broad one misses. Role #1 reads AGENTS.md in full
 and nominally covers this ground, but casting violations are a specific, mechanical, easily-missed

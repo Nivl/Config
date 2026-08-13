@@ -49,7 +49,8 @@ Single positional arg, optional. Auto-detects mode:
   the review can cross-reference what humans have already raised. **Draft PRs are accepted.**
   Reviewing a draft is a valid workflow.
 - **Branch mode** — arg is a git revision range (e.g. `origin/main..HEAD`, `HEAD~5..HEAD`).
-  Diff source = `git diff <RANGE>`. No PR required. The comment-derived XML sections
+  Diff source = `git diff` from the merge base (see the two-dot vs three-dot note below). No PR
+  required. The comment-derived XML sections
   (`<comments>`, `<review_comments>`, `<prior_reviews>`) and the `## Discussion Context`
   output section are **omitted** in this mode. There's nothing to fetch.
 

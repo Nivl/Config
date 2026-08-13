@@ -146,7 +146,7 @@ the accounting baseline for Step 2.0. The launch result does NOT contain a role'
 "How a role's findings reach the parent" below before you decide what to do after launching, because the
 obvious next action is the one that loses roles.
 
-**Nine roles always run: #1, #2, #3, #4, #5, #8, #9, #11**, plus #10 unless `--skip-ticket`.
+**Eight roles always run: #1, #2, #3, #4, #5, #8, #9, #11**, plus #10 unless `--skip-ticket`.
 Three more are **conditional.** Evaluate each gate against the diff before launching, and skip
 the role entirely (not counted in the total) when its gate is false:
 
@@ -159,6 +159,12 @@ the role entirely (not counted in the total) when its gate is false:
 So the launch count is **9 to 12** normally, and **8 to 11 with `--skip-ticket`**. Nine always run,
 plus up to three gated, minus #10 when `--skip-ticket` drops it. Do not try to memorize a single
 number. Evaluate the gates.
+
+**This step owns gate evaluation and the abort.** Get the file list once
+(`gh pr diff <PR> --name-only` in PR mode, `git --no-pager diff --name-only <RANGE>` in branch mode)
+and reuse it for all three gates rather than re-running it per role. Then narrow `<ROLE_SET>` by the
+gate results, and if that leaves it empty, abort with "no roles selected". Step 0 cannot do any of
+this, because the file list does not exist yet when arguments are parsed.
 
 ### Conditional role gates
 
@@ -227,12 +233,6 @@ It exists because a narrow lens catches what a broad one misses. Role #1 reads A
 and nominally covers this ground, but casting violations are a specific, mechanical, easily-missed
 pattern in a large compliance sweep. The conditional launch is what keeps the extra recall from
 costing anything on the many diffs with no TypeScript in them.
-
-**This step owns gate evaluation and the abort.** Get the file list once
-(`gh pr diff <PR> --name-only` in PR mode, `git --no-pager diff --name-only <RANGE>` in branch mode)
-and reuse it for all three gates rather than re-running it per role. Then narrow `<ROLE_SET>` by the
-gate results, and if that leaves it empty, abort with "no roles selected". Step 0 cannot do any of
-this, because the file list does not exist yet when arguments are parsed.
 
 ### How a role's findings reach the parent
 

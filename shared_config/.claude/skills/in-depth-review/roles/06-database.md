@@ -14,6 +14,11 @@ Look for obvious, big-impact database / data-layer bugs:
   page-size that grows with input, no cycle detection on cursor pagination
 - Backfill / batch scripts that aren't properly chunked, throttled, or checkpointed and could
   hammer the database or get stuck halfway through
+- A backfill / batch script whose query carries a LIMIT (or fixed page size) but the script
+  never loops back for the next page. A LIMIT is fine as a batching mechanism; it is a bug when
+  it is also the script's only pass. Flag it unless the code loops (re-running the query with an
+  advancing cursor/offset, or otherwise re-querying) until a page comes back short of the LIMIT
+  or empty, meaning 100% of matching rows get processed, not just the first page
 - Transaction issues that can cause data corruption or inconsistent state: wrong isolation
   level, partial commits, long-held transactions, foreign keys touched without locking,
   deadlock-prone update orderings, missing transaction wrapping multi-write operations

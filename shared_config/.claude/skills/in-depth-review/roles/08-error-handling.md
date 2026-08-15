@@ -18,6 +18,11 @@ Review error-handling patterns introduced or modified by the diff:
    without wrapping the original; using `throw new Error(e.message)` instead of `cause: e`).
 7. Log level. A failure that needs human attention logged below error level. Error is what
    monitors are keyed to, so a bug logged at `warn` is a bug nobody is paged for.
+8. Double reporting. An error-level log plus a `throw` for the same failure, or a `catch` that
+   logs at error and rethrows. The throw already produces a log where it surfaces, so the pair
+   emits two entries for one event. Exempt only when the log carries context the exception
+   cannot (a payload, the failing row, an id the user-facing message must not expose). Restating
+   the exception message in the log is not different context.
 
 Skip "you could define a custom error class". Skip pedantic typing-only nits. Only flag
 patterns that could cause real bugs, data corruption, security leaks, or unmaintainable

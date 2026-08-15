@@ -125,6 +125,14 @@ Warn is for a condition you expected, handled, and nobody needs to act on. If yo
 
 A `catch` block that logs and continues must say why continuing is correct. Swallowing a failure converts it into silent wrong behavior, which is harder to diagnose than a crash. If the fallback path is genuinely fine, a comment naming why belongs there. If it is not fine, the log is an error and the failure propagates.
 
+## Don't log at error and throw the same failure
+
+A thrown error already produces a log where it surfaces. So an error-level log next to a `throw` for the same failure emits two entries for one event. That doubles the volume monitors page on, and a reader chasing the second entry finds the same failure they already read. Pick one. Throw when the caller must react, and let the error message carry the context. Log at error when the code handles the failure and nothing propagates.
+
+The same defect appears one level up. A `catch` that logs at error and rethrows double-reports it. Rethrow bare, or wrap with `cause` to preserve the original, and leave the reporting to whoever catches it last.
+
+Log and throw together only when the two carry different data. Context the exception cannot hold is the case that earns it, such as the request payload, the row that failed, or an id the user-facing message must not expose. Log that context alone and throw the rest. Restating the exception message in the log does not count as different data.
+
 ## Emitting metrics
 
 Emit a metric only when something will consume it. Be able to name the consumer before adding the metric, meaning a dashboard, a monitor, or an experiment readout. A cron is the clear yes case. Nobody watches it run, so the monitor keyed to its success or its absence is the consumer. Unread telemetry is not free. It persists indefinitely, and it advertises a monitoring story that does not exist, so a later reader trusts a signal no alert is keyed to.

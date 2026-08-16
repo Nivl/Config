@@ -20,8 +20,7 @@
     "superpowers@claude-plugins-official": false,
     "superpowers@superpowers-marketplace": true,
     "warp@claude-code-warp": true,
-    "ponytail@ponytail": true,
-    "caveman@caveman": true
+    "ponytail@ponytail": true
   },
   "extraKnownMarketplaces": {
     "prime-radiant-marketplace": {
@@ -48,12 +47,6 @@
       "source": {
         "source": "github",
         "repo": "DietrichGebert/ponytail"
-      }
-    },
-    "caveman": {
-      "source": {
-        "source": "github",
-        "repo": "JuliusBrussee/caveman"
       }
     }
   },
@@ -378,10 +371,7 @@
       "Bash(go build /*)",
       "Bash(wget *)"
     ],
-    "deny": [
-      "Bash(* .env *)",
-      "Bash(* ~/.ssh/*)"
-    ]
+    "deny": ["Bash(* .env *)", "Bash(* ~/.ssh/*)"]
   },
   "sandbox": {
     "allowUnsandboxedCommands": false,
@@ -422,9 +412,7 @@
       ]
     },
     "network": {
-      "allowMachLookup": [
-        "com.apple.sysmond"
-      ]
+      "allowMachLookup": ["com.apple.sysmond"]
     }
   },
   "skipAutoPermissionPrompt": true,

@@ -168,6 +168,7 @@ CI workflow at `.github/workflows/tests.yml` runs on `pull_request` and pushes t
 | `deny-command-substitution-hook` | `bash tests/deny_command_substitution_test.sh` |
 | `deny-env-vars-hook` | `bash tests/deny_env_vars_test.sh` |
 | `bash-allow-trusted-hook` | `bash tests/bash_allow_trusted_test.sh` |
+| `work-on-validation` | `bash tests/work_on_validation_test.sh` |
 | `go-unit` | `go test ./internal/... ./cmd/...` + `golangci-lint run` (in service-images-go-dev container on ubuntu-latest) |
 | `go-darwin` | `go test -tags darwin ./internal/brew/...` (macos-latest, Go version from `go.mod`) |
 | `go-integration` | `go test -run 'FakeBinarySubprocess' ./internal/brew/...` (macos-latest, Go version from `go.mod`) |

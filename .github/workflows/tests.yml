@@ -217,6 +217,20 @@ jobs:
       - name: Run bash-allow-trusted test
         run: bash tests/bash_allow_trusted_test.sh
 
+  # ubuntu, unlike the hook tests above. Those need macOS for zsh, brew, or -tags darwin. This one is
+  # bash plus sed, awk, tr, diff and node --check, and the test deliberately avoids in-place sed, so it
+  # behaves identically and Linux minutes bill at a tenth the rate.
+  work-on-validation:
+    name: work-on validation script test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run work-on validation test
+        run: bash tests/work_on_validation_test.sh
+
   go-unit:
     name: Go unit tests
     runs-on: ubuntu-latest

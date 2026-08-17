@@ -4,7 +4,7 @@ description: >
   Opens a new pull request for the current branch with a SIMPLE, scannable title and a short
   description. If the repo has a PR template (.github/PULL_REQUEST_TEMPLATE.md or similar),
   fills it in; otherwise uses a default "Goal / how / key-changes-list" format. Designed to
-  avoid the wall-of-text PR descriptions that nobody reads — keep titles single-line, use
+  avoid the wall-of-text PR descriptions that nobody reads. Keep titles single-line, use
   bullet lists, never enumerate every file in the diff.
   Use this skill when the user asks to "open a PR", "create a PR", "make a pull request",
   "submit a PR", "draft a PR", or similar.
@@ -12,14 +12,16 @@ description: >
 
 # Open PR
 
-This skill creates a new pull request via `gh pr create`. Its job is to produce a PR people
-will actually read — short, simple, scannable.
+This skill creates a new pull request via `gh pr create`. Its job is to produce a PR people will
+actually read. Short, simple, scannable.
+
+The prose comes from `writing-work-docs`. What follows is the shape that prose has to fit.
 
 ## Principles (read before drafting anything)
 
 1. **Title is simple.** One line, prefer < 70 chars. State the change, not the justification.
-   ✅ "Add SQS queue for invoice generation" — not ❌ "feat(billing): refactor the invoice
-   subsystem to enable asynchronous PDF rendering via SQS".
+   ✅ "Add SQS queue for invoice generation". ❌ "feat(billing): refactor the invoice subsystem to
+   enable asynchronous PDF rendering via SQS".
 2. **Description is short.** The default format is a `Goal` line, an OPTIONAL `how` line, and
    one `Changes` bullet list. The list is **not exhaustive**: only the things a reader needs
    to know.
@@ -35,31 +37,23 @@ will actually read — short, simple, scannable.
    / overview field, it goes there. If the template has NO such field, put the sentence at the
    very top of the body, above the first section.
 
-## Voice: write plainly, not like a launch announcement
+## Writing: `writing-work-docs` owns it
 
-The #1 cause of unreadable PRs is AI-slop phrasing. Write in the voice of a senior engineer
-leaving a note for a busy teammate: plain, direct, no padding. If a sentence could be deleted
-without losing information, delete it.
+**Invoke `writing-work-docs` for the title and the body.** It owns voice, banned words, ASCII
+punctuation, invent-nothing, and no-hard-wrapping. Structure is this file's job. Prose is that
+file's job. Never draft PR prose without it, and never restate its rules here.
 
-**Banned. These are the tells that make a PR read as AI slop:**
+Three overrides, and only three:
 
-- The opener `This PR ...` / `This change introduces ...` / `In this PR, we ...`. Just state the thing.
-- Filler adjectives/verbs: `robust`, `comprehensive`, `seamless(ly)`, `powerful`, `leverage`,
-  `utilize` (say "use"), `streamline`, `facilitate`, `enhance`, `ensure`, `holistic`, `cutting-edge`.
-- Throat-clearing: `It's worth noting that`, `It is important to`, `In order to` (say "to").
-- Narrating the diff in prose ("adds a function `foo` that loops over the items and ..."). The
-  diff already shows that. Say WHY, not WHAT line by line.
-- Restating the title in the `Goal` section.
-- Fancy non-keyboard symbols. Use plain ASCII anyone can type: write `->` not `→`, `...` not
-  `…`, `>=`/`<=` not `≥`/`≤`, `x` not `×`, and straight quotes `'` `"` not the curly ones. The
-  fancy glyphs read as AI and most people can't type them on a keyboard.
-- The em-dash `—` (and en-dash `–`) to glue clauses together. Use two sentences, a colon, or a
-  plain hyphen with spaces. Same for padded triads ("the consumer, the producer, and the retry
-  logic") where a plain phrase would do.
+- **It never publishes. This skill does.** Ignore its Publishing section. Step 7 runs
+  `gh pr create`, gated on the Step 5 preview.
+- **Its "add no headings" rule yields to Principle 6.** The one-line summary always goes in. It is
+  a sentence rather than a heading, so the template stays intact.
+- **A `TODO(user):` line never ships.** Right in a draft, wrong in a live PR. Resolve each at the
+  Step 5 preview.
 
-**Do:** short sentences, active voice, concrete nouns, ASCII punctuation only. Prefer the
-bullet list; use prose only for what a bullet can't carry (the why). One idea per bullet. Cut,
-then cut again.
+Everything else applies as written, including leaving a template's HTML comments in place. GitHub
+renders those invisibly, so fill in around them.
 
 ## GitHub access (GitHub MCP with `gh` fallback)
 
@@ -71,13 +65,13 @@ available (or its tools don't cover the call).** Discover the MCP tools with
 | `gh` call used here | GitHub MCP equivalent (confirm exact name via ToolSearch) |
 |---|---|
 | `gh repo view --json defaultBranchRef` | get repository (default branch) |
-| `gh pr view --json …` | get pull request (existing-PR check) |
+| `gh pr view --json ...` | get pull request (existing-PR check) |
 | `gh pr list --limit N --json title` | list pull requests (recent titles, for convention) |
-| `gh pr create …` | **create pull request** — the write (Step 7) |
+| `gh pr create ...` | **create pull request**. The write (Step 7) |
 
 Prefer the GitHub MCP when connected; fall back to `gh` only when no MCP is available. If
 NEITHER a GitHub MCP nor `gh` is available, tell the user to connect a GitHub MCP or
-install/authenticate `gh` (`gh auth login`), and stop — this skill cannot open a PR without one.
+install/authenticate `gh` (`gh auth login`), and stop. This skill cannot open a PR without one.
 Local `git` calls (`git log`, `git diff`, `git push`, `git rev-parse`) need no `gh` and are
 unaffected.
 
@@ -100,9 +94,9 @@ unaffected.
    ```
    gh pr view --json number,state,url
    ```
-   If one exists with `state == "OPEN"`, abort and tell the user — point them at the URL.
-   They probably want to push more commits, not open a duplicate. (Closed or merged is fine
-   — proceed.)
+   If one exists with `state == "OPEN"`, abort, tell the user, and point them at the URL.
+   They probably want to push more commits, not open a duplicate. (Closed or merged is fine.
+   Proceed.)
 
 ## Step 1: Detect PR template
 
@@ -116,15 +110,20 @@ Look for a template, in this order:
 
 If found:
 
-- Read the template.
-- Treat `<!-- comments -->` and `{{ placeholder }}` markers as fill-in slots.
+- Read the template. Pass its path to `writing-work-docs` in Step 4 so it reads it too.
+- An `<!-- HTML comment -->` is an instruction to the author, not a slot. Write your content below
+  it and leave the comment where it is.
+- A `{{ placeholder }}` is a slot. Replace it.
 - For a multi-template directory: pick the file whose name best matches what the change is
   about (e.g. `feature.md` for new functionality, `bugfix.md` for fixes, `chore.md` for
   refactors). If unclear, ask the user which to use.
 
-If NO template exists, fall back to the default format (Step 3).
+If NO template exists, fall back to the default format in Step 4.
 
 ## Step 2: Gather context
+
+Gather it once here and hand it to `writing-work-docs` in Steps 3 and 4, so the title and the body
+are written against identical facts.
 
 1. Branch commit list:
    ```
@@ -150,30 +149,33 @@ If NO template exists, fall back to the default format (Step 3).
 
 ## Step 3: Draft the title
 
-Rules:
+**Invoke `writing-work-docs`** and give it the Step 2 context plus these constraints. A PR title is
+one line of prose and it is the part most people read, so it gets the same treatment as the body.
 
 - Single line, prefer < 70 chars, hard max 100.
-- Imperative voice: "Add X", "Fix Y", "Refactor Z" — not "Adding X", "I added X", or
+- Imperative voice. "Add X", "Fix Y", "Refactor Z". Not "Adding X", not "I added X", not
   past-tense "Added X".
-- State the change at user/system level, not the implementation detail.
-- No PR number, no branch name, no ticket key — unless the project's existing PRs
-  consistently include one of those.
+- State the change at user or system level, not the implementation detail.
+- No PR number, no branch name, no ticket key, unless the project's existing PRs consistently
+  include one.
 
 ## Step 4: Draft the description
 
+**Invoke `writing-work-docs` for the body.** Hand it the Step 2 context, the Step 1 template path
+(or the default format below when there is none), and the constraints from this step. Pass the path,
+not a summary. It reads the template itself.
+
+What comes back is paste-ready. Take it to Step 5 unchanged.
+
 ### If a template was found (Step 1)
 
-Fill it in. Same principles apply:
+Fill it in. These constraints go to `writing-work-docs` along with the template:
 
-- Each field stays short.
 - Use bullets where the template offers a list.
-- If a template field doesn't apply to this change, write `N/A` rather than padding with
-  fabricated content.
-- Don't reorder, rename, or delete template sections. Only fill them.
-- **Always include the one-line summary (Principle 6).** If the template has a description /
-  summary / overview field, put it there. If it has none, place the sentence at the very top
-  of the body, above the first section. This is the one addition to a template's structure
-  that is allowed.
+- **Always include the one-line summary (Principle 6).** If the template has a description,
+  summary, or overview field, put it there. If it has none, place the sentence at the very top of
+  the body, above the first section. This is the one addition to a template's structure that is
+  allowed, and it is the override named in the Writing section above.
 - **A "How to test me" / "Testing" / "QA" field means MANUAL steps, not automated tests.**
   Give the steps a human follows to trigger the change and confirm it worked in a running
   environment. Shape: numbered steps such as (1) deploy to the env, (2) send `curl ...`,
@@ -185,7 +187,7 @@ Fill it in. Same principles apply:
 
 ### If NO template was found
 
-Use this exact format (note the lowercase `how` — that's intentional):
+Use this exact format (note the lowercase `how`, which is intentional):
 
 ```markdown
 ### Goal
@@ -204,20 +206,20 @@ one exists. Do NOT restate the title.>
 - <key change 3>
 ```
 
-Lead with `### Changes` directly (no "This PR does the following:" preamble. That phrase is a
-slop tell). For a small change, drop `### how` and often `### Goal` too; a one-liner above the
-list is enough (see Principle 5).
+Lead with `### Changes` directly, with no preamble sentence introducing the list. For a small
+change, drop `### how` and often `### Goal` too. A one-liner above the list is enough (see
+Principle 5).
 
 ### Rules for the `Changes` list
 
 - **Not exhaustive.** Only key changes. If a refactor touches 12 files with the same kind of
   edit, that's ONE bullet, not 12.
-- **5–7 bullets max.** If you have more, you're including too much detail.
+- **5-7 bullets max.** If you have more, you're including too much detail.
 - **One line per bullet.** Human-readable, what changed.
 - **Call out unrelated bug fixes explicitly.** ✅ "Fix an unrelated bug where Y was returning
   Z instead of A".
-- **Don't pad with refactor noise.** Renames, import cleanups, format tweaks — none of those
-  are key changes.
+- **Don't pad with refactor noise.** Renames, import cleanups, and format tweaks are not key
+  changes.
 
 #### Good examples
 
@@ -228,24 +230,24 @@ list is enough (see Principle 5).
 
 #### Bad examples (and why)
 
-- ❌ "Rename `i` to `invoice` in `BillingWorker.process()`" — too granular, that's diff noise
-- ❌ "Update the billing module" — too vague, says nothing
+- ❌ "Rename `i` to `invoice` in `BillingWorker.process()`". Too granular, that's diff noise.
+- ❌ "Update the billing module". Too vague, says nothing.
 - ❌ "Refactor the entire invoice subsystem to support asynchronous PDF rendering via the
   newly-introduced SQS queue, including changes to the consumer, producer, message format,
-  retry logic, and observability dashboards" — wall of text masquerading as a bullet
+  retry logic, and observability dashboards". A wall of text masquerading as a bullet.
 
 ### Goal section guidance
 
-- 1–3 sentences. State the user-facing or system-facing outcome.
-- Link to a ticket if there is one — don't fabricate links.
-- If the change is purely internal (refactor, infra cleanup), still describe WHAT it
-  achieves. ✅ "Reduce billing worker memory footprint" — not "Improve code quality".
+- 1-3 sentences. State the user-facing or system-facing outcome.
+- Link the ticket when one exists.
+- If the change is purely internal (refactor, infra cleanup), still describe WHAT it achieves.
+  ✅ "Reduce billing worker memory footprint". ❌ "Improve code quality".
 
 ### how section guidance
 
 - **Omit the whole section when the approach is obvious from the changes.** Don't pad.
 - When kept: 1 sentence, the key architectural decision or approach only.
-- Do NOT enumerate files or functions — the diff has those.
+- Do NOT enumerate files or functions. The diff has those.
 
 ## Step 5: Preview and confirm
 
@@ -264,8 +266,15 @@ confirmation. Use `ask_user`:
 Ready to open this PR? Reply "yes" to create it, or tell me what to change.
 ```
 
-Loop on edits until the user confirms or aborts. Do not skip this step — opening a PR is a
-GitHub write, and the title + description outlive the conversation.
+**Resolve every `TODO(user):` line here.** `writing-work-docs` emits one for anything it could not
+verify, which is the right behavior for a draft and the wrong thing to publish. Ask the user for
+each, put the answer in the body, and delete the marker. A body still carrying one is not ready.
+
+Loop on edits until the user confirms or aborts. Do not skip this step. Opening a PR is a GitHub
+write and the title and description outlive the conversation.
+
+Send edits back through `writing-work-docs` rather than patching its prose by hand. Hand-editing is
+how a banned word or a stray em-dash creeps back in after the skill already removed it.
 
 ## Step 6: Push the branch if needed
 
@@ -311,7 +320,7 @@ After `gh pr create` returns the URL, report it to the user:
 ```
 
 If `gh pr create` returns an error (network failure, base branch protected, etc.), surface
-the exact error — don't retry blindly.
+the exact error. Do not retry blindly.
 
 ## Constraints
 
@@ -319,16 +328,18 @@ the exact error — don't retry blindly.
 - **Description short.** Default format = a `Goal` line, an OPTIONAL `how` line, and a
   non-exhaustive `Changes` list (<= 7 bullets). Tiny/obvious PRs: one line, no headers
   (Principle 5).
-- **Voice: no AI slop.** Follow the Voice section: no `This PR ...` opener, no filler
-  adjectives (`robust`/`comprehensive`/`leverage`/...), no throat-clearing, no diff-narration.
-  Write like a terse senior engineer; prefer the bullet list over prose.
+- **`writing-work-docs` writes the title and the body.** Never draft PR prose without it. It owns
+  voice, banned words, ASCII punctuation, and wrapping. This skill owns structure. The only three
+  places this skill overrides it are named in the Writing section.
 - **Use the repo's PR template if one exists.** Don't substitute the default.
 - **Always preview before posting** (Step 5). User must confirm.
 - **Never create a PR if one already exists open** for the current branch.
+- **No `TODO(user):` lines in a published body.** They are correct in a draft and wrong in a live
+  PR. Resolve each one at the Step 5 preview.
 - **No Co-Authored-By footers, no "🤖 Generated with Claude Code" footers, no agent
   branding** in the PR description. The user wants PRs that read like a human wrote them.
 - **No conventional-commit prefixes** (`feat:`, `fix:`, etc.) unless the project's existing
-  PRs consistently use them — check via `gh pr list --limit 20`.
+  PRs consistently use them. Check via `gh pr list --limit 20`.
 - **Don't enumerate every file changed.** The diff is right there.
 - **No fabricated ticket links.** If you don't know whether a ticket exists, ask.
 - **Single PR per invocation.** Don't open multiple PRs in one skill run.

@@ -18,9 +18,14 @@ Cover these in this order, one line each, and drop any line that has nothing to 
 - Which kinds reported and which fell short, keeping the per-instance detail, plus the unioned
   `roles_missing` and the retry or `unavailable` state of any short kind. A shortfall that a later
   relaunch cleared is recorded here and nowhere else.
-- Every finding kept by the `>=50` filter that did NOT become a commit, and what happened to it,
-  meaning deferred, dismissed, abandoned because lint or tests failed, or moot because an
-  earlier commit this iteration already fixed it. Committed findings are the table below instead.
+- The count of findings kept by the `>=50` filter, minus any already recorded in
+  `skipped_findings`, so the trend across iterations is visible in one place. A run whose count
+  is not falling is the signal to interrupt. Skipped findings are excluded because they persist
+  by design and would otherwise hold the count at a floor that reads as a stall.
+- Every finding kept by the `>=50` filter that did NOT become a commit, and what happened to
+  it, meaning deferred, dismissed, abandoned because lint or tests failed, skipped because no
+  test was possible, or moot because an earlier commit this iteration already fixed it.
+  Committed findings are the table below instead.
 - Unfiltered leads, naming the instance and which rule excluded them (`scoring.complete` false,
   `unscored`, or `citation_verified` false).
 - `any_logic_change` for the iteration.

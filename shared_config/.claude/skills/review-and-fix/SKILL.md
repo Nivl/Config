@@ -240,8 +240,9 @@ table is built from:
 
 Process each finding from the ordered work list (Step 1) one at a time. Skip any
 `ticket`-category finding already recorded in `resolved_ticket_findings` (deferred or
-dismissed in a prior iteration). Do not re-prompt. Deferred ones are carried to the Final
-Report.
+dismissed in a prior iteration), and any finding of any category recorded in
+`skipped_findings` (examined, but no test was possible, see sub-step 3). Do not re-prompt for
+either. Both are carried to the Final Report.
 
 ### For each finding:
 
@@ -262,27 +263,81 @@ Report.
      When the user picks (b) or (c), record the finding in `resolved_ticket_findings` (keyed
      by `ticket_id` + title) so later iterations do not re-prompt for it.
 
-3. **Implement the fix** following all project coding standards:
+3. **Behavior findings get a red test before the edit.** A behavior finding is one where you
+   can name an input and the wrong output the current code gives for it. Write that test
+   first, run it, and confirm it fails on the assertion the finding names rather than on an
+   import error or a missing fixture. Then fix until it passes. Record the failing
+   assertion's first line in the commit body as `Red: <line>`. The red run happens before the
+   commit, so the never-commit-broken-code rule is untouched. You still run the existing
+   suite in sub-step 4. That run is not evidence the finding is fixed, because it only covers
+   behavior that already worked.
+
+   Everything else gets no new test. Comment punctuation, a cast turned into a type guard, a
+   log removed from beside a throw, a dropped metric, and doc wording are verified by the
+   linter, the type checker, or by reading the diff. Never invent an assertion to satisfy
+   this rule. A test that also passes against the unfixed code is worse than none, and the
+   test-coverage reviewer flags it as ceremony next iteration.
+
+   If the test needs infrastructure the repo lacks (a live DB, a new mock harness, a running
+   server), use `ask_user` and offer to fix without a test or to skip the finding. Record a
+   skip in `skipped_findings`, keyed by the finding's `file` plus `title`, so later iterations do
+   not re-prompt. An
+   untestable finding never blocks the loop.
+
+4. **Implement the fix** following all project coding standards:
    - Read the relevant `AGENTS.md` (root and sub-project) for mandatory conventions.
+   - A finding asking for error handling does not authorize a `catch` that swallows. If your
+     fix adds or edits a `catch`, it must either rethrow (bare, or wrapped with `cause`) or carry a
+     comment naming why continuing is correct. AGENTS.md requires that comment and a
+     reviewer's request does not waive it. If neither shape fits the finding, use `ask_user`
+     rather than guessing at the reviewer's intent.
+   - Decide whether the fix changes a signature, a return value, what the code throws, or
+     anything else a caller can observe. When it does, list the call sites first with a
+     reference search (`mcp__serena__find_referencing_symbols`, or `rg` on the symbol name),
+     report the count in one line, and read every call site the change reaches. Any call site
+     that needs a matching change goes in the same commit. Fixes confined to comments,
+     formatting, or doc files skip this entirely.
    - Run the project's linter/formatter if one exists and fix any violations it reports.
    - Run the project's tests (`pnpm run test:unit` for the web sub-project, or the equivalent
      for the relevant sub-project) to confirm no regressions.
    - **Do not commit if lint or tests fail.** Fix the failures first or escalate to the user.
 
-4. **Commit the fix:**
+5. **Stage the fix, then scan the staged diff.** Run `git add -A`, then `git diff --staged`, and
+   read the added lines only. Sub-step 6 stages again, which is then a harmless no-op. Four
+   checks. Each is a pattern match on the added lines, never a review of the design. Two of them
+   need a judgement call, and both are named where they arise. Fix whatever a check catches,
+   re-stage, and rerun the scan. Never commit with a note to fix it later. A noted violation is
+   next iteration's finding, which is the cost this scan exists to remove.
+   - **Pattern scan, authored prose and added lines only.** No `→ ← … ≥ ≤ × — –` and no curly
+     quotes. In comment bodies and prose or doc files only, no ` - ` joining two independent
+     clauses. Arithmetic, YAML and markdown list markers, and CLI examples are not violations.
+     No ticket key matching
+     `\b[A-Z][A-Z0-9]{1,9}-\d{1,6}\b`, excluding protocol names such as UTF-8, SHA-256,
+     RFC-7231, ISO-8601, and CVE-2024. None of the changelog literals `added this`,
+     `changed from`, `new logic`, `was previously`, `remove old impl`. No added `as any` and
+     no added `as unknown as`. Literal content is exempt, so one of these glyphs inside a
+     string, a fixture, or quoted output is not a violation.
+   - **Catch artifact.** Every added `catch` rethrows or carries a why-comment (sub-step 4).
+   - **`Red:` presence.** The commit message you are about to write in sub-step 6 carries a
+     `Red:` line when this was a behavior finding (sub-step 3).
+   - **Scope.** `git diff --staged --stat` lists only files the finding named or the
+     reference search in sub-step 4 turned up. For any other file, state why in one line.
+
+6. **Commit the fix:**
 
    ```
    git add -A
    git commit -m "<type>: <short description of what was fixed>
 
    <optional body explaining why>
+   Red: <first line of the failing assertion, behavior findings only>"
    ```
 
    Use conventional commit types: defined in the `.github/semantic.yml` file (e.g., `fix`,
    `feat`, `refactor`, `docs`, etc.) and ensure the message is clear and concise. If the file
    is missing try to figure out what the correct type should be.
 
-5. **Record what this commit was**, for Step 3's next-active-set decision and its commit table:
+7. **Record what this commit was**, for Step 3's next-active-set decision and its commit table:
    - Set `any_commit = true`.
    - Append the commit's short sha plus the finding's `title` to `iteration_commits`. Take the
      title verbatim from the merged finding. It is the `Fix` cell in both tables.
@@ -299,7 +354,7 @@ Report.
      it as a logic change** (the cost is only rerunning more reviewers next iteration, never a
      missed defect).
 
-6. After the bookkeeping, move to the next finding.
+8. After the bookkeeping, move to the next finding.
 
 ## Step 3: Loop Control
 
@@ -315,8 +370,10 @@ actually committed:
   this iteration** (the productive set). Logic reviewers cannot surface anything new because
   the logic they last cleared is unchanged. in-depth-review roles are rerun individually via
   its `--roles` flag; `gh-style-review` is one indivisible unit (rerun whole, or not at all).
-- **An iteration committed nothing** (every finding was deferred or dismissed) -> **stop**.
-  The diff is unchanged, so a rerun would resurface the identical findings.
+- **An iteration committed nothing** (every finding was deferred, dismissed, or skipped for
+  want of a test) -> **stop**. The diff is unchanged, so a rerun would resurface the
+  identical findings. An iteration that skips every finding is the intended outcome of that
+  rule, not a malfunction.
 
 After processing all of the iteration's findings, evaluate these conditions **in order.**
 The first that matches wins:

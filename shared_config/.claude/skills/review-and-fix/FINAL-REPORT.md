@@ -109,7 +109,9 @@ line already says so.
 Emit it whenever a finding that passed the `>=50` filter did
 not become a commit. The row 2 stop is the common case, since findings existed and nothing was
 committed, so every one of them is still open. A fix abandoned because lint or tests failed belongs
-here too. Deferred and dismissed ticket findings do not. They are listed under Tickets examined
+here too. A finding skipped for want of a test belongs here as well, labelled as skipped so a
+reader can tell it apart from a fix abandoned because lint or tests failed. Deferred and dismissed
+ticket findings do not. They are listed under Tickets examined
 with their decision. A finding made moot because an earlier commit this iteration already fixed it
 does not either. Nothing about it is still open, and the per-iteration summary already recorded it
 as moot. Omit the section when every surviving finding either became a commit, was made moot by

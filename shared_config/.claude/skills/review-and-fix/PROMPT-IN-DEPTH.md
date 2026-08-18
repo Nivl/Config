@@ -14,8 +14,8 @@ is the comma-separated list of role numbers this iteration is rerunning.
   (branch mode). in-depth-review auto-detects.
 - `--raw` tells in-depth-review to skip its internal <70 confidence filter so we get every
   scored finding (0–100). The orchestrator applies its own >=50 threshold after merge.
-- `--roles` restricts the review to the active roles (the productive ones from the previous
-  iteration). On the first iteration this is all roles.
+- `--roles` restricts the review to `<ACTIVE_ROLES>`, whatever Step 3 computed for this
+  iteration. On the first iteration this is all roles.
 
 Return in-depth-review's structured JSON output to me unchanged, with two top-level
 additions:

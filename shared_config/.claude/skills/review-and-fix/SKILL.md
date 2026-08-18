@@ -50,7 +50,8 @@ for the reads they do. Local `git` calls need no `gh`.
 3. Merge + deduplicate findings across the active instances into one flat pool
 4. (PR mode only) Aggregate Discussion Context from the active gh-style instance
 5. Fix each unique finding, asking for clarification on ambiguous items, committing each fix,
-   and recording whether each committed fix changed logic and which reviewer it came from
+   and recording each committed fix's class (`prose` / `test` / `logic`) and which reviewer it
+   came from
 6. Decide the next iteration's active set (full rerun / pruned / stop) and repeat from step 2
    until the findings list is empty with every launched reviewer kind reported, none
    `unavailable`, and the unioned `roles_missing` empty (row 1, clean), or the findings list is
@@ -227,14 +228,18 @@ user can see the diff's effect on the PR's discussion thread evolving across ite
 
 ## Step 2: Fix
 
-At the start of the iteration's fix phase, reset four per-iteration accumulators. The first
-three are what Step 3 reads to decide the next active set. The fourth is what Step 3's commit
+At the start of the iteration's fix phase, reset five per-iteration accumulators. The first
+four are what Step 3 reads to decide the next active set. The fifth is what Step 3's commit
 table is built from:
 - `any_commit` = false — set true the moment any fix is committed.
-- `any_logic_change` = false — set true if any committed fix changes program logic.
+- `any_logic_change` = false. Set true if any committed fix is classified `logic`
+  (sub-step 7).
+- `any_test_change` = false. Set true if any committed fix is classified `test`
+  (sub-step 7). This is what adds role 9 back to a pruned rerun.
 - `productive_reviewers` = empty — the reviewers whose findings were fixed AND committed this
   iteration (in-depth-review role numbers via each finding's `category`, and/or the
-  `gh-style-review` unit). This is the pruned set a non-logic-only iteration reruns.
+  `gh-style-review` unit). This is the base of the pruned set a non-logic iteration reruns, and
+  `any_test_change` can add role 9 on top of it.
 - `iteration_commits` = empty — one `(short sha, finding title)` pair per committed fix, in
   commit order. Step 3's commit table is this list.
 
@@ -345,31 +350,60 @@ either. Both are carried to the Final Report.
      to in-depth role number(s) via the table in in-depth-review's Step 1, and add the
      `gh-style-review` unit if the finding came (also) from that source. A finding merged
      across both sources adds both.
-   - **Classify the commit as a logic change (diff-based).** Inspect the commit's own diff
-     (`git show --format= <sha>`). It is **non-logic** only if every changed hunk is confined
-     to comments, docstrings / block comments, blank-line or whitespace-only edits, or
-     pure-documentation files (`*.md`, `docs/**`). Any change to executable code — including a
-     string/number literal that logic reads, a moved statement, an import, config that alters
-     behavior — is a **logic change**: set `any_logic_change = true`. **When in doubt, treat
-     it as a logic change** (the cost is only rerunning more reviewers next iteration, never a
-     missed defect).
+   - **Classify the commit (diff-based).** Inspect the commit's own diff
+     (`git show --format= <sha>`) and put it in exactly ONE of three classes. Evaluate them in
+     this order and take the first that matches:
+     - **`prose`** if every changed hunk is confined to comments, docstrings / block comments,
+       blank-line or whitespace-only edits, or pure-documentation files (`*.md`, `docs/**`).
+     - **`test`** if every changed FILE is a test file. A test file is one whose name matches
+       `*.test.<code-ext>`, `*.spec.<code-ext>`, `*_test.<code-ext>`, or `test_*.<code-ext>`,
+       or one that sits under a `__tests__`, `__mocks__`, `__snapshots__`, `tests`, `test`, or
+       `spec` directory. Add the equivalent convention for whatever language the repo uses, so
+       a genuine test file is not missed. `<code-ext>` means a source-code extension, so
+       `parse.spec.ts` is a test file and `openapi.spec.yaml` is not. Directory names match a
+       path SEGMENT anywhere in the path, not just at the repo root, so
+       `packages/api/tests/parse.test.ts` counts. Two shapes do not qualify. Test-runner
+       configuration (`jest.config.*`, `vitest.config.*`, `pytest.ini`, `conftest.py`,
+       `playwright.config.*`) is always `logic`, because it changes which tests run and how.
+       Match it on basename wherever it sits. A file under a test path that is not itself a
+       test, such as a shared helper or fixture module, is instead a doubt case for the rule
+       below, because non-test code may import it.
+     - **`logic`** otherwise. Any change to executable code lands here. That includes a
+       string/number literal that logic reads, a moved statement, an import, and config that
+       alters behavior. So does a behavior fix, because its red test (sub-step 3) and the
+       change to the code under test share one commit.
+
+     Then set the flags: `test` -> `any_test_change = true`; `logic` ->
+     `any_logic_change = true`. `prose` sets neither. **First match governs.** A comment-only
+     edit to a test file matches both `prose` and `test`, and it is `prose`, because nothing
+     executable changed. **When you are genuinely unsure which class the facts put a commit in,
+     classify UP** (`prose` -> `test` -> `logic`). That rule breaks ties in your knowledge, not
+     ties in the order, and a commit that cleanly matches an earlier class is not a tie. The
+     cost of classifying up is only rerunning more reviewers next iteration, never a missed
+     defect.
 
 8. After the bookkeeping, move to the next finding.
 
 ## Step 3: Loop Control
 
 Re-running all three passes every iteration is wasteful when the iteration only touched
-comments or formatting, so the next iteration's active set depends on what the last one
+comments, formatting, or tests, so the next iteration's active set depends on what the last one
 actually committed:
 
-- **A committed fix changed program logic** -> the next iteration reruns the **full** set. A
-  logic change can introduce a bug, a security hole, a broken test, etc. in any domain, so
-  every reviewer must look again.
-- **An iteration committed fixes but none changed logic** (comments, docstrings, formatting,
-  doc files only) -> the next iteration reruns **only the reviewers whose findings were fixed
-  this iteration** (the productive set). Logic reviewers cannot surface anything new because
-  the logic they last cleared is unchanged. in-depth-review roles are rerun individually via
-  its `--roles` flag; `gh-style-review` is one indivisible unit (rerun whole, or not at all).
+- **A committed fix changed program logic** (any `logic` commit) -> the next iteration reruns
+  the **full** set. A logic change can introduce a bug, a security hole, a broken test, etc. in
+  any domain, so every reviewer must look again.
+- **An iteration committed fixes but none changed logic** (every commit was `prose` or `test`)
+  -> the next iteration reruns the **reviewers whose findings were fixed this iteration** (the
+  productive set), which the two rules below can add to. Logic reviewers cannot surface anything
+  new because the logic they last cleared is unchanged. in-depth-review roles are rerun
+  individually via its `--roles` flag. `gh-style-review` is one indivisible unit, rerun whole or
+  not at all.
+- **A `test` commit adds role 9 to that pruned set**, even when no test-coverage finding was
+  what got fixed. A test-only commit still adds executable code, and role 9 is the only
+  reviewer that judges tests. `gh-style-review` is NOT added. Its findings were measured as a
+  strict subset of in-depth's and it skipped test-coverage findings entirely (see Step 1), so
+  it reruns only when it is already in the productive set.
 - **An iteration committed nothing** (every finding was deferred, dismissed, or skipped for
   want of a test) -> **stop**. The diff is unchanged, so a rerun would resurface the
   identical findings. An iteration that skips every finding is the intended outcome of that
@@ -385,7 +419,7 @@ The first that matches wins:
 | 1c | Findings list empty, every reviewer launched this iteration either reported or is `unavailable`, **and EITHER `reviewer_unavailable` is non-empty OR the unioned `roles_missing` is non-empty** | **Stop** — coverage is `partial`, not clean. Use the incomplete-coverage outcome. |
 | 2 | `any_commit == false` (findings existed but nothing was committed)         | **Stop** — proceed to Final Report                            |
 | 4 | `any_logic_change == true`                                                 | **Full rerun**: set active set to ALL reviewers; go to Step 1 |
-| 5 | Otherwise (committed, but no logic change)                                 | **Pruned rerun**: set active set to `productive_reviewers`; go to Step 1 |
+| 5 | Otherwise (committed, but no logic change)                                 | **Pruned rerun**: set active set to `productive_reviewers`, plus role 9 when `any_test_change`; go to Step 1 |
 
 A role-level shortfall is deliberately NOT retried. It blocks the clean exit and surfaces in Coverage
 as `partial`, which is why row 1 now requires an empty unioned `roles_missing`.
@@ -409,15 +443,23 @@ Computing the next active set, for every row that goes back to Step 1 (1b, 4, an
   cleared it, so relaunching them buys nothing. The short kind relaunches at full multiplicity.
 - **Row 4 (full):** `<ACTIVE_ROLES>` = all roles `1..12` (drop `10` when `<SKIP_TICKET>`),
   `<ACTIVE_GH_STYLE>` = true.
-- **Row 5 (pruned):** `<ACTIVE_ROLES>` = the in-depth role numbers in `productive_reviewers`;
-  `<ACTIVE_GH_STYLE>` = true iff the `gh-style-review` unit is in `productive_reviewers`. (At
-  least one is non-empty here, because `any_commit` was true and every committed fix
-  attributes to a reviewer.)
+- **Row 5 (pruned):** `<ACTIVE_ROLES>` = the in-depth role numbers in `productive_reviewers`,
+  unioned with `{9}` when `any_test_change` is true. `<ACTIVE_GH_STYLE>` = true iff the
+  `gh-style-review` unit is in `productive_reviewers`. `any_test_change` never sets
+  `<ACTIVE_GH_STYLE>`. (At least one is non-empty here, because `any_commit` was true and
+  every committed fix attributes to a reviewer.) The role-9 union is computed HERE, so the
+  retry union below can still add a short kind back and the `reviewer_unavailable` subtraction
+  below can still remove role 9 along with the rest of an unavailable `in-depth-review` kind.
 
 **First union in any kind still owed a retry, whichever row fired.** Before launching, add back every
 kind that fell short this iteration and still has retry budget, even when the row that fired computed
 a set without it. Row 5 is why this is needed. It builds its set from `productive_reviewers`, and a
-kind that reported nothing contributed no findings, so it cannot be in that set. Without the union, a
+kind that reported nothing contributed no findings, so it cannot be in that set on its own merit.
+The retry is keyed on a kind having fallen short with budget left, never on whether the row's set
+already mentions it. That distinction matters because row 5's role-9 union can put role 9 in
+`<ACTIVE_ROLES>` while the `in-depth-review` kind reported nothing at all, which happens when
+gh-style raised the finding whose fix classified `test`. The kind is still owed its retry there, and
+adding it back at full multiplicity supersedes the lone role 9. Without the union, a
 kind that fell short while OTHER reviewers had findings that got fixed is dropped from the next
 launch, never retried, and never reaches the second shortfall that would mark it `unavailable`. The
 run could then stop on row 1 and report `complete` coverage with a reviewer silently gone. The union
@@ -451,6 +493,24 @@ logic. An interrupted run carries no such guarantee, because an interrupt can la
 logic-change commit. A kind in `reviewer_unavailable` validated nothing, so a run that stops with
 one reports `partial` coverage instead. A fix that sneaks a logic change past a "comment" finding
 is caught by the diff classifier, not by re-running everyone.
+
+**Why a `test` commit is safe to prune on.** A `prose` commit is safe because it adds nothing
+executable. A `test` commit does add executable code, so it earns its place on the non-logic side
+for a different reason. Nothing in production imports a test file, so production behavior after
+the commit is byte-identical to what the logic reviewers cleared. That is why the classifier's
+`test` bucket excludes the two shapes where that claim fails, a test-runner config file and a
+shared helper under a test path that non-test code may import. Both are `logic`. What a `test`
+commit CAN introduce is a bad test, which is exactly role 9's lens, and that is why row 5 unions
+role 9 in rather than trusting the productive set alone.
+
+**What a pruned `test` iteration gives up.** Roles 1, 5, and 12 are not unioned in, so a pruned
+rerun judges the new test code through role 9 alone. Sub-step 5's staged-diff scan is the partial
+backstop. It runs before the commit exists and catches the mechanical subset, meaning added
+`as any` and `as unknown as`, the banned glyphs, ` - ` clause joiners in comments, ticket keys,
+and changelog literals. It is NOT a substitute for role 1's full AGENTS.md read or role 12's type
+analysis. This is a deliberate cost trade, since the loop is uncapped and those three roles would
+be paid on every test iteration. The next `logic` commit forces a full rerun (row 4) and they see
+the accumulated test code then.
 
 Note: a non-empty `unaddressed_pool` in PR mode does NOT prevent the loop from terminating.
 "Still unaddressed" items are surfaced for the user to consider, but the fix loop is
@@ -493,10 +553,11 @@ Made, Remaining Issues, and Tickets examined.
   Do not "balance" gh-style back to 2x (see Step 1).
 - **Later iterations use the adaptive active set (Step 3), never an arbitrary reduction.** Step 3
   has exactly three reasons to run fewer reviewers. The pruned-rerun rule (a committed,
-  no-logic-change iteration reruns `productive_reviewers`, then the retry union adds back any kind
-  still owed one, so it is not `productive_reviewers` alone), the row-1b retry (which
-  relaunches only the kind that fell short), and the `reviewer_unavailable` subtraction (which
-  never relaunches an unavailable kind). Any logic change forces a full 3-agent rerun. Never drop
+  no-logic-change iteration reruns `productive_reviewers`, then role 9 is unioned in when any
+  commit was `test`, then the retry union adds back any kind still owed one, so it is not
+  `productive_reviewers` alone), the row-1b retry (which relaunches only the kind that fell
+  short), and the `reviewer_unavailable` subtraction (which never relaunches an unavailable
+  kind). Any logic change forces a full 3-agent rerun. Never drop
   a reviewer for "speed" outside these rules. Keep in-depth-review at 2x whenever it is
   active, and gh-style-review at 1x. An `unavailable` in-depth kind is not launched at all, so this
   multiplicity rule applies only while the kind is active (Step 3). There is no reduced-multiplicity

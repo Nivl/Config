@@ -28,7 +28,8 @@ Cover these in this order, one line each, and drop any line that has nothing to 
   Committed findings are the table below instead.
 - Unfiltered leads, naming the instance and which rule excluded them (`scoring.complete` false,
   `unscored`, or `citation_verified` false).
-- `any_logic_change` for the iteration.
+- `any_logic_change` and `any_test_change` for the iteration, which are what row 4 and row 5
+  read. Both false means every commit was `prose`.
 - Discussion Context in PR mode, as resolved and unaddressed counts plus whatever changed since
   the previous iteration. Say so instead when gh-style was not active and the previous snapshot
   carries forward unchanged.

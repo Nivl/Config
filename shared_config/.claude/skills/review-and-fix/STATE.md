@@ -22,6 +22,11 @@ Track state explicitly:
   caps the iteration count, so the relaunches become unbounded.
 - `any_commit`, `any_logic_change`, `productive_reviewers`: per-iteration accumulators from
   Step 2, consumed by Step 3's table.
+- `any_test_change`: per-iteration; true iff at least one commit this iteration classified as
+  `test` (Step 2 sub-step 7). Independent of `any_logic_change`, and both are true in the same
+  iteration when one commit was `test` and another was `logic`. Row 4 is evaluated first, so
+  `any_logic_change` wins that case and the whole set reruns anyway. Row 5 is the only reader,
+  and it unions role 9 into the pruned set. It never sets `<ACTIVE_GH_STYLE>`.
 - `iteration_commits`: per-iteration; the `(short sha, finding title)` pairs Step 2 appended, in
   commit order. The per-iteration commit table is this list.
 - `run_commits`: per-RUN list of `(iteration, short sha, finding title)`. Append

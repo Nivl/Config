@@ -35,8 +35,9 @@ type Mode int
 
 const (
 	// ModeCopy is the 3-way merge path (PERSONAL_COMPUTER != "true").
-	// Runs settings, top-files, and dir merges in that order, then
-	// advances last-sync-commit on a clean run.
+	// Runs settings, top-files, the per-entry symlinks for linkedDirs,
+	// and the mergedDirs tree merges in that order, then advances
+	// last-sync-commit on a clean run.
 	ModeCopy Mode = iota
 	// ModeSymlink is the symlink-each-curated-item path
 	// (PERSONAL_COMPUTER == "true"). Installs absolute-target symlinks
@@ -56,8 +57,9 @@ type Options struct {
 	Reporter dryrun.Reporter
 	Mode     Mode
 	// DryRun, when true, propagates through all sub-chokepoints
-	// (settings.Merge, files.MergeFile/MergeDir, state.Advance,
-	// prompt.Remember, InstallPrecommitHook) to suppress writes.
+	// (settings.Merge, files.MergeFile/MergeDir, LinkDirEntries,
+	// state.Advance, prompt.Remember, InstallPrecommitHook) to
+	// suppress writes.
 	DryRun bool
 }
 
@@ -66,7 +68,8 @@ type Options struct {
 //     InstallPrecommitHook (unconditional before the mode branch).
 //   - ModeSymlink: InstallSymlinks. No EnsureStateDir, no advance.
 //   - ModeCopy: EnsureStateDir → settings.Merge → MergeFile×2 →
-//     MergeDir×3 → AdvanceLastSyncCommit (gated on HadSkips).
+//     LinkDirEntries×1 → MergeDir×2 → AdvanceLastSyncCommit (gated on
+//     HadSkips).
 //
 // Module activation gates:
 //   - If `git` is not on PATH, print warning and return empty Summary.
@@ -185,8 +188,19 @@ func Sync(ctx context.Context, paths state.Paths, opts Options) (Summary, error)
 		hadSkips = hadSkips || r.HadSkip
 	}
 
-	// 3. Curated directories, in dirNames order.
-	for _, dirName := range dirNames {
+	// 3. Per-entry symlinked directories, in linkedDirs order. Nothing
+	// here can conflict, so hadSkips is untouched.
+	for _, dirName := range linkedDirs {
+		if err := LinkDirEntries(paths, dirName, out, symlinkfs.InstallOpts{
+			DryRun:   opts.DryRun,
+			Reporter: reporter,
+		}); err != nil {
+			return Summary{}, fmt.Errorf("link dir %s: %w", dirName, err)
+		}
+	}
+
+	// 4. Merged directories, in mergedDirs order.
+	for _, dirName := range mergedDirs {
 		r, err := files.MergeDir(ctx, paths, git, dirName, fileOpts)
 		if err != nil {
 			return Summary{}, fmt.Errorf("merge dir %s: %w", dirName, err)
@@ -194,7 +208,7 @@ func Sync(ctx context.Context, paths state.Paths, opts Options) (Summary, error)
 		hadSkips = hadSkips || r.HadSkips
 	}
 
-	// 4. Advance last-sync-commit. If any step skipped, leave the
+	// 5. Advance last-sync-commit. If any step skipped, leave the
 	// pointer alone and emit a stderr warning. Otherwise overwrite
 	// with the HEAD SHA.
 	if hadSkips {
@@ -208,18 +222,24 @@ func Sync(ctx context.Context, paths state.Paths, opts Options) (Summary, error)
 	return Summary{HadSkips: hadSkips}, nil
 }
 
-// settingsFile, topFiles, and dirNames are the single source of truth
-// for the curated set synced from shared_config/.claude/. Order
-// matters for stderr progress determinism. Copy mode handles each
-// category differently — settings.json gets a JSON 3-way merge,
-// topFiles a per-file merge, dirNames a tree merge — while symlink
-// mode links the flat set from curatedItems(). Both modes draw from
-// these same names, so the two paths can't drift.
+// settingsFile, topFiles, linkedDirs, and mergedDirs are the single
+// source of truth for the curated set synced from
+// shared_config/.claude/. Order matters for stderr progress
+// determinism. Copy mode handles each category differently.
+// settings.json gets a JSON 3-way merge, topFiles a per-file merge,
+// linkedDirs per-entry symlinks, mergedDirs a tree merge. Symlink
+// mode instead links the flat set from curatedItems(). Both modes
+// draw from these same names, so the two paths can't drift.
 const settingsFile = "settings.json"
 
 var (
-	topFiles = []string{"CLAUDE.md", "AGENTS.md"}       //nolint:gochecknoglobals // ordered constant
-	dirNames = []string{"skills", "agents", "commands"} //nolint:gochecknoglobals // ordered constant
+	topFiles = []string{"CLAUDE.md", "AGENTS.md"} //nolint:gochecknoglobals // ordered constant
+	// linkedDirs hold self-contained units the repo owns wholesale, so
+	// copy mode links each entry instead of merging its files. A skill
+	// is edited in the repo and read from ~/.claude; a 3-way merge of
+	// its individual files only ever recreated repo content locally.
+	linkedDirs = []string{"skills"}             //nolint:gochecknoglobals // ordered constant
+	mergedDirs = []string{"agents", "commands"} //nolint:gochecknoglobals // ordered constant
 )
 
 // curatedItems returns every synced member in canonical order:
@@ -228,9 +248,10 @@ var (
 // same names by category. Deriving it from the shared constants is
 // what keeps the two sync modes in lockstep.
 func curatedItems() []string {
-	items := make([]string, 0, 1+len(topFiles)+len(dirNames))
+	items := make([]string, 0, 1+len(topFiles)+len(linkedDirs)+len(mergedDirs))
 	items = append(items, settingsFile)
 	items = append(items, topFiles...)
-	items = append(items, dirNames...)
+	items = append(items, linkedDirs...)
+	items = append(items, mergedDirs...)
 	return items
 }

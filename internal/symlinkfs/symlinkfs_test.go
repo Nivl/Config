@@ -1,8 +1,10 @@
 package symlinkfs
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -169,6 +171,193 @@ func TestInstall_BackupFilenameFormat(t *testing.T) {
 	require.NoError(t, err, "backup filename must match <target>.YYYYMMDDHHmmSS.bkp 24h")
 }
 
+// TestInstall_ReplaceRemovesCollidingDirectory — with Replace set, a
+// colliding directory is deleted outright instead of renamed to a
+// .bkp sibling.
+func TestInstall_ReplaceRemovesCollidingDirectory(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "src")
+	require.NoError(t, os.MkdirAll(source, 0o755))
+	target := filepath.Join(tmp, "dst")
+	require.NoError(t, os.MkdirAll(filepath.Join(target, "nested"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(target, "nested", "file.txt"), []byte("stale"), 0o644))
+
+	now := fixedNow(t)
+	require.NoError(t, Install(source, target, now, InstallOpts{
+		Reporter: dryrun.NewNullReporter(),
+		Replace:  true,
+	}))
+
+	link, err := os.Readlink(target)
+	require.NoError(t, err)
+	assert.Equal(t, source, link)
+
+	entries, err := os.ReadDir(tmp)
+	require.NoError(t, err)
+	for _, e := range entries {
+		assert.NotContains(t, e.Name(), ".bkp", "Replace must not write a backup")
+	}
+}
+
+// TestInstall_ReplaceRelinksSymlinkPointingElsewhere — the collision
+// shape the backup path already covers, checked for Replace too. An
+// existing link to a different source is repointed and leaves no
+// backup or staging leftover behind.
+func TestInstall_ReplaceRelinksSymlinkPointingElsewhere(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "src")
+	require.NoError(t, os.MkdirAll(source, 0o755))
+	other := filepath.Join(tmp, "other")
+	require.NoError(t, os.MkdirAll(other, 0o755))
+	target := filepath.Join(tmp, "dst")
+	require.NoError(t, os.Symlink(other, target))
+
+	require.NoError(t, Install(source, target, fixedNow(t), InstallOpts{
+		Reporter: dryrun.NewNullReporter(),
+		Replace:  true,
+	}))
+
+	link, err := os.Readlink(target)
+	require.NoError(t, err)
+	assert.Equal(t, source, link)
+
+	entries, err := os.ReadDir(tmp)
+	require.NoError(t, err)
+	for _, e := range entries {
+		assert.NotContains(t, e.Name(), ".bkp")
+		assert.NotContains(t, e.Name(), ".replacing")
+	}
+	// The link was replaced, not the directory it pointed at.
+	_, err = os.Stat(other)
+	require.NoError(t, err, "Replace must not follow the old link and delete its target")
+}
+
+// TestInstall_ReplaceFailsWhenMoveAsideFails — the first thing replace
+// does can fail too. A parent that denies writes blocks the move, so
+// nothing is touched and the error names the step.
+func TestInstall_ReplaceFailsWhenMoveAsideFails(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "src")
+	require.NoError(t, os.MkdirAll(source, 0o755))
+	// The parent is its own directory rather than tmp, so restoring it
+	// cannot race t.TempDir's teardown.
+	parent := filepath.Join(tmp, "parent")
+	require.NoError(t, os.MkdirAll(parent, 0o755))
+	target := filepath.Join(parent, "dst")
+	require.NoError(t, os.WriteFile(target, []byte("user-content"), 0o644))
+	require.NoError(t, os.Chmod(parent, 0o555))
+	t.Cleanup(func() { _ = os.Chmod(parent, 0o755) })
+
+	err := Install(source, target, fixedNow(t), InstallOpts{
+		Reporter: dryrun.NewNullReporter(),
+		Replace:  true,
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "rename")
+	body, readErr := os.ReadFile(target)
+	require.NoError(t, readErr, "a failed move must leave the target alone")
+	assert.Equal(t, "user-content", string(body))
+}
+
+// TestInstall_ReplaceRelinksRegularFile — the third collision shape.
+// The backup path covers a regular file; Replace drops its bytes
+// instead of preserving them under a .bkp name.
+func TestInstall_ReplaceRelinksRegularFile(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "src")
+	require.NoError(t, os.MkdirAll(source, 0o755))
+	target := filepath.Join(tmp, "dst")
+	require.NoError(t, os.WriteFile(target, []byte("user-content"), 0o644))
+
+	require.NoError(t, Install(source, target, fixedNow(t), InstallOpts{
+		Reporter: dryrun.NewNullReporter(),
+		Replace:  true,
+	}))
+
+	link, err := os.Readlink(target)
+	require.NoError(t, err)
+	assert.Equal(t, source, link)
+
+	entries, err := os.ReadDir(tmp)
+	require.NoError(t, err)
+	for _, e := range entries {
+		assert.NotContains(t, e.Name(), ".bkp", "Replace keeps no copy of the bytes")
+		assert.NotContains(t, e.Name(), ".replacing")
+	}
+}
+
+// TestInstall_ReplaceKeepsLinkWhenCleanupFails — Replace installs the
+// link before deleting the old content, so a delete that fails still
+// leaves the caller with a correct symlink rather than a hole where
+// the target used to be. The unremovable child is what forces the
+// delete to fail.
+func TestInstall_ReplaceKeepsLinkWhenCleanupFails(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "src")
+	require.NoError(t, os.MkdirAll(source, 0o755))
+	target := filepath.Join(tmp, "dst")
+	locked := filepath.Join(target, "locked")
+	require.NoError(t, os.MkdirAll(locked, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(locked, "file.txt"), []byte("x"), 0o644))
+	// A read-only directory refuses to give up its children, so
+	// RemoveAll fails partway. Restore the mode or t.TempDir's own
+	// cleanup hits the same wall. Install moves the content to a
+	// staging path, so rather than recompute where that landed, walk
+	// what is left and reopen every directory.
+	require.NoError(t, os.Chmod(locked, 0o555))
+	t.Cleanup(func() {
+		_ = filepath.WalkDir(tmp, func(path string, d fs.DirEntry, walkErr error) error {
+			if walkErr == nil && d.IsDir() {
+				_ = os.Chmod(path, 0o755)
+			}
+			return nil
+		})
+	})
+
+	err := Install(source, target, fixedNow(t), InstallOpts{
+		Reporter: dryrun.NewNullReporter(),
+		Replace:  true,
+	})
+	require.Error(t, err, "a failed cleanup must still be reported")
+
+	link, readErr := os.Readlink(target)
+	require.NoError(t, readErr, "the symlink must be in place even though cleanup failed")
+	assert.Equal(t, source, link)
+
+	// Whatever the failed delete left behind must be hidden. A visible
+	// leftover beside the link is what Replace callers use Replace to
+	// avoid, since their directory gets scanned for real entries.
+	entries, err := os.ReadDir(tmp)
+	require.NoError(t, err)
+	for _, e := range entries {
+		if e.Name() == filepath.Base(source) || e.Name() == filepath.Base(target) {
+			continue
+		}
+		assert.True(t, strings.HasPrefix(e.Name(), "."),
+			"leftover %q must be dot-prefixed", e.Name())
+	}
+}
+
+// TestInstall_ReplaceIdempotentWhenAlreadyLinked — Replace does not
+// disturb a target that already points at source.
+func TestInstall_ReplaceIdempotentWhenAlreadyLinked(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "src")
+	require.NoError(t, os.WriteFile(source, []byte("payload"), 0o644))
+	target := filepath.Join(tmp, "dst")
+	require.NoError(t, os.Symlink(source, target))
+
+	require.NoError(t, Install(source, target, fixedNow(t), InstallOpts{
+		Reporter: dryrun.NewNullReporter(),
+		Replace:  true,
+	}))
+
+	link, err := os.Readlink(target)
+	require.NoError(t, err)
+	assert.Equal(t, source, link)
+}
+
 // fakeReporter records calls for assertion. Embeds NullReporter so
 // methods we don't override stay silent.
 type fakeReporter struct {
@@ -256,4 +445,30 @@ func TestInstall_DryRunCollisionReportsBackup(t *testing.T) {
 
 	require.Len(t, rep.symlinkCalls, 1)
 	assert.Equal(t, "would-back-up-then-create", rep.symlinkCalls[0].decision)
+}
+
+// TestInstall_DryRunReplaceReportsWouldReplace — colliding target
+// under Replace reports "would-replace" and leaves disk untouched.
+func TestInstall_DryRunReplaceReportsWouldReplace(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "src")
+	target := filepath.Join(tmp, "tgt")
+	require.NoError(t, os.MkdirAll(source, 0o755))
+	require.NoError(t, os.MkdirAll(target, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(target, "keep.txt"), []byte("intact"), 0o644))
+
+	rep := &fakeReporter{Reporter: dryrun.NewNullReporter()}
+	err := Install(source, target, fixedNow(t), InstallOpts{
+		DryRun:   true,
+		Reporter: rep,
+		Replace:  true,
+	})
+	require.NoError(t, err)
+
+	got, readErr := os.ReadFile(filepath.Join(target, "keep.txt"))
+	require.NoError(t, readErr)
+	assert.Equal(t, "intact", string(got))
+
+	require.Len(t, rep.symlinkCalls, 1)
+	assert.Equal(t, "would-replace", rep.symlinkCalls[0].decision)
 }

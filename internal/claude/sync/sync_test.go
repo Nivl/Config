@@ -145,6 +145,50 @@ func TestSync_CopyModeAdvancesOnCleanRun(t *testing.T) {
 	assert.Equal(t, headSHA+"\n", string(got))
 }
 
+// TestSync_CopyModeLinksSkillsAndMergesAgents — in copy mode, a skill
+// arrives as a symlink into the repo while an agents file is still
+// copied through the merge engine. The whole point of splitting
+// linkedDirs out of mergedDirs.
+func TestSync_CopyModeLinksSkillsAndMergesAgents(t *testing.T) {
+	p := newSyncEnv(t)
+	skillDir := filepath.Join(p.RepoDir, "skills", "in-depth-review")
+	require.NoError(t, os.MkdirAll(skillDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("name: in-depth-review\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(p.RepoDir, "agents"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(p.RepoDir, "agents", "reviewer.md"),
+		[]byte("agent\n"), 0o644))
+
+	fakeGit := statetest.NewFakeGit()
+	fakeGit.On("ShowBase", mock.Anything, mock.Anything).
+		Return([]byte(nil), state.ErrNoBase)
+	fakeGit.On("ListTree", mock.Anything, mock.Anything).
+		Return([]string(nil), nil)
+	fakeGit.On("HeadSHA", mock.Anything).
+		Return("abcdef1234567890abcdef1234567890abcdef12", nil)
+
+	_, err := Sync(context.Background(), p, Options{
+		Mode:     ModeCopy,
+		Out:      &bytes.Buffer{},
+		Prompter: prompttest.NewFakePrompter(),
+		NewGit:   func(state.Paths) state.Git { return fakeGit },
+		Reporter: dryrun.NewNullReporter(),
+	})
+	require.NoError(t, err)
+
+	link, err := os.Readlink(filepath.Join(p.HomeDir, "skills", "in-depth-review"))
+	require.NoError(t, err, "a skill must be linked, not copied")
+	assert.Equal(t, skillDir, link)
+
+	agent := filepath.Join(p.HomeDir, "agents", "reviewer.md")
+	info, err := os.Lstat(agent)
+	require.NoError(t, err)
+	assert.Zero(t, info.Mode()&os.ModeSymlink, "agents stay on the copy path")
+	body, err := os.ReadFile(agent)
+	require.NoError(t, err)
+	assert.Equal(t, "agent\n", string(body))
+}
+
 // TestSync_CopyModeSkipsAdvanceOnHadSkips — a skip during settings
 // merge holds last-sync-commit unchanged and emits the stderr
 // warning.

@@ -11,8 +11,9 @@ import (
 const readmeContent = `This directory is gitignored and managed by melvin-config.
 
 - last-sync-commit : repo SHA at last successful Claude config sync. Used as
-  the base for 3-way merges of settings.json and the skills/agents/commands
-  directories.
+  the base for 3-way merges of settings.json and the agents/commands
+  directories. skills/ is symlinked per entry, not merged, so it never
+  consults this SHA.
 - decisions.json   : remembered "always keep local" / "always take remote"
   choices per conflict path. Delete this file to clear all remembered choices.
 

@@ -175,8 +175,9 @@ takes. Pinning it in the agent definition is the only way to fix both knobs toge
 `medium` because that is the level the cost-efficiency study measured; recall was flat from `low`
 through `xhigh` while latency scaled ~3.9x, so `low` is a plausible further saving worth trialling.
 
-`in-depth-review` / `gh-style-review` still pin their own internal tiers (their inner reviewers ->
-Sonnet, scorers -> Haiku). The fix step (Step 2) stays on the **session model.** Applying and
+`in-depth-review` / `gh-style-review` still pin their own internal tiers (in-depth-review's inner
+reviewers -> Opus at `low` and its scorers -> Haiku; gh-style-review's single pass -> Sonnet). The
+fix step (Step 2) stays on the **session model.** Applying and
 committing code is where the strong model earns its cost. The recall fan-out is not.
 
 ### In-depth-review sub-agent prompt
@@ -580,8 +581,8 @@ Made, Remaining Issues, and Tickets examined.
   reviewer sub-agent is addressed by `subagent_type` (`pr-review-finder-indepth`,
   `pr-review-finder-ghstyle`), and its tier and effort come from its file in `.claude/agents/` —
   Sonnet at effort `medium`. Pass no `model` override. Their inner reviewers/scorers self-tier
-  (Sonnet/Haiku) per those skills. **Never let the reviewer fan-out inherit the session model or
-  the session effort.** The model may be Opus or a `[1m]` variant, and unset effort silently
+  (in-depth-review: Opus at `low` / Haiku) per those skills. **Never let the reviewer fan-out
+  inherit the session model or the session effort.** The model may be Opus or a `[1m]` variant, and unset effort silently
   tracks whatever the user last set with `/effort`. Nothing caps the iteration count, so either
   mistake is paid again on every pass. The fix step (Step 2) — reading, editing, lint/test,
   committing — stays on the **session model**,

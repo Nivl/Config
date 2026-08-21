@@ -277,11 +277,31 @@ column below holds the role's prompt text (the fenced block):
 | 11 | Headline-benefit / motivation | `motivation` | `roles/11-motivation.md` |
 | 12 | TypeScript type safety (conditional) | `types` | `roles/12-types.md` |
 
-**Model: spawn every reviewer on Sonnet** (Agent-tool `model: sonnet`). Do NOT let them
-inherit the session model. Each role is a bounded, tightly-specified recall pass over the
-diff; that is exactly the work Sonnet does well and Opus does at ~5x the cost. Confidence is
-recovered downstream by the cross-role agreement count and (for the orchestrators) the
-triangulation + adversarial converge stage — not by making each finder more expensive.
+**Model and effort: spawn every reviewer by `subagent_type: in-depth-review-role`, and pass no
+`model` override.** That file under `.claude/agents/` pins Opus at effort `low`. Never let a
+reviewer inherit the session model or the session effort.
+
+The Agent tool has no `effort` parameter, so an unset effort silently tracks whatever the user
+last set with `/effort`. Pinning the tier in the agent definition is the only way to fix both
+knobs together, which is why the role is addressed by `subagent_type` rather than by a `model`
+argument here.
+
+**If `subagent_type: in-depth-review-role` does not resolve** (the agent files have not been
+synced to `~/.claude/agents/` yet, or were renamed), do not abort the run. Fall back to a plain
+Agent call with `model: opus`, and say in the report that effort could not be pinned and therefore
+inherited the session value.
+
+Why this tier. A replicated A/B measured Opus at `low` against Sonnet at `xhigh` over ten roles
+and three passes per arm, on a diff about Postgres transaction semantics. Opus at `low` found four
+keyed defects that Sonnet never found in any pass, Sonnet found none that Opus missed, and it cost
+56% as much per pass. Turn count is the reason, not token price. Sonnet at `xhigh` took 2.1x the
+assistant turns, and every turn re-reads the cached context, so cache reads dominate the bill.
+Per-token price favors Sonnet. Per-task cost does not. That was one diff in one domain, so
+re-measure before assuming it holds for a very different shape of change.
+
+Confidence is recovered downstream by the cross-role agreement count and, for the orchestrators,
+the triangulation and adversarial converge stage. It is not recovered by making each finder more
+expensive.
 
 ### Common reviewer prompt fragment
 

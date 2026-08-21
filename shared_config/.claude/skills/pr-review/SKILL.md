@@ -198,9 +198,13 @@ the level the whole cost-efficiency study was run at, so it is the only level wh
 are actually evidenced here. Measured recall was flat from `low` through `xhigh` while latency
 scaled ~3.9x, so `low` is a plausible further saving. Trial it before adopting it.
 
-Sub-agent 3 is the mixed-tier finder described in the overview. It is the only finder on Opus.
-Note that `in-depth-review` and `gh-style-review` also pin their own *internal* tiers (their
-inner reviewers -> Sonnet, scorers -> Haiku); the agent definition governs the wrapper sub-agent.
+Sub-agent 3 is the mixed-tier finder described in the overview. It is the only finder whose
+*wrapper* runs on Opus. Note that `in-depth-review` and `gh-style-review` also pin their own
+*internal* tiers (in-depth-review's inner reviewers -> Opus at `low`, its scorers -> Haiku); the
+agent definition governs the wrapper sub-agent, not the roles underneath it. So every in-depth
+instance now runs Opus finders, and sub-agent 3's Opus wrapper buys a stronger orchestration and
+pooling layer rather than stronger recall. Re-measure whether the mixed wrapper tier still earns
+its cost.
 
 ### Sub-agents 1-3 prompt (in-depth-review)
 
@@ -432,8 +436,8 @@ line, which must never be omitted.
   design**: sub-agents 1, 2, and 4 on Sonnet, sub-agent 3 on Opus as the subtle-bug catcher, the
   approach proposer on Sonnet (its recall measured identical to Opus), the nuanced judge on Opus
   at effort `high` (judging is judgment; proposing is recall). Finders sit at effort `medium`.
-  Their inner reviewers/scorers self-tier (Sonnet/Haiku) per those skills. **Never let any of
-  these inherit the session model or the session effort.** Inheritance is what let a `/effort
+  Their inner reviewers/scorers self-tier (in-depth-review: Opus at `low` / Haiku) per those
+  skills. **Never let any of these inherit the session model or the session effort.** Inheritance is what let a `/effort
   xhigh` session silently run the whole fan-out at `xhigh`. What protects quality is the >=60
   triangulation, the converge stage, and exactly one Opus finder, not a bigger model or more
   thinking on every agent.

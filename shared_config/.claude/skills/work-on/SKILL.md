@@ -36,11 +36,18 @@ a premise that has been checked.
 | 6 | Do the work via brainstorming or systematic-debugging. | local files |
 | 7 | Commit everything, push. No PR yet. | **remote** |
 | 8 | `review-and-fix`, every iteration, no early stop. | local commits |
-| 9 | Push, then `open-pr --draft`. | **remote** |
+| 9 | Push, then `open-pr --draft`. Always a draft, never a question. | **remote** |
+| end | "Final report". PR URL, write verification, one line per shipped `TODO(user):`. | no |
 
 **Nothing writes anything a human reads before Step 5.** No Jira edit, no commit, no push, no PR. That is
 what lets the validation phase be paranoid, and Step 4's option (a) is the single exception, a comment the
 user explicitly asks for after seeing the evidence.
+
+**From Step 5 on, writes do not stop to ask.** The ticket, the commits, and the PR all go out without a
+preview, because the validation phase in front of them is what earns that. The rule is that this skill
+**asks about decisions and never about wording**. Step 3's questions and Step 4's a/b/c pick are
+decisions and both stay. A rendered description, a comment, a commit message, and a PR body are
+wording, and each is written, verified after the fact, and accounted for in "Final report".
 
 The "no" column above is about those artifacts, not about every remote call. Step 2 reads Datadog and
 Amplitude when the ticket claims something about production, which is a read against live telemetry.
@@ -473,7 +480,8 @@ at one specific thing to go read. Re-run a single lens only when an answer inval
 premise outright, and pass the answer in.
 
 Questions that turn out not to matter get dropped rather than asked for completeness. Anything
-still open but not blocking rides to Step 5 as a `TODO(user):` line in the ticket.
+still open but not blocking rides to Step 5 as a `TODO(user):` line in the ticket, and onto the
+running list that "Final report" reads out.
 
 ## Step 4: Verdict gate
 
@@ -534,9 +542,19 @@ user's unrelated changes into the ticket's commits and push them. So:
 
 **That comment takes the same path as Step 5's, all of it.** It is the only Jira write this skill
 makes outside Step 5, which makes it the easiest one to post raw. Draft it with `writing-work-docs`,
-show the user the rendered text and get a yes, write it per [JIRA-FORMAT.md](JIRA-FORMAT.md), and read
-it back to verify. Skipping any of that is how a comment lands with literal `##` and `**` in it on the
-`acli` path, which is exactly the failure JIRA-FORMAT.md exists to prevent.
+write it per [JIRA-FORMAT.md](JIRA-FORMAT.md), and read it back to verify. Skipping any of that is how
+a comment lands with literal `##` and `**` in it on the `acli` path, which is exactly the failure
+JIRA-FORMAT.md exists to prevent.
+
+**The (a) pick is the authorization. Do not ask again about the wording.** The user chose to post a
+comment carrying this evidence, having read the evidence. A second confirmation on the rendered text
+would be asking them to approve prose they already asked for, which is the one kind of question this
+skill does not ask. Post it.
+
+**If that comment ships a `TODO(user):` line, this ending owes the roll-call.** Option (a) ends the
+run before Step 9, so the report at Step 9 never happens on this path. Emit the TODO roll-call from
+"Final report" here instead, naming the comment as where each line landed. No run ends with a
+published `TODO(user):` line unmentioned.
 
 **Partially valid.** Some of it reproduces. Present the split, the evidence on both sides, and
 the scope you propose to keep. Get explicit agreement on the reduced scope before Step 5,
@@ -554,13 +572,39 @@ Two writes. The description gets replaced in place. A comment gets appended.
 
 **Draft with `writing-work-docs`.** Invoke it for both pieces. It carries the voice rules, the
 banned words, the invent-nothing rule, and the no-hard-wrapping rule that keeps text from
-arriving in Jira with ragged line breaks. Do not restate its rules here and do not draft ticket
-prose without it.
+arriving in Jira with ragged line breaks. Do not restate its rules here.
 
-**Its "never publish" rule does not apply to this skill.** Take its prose rules and ignore its
-Publishing section. `work-on` writes to Jira itself, in this step. Show the user the text and get
-a yes first, because the ticket may not be theirs and the description outlives the conversation,
-but that is one confirmation, not a negotiation.
+**`writing-work-docs` authors every human-facing artifact this run produces.** Not just the ticket.
+The Jira description, the validation comment, the Step 4 option (a) comment, the commit messages, and
+the PR title and body all go through it. There is no write path in this skill that drafts prose
+without it. When an artifact has a template, hand it the template so it fills that rather than
+inventing a shape.
+
+### The publish override, declared once for the whole run
+
+`writing-work-docs` refuses to publish, in three separate places, and a run that overrides one and
+not the others gets blocked by whichever copy survived. All three are overridden here, for every step
+of this skill, not just this one:
+
+- its **Publishing** section, which says never publish anything,
+- its **Hard rules** bullet `**Draft only.** Produce paste-ready text and stop.`,
+- the **enumerated command list** under Publishing, which names `acli jira workitem edit` and
+  `gh pr create` as writes it does not perform. `work-on` performs both.
+
+Take everything else it says verbatim. This override is about who presses the button, not about its
+prose rules, and its `TODO(user):` behavior in particular stays exactly as written.
+
+**No confirmation on wording, at any step.** This skill does not show drafted prose and wait. The
+distinction to hold: **`work-on` asks about decisions and never about wording.** Step 3's questions
+and Step 4's a/b/c pick are decisions and they stay. A rendered description, a comment, a commit
+message, and a PR body are wording, and none of them gets a gate.
+
+The risk that confirmation used to carry is real and does not disappear: the ticket may not be the
+user's, and the description outlives the conversation. Three things cover it now, and all three are
+load-bearing rather than decorative. The Step 1 rollback artifact means the original description is
+recoverable. The read-back below means a mangled write is detected rather than assumed. The "Final
+report" means the user learns what was written, where, and whether it verified, without having to
+ask.
 
 **Description structure.** Use the ticket's own template if the project has one. Otherwise:
 
@@ -595,12 +639,32 @@ answered, the claim resting on it goes in as a `TODO(user):` line, not into Evid
 query into that line so the next reader can run it. This is the step where an unresolved SQL handoff
 would quietly become a fact on a public ticket, so check the handoff status before drafting Evidence.
 
-**Approve, then write, then verify.** Show the user the full rendered description and comment
-and wait. Then write. Then read the ticket back and confirm the formatting actually landed,
-because a markdown-to-ADF conversion that half-worked leaves literal `##` and `**` sitting in
+**Record every `TODO(user):` line as you draft it.** Keep a running list from here to the end of the
+run, each entry carrying the artifact it landed in, its locator, its text, and what would resolve it.
+"Final report" reads that list out. Build it as you go rather than reconstructing it at Step 9 from
+memory, because the ticket write and the report are four steps apart and a line drafted here is
+exactly the kind of thing that goes missing in between. With no preview in front of this write, the
+report is the only place a shipped `TODO(user):` line becomes visible to a human.
+
+**Write, then verify.** Write it. Then read the ticket back and confirm the formatting actually
+landed, because a markdown-to-ADF conversion that half-worked leaves literal `##` and `**` sitting in
 the ticket where everyone can see them. [JIRA-FORMAT.md](JIRA-FORMAT.md) has the write paths,
 what survives conversion, the read-back check, the unverified-read case, and the hand-built ADF
 fallback. Read it before the write, not after the check fails.
+
+**The read-back is now the only control on this write, so its outcome is a reported fact.** It has
+three outcomes and they are not two. Verified, could not read it back to verify, or failed. Carry
+whichever one it was to "Final report" and put it there in those words. An unverified write is the
+single thing the user most needs told, because nobody saw this text before it went out and a
+half-converted description sitting on a public ticket looks exactly like a verified one from here.
+
+**Because nothing was previewed, an automated restore is more dangerous than it used to be, not
+less.** [JIRA-FORMAT.md](JIRA-FORMAT.md) bans restoring and bans hand-built ADF on a maybe. Its
+reason is that a restore discards a rewrite. Do not read the absence of a preview as making that
+cheap. No human has seen either version now, so a false-positive read-back that triggers a restore
+destroys the new description while nobody is in a position to notice what was lost. The ban is
+stronger here, not weaker. Leave the rollback artifact in place, report the check as unverified, and
+stop.
 
 **Description first, comment second, and treat them as two writes rather than one step.** The
 description is the risky one, since it replaces content that already existed and is the only one
@@ -609,9 +673,11 @@ failure on the comment cannot leave you holding an unverified description at the
 
 If the description write succeeds and the comment write then errors outright, the description is not
 at risk. Retry the comment on its own. Do not restore the description and do not redo the whole step,
-which would revert content the user already approved over a failure that never touched it. If the
-comment cannot be posted at all, say so and hand the user the drafted text. The validation trail
-living in chat instead of on the ticket is a small loss. A reverted description is not.
+which would revert a description that already passed its own read-back over a failure that never
+touched it. That read-back is what makes the description trustworthy here, and the comment failing
+says nothing about it. If the comment cannot be posted at all, say so and hand the user the drafted
+text. The validation trail living in chat instead of on the ticket is a small loss. A reverted
+description is not.
 
 ## Step 6: Do the work
 
@@ -663,8 +729,22 @@ This overrides only the execution-mode question.
 
 ## Step 7: Commit and push
 
-Commit everything the work produced. Follow the repo's conventional-commit types from
-`.github/semantic.yml` when it exists.
+Commit everything the work produced.
+
+**`writing-work-docs` writes the commit messages too, and it gets handed the repo's convention.** A
+commit message is prose a human reads, so it belongs to that skill like every other artifact here.
+It already looks up local convention with `git log --format='%s%n%b' -20` and it already follows an
+artifact's own template. Give it the three things it cannot infer from this repo on its own:
+
+- the conventional-commit types from `.github/semantic.yml` when that file exists,
+- the ticket key, which goes in the body,
+- the trailer convention below, which is the one place its no-branding stance does not apply.
+
+**The `Co-Authored-By` trailer survives.** `writing-work-docs` has no commit-trailer rule, so its
+general no-agent-branding stance would otherwise arrive by default and strip it. It does not apply to
+a commit trailer. See the constraint at the end of this file for why: a trailer is metadata rather
+than prose, git has a standard field for it, and every other commit in this repo's history carries
+it. Tell the skill to keep it rather than letting it decide.
 
 **Put the ticket key in the commit body.** Never in a code comment. This is not bookkeeping.
 Step 8's ticket-compliance reviewer finds its ticket by regexing `[A-Z][A-Z0-9]+-[0-9]+` out of
@@ -721,9 +801,52 @@ It commits each fix and never pushes. Step 9 pushes.
 
 Push the review-and-fix commits. Then invoke `open-pr` with `--draft`.
 
-`open-pr` carries the title rules, the template detection, and its own preview gate, and it routes
-the prose through `writing-work-docs` the same way Step 5 does. Let it own all of that. Two
-additions from this run:
+**The PR is not a question.** It always opens, and it always opens as a draft. Do not ask whether to
+open it, do not ask whether draft is right, and do not offer ready-for-review as an alternative. A
+draft is the correct end state for this pipeline: the work is reviewed by Step 8 and unreviewed by a
+human, which is exactly what draft means.
+
+`open-pr` carries the title rules, the template detection, and the `writing-work-docs` routing.
+It owns all of that. What it does not get to own here is its own gates.
+
+### Overriding `open-pr`, by name
+
+`open-pr` was written to be invoked by a human, so it asks a human several things. Four of those are
+suspended for this run. Name all four, because it states each rule in more than one place and a run
+that overrides one copy obeys the copy still standing:
+
+- **Its Step 5 "Preview and confirm" gate.** No `Ready to open this PR?`. The invocation is the
+  authorization.
+- **Its Constraints restatement** of that same gate, `Always preview before posting. User must
+  confirm.` This one is short, absolute, and sitting in Constraints, which makes it the copy most
+  likely to win a conflict. Overriding Step 5 and leaving this is the most probable way this
+  override fails.
+- **Its `gh pr create` step being "gated on the Step 5 preview".** The gate is gone, so the write
+  is ungated. Read that phrase as describing a gate that no longer exists rather than as a
+  precondition to go satisfy.
+- **Its push confirmation**, `ok to push?`. Step 7 and this step already pushed without asking, so
+  a confirmation here would be asking permission for a push that already happened. Normally
+  `open-pr` finds nothing to push and skips it. Do not rely on that. A partially failed push or a
+  commit landing between the two puts it back.
+
+**`TODO(user):` lines ship in this draft body.** `open-pr` says a `TODO(user):` line never ships, in
+four separate places, and resolves them at the preview that no longer runs. Overridden, narrowly: a
+`--draft` PR opened by `work-on` keeps its `TODO(user):` lines in the body. Do not strip them and do
+not ask about them. Stripping would delete a known gap, which contradicts this skill's rule that
+unverified stays unverified. The compensating control is that every shipped line is named in "Final
+report", so the gap is disclosed rather than hidden.
+
+One wording trap in `open-pr` to not lean on. Where it says such lines are "correct in a draft and
+wrong in a live PR", "draft" there means a draft of the prose, not a GitHub draft PR. It does not
+already permit this. It has to be overridden.
+
+**Direction matters here, and confusing it reverts the whole override.** `open-pr` declares "three
+overrides, and only three". That closed list is about `open-pr` overriding `writing-work-docs`. This
+section is `work-on` overriding `open-pr`, which is a different relation between different skills.
+The closed list does not forbid it. Read "only three" as a limit on that other relation, or the run
+concludes the caller may not override anything and honors the preview gate after all.
+
+Two additions from this run:
 
 - Give it the ticket key and URL so `Goal` can link the ticket instead of paraphrasing it.
 - Give it the validated framing from Step 4. The ticket as originally filed may no longer
@@ -741,10 +864,60 @@ base branch, a template that could not be resolved, and a plain API error, and n
 guessing at. The work is committed and pushed either way. Only the PR is missing, so say exactly that
 rather than letting a success-shaped summary imply otherwise.
 
-Report the PR URL, the ticket URL, and a short summary: what the validation changed about the
-ticket, how many review iterations ran, and anything still open. If Step 0 stashed anything, say
-whether it was restored or is still stashed, because that is the user's own work and the PR diff does
-not show it either way.
+**Still emit "Final report" on that path.** The Jira writes already happened, so the ticket is live
+and may be carrying `TODO(user):` lines with no PR to report them against. Emit the report with `PR`
+as the error instead of a URL, and every other field filled in from what actually happened, the
+`Ticket` parenthetical included.
+
+## Final report
+
+**The run ends with this report, and it is its own message.** Nothing else in it. Not a preamble, not
+a next-steps offer, and not an outstanding SQL request, which gets its own separate message per
+[DB-QUERIES.md](DB-QUERIES.md). The report is where a run with no preview gates accounts for
+everything it wrote while nobody was looking, so it is the one output that must not be skimmable
+past.
+
+```
+PR            <url>  (draft)
+Ticket        <url>  (description: rewritten | write failed; comment: posted | not posted)
+Branch        <name>
+Jira write    verified | could not read it back to verify | failed
+TODOs (<n>)
+  - <artifact> <locator>  <the line's text>  -> <what would resolve it>
+Validation    <one line on what it changed about the ticket>
+Iterations    <n> review-and-fix passes
+Stash         restored | still stashed at <sha> | none
+```
+
+**Every `TODO(user):` line that shipped gets its own line, wherever it landed.** The Jira
+description, the validation comment, the option (a) comment, the PR body. Read them off the running
+list Step 5 has been keeping. Never summarize them as a count, never fold two into one line, and
+never write "some open questions remain". The whole point is that a human who never saw these
+artifacts before they went out can see, in one place, exactly what went out unverified and where to
+find it.
+
+**Zero TODOs is stated, not omitted.** Write `TODOs (0)  none`. A missing section reads identically
+to a forgotten one, and the reader cannot tell which they are looking at.
+
+**`Jira write` uses those exact words.** `could not read it back to verify` is the phrase
+[JIRA-FORMAT.md](JIRA-FORMAT.md) requires for that outcome. Unverified is its own result. Do not fold
+it into either verified or failed, and do not soften it, because it is the outcome the reader most
+needs to act on.
+
+**Every field is filled from what happened, never printed as written.** The skeleton above is a
+shape, not a sentence to copy. This matters most on the `Ticket` line, because Step 5 is two
+independent writes and either can fail on its own. Fill each half separately. `comment: not posted`
+is the right value whenever the comment errored out per Step 5, or was deleted rather than left
+half-converted per [JIRA-FORMAT.md](JIRA-FORMAT.md), and on that value say again where the drafted
+comment text was handed over, since the validation trail then exists only in chat. Never print
+`posted` for a comment that is not on the ticket. `Jira write` does not cover this: it reports the
+read-back on content that did land, so it can honestly read `verified` on a run whose comment never
+posted at all.
+
+**No run ends with a published `TODO(user):` line unmentioned.** This holds on every ending, not just
+the one that reaches this step. The Step 4 option (a) exit and the `open-pr` failure path both emit
+the roll-call too. Same rule as the stash disclosure, for the same reason: it is the user's problem
+now, and they cannot see it from where they are sitting.
 
 ## Constraints
 
@@ -752,8 +925,17 @@ not show it either way.
   against Jira, GitHub, and the working tree on their own initiative, which is what makes the
   validation phase safe to run aggressively. Step 4's option (a) is the one exception, and it happens
   only after the user has seen the evidence and chosen it.
-- **No write without a preview.** The Jira description, the Jira comment, and the PR body each
-  get shown in full and approved before they go out. All three outlive the conversation.
+- **Decisions get asked about. Wording never does.** Step 3's questions and Step 4's a/b/c pick are
+  decisions and they stay. The Jira description, the Jira comment, the commit messages, and the PR
+  body are wording. None of them gets a preview, a confirmation, or an "does this look right?".
+- **Every write is verified after the fact, since none is approved before it.** Read the Jira ticket
+  back, fetch the PR body back. Report the Jira read-back's outcome in "Final report" using its three
+  exact words. Verification replaces the preview, so skipping it leaves a write with no control on it
+  at all.
+- **Nothing that shipped unverified stays unmentioned.** Every `TODO(user):` line that reached Jira or
+  a PR body gets its own line in "Final report", on every ending the run can have. These artifacts
+  outlive the conversation and the user did not read them before they went out, so the report is their
+  only view of what went out.
 - **An invalid or superseded ticket stops the run.** Step 4 writes nothing on its own initiative. It
   never closes the ticket, and it does not comment or start a branch until the user picks one of
   Step 4's three options. Executing option (a) afterwards is the user's decision being carried out,
@@ -783,11 +965,17 @@ not show it either way.
 - **The workflow is optional.** Small surface, investigate inline. Wide surface, fan out. It
   runs once either way, never in a loop.
 - **Never invent** a ticket key, a PR number, a dashboard link, a date, a metric, or a test
-  result. Unknown becomes a `TODO(user):` line.
+  result. Unknown becomes a `TODO(user):` line, and every one of those reaches "Final report".
 - **Verify the Jira formatting by reading it back.** Do not trust that the markdown converted.
 - **Execution mode is not a question.** When `writing-plans` offers its Execution Handoff choice,
   take Subagent-Driven (`superpowers:subagent-driven-development`) and say so in one line. Every other
   question that skill asks still goes to the user. Honor an explicit request for inline execution.
+- **The PR is not a question either.** It always opens, always as a draft. Step 9 suspends four of
+  `open-pr`'s gates by name and lets its `TODO(user):` lines ship. Every other question `open-pr`
+  asks, including which template to use, still goes to the user.
+- **`writing-work-docs` writes every human-facing artifact here.** Ticket description, validation
+  comment, option (a) comment, commit messages, PR title and body. Its three refusals to publish are
+  overridden for this whole run, and nothing else it says is.
 - **One ticket per invocation.** A run that discovers the work spans two tickets stops and says
   so.
 - **Never force-push and never rewrite pushed history.** Step 8 adds commits on top.

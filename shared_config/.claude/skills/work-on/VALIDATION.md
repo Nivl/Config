@@ -1215,7 +1215,9 @@ is not worth relaying to the user.
 **Then ask what is left**, per SKILL.md Step 3. Pool everything carrying a `sql` field and try a SQL
 skill on it first, per [DB-QUERIES.md](DB-QUERIES.md#try-to-run-them-first). Whatever it does not answer
 goes to the user as a file of queries, each with your interpretation of the plausible results. Carry
-`open_questions` to Step 5 as `TODO(user):` lines in the ticket.
+`open_questions` to Step 5 as `TODO(user):` lines in the ticket, and onto the running list SKILL.md's
+"Final report" reads out. Nothing previews the ticket write, so that report is the only place one of
+these lines becomes visible to a human.
 
 **When an answer opens a new line of inquiry, investigate it in the main thread.** Do not re-run
 this workflow. Its value is anchoring resistance on the first read of the ticket, and that has

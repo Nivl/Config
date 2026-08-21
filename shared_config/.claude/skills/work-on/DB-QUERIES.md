@@ -181,7 +181,8 @@ not land. All of these mean ask again:
 - **An explicit decline.** "Don't run queries", "skip the SQL", "I don't have warehouse access", "no
   DB for this one". Stop asking, and mark every dependent claim unverified.
 - **An explicit proceed-without.** Continue, and carry each dependent claim into the ticket as a
-  `TODO(user):` line rather than as a fact.
+  `TODO(user):` line rather than as a fact. Add each one to the running list SKILL.md's "Final
+  report" reads out, with its query, so the user ends the run holding the exact SQL nobody ran.
 
 Silence is never a decline. Neither is impatience with a different part of the run.
 

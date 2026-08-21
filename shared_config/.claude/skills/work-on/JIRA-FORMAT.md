@@ -28,7 +28,7 @@ editJiraIssue({
   cloudId: <from getAccessibleAtlassianResources>,
   issueIdOrKey: "WMP-837",
   contentFormat: "markdown",
-  fields: { description: "<the approved markdown>" }
+  fields: { description: "<the drafted markdown>" }
 })
 ```
 
@@ -39,7 +39,7 @@ addCommentToJiraIssue({
   cloudId: ...,
   issueIdOrKey: "WMP-837",
   contentFormat: "markdown",
-  commentBody: "<the approved markdown>"
+  commentBody: "<the drafted markdown>"
 })
 ```
 
@@ -151,8 +151,8 @@ a code block these patterns are the payload, not a failure. A shell comment star
 line starts with `- `, and a quoted markdown table is all pipes, and every one of them is exactly what
 a correctly-converted code block should contain. Checking them guarantees a false positive on the
 constructs this same file recommends using, and the remediation below opens with restoring the
-description, so a false positive here reverts content the user already approved. Scan the prose nodes,
-never the code.
+description, so a false positive here destroys a good rewrite. Nobody previewed either version, so
+there is no human who would recognize what went missing. Scan the prose nodes, never the code.
 
 | Pattern in a text node | What failed |
 |---|---|
@@ -172,8 +172,9 @@ Check 1 catches the loud failure. Check 2 catches the quiet one, where a constru
 dropped rather than flattened into text, so nothing looks wrong and content is simply gone.
 
 **Check 3: read the rendered text.** Extract the text content in order and read it as prose.
-Confirm the sections are in the order you approved and no paragraph was truncated or merged into
-its neighbor.
+Confirm the sections are in the order you sent and no paragraph was truncated or merged into
+its neighbor. Compare against the markdown you handed the write call, which is the only reference
+point there is.
 
 ### If the read-back call itself fails
 
@@ -187,7 +188,9 @@ all about the write, and the two need opposite responses.
    verify" is the honest sentence.
 3. **Do not restore, and do not rewrite with hand-built ADF.** Both remediations assume the content
    is known bad. Applying them to a ticket that may be perfectly fine can replace good content with
-   a second guess, and the restore would silently discard the rewrite the user just approved.
+   a second guess, and the restore would silently discard the rewrite. Nobody has read either
+   version, since this skill previews neither, so a wrong restore here is unrecoverable in practice
+   even though the artifact still exists. That makes the ban stronger, not weaker.
 4. Leave the rollback artifact in place and tell the user where it is, so they can compare or revert
    by hand.
 
@@ -203,8 +206,9 @@ call. Which write produced the bad content decides the remediation, so check tha
 
 0. Confirm the hit is real before touching anything. Re-read the node the check flagged and satisfy
    yourself it is prose rather than code-block content or `code`-marked text. Restoring is destructive
-   and it discards a rewrite the user approved, so it is not the right response to a maybe. If you
-   cannot tell, treat it the same way as a read-back that could not run: report it unverified and stop.
+   and it discards the rewrite, so it is not the right response to a maybe. Weigh it knowing no human
+   has seen the rewrite it would discard. If you cannot tell, treat it the same way as a read-back
+   that could not run: report it unverified and stop.
 1. Restore it from `/tmp/claude/work-on-<KEY>-original.adf.json`, which Step 1 saved before any
    write. Do this first. Leaving a mangled description live while you debug is worse than reverting
    and retrying.

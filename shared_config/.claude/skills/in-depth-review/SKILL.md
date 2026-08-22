@@ -97,6 +97,17 @@ constraint is unchanged. If NEITHER a GitHub MCP nor `gh` is available, PR mode 
 abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git blame`,
 `git rev-list`) need no `gh` and are unaffected. Branch mode works without GitHub entirely.
 
+## Fan-out prerequisite
+
+**This skill requires the `Agent` tool.** Every reviewer role is a sub-agent, so a context without
+that tool cannot run a single one of them. Check for the tool before Step 1. When it is missing,
+launch nothing and emit Step 1's `REVIEW_UNAVAILABLE_NO_FANOUT` abort instead.
+
+A workflow agent (one spawned by the `Workflow` tool's `agent()` call) carries no `Agent` tool, and
+that is the usual cause. The fix is to re-run this skill from the main thread, where the tool is
+present. This is a fact about the context, not about the target scope, so the re-run needs no change
+to the argument.
+
 ## Step 0: Resolve scope
 
 1. Parse the argument. First split it on whitespace into tokens; classify each token, then apply mode detection to the lone non-flag token:
@@ -157,6 +168,27 @@ design. Never serialize.
 the accounting baseline for Step 2.0. The launch result does NOT contain a role's findings. Read
 "How a role's findings reach the parent" below before you decide what to do after launching, because the
 obvious next action is the one that loses roles.
+
+**No fan-out, no review.** Two triggers, and either one aborts the run. Before launching, if the
+`Agent` tool is not among your available tools, abort and do not attempt the launch at all. If you do
+attempt it and every launch call fails because the tool is unavailable, so that zero roles launched,
+abort as well. On either trigger, emit the output below and STOP. Do not continue to Step 2, and do
+not read the diff yourself.
+
+Invoked directly by the user, the entire output is this one line:
+
+```
+REVIEW_UNAVAILABLE_NO_FANOUT: this skill launches its reviewer roles as sub-agents, and this context has no Agent tool, so no role could run. Re-run it from the main thread. A workflow agent is the usual cause.
+```
+
+Invoked as a sub-agent, return the no-fanout payload in [OUTPUT-JSON.md](OUTPUT-JSON.md), which
+carries `coverage: "impossible"`, an empty `roles_launched`, `roles_missing`, and `findings`, plus the
+exact `skipped_reason` documented there.
+
+**This is not the empty-`<ROLE_SET>` abort.** That one fires when the gates and a caller's `--roles`
+leave no role selected, which is a caller bug in a context that could have hosted the review. This
+one fires when the context cannot host the skill at all. Say which one happened. A caller that reads
+a no-fanout abort as a caller bug will go and fix the wrong thing.
 
 **Eight roles always run: #1, #2, #3, #4, #5, #8, #9, #11**, plus #10 unless `--skip-ticket`.
 Three more are **conditional.** Evaluate each gate against the diff before launching, and skip
@@ -289,7 +321,8 @@ argument here.
 **If `subagent_type: in-depth-review-role` does not resolve** (the agent files have not been
 synced to `~/.claude/agents/` yet, or were renamed), do not abort the run. Fall back to a plain
 Agent call with `model: opus`, and say in the report that effort could not be pinned and therefore
-inherited the session value.
+inherited the session value. An absent `Agent` tool is a different failure. That one aborts under the
+no-fanout rule above rather than falling back.
 
 Why this tier. A replicated A/B measured Opus at `low` against Sonnet at `xhigh` over ten roles
 and three passes per arm, on a diff about Postgres transaction semantics. Opus at `low` found four
@@ -324,7 +357,8 @@ Build `roles_launched` = the role numbers you actually spawned in Step 1 (after 
 Record every missing one in `roles_missing` (role number + why, e.g. `4=empty response`). When a role
 was launched but no `<task-notification>` for it arrived before Step 1's give-up bound, the reason is
 `no notification received`. That is a distinct cause from an empty or unparseable response, because
-the role may still be running.
+the role may still be running. `roles_missing` also holds every role whose launch call failed. Such
+a role never spawned, so it stays out of `roles_launched`, and its reason is `launch failed`.
 
 **NEVER FABRICATE A MISSING ROLE'S OUTPUT.** This is the sharpest rule in this step. When a role
 does not report, the correct output is a hole, explicitly labelled. Do not:
@@ -348,6 +382,15 @@ describe coverage you did not get. Concretely:
 - Report the partial result anyway. A review missing one role is still useful. A review that
   silently claims completeness it does not have is worse than no review. Three honest roles beat
   twelve invented ones.
+
+**There is a floor under partial.** Some roles missing is **partial**, a degraded review that is
+still a real one, and it belongs in the output exactly as above. Zero roles launchable because the
+`Agent` tool is absent is not **partial**. It is **impossible**, it aborts per Step 1, and it never
+reports through this channel, because a run that launched nothing has no coverage to be honest
+about. Every role launched and every one missing is still **partial**, because the launch itself
+worked. Zero roles launched for any other reason is not **complete** either. Record every role you
+could not launch in `roles_missing` with the launch failure as its reason, which makes the run
+**partial**.
 
 `roles_missing` is a required field of the Step 4 output even when empty.
 
@@ -402,7 +445,9 @@ with `confidence: null` (see below) instead of any `roles_missing`-style list.
      or reported as a finding. List it separately as unscored so the gap is visible.
    - If `scorers_spawned` is 0 while unique findings exist, the run is **degraded, not clean**:
      emit `scoring.complete: false`, report every finding as unscored, and say plainly that no
-     confidence filtering happened.
+     confidence filtering happened. A scoring stage that cannot spawn anything at all looks like
+     Step 1's no-fanout abort. It is not one. Step 1 launched its roles, so the `Agent` tool is
+     present and the real reason lies elsewhere.
 
    Skipping this stage is not a shortcut, it is a correctness failure. It has already produced a
    fabricated finding that scored 100 and survived the filter, because the model that invented the

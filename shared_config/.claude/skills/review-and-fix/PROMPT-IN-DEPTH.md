@@ -22,6 +22,9 @@ additions:
 - `"sub_agent": N`
 - `"source": "in-depth-review"`
 
+If `in-depth-review` emitted its one-line `REVIEW_UNAVAILABLE_NO_FANOUT` text form instead of
+JSON, return that line verbatim and add nothing to it.
+
 Specifically forbidden:
 - `gh pr comment` (any form)
 - `gh pr review` (any form)

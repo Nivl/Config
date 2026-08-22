@@ -10,8 +10,8 @@
 ## Collecting sub-agent results
 
 **First, account for every sub-agent this iteration launched.** Classify each as *reported* or
-*missing* (nothing returned, errored, unparseable output, or never notified before the give-up
-bound). Then roll the per-instance verdict up
+*missing* (nothing returned, errored, unparseable output that is not the no-fanout sentinel, or
+never notified before the give-up bound). Then roll the per-instance verdict up
 to the reviewer kind, since that is what the bookkeeping below is keyed on. Record every kind that
 fell short in `reviewers_missing`, keep the per-instance detail for the per-iteration summary, and
 union the `roles_missing` arrays the in-depth-review instances report. Never reason that running several
@@ -51,9 +51,11 @@ at FULL multiplicity, once per run. On a second shortfall the kind is marked `un
 rest of the run. `unavailable` affects only future launches. It never discards a report already
 received. `reviewers_missing`, `reviewer_unavailable`, and `reviewer_retries` are all keyed by kind.
 
-**Why kind and not instance.** A deterministic `skipped_reason` is derived from the invocation
-arguments, and both in-depth instances receive identical arguments, so both refuse identically.
-Deterministic unavailability is inherently per-kind. The 2x in-depth multiplicity exists for
+**Why kind and not instance.** A deterministic `skipped_reason` about the invocation is derived
+from the invocation arguments, and both in-depth instances receive identical arguments, so both
+refuse identically. The no-fanout `skipped_reason` is about the context instead, and it aborts
+rather than marking anything `unavailable`. Deterministic unavailability is inherently per-kind.
+The 2x in-depth multiplicity exists for
 triangulation, not to supply two different lenses, so a shortfall is a coverage question about the
 kind rather than the loss of a distinct lens. Keying by kind also keeps `<ACTIVE_ROLES>` plus
 `<ACTIVE_GH_STYLE>` sufficient to express every launch decision. Keying by instance would need a
@@ -66,19 +68,30 @@ accepted tradeoff, and the path is rare. Do not add reduced-multiplicity support
 The stakes are higher here than in `pr-review` because this skill acts on findings rather than
 just posting them:
 
-- **Separate a deterministic refusal from a transient failure.** A reviewer that returned a
+- **Separate a deterministic refusal, a transient failure, and a context that cannot host a
+  review.** A reviewer that returned a
   `skipped_reason` bailed out on purpose (an empty `--roles` set, PR mode with no `gh`, a closed
   PR). Re-running it cannot change the outcome. A reviewer that returned nothing at all, or
-  unparseable output, may simply have flaked.
+  unparseable output, may simply have flaked. A reviewer that came back `impossible` reviewed
+  nothing at all.
 
   | reviewer state | meaning | action |
   |---|---|---|
+  | returned `coverage: "impossible"`, OR the `REVIEW_UNAVAILABLE_NO_FANOUT` line instead of parseable JSON | no fan-out, so nothing was reviewed | abort the run; never mark the kind `unavailable` and never retry it |
   | missing WITH `skipped_reason` | deterministic refusal | mark `unavailable` immediately; never relaunch it this run |
   | missing WITHOUT `skipped_reason` | possibly transient | relaunch **at most once per run**; on the second miss mark `unavailable` |
+
+  `impossible` is not the `unavailable` path, whether the instance returned the JSON `coverage`
+  value or the text-form `REVIEW_UNAVAILABLE_NO_FANOUT` line. `unavailable` means a reviewer that
+  could have worked and did not, so the run can honestly stop with partial coverage. `impossible`
+  means no reviewer can ever work in this context, so every further iteration fails identically,
+  and stopping with `partial` would relabel a broken harness as a finished review.
 
   The retry budget is **one per reviewer per RUN, not per iteration.** A per-iteration budget would
   grant a fresh relaunch on every pass, and nothing caps the iteration count, so it would permit
   unbounded relaunches. That is the same bug with extra bookkeeping.
+- **An `impossible` instance is not a missing instance either.** Missing feeds `reviewers_missing`
+  and the retry budget. `impossible` bypasses both and aborts the run.
 - **An `unavailable` reviewer does not have to report for the loop to stop, and the loop MAY stop
   with one.** It has to be able to, or the loop never terminates. But stopping that way is not a
   clean result. An `unavailable` kind forces `batch_clean` false rather than being excluded from

@@ -35,5 +35,7 @@ Forbidden:
 about to issue a write, abort and surface the reason to me instead of proceeding.
 
 If `in-depth-review` refuses to proceed (closed/merged PR, or other ineligibility), return its
-`skipped_reason` field unchanged so the orchestrator can report it.
+`skipped_reason` field unchanged so the orchestrator can report it. A no-fanout abort is not this
+case. Return the whole payload including `coverage`, or, if `in-depth-review` emitted its one-line
+text form, return that line verbatim.
 ```

@@ -14,7 +14,11 @@
 parse, or never notified before the give-up bound). Record the missing ones in
 `reviewers_missing`. Then union the `roles_missing` arrays that the in-depth-review instances
 report, and treat any instance whose `coverage` is `"partial"` as
-partial here too. Never reason that running several in-depth instances means every lens ran at least once.
+partial here too. An instance whose `coverage` is `"impossible"` is neither reported nor missing.
+It aborts the run per the next section, so stop accounting and stop there. An instance carrying the
+`REVIEW_UNAVAILABLE_NO_FANOUT` line instead of parseable JSON is that same instance. The
+unparseable-output clause above does not reach it, so it is neither reported nor missing either.
+Never reason that running several in-depth instances means every lens ran at least once.
 Measured: in one run two roles were silent in BOTH instances, so the union of what the instances DID return
 covered neither. A lens that no instance reported on is a hole, not a covered lens, and the union
 of findings can never be used to claim `complete`.
@@ -48,6 +52,27 @@ has reported nothing and belongs in `reviewers_missing`.
 on behalf of a reviewer that did not report, do not infer what it would have found, do not run its
 lens yourself and attribute it, and do not carry a result forward from elsewhere. Then:
 
+- **An in-depth-review instance whose `coverage` is `"impossible"` aborts the run.** That value
+  means the instance never reviewed anything. Its context had no Agent tool, so it could not
+  launch a single reviewer role, and its empty `findings` array says only that. Do not compute
+  coverage, do not post, and do not carry the run forward as a review of any kind. Name the
+  instances that reported it, quote the `skipped_reason` they carried, say the fan-out was
+  impossible, and stop. A result that carries the `REVIEW_UNAVAILABLE_NO_FANOUT` sentinel instead
+  of parseable JSON is this same condition, not a missing reviewer. Never record it in
+  `reviewers_missing`, and never let it reach the partial rule below. Name that instance by its
+  sub-agent number and quote the line itself, since a text-form return carries no `skipped_reason`
+  field.
+- **`"impossible"` is not `"partial"`, and it is not missing either.** A partial instance read the
+  diff with some roles silent, which is a real review with holes in it. An impossible instance is
+  not a review. The retry bullet below explains why this skill reports a miss rather than
+  relaunching it, and impossible sits on the other side of that reasoning. A retry is futile
+  rather than merely expensive. The Agent tool that was absent on the first attempt is absent on
+  the second.
+- **An impossible instance never counts toward the 3x in-depth multiplicity.** It contributed no
+  roles, so it is not one of the three finders that came back quiet. A run where two instances
+  worked and one came back impossible still aborts. A context either has the Agent tool or it does
+  not, so a finder that could not fan out means its siblings in that context did not either. A
+  mixed result is a sign something stranger is wrong. It still must not be posted.
 - If `reviewers_missing` is non-empty, or any instance came back `"partial"`, this run's coverage
   is **partial**. Carry that flag through to Step 4 and to the clean-PR path.
 - **Coverage computed here is provisional.** The approach stage (Step 2.7) has not run yet, and it
@@ -63,8 +88,10 @@ lens yourself and attribute it, and do not carry a result forward from elsewhere
   intentional. Do not add a retry here to match the other skill.
 - The "all clear" line in Step 4 asserts that N independent reviewers found nothing. **Do not emit
   it when fewer than N reported.** Say how many reported and which did not.
-- Proceed with the review anyway. A partial review that says it is partial is useful; one that
-  claims completeness it does not have is worse than none.
+- Proceed with the review anyway when coverage is merely partial. A partial review that says it
+  is partial is useful; one that claims completeness it does not have is worse than none. An
+  impossible instance is not this case. That run aborted above and there is no review to proceed
+  with.
 
 ## Excluding unscored and unverified findings
 

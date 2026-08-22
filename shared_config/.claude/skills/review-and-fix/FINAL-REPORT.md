@@ -64,6 +64,9 @@ difference the "still outstanding" wording draws. A cleared shortfall is history
 a coverage gap. When partial, name every reviewer kind and role involved and state which lenses the
 branch was NOT reviewed against. Never omit this section; its absence reads as complete coverage.
 
+A run that aborted on row 0 never reaches this report. Coverage has no value to report, because
+nothing was reviewed.
+
 ### Outcome
 ✅ Clean batch — the loop stopped on row 1, so `batch_clean` was true. The final iteration's active
 reviewers ALL reported, they found nothing actionable, and Coverage is `complete`. Done.

@@ -56,9 +56,11 @@ for the reads they do. Local `git` calls need no `gh`.
    until the findings list is empty with every launched reviewer kind reported, none
    `unavailable`, and the unioned `roles_missing` empty (row 1, clean), or the findings list is
    empty with a kind `unavailable` or the unioned `roles_missing` non-empty (row 1c, which stops
-   with partial coverage), or an iteration commits nothing
+   with partial coverage), or an iteration commits nothing, or no reviewer can start at all, or an
+   active reviewer instance returns `coverage: "impossible"` (row 0, which aborts the run without a
+   report)
 7. Emit the per-iteration summary before the loop returns to step 2 or falls through to the
-   report
+   report. A row 0 abort emits none
 8. Deliver a final summary report
 
 ## Step 0: Setup
@@ -94,7 +96,23 @@ for the reads they do. Local `git` calls need no `gh`.
    When `true`, every in-depth-review sub-agent is invoked with `--skip-ticket` so Role #10
    never runs. When `false`, both in-depth-review instances run Role #10 (two ticket
    reviewers). `gh-style-review` is unaffected.
-8. **Jira-tooling preflight** (skip this step entirely if `<SKIP_TICKET>` is true). Before
+8. **Confirm the `Agent` tool is available, and abort here if it is not.** Check your own tool
+   list. Every reviewer this skill runs is a sub-agent, so without that tool not one of them
+   launches and there is nothing to merge or fix. A workflow agent is the usual context that
+   lacks it. If the tool is listed but every launch in Step 1 fails because the tool is
+   unavailable, so that no reviewer starts, abort the same way. A launch that failed for any other
+   reason is not this trigger, and neither is an iteration that deliberately launches nothing.
+   Abort with this line, and tell the user to re-run from the main thread:
+
+   ```
+   REVIEW_UNAVAILABLE_NO_FANOUT: this skill launches every reviewer as a sub-agent, and this context has no Agent tool, so no reviewer could run. Re-run it from the main thread. A workflow agent is the usual cause.
+   ```
+
+   Emit no Final Report, and do not read the diff yourself. That line is the whole output. This
+   abort comes before the Jira preflight, because that preflight asks the user a question a
+   context with no Agent tool cannot usefully answer.
+
+9. **Jira-tooling preflight** (skip this step entirely if `<SKIP_TICKET>` is true). Before
    the first review iteration, confirm a Jira reader is available AND authenticated:
    - acli: installed (`command -v acli`) and able to read Jira. Run a lightweight
      authenticated acli call; if it fails with an auth/login error, treat acli as
@@ -112,12 +130,12 @@ for the reads they do. Local `git` calls need no `gh`.
    Do not start iteration 1 until this is resolved. If a re-check after choice (a) still
    fails, present the three choices again rather than proceeding.
 
-9. **Initialize the active reviewer set** used by Step 1:
-   - `<ACTIVE_ROLES>` = all in-depth-review roles `1..12` (drop `10` when `<SKIP_TICKET>` is
-     true). This is the set of roles the in-depth-review instances will run.
-   - `<ACTIVE_GH_STYLE>` = true.
-   Step 3 recomputes both before each subsequent iteration. Iteration 1 always runs the full
-   set.
+10. **Initialize the active reviewer set** used by Step 1:
+    - `<ACTIVE_ROLES>` = all in-depth-review roles `1..12` (drop `10` when `<SKIP_TICKET>` is
+      true). This is the set of roles the in-depth-review instances will run.
+    - `<ACTIVE_GH_STYLE>` = true.
+    Step 3 recomputes both before each subsequent iteration. Iteration 1 always runs the full
+    set.
 
 ## Step 1: Review — Active Parallel Sub-Agents (up to 2 in-depth-review + 1 gh-style-review)
 
@@ -194,11 +212,12 @@ prompt the sub-agent receives.
 ### Aggregating across the active instances
 
 Collect every active sub-agent's result, pool them, deduplicate, and merge into one flat list
-filtered to `confidence >= 50`. Follow [AGGREGATING.md](AGGREGATING.md) exactly — three rules
+filtered to `confidence >= 50`. Follow [AGGREGATING.md](AGGREGATING.md) exactly — four rules
 from it matter enough to repeat here: results arrive asynchronously in each sub-agent's own
 final text (never in the Agent tool's launch result), a reviewer that falls short is retried once
-per run before being marked `unavailable`, and a missing reviewer's findings are never fabricated
-or inferred. AGGREGATING.md also covers aggregating `tickets_examined`.
+per run before being marked `unavailable`, a missing reviewer's findings are never fabricated
+or inferred, and an instance returning `coverage: "impossible"` aborts the run rather than
+counting as `unavailable`. AGGREGATING.md also covers aggregating `tickets_examined`.
 
 ## Step 1.5: Aggregate Discussion Context (PR mode only)
 
@@ -415,6 +434,7 @@ The first that matches wins:
 
 | # | Condition                                                                  | Action                                                        |
 | - | -------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 0 | No fan-out. Three triggers, and any one fires this row. Step 0 found no `Agent` tool in this skill's own tool list, every Step 1 launch that was attempted failed because the `Agent` tool was unavailable so no reviewer started, or an active reviewer instance returned `coverage: "impossible"`, OR the `REVIEW_UNAVAILABLE_NO_FANOUT` line instead of parseable JSON | **Abort the run.** Not a stop, not `partial` coverage, and no Final Report claiming a review happened. Surface the `REVIEW_UNAVAILABLE_NO_FANOUT` line verbatim, reason included, and tell the caller to re-run from the main thread. No `batch_clean` is computed and no per-iteration summary is emitted for that iteration, because the abort message is the whole record |
 | 1 | Findings list empty, every reviewer **launched this iteration** reported, **`reviewer_unavailable` is empty**, **and the unioned `roles_missing` is empty** | **Stop** — clean. Proceed to Final Report |
 | 1b | Findings list empty BUT a reviewer launched this iteration is missing and still has retry budget | **Not clean.** Relaunch it next iteration; go to Step 1 |
 | 1c | Findings list empty, every reviewer launched this iteration either reported or is `unavailable`, **and EITHER `reviewer_unavailable` is non-empty OR the unioned `roles_missing` is non-empty** | **Stop** — coverage is `partial`, not clean. Use the incomplete-coverage outcome. |
@@ -426,16 +446,19 @@ A role-level shortfall is deliberately NOT retried. It blocks the clean exit and
 as `partial`, which is why row 1 now requires an empty unioned `roles_missing`.
 
 **There is no iteration cap, and the number column is a label column, not an index.** Rows 1, 1c,
-and 2 are the only stops. Rows 1b, 4, and 5 are the only rows that go back to Step 1. Row 1b is
+and 2 are the only stops. Row 0 is an abort rather than a stop, so the run ends there without a
+Final Report. Row 0 is a backstop. The abort fires in Step 1 the moment an impossible result is
+aggregated, before Step 2 applies a single fix. The Step 0 trigger aborts there instead, before
+any launch. The launch-failure trigger also fires in Step 1, as soon as the last launch has failed. Rows 1b, 4, and 5 are the only rows that go back to Step 1. Row 1b is
 bounded at one retry per reviewer kind per run, and rows 4 and 5 both require `any_commit == true`,
 because row 2 stops the run the moment an iteration commits nothing. So the loop continues only
 while every single iteration commits at least one fix. That is real progress on almost every run.
 It is not a termination proof. One iteration's fixes can introduce a defect the next iteration then
 finds, and that cycle can sustain itself. A run that is going nowhere is stopped by the user
-interrupting it, which is why every iteration emits a per-iteration summary. `iteration` is a label
-for the announce line, that summary, and the Final Report header. No stop rule reads it. Do not add
-a cap row, an iteration count of any size, a periodic check-in, or an oscillation detector, and do
-not renumber the rows that remain.
+interrupting it, which is why every iteration that reaches Step 3 emits a per-iteration summary.
+`iteration` is a label for the announce line, that summary, and the Final Report header. No stop
+rule reads it. Do not add a cap row, an iteration count of any size, a periodic check-in, or an
+oscillation detector, and do not renumber the rows that remain.
 
 Computing the next active set, for every row that goes back to Step 1 (1b, 4, and 5):
 - **Row 1b (retry):** the active set is the short kind ONLY. `<ACTIVE_ROLES>` = the roles this
@@ -526,10 +549,10 @@ reviewer flakes (tracing the retry union, row 1b, and row 1c).
 
 ### Per-iteration summary
 
-Every iteration ends by emitting one summary block to chat, closed by that iteration's commit
-table, emitted last in Step 3 after the table has picked a row and the next active set is
-computed. See [SUMMARY.md](SUMMARY.md) for exactly what to cover, in what order, and the commit
-table format.
+Every iteration that reaches Step 3 ends by emitting one summary block to chat, closed by
+that iteration's commit table, emitted last in Step 3 after the table has picked a row and the
+next active set is computed. See [SUMMARY.md](SUMMARY.md) for exactly what to cover, in what
+order, and the commit table format.
 
 ## Step 4: Final Report
 

@@ -44,6 +44,20 @@ the user's request, then still give the tallies below.
   sub-agent reported `ticket_review.status` of `denied` (user denied access) or `unavailable`
   (no Jira tooling), say so explicitly.
 
+## If the run aborted for no fan-out
+
+- **Lead with the abort.** Name every instance that came back `coverage: "impossible"` and quote
+  the `skipped_reason` it carried. Say plainly that no reviewer read the diff. An instance that
+  returned the `REVIEW_UNAVAILABLE_NO_FANOUT` line instead of JSON is the same abort. Name it by
+  its sub-agent number and quote the line itself, since a text-form return carries no
+  `skipped_reason` field.
+- Tell the user to re-run the review from the main thread. A workflow agent is the usual context
+  that lacks the `Agent` tool.
+- **Emit no Coverage line.** There is no coverage to report. `partial` here would relabel a broken
+  harness as a review with holes in it.
+- This is NOT the clean-PR section below. Do not emit the all-clear line, and do not report finding
+  counts, threshold counts, or an approach-stage outcome as though a review ran.
+
 ## If no review was posted (clean PR)
 
 - **Only when coverage is complete AND the approach stage ran**, lead with a clear "all clear"

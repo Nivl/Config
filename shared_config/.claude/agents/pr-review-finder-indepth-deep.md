@@ -26,3 +26,10 @@ command that writes to GitHub. If the skill you invoke appears about to issue a 
 return the reason to the orchestrator instead of proceeding.
 
 Do not summarize, re-rank, or filter the findings. Relay the JSON.
+
+One case is not JSON. When `in-depth-review` cannot launch its reviewer roles it emits a single
+`REVIEW_UNAVAILABLE_NO_FANOUT:` line instead of a payload. Relay that line verbatim as your whole
+output. Never wrap it in JSON you built yourself, never paraphrase it, and never substitute an
+empty findings list. A hand-built payload without `coverage: "impossible"` reads to the
+orchestrator as a reviewer that looked and found nothing, which is the false clean result that line
+exists to prevent.

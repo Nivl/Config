@@ -123,6 +123,14 @@ need no `gh`.
 4. Re-confirm that **both** `in-depth-review` AND `gh-style-review` are available. Check the
    available-skills list for both entries. If either is missing, abort the orchestration
    and tell the user which one to install.
+
+   **Confirm the `Agent` tool is available too, and abort here if it is not.** Check your own tool
+   list. The four finders are sub-agents and Step 2.7's pair is two more, so without that tool
+   none of them can launch and there is nothing to merge or post. A workflow agent is the usual
+   context that lacks it. Tell the user to re-run from the main thread. This abort belongs on the
+   same side of the line as the two above it, since item 7 posts the optional in-progress comment
+   only after every check here has passed. Discovering the missing tool later would leave a
+   "review in progress" comment on the PR that no review will ever follow.
 5. If the invocation included `--skip-ticket`, set `<SKIP_TICKET> = true` (default `false`).
    When `true`, every in-depth-review sub-agent is invoked with `--skip-ticket`, so Role #10
    never runs. When `false`, all three in-depth-review instances run Role #10 (three ticket
@@ -228,12 +236,13 @@ return all scored findings; we apply the 60 cutoff in Step 2 after merging.
 Account for all four sub-agents, pool their findings, deduplicate across sources, merge each
 duplicate group, filter to `confidence >= 60` (dropping any unverified-citation or unscored
 finding regardless of score), and order the survivors. Follow
-[AGGREGATING.md](AGGREGATING.md) exactly — three rules from it matter enough to repeat here:
+[AGGREGATING.md](AGGREGATING.md) exactly — four rules from it matter enough to repeat here:
 results arrive asynchronously in each sub-agent's own final text (never in the Agent tool's
 launch result), a missing reviewer is reported immediately rather than retried (this skill is
-one-shot, unlike `review-and-fix`), and a missing reviewer's findings are never fabricated or
-inferred. Snapshot the full merged set as `merged_all` before filtering — Step 2.7's dedup
-needs it.
+one-shot, unlike `review-and-fix`), a missing reviewer's findings are never fabricated or
+inferred, and an instance that comes back `coverage: "impossible"` aborts the run during that
+accounting, before anything is pooled. Snapshot the full merged set as `merged_all` before
+filtering — Step 2.7's dedup needs it.
 
 ## Step 2.5: Aggregate Discussion Context (from the gh-style sub-agent only)
 
@@ -272,7 +281,8 @@ survive, and only if no other reviewer already raised the same thing in `merged_
 confidence > 50. Survivors are tagged `source = "approach"` and folded into the Step 2 findings
 pool, bypassing the >=60 filter — agreement is the gate for this stage, not the score. A missing
 proposer or judge means the stage did NOT run (report `approach stage did not run: <reason>`);
-never treat silence as "no approach findings" or post an unjudged proposal.
+never treat silence as "no approach findings" or post an unjudged proposal. A run that aborted
+in Step 2 for no fan-out never reaches this stage. Launch neither agent.
 
 The proposer runs on Sonnet, the judge on Opus at effort `high` (the debate is genuine judgment;
 proposing is recall, and measured recall was identical across tiers). See [APPROACH.md](APPROACH.md)
@@ -280,6 +290,17 @@ for the full debate protocol (up to 3 rounds, a worked example), the dedup rule 
 `merged_all`, the tagging rule, and both sub-agents' exact prompts.
 
 ## Step 3: Post the review (only if there is something worth posting)
+
+**If the run aborted because a finder came back `coverage: "impossible"`, nothing is posted, and
+this is NOT the clean-PR path.** See [AGGREGATING.md](AGGREGATING.md) for that abort. The two paths
+share exactly one thing, which is that GitHub ends up with nothing on it. The clean-PR path also
+tells the user the PR looks clean, and four reviewers reading the diff and finding nothing is what
+earns that sentence. After a no-fanout abort no reviewer read the diff at all, so the same sentence
+would be false. Do not use the clean-PR chat line, do not write a clean-PR Step 4 summary, and do
+not report coverage of any kind. Report the abort and the reason the finder carried instead. That
+reason is the `skipped_reason` field on a JSON return, and the `REVIEW_UNAVAILABLE_NO_FANOUT` line
+itself on a text-form one. Step 3e still deletes the in-progress comment if Step 0.7 posted one, because that cleanup
+runs on every path.
 
 **If the findings list AND `unaddressed_pool` are BOTH EMPTY, do NOT post anything to GitHub.**
 The findings list here is the Step 2 filtered findings PLUS any approach survivors folded in
@@ -294,7 +315,8 @@ Step 4 chat summary).
 
 **If at least one of {findings, unaddressed_pool} is non-empty**, post a single PR review
 that combines a global body with any inline comments. This is a single atomic write to
-GitHub.
+GitHub. A run that aborted for no fan-out is not this case. It posts nothing regardless of
+how many findings the instances that did work returned.
 
 ### Step 3a: Classify each surviving finding as INLINE or GLOBAL
 
@@ -357,8 +379,10 @@ Before any GitHub write, dump every finding to a local file, pause, and post onl
 user approves. **This is a hard gate.** Do not post to GitHub until the user says to.
 
 This step runs **only when Step 3 has something to post** (at least one finding or at least
-one unaddressed concern). The clean-PR path is unchanged: when there is nothing to post, skip
-straight to Step 3e as before. No file is written and there is no pause.
+one unaddressed concern). A run that aborted for no fan-out never reaches this gate, whatever
+the instances that did work returned. No file is written and nothing is offered for approval.
+The clean-PR path is unchanged: when there is nothing to post, skip straight to Step 3e as
+before. No file is written and there is no pause.
 
 Write `/tmp/claude/pr-review-<PR>-comments.md`, tell the user the path plus a one-line tally,
 and wait for their response (approve all / keep a subset / decline all). See
@@ -380,9 +404,9 @@ the exact posting conditions.
 ## Step 3e: Delete the in-progress comment
 
 If `<ANNOUNCE_COMMENT_ID>` is set (an in-progress comment was posted in Step 0.7), delete it
-now, on every path, whether or not a review was posted. The clean-PR path routes here too, so
-do not assume Step 3d ran or that `OWNER_REPO` is set. Prefer the GitHub MCP delete-issue-comment
-tool (pass owner/repo plus the comment id). Fall back to
+now, on every path, whether or not a review was posted. The clean-PR path and a no-fanout abort
+both route here, so do not assume Step 3d ran or that `OWNER_REPO` is set. Prefer the GitHub MCP
+delete-issue-comment tool (pass owner/repo plus the comment id). Fall back to
 `gh api -X DELETE "/repos/<owner>/<repo>/issues/comments/<ANNOUNCE_COMMENT_ID>"`, resolving
 owner/repo with `gh repo view --json owner,name` if not already known. If deletion fails, note
 it in the Step 4 report and continue. The review is already delivered, so a failed cleanup
@@ -390,11 +414,14 @@ never fails the run. If `<ANNOUNCE_COMMENT_ID>` is empty, do nothing here.
 
 ## Step 4: Final report (to the user, not GitHub)
 
-Summarize to the user in chat, whether or not a review was posted. See
+Summarize to the user in chat, on the posted-review path and on the clean-PR path alike. See
 [FINAL-REPORT.md](FINAL-REPORT.md) for exactly what to cover on the posted-review path and the
 clean-PR path — both need the pre-merge finding counts by source/tier, the approach stage's
 outcome, `skipped_reason` vs. silent-miss attribution, and the `complete`/`partial` Coverage
-line, which must never be omitted.
+line, which must never be omitted. Neither path covers a no-fanout abort. That run has no
+coverage to report, so it emits the abort and its reason in place of the whole report, and the
+Coverage line is absent because there is nothing it could honestly say. See
+[FINAL-REPORT.md](FINAL-REPORT.md)'s no-fanout section for what that abort report covers.
 
 ## Constraints
 
@@ -402,15 +429,17 @@ line, which must never be omitted.
   call (which atomically carries the global body AND all inline comments), only when there is
   at least one surviving finding >= 60, at least one surviving approach finding (Step 2.7), OR
   at least one unaddressed prior concern. When all of those are empty, the orchestrator posts
-  no review (a sub-threshold ticket note alone is not enough to post). The only other writes the
-  orchestrator may make are the opt-in in-progress comment (Step 0.7) and its later deletion
-  (Step 3e). Beyond those: no `gh pr edit`, no other comments, no second review.
+  no review (a sub-threshold ticket note alone is not enough to post). A run that aborted for no
+  fan-out posts nothing regardless of how many findings the instances that did work returned. The
+  only other writes the orchestrator may make are the opt-in in-progress comment (Step 0.7) and its
+  later deletion (Step 3e). Beyond those: no `gh pr edit`, no other comments, no second review.
 - **Posting is gated on human approval (Step 3c.7).** Whenever there is something to post, the
   assembled findings are first written to `/tmp/claude/pr-review-<PR>-comments.md`, one block
   per finding split by `=============` dividers, and the run pauses. Only the findings the user
   approves are posted; a declined gate posts nothing. This makes the skill interactive. A
-  headless run stops at the file with nothing posted, which is the intended safe default. The
-  clean-PR path (nothing to post) does not write a file or pause.
+  headless run stops at the file with nothing posted, which is the intended safe default. A run
+  that aborted for no fan-out writes no file and does not pause. There is nothing it could offer
+  for approval. The clean-PR path (nothing to post) does not write a file or pause.
 - **The review event MUST be `COMMENT`.** Never `APPROVE`, never `REQUEST_CHANGES`. This skill
   comments; it does not gate merges.
 - **Sub-agents are read-only with respect to GitHub.** They invoke `in-depth-review` or

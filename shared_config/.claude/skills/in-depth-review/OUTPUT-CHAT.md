@@ -23,6 +23,11 @@ applied). Never omit this line. Its absence reads as complete coverage.
 **Tickets examined:** <ID> ✅ · <ID> ⚠️ <N> gaps · <ID> ❓ unread
 ```
 
+The **Coverage** line never reads `impossible`. That value lives only in the sub-agent JSON. When no
+reviewer role could be launched at all, Step 1's no-fanout abort replaces this entire report with its
+single `REVIEW_UNAVAILABLE_NO_FANOUT` line, so there is no header, no coverage, and no findings list
+to render.
+
 Omit the **Tickets examined** line when no ticket IDs were found in the change or when
 `--skip-ticket` was passed. When `ticket_review.status` is `unavailable`, replace it with a
 prominent warning: `⚠️ **Ticket review NOT performed** — <note>. Install/authenticate acli or

@@ -1,10 +1,11 @@
 # Per-iteration summary format
 
-Every iteration ends by emitting one summary block to chat. Emit it last in Step 3, after the
-table has picked a row and after the union and the subtraction have computed the next active set.
-That is the earliest point at which every item below exists. The table's "go to Step 1" and
-"proceed to Final Report" actions both happen after the block is out. Never batch two iterations
-into one block, and never hold a block back to the end of the run.
+Every iteration that reaches Step 3 ends by emitting one summary block to chat. A row 0 abort
+emits none, because nothing was reviewed and the abort message is the whole record. Emit the block
+last in Step 3, after the table has picked a row and after the union and the subtraction have
+computed the next active set. That is the earliest point at which every item below exists. The
+table's "go to Step 1" and "proceed to Final Report" actions both happen after the block is out.
+Never batch two iterations into one block, and never hold a block back to the end of the run.
 
 There is no iteration cap, so the user stops a run that is not converging by interrupting it, and
 an interrupted run never reaches Step 4. These blocks plus the commits are then the only record of

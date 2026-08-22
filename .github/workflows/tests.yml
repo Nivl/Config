@@ -217,6 +217,17 @@ jobs:
       - name: Run bash-allow-trusted test
         run: bash tests/bash_allow_trusted_test.sh
 
+  deny-review-in-workflow-hook:
+    name: deny-review-in-workflow hook test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run deny-review-in-workflow test
+        run: bash tests/deny_review_in_workflow_test.sh
+
   # ubuntu, unlike the hook tests above. Those need macOS for zsh, brew, or -tags darwin. This one is
   # bash plus sed, awk, tr, diff and node --check, and the test deliberately avoids in-place sed, so it
   # behaves identically and Linux minutes bill at a tenth the rate.

@@ -10,7 +10,8 @@ Track state explicitly:
   never launched and so never shows up in the per-iteration `reviewers_missing`. A non-empty unioned
   `roles_missing` forces `batch_incomplete` the same way, because a lens no instance reported on
   never shows up in `reviewers_missing` either. Without those conditions `batch_clean` would compute
-  true on the very iteration row 1c stops as partial.
+  true on the very iteration row 1c stops as partial. An instance that came back `impossible` aborts
+  the run before `batch_clean` is computed.
 - `reviewers_missing`, `roles_missing`: per-iteration; carried into the per-iteration summary and
   Final Report
 - `reviewer_unavailable`: per-RUN set of reviewer kinds that will not be relaunched (deterministic

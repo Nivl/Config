@@ -36,7 +36,7 @@ a premise that has been checked.
 | 6 | Do the work via brainstorming or systematic-debugging. | local files |
 | 7 | Commit everything, push. No PR yet. | **remote** |
 | 8 | `review-and-fix`, every iteration, no early stop. | local commits |
-| 9 | Push, then `open-pr --draft`. Always a draft, never a question. | **remote** |
+| 9 | Push, then `open-pr --draft`. Always a draft, never a question. No PR opens at all when Step 8 could not run. | **remote** |
 | end | "Final report". PR URL, write verification, one line per shipped `TODO(user):`. | no |
 
 **Nothing writes anything a human reads before Step 5.** No Jira edit, no commit, no push, no PR. That is
@@ -439,7 +439,14 @@ harness capability, not something this repo ships, so it is present in some cont
 others, and a subagent typically does not have it at all. If it is missing, fan out with plain
 concurrent `Agent` calls instead: one per lens, each getting its lens `ask` plus `rules()`, the context
 block, and `FINDING_SCHEMA`, then do the refute and synthesize passes the same way. That is what the
-sibling review skills do, and it costs the run only the script's bookkeeping, not its structure.
+sibling review skills do, and it costs the run only the script's bookkeeping, not its structure. A
+denied call takes the same fallback. A hook denies the `Workflow` when the script body names a
+fan-out review skill, so a script that mentions one by name never runs. Fan out with plain
+concurrent `Agent` calls instead. Never edit the ticket text down to get a call through, because
+the lenses reason over exactly that text.
+The loss runs the other way too. A workflow agent has no `Agent` tool, so nothing that fans out into
+sub-agents can go inside one, and Step 2's lenses are safe there precisely because each is a leaf
+that spawns nothing.
 
 What it must not collapse to is the inline single-reader pass. The inline path is chosen for a
 *small* surface, so falling back to it on a wide ticket is the anchored single-reader read that this
@@ -785,7 +792,7 @@ only while each pass commits at least one real fix, so a long run means it is st
 things. Do not interrupt it, do not summarize partway and call it finished, and do not pass any
 flag that shortens it.
 
-Two things to get right when invoking it:
+Three things to get right when invoking it:
 
 - **Do not pass `--skip-ticket`.** Step 0 confirmed Jira access, so the ticket-compliance
   reviewer can run. Checking the diff against the ticket is worth more here than anywhere else,
@@ -794,8 +801,42 @@ Two things to get right when invoking it:
   messages, which is why Step 7 puts it there. Confirm it did before trusting a clean result.
 - **It runs in branch mode**, since no PR exists yet. That is expected. Discussion Context comes
   back empty and nothing is wrong.
+- **Step 8 runs in the main thread.** Never wrap `review-and-fix`, or any reviewer, in a `Workflow`.
+  A workflow agent has no `Agent` tool, so a skill that fans out into sub-agents has nothing to fan
+  out with inside one. `review-and-fix` cannot launch its reviewers, and `in-depth-review` cannot
+  launch its eight to twelve roles. What comes back is an abort with no coverage, not a review.
+  Step 2 is what makes reaching for a workflow here feel natural, and it is the contrast rather
+  than the precedent. Its seven lenses are leaf readers that spawn nothing, so they lose nothing
+  inside a workflow agent. A reviewer is itself a fan-out, so it loses everything.
 
 It commits each fix and never pushes. Step 9 pushes.
+
+### When `review-and-fix` aborts with `REVIEW_UNAVAILABLE_NO_FANOUT`
+
+That sentinel means the `Agent` tool was absent where the skill was invoked, so not one reviewer
+could be launched. No review happened.
+
+**The literal token is the wire contract.** `review-and-fix` emits `REVIEW_UNAVAILABLE_NO_FANOUT`
+verbatim, and everything below keys on that exact string. A paraphrase of the reason without the
+token is not an abort this step can recognize. So a `review-and-fix` run that comes back with
+neither the token nor its Final Report is an abort too. Treat it as one.
+
+Two moves, in order.
+
+**Re-invoke it once, directly, from the main thread.** If Step 8 somehow ran inside an agent that
+has no `Agent` tool, such as a workflow agent, this is the whole fix and it costs one invocation.
+
+**If it aborts a second time, stop the run.** Do not proceed to Step 9 and do not open a PR. Step 9
+already says why a draft is the correct end state, which is that the work is reviewed by Step 8 and
+unreviewed by a human, and that is exactly what draft means. A second abort makes that sentence
+false. The PR would then claim a review it never got. A draft cannot disclose the gap either,
+because a draft already reads as reviewed by the pipeline and not by a person.
+
+Emit "Final report" before you stop, the same as the `open-pr` failure path does. Step 5's Jira
+writes already happened, so any `TODO(user):` line that shipped has to be reported whether or not a
+review ran. Put the sentinel where the `PR` URL would go, write `0` on the `Iterations` line, and
+name the branch so the user can invoke `review-and-fix` from a context that has the `Agent` tool and
+pick the pipeline back up at Step 9.
 
 ## Step 9: Push and open a draft PR
 
@@ -805,6 +846,11 @@ Push the review-and-fix commits. Then invoke `open-pr` with `--draft`.
 open it, do not ask whether draft is right, and do not offer ready-for-review as an alternative. A
 draft is the correct end state for this pipeline: the work is reviewed by Step 8 and unreviewed by a
 human, which is exactly what draft means.
+
+**The one exception is a Step 8 that could not run at all.** That justification rests on Step 8
+having reviewed the work, so a `REVIEW_UNAVAILABLE_NO_FANOUT` abort that survives its one
+re-invocation leaves nothing for a draft to mean. The run stops in Step 8 on that path. Its abort
+section has the detail.
 
 `open-pr` carries the title rules, the template detection, and the `writing-work-docs` routing.
 It owns all of that. What it does not get to own here is its own gates.
@@ -915,9 +961,9 @@ read-back on content that did land, so it can honestly read `verified` on a run 
 posted at all.
 
 **No run ends with a published `TODO(user):` line unmentioned.** This holds on every ending, not just
-the one that reaches this step. The Step 4 option (a) exit and the `open-pr` failure path both emit
-the roll-call too. Same rule as the stash disclosure, for the same reason: it is the user's problem
-now, and they cannot see it from where they are sitting.
+the one that reaches this step. The Step 4 option (a) exit, the Step 8 no-fanout abort, and the
+`open-pr` failure path all emit the roll-call too. Same rule as the stash disclosure, for the same
+reason: it is the user's problem now, and they cannot see it from where they are sitting.
 
 ## Constraints
 
@@ -963,16 +1009,18 @@ now, and they cannot see it from where they are sitting.
 - **Never assume to avoid asking either.** The two failure modes are asking what you could have
   looked up and guessing what you could only have asked. Investigation separates them.
 - **The workflow is optional.** Small surface, investigate inline. Wide surface, fan out. It
-  runs once either way, never in a loop.
+  runs once either way, never in a loop, and it is for Step 2's validation lenses only, never for
+  Step 8's reviewers.
 - **Never invent** a ticket key, a PR number, a dashboard link, a date, a metric, or a test
   result. Unknown becomes a `TODO(user):` line, and every one of those reaches "Final report".
 - **Verify the Jira formatting by reading it back.** Do not trust that the markdown converted.
 - **Execution mode is not a question.** When `writing-plans` offers its Execution Handoff choice,
   take Subagent-Driven (`superpowers:subagent-driven-development`) and say so in one line. Every other
   question that skill asks still goes to the user. Honor an explicit request for inline execution.
-- **The PR is not a question either.** It always opens, always as a draft. Step 9 suspends four of
-  `open-pr`'s gates by name and lets its `TODO(user):` lines ship. Every other question `open-pr`
-  asks, including which template to use, still goes to the user.
+- **The PR is not a question either.** It always opens, always as a draft, unless Step 8 could not
+  run at all. Step 9 suspends four of `open-pr`'s gates by name and lets its `TODO(user):` lines
+  ship. Every other question `open-pr` asks, including which template to use, still goes to the
+  user.
 - **`writing-work-docs` writes every human-facing artifact here.** Ticket description, validation
   comment, option (a) comment, commit messages, PR title and body. Its three refusals to publish are
   overridden for this whole run, and nothing else it says is.

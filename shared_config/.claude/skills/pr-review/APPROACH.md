@@ -55,7 +55,9 @@ It is cheap either way: one pair, run once (not 3x), <=3 rounds.
 
 This stage runs **after** the merge because the dedup in Step 2.7b below compares against
 `merged_all`, which only exists once Step 2 has merged the four reviewers. The pair runs **once**
-(not 3x). The internal debate is the filter, so cross-instance triangulation is not needed.
+(not 3x). The internal debate is the filter, so cross-instance triangulation is not needed. A run
+that aborted in Step 2 for no fan-out never reaches this stage. There is no `merged_all` to dedup
+against, and an approach pair debating alone is not a review.
 
 **Both agents are read-only with respect to GitHub** — same forbidden-write list as sub-agents
 1–4. The approach reviewer **explores the wider codebase** to ground its judgment. It reads

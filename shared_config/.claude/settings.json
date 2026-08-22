@@ -78,6 +78,15 @@
             "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/read-guard.py"
           }
         ]
+      },
+      {
+        "matcher": "Workflow",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-review-in-workflow.py"
+          }
+        ]
       }
     ],
     "PermissionDenied": [

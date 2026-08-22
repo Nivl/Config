@@ -32,10 +32,10 @@ Return this exact JSON shape:
   "roles_missing": [
     {
       "role": <number>,
-      "reason": "<empty response | unparseable | errored | skipped by harness | no notification received>"
+      "reason": "<launch failed | empty response | unparseable | errored | skipped by harness | no notification received>"
     }
   ],
-  "coverage": "complete | partial",
+  "coverage": "complete | partial | impossible",
   "scoring": {
     "unique_findings": <count after pre-score dedup>,
     "scorers_spawned": <count of scoring sub-agents actually spawned>,
@@ -52,14 +52,44 @@ Return this exact JSON shape:
 `roles_launched`, `roles_missing`, and `coverage` are **required.** Emit them even when
 `roles_missing` is empty and `coverage` is `"complete"`. `coverage` is `"partial"` whenever
 `roles_missing` is non-empty. A caller that sees `"partial"` knows not to read a short findings
-list as a clean bill of health. Callers aggregating several instances (`pr-review`,
-`review-and-fix`) rely on these fields to avoid asserting coverage nobody delivered.
+list as a clean bill of health. A run whose launch calls all failed with the `Agent` tool present is
+one of those partial runs. Every role it could not launch sits in `roles_missing` with reason
+`launch failed`, `roles_launched` is empty, and `coverage` is `"partial"`. `coverage` is
+`"impossible"` only when no reviewer role could be launched at all, because the `Agent` tool is
+absent from this context. That is not a degraded review. It is the absence of one. A caller must
+never map `"impossible"` onto `"partial"`, never fold it into an unavailable-reviewer kind, never let
+it satisfy a stop rule, and never report it as coverage of any kind. Callers aggregating several
+instances (`pr-review`, `review-and-fix`) rely on these fields to avoid asserting coverage nobody
+delivered.
 
-`scoring` is **required**, and it exists so a caller can tell a filtered result from an unfiltered
-one. `scoring.complete: false` means the confidence numbers in `findings` did not all come from the
-two-stage process and must not be trusted as a filter. A caller seeing it should treat the run as
-leads, not conclusions. Never omit the block to make a run look clean. Any finding carrying
-`unscored: true` has `confidence: null` and sits below every threshold by construction.
+The no-fanout abort has one exact payload. When the `Agent` tool is unavailable so that no reviewer
+role could be launched (Step 1 of [SKILL.md](SKILL.md)), these five fields carry exactly these
+values:
+
+```json
+{
+  "coverage": "impossible",
+  "roles_launched": [],
+  "roles_missing": [],
+  "findings": [],
+  "skipped_reason": "no fanout: the Agent tool is unavailable in this context, so no reviewer role could be launched"
+}
+```
+
+`roles_missing` stays empty here rather than listing every role in `<ROLE_SET>`. No launch was ever
+attempted, because there was no tool to attempt one with, so no role went missing. The hole is the
+whole run, and `coverage` is the field that reports it. A run that DID attempt its launches and had
+them fail is a different case. Those roles go in `roles_missing` with reason `launch failed`, which
+makes the run `partial`. Whether a launch was attempted is the discriminator, not whether
+`roles_launched` came out empty. That object is the entire return value. Emit no other field. The `scoring`, `ticket_review`, and
+`tickets_examined` rules below describe a run that reached Step 2, and a no-fanout abort never does.
+
+`scoring` is **required in every run that reaches Step 2**, and it exists so a caller can tell a
+filtered result from an unfiltered one. `scoring.complete: false` means the confidence numbers in
+`findings` did not all come from the two-stage process and must not be trusted as a filter. A caller
+seeing it should treat the run as leads, not conclusions. Never omit the block to make a run look
+clean. Any finding carrying `unscored: true` has `confidence: null` and sits below every threshold by
+construction.
 
 `citation_verified` is `true` when the finding cites a commit / PR / branch that was checked and
 resolved, `false` when it cites one that could not be verified, and `null` when there is nothing to

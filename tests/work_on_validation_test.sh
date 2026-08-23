@@ -11,7 +11,10 @@
 # top-level statement that needs those globals, and evaluates just the pure function.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# SKILL holds the path to VALIDATION.md, and SKILL_MD holds the path to SKILL.md. The name SKILL
+# predates this file having two paths, and it is kept as is rather than renamed out of scope.
 SKILL="$SCRIPT_DIR/shared_config/.claude/skills/work-on/VALIDATION.md"
+SKILL_MD="$SCRIPT_DIR/shared_config/.claude/skills/work-on/SKILL.md"
 
 . "$(cd "$(dirname "$0")" && pwd)/test_helpers.sh"
 
@@ -57,18 +60,38 @@ node --check "$WORK/parse.mjs"
 # Isolate the pure logic: the priority table and the two functions. All three are defined before
 # anything that touches the injected globals, which is what makes them extractable at all.
 awk '/^const REFUTE_PRIORITY = \[/,/^\]$/' "$WORK/script.js" > "$WORK/tally.mjs"
+awk '/^function roundRobin\(/,/^}$/' "$WORK/script.js" >> "$WORK/tally.mjs"
 awk '/^function selectForRefutation\(/,/^}$/' "$WORK/script.js" >> "$WORK/tally.mjs"
 awk '/^function composeStanding\(/,/^}$/' "$WORK/script.js" >> "$WORK/tally.mjs"
 awk '/^function tallyVotes\(/,/^}$/' "$WORK/script.js" >> "$WORK/tally.mjs"
+awk '/^function orderGateFindings\(/,/^}$/' "$WORK/script.js" >> "$WORK/tally.mjs"
+awk '/^function composeGateStanding\(/,/^}$/' "$WORK/script.js" >> "$WORK/tally.mjs"
 assert_contains "extracted_priority" "const REFUTE_PRIORITY" "$(cat "$WORK/tally.mjs")"
+assert_contains "extracted_round_robin" "function roundRobin" "$(cat "$WORK/tally.mjs")"
 assert_contains "extracted_select" "function selectForRefutation" "$(cat "$WORK/tally.mjs")"
 assert_contains "extracted_compose" "function composeStanding" "$(cat "$WORK/tally.mjs")"
 assert_contains "extracted_tally" "function tallyVotes" "$(cat "$WORK/tally.mjs")"
+assert_contains "extracted_order_gate" "function orderGateFindings" "$(cat "$WORK/tally.mjs")"
+assert_contains "extracted_compose_gate" "function composeGateStanding" "$(cat "$WORK/tally.mjs")"
 
 # The priority table drives which source keeps its refute slot, so a silent truncation of the
 # extraction would make every ordering assertion below meaningless.
 assert_contains "priority_has_datadog" "'datadog'" "$(cat "$WORK/tally.mjs")"
 assert_contains "priority_has_blast_radius" "'blast-radius'" "$(cat "$WORK/tally.mjs")"
+
+# Both refute caps are pinned to their documented values, extracted the same way REFUTE_PRIORITY is.
+#
+# MAX_REFUTED's own comment says a test pins its floor. Nothing did. The floor case below passes a
+# literal 6 as its cap, so raising the constant to 8 left the whole suite green while a verdict-flipping
+# source went unchallenged on every real run. MAX_GATE_REFUTED was not covered at all, and it is what
+# guarantees each of the two triage agents one skeptic slot.
+#
+# awk with no match yields an empty string rather than exiting non-zero, so a rename fails these
+# assertions loudly instead of passing on nothing.
+MAX_REFUTED="$(awk '/^const MAX_REFUTED = /{print $4}' "$WORK/script.js")"
+assert_eq "max_refuted_is_six" "6" "$MAX_REFUTED"
+MAX_GATE_REFUTED="$(awk '/^const MAX_GATE_REFUTED = /{print $4}' "$WORK/script.js")"
+assert_eq "max_gate_refuted_is_two" "2" "$MAX_GATE_REFUTED"
 
 cat >> "$WORK/tally.mjs" <<'PROBE'
 
@@ -236,6 +259,56 @@ console.log('plain_kept=' + withPlain.length)
 // empty `deferred` is what makes the two arms distinguishable at all.
 const orphanCritical = c('reproduce', 'critical but unaccounted', 'l7')
 console.log('orphan_why=' + composeStanding([orphanCritical], [], [], [], [], [])[0].whyUnrefuted)
+
+// --- gate pass ---
+// A gate finding argues about whether the work is worth doing, not about whether the ticket is real,
+// so it never carries verdict_critical. `gate_critical` marks the ones that argue AGAINST fixing,
+// which are the only ones a skeptic attacks.
+const g = (lens, claim, gate_critical = true) => ({ lens, claim, locator: 'l', status: 'confirmed', gate_critical })
+
+// One slot per source. Two dismissals from one agent must not starve the other agent entirely.
+const gateOrder = orderGateFindings([
+  g('reachability', 'flag is off in prod'),
+  g('reachability', 'no callers outside tests'),
+  g('fix-cost', 'three files plus a backfill'),
+])
+console.log('gate_order=' + gateOrder.map((x) => x.lens + ':' + x.claim).join('|'))
+
+// Empty input must terminate rather than spin.
+console.log('gate_order_empty=[' + orderGateFindings([]).map((x) => x.claim).join('|') + ']')
+
+// A finding that argues FOR fixing was never eligible for a skeptic. It must say so, and must not
+// claim the budget ran out.
+const forFixing = g('reachability', 'live and reached by every request', false)
+const gateStandingPlain = composeGateStanding([forFixing], [], [], [], [])
+console.log('gate_plain_why=' + gateStandingPlain[0].whyUnrefuted)
+console.log('gate_plain_ran=' + gateStandingPlain[0].refutationRan)
+
+// A dismissal the cap could not reach is a real gap and gets its own reason, distinct from the above.
+const spared = g('fix-cost', 'a month of work')
+const gateStandingSpared = composeGateStanding([spared], [], [], [], [spared])
+console.log('gate_spare_why=' + gateStandingSpared[0].whyUnrefuted)
+
+// A dismissal that was refuted must not come back. It is in toRefute and in tallied, and the killed
+// copy is excluded by the survived filter, so it must appear zero times.
+const killedGate = g('reachability', 'dead code')
+const killedTally = tallyVotes(killedGate, [kill, kill], 2)
+const gateStandingKilled = composeGateStanding([killedGate], [killedGate], [killedTally], [], [])
+console.log('gate_killed_count=' + gateStandingKilled.length)
+
+// A dismissal that survived its panel appears exactly once, from the tallied copy.
+const heldGate = g('fix-cost', 'needs a migration')
+const heldTally = tallyVotes(heldGate, [keep, keep], 2)
+const gateStandingHeld = composeGateStanding([heldGate], [heldGate], [heldTally], [], [])
+console.log('gate_held_count=' + gateStandingHeld.length)
+console.log('gate_held_ran=' + gateStandingHeld[0].refutationRan)
+
+// The third arm must be reachable and distinct here too, exactly as it is in composeStanding. A
+// dismissal in neither toRefute nor deferred is an invariant break, and labelling it
+// 'gate-budget-exhausted' would hide it behind a budget that was never spent. This is the case that
+// proves the three gate labels are three states rather than two plus a synonym.
+const orphanGate = g('fix-cost', 'dismissive but unaccounted')
+console.log('gate_orphan_why=' + composeGateStanding([orphanGate], [], [], [], [])[0].whyUnrefuted)
 PROBE
 
 node "$WORK/tally.mjs" > "$WORK/out.txt"
@@ -349,5 +422,128 @@ assert_eq "ineligible_finding_kept" "1" "$(result plain_kept)"
 # The three arms must be three distinct values. If 'unaccounted' ever collapses into
 # 'budget-exhausted', `deferred` becomes dead weight again and this assertion is what notices.
 assert_eq "unaccounted_is_its_own_state" "unaccounted" "$(result orphan_why)"
+
+# --- gate pass ---
+
+# One refute slot per source. A source with two dismissals must not consume both slots while the
+# other source has nothing challenged, which is the same starvation the verdict pass guards against.
+assert_eq "gate_one_slot_per_source" \
+  "reachability:flag is off in prod|fix-cost:three files plus a backfill|reachability:no callers outside tests" \
+  "$(result gate_order)"
+assert_eq "gate_order_empty_terminates" "[]" "$(result gate_order_empty)"
+
+# A finding arguing FOR the fix is never eligible for a skeptic, by design. It must report that
+# rather than looking like a budget casualty, or the synthesizer discounts it.
+assert_eq "gate_for_fixing_is_ineligible" "argues-for-fixing" "$(result gate_plain_why)"
+assert_eq "gate_for_fixing_unrefuted" "false" "$(result gate_plain_ran)"
+
+# A dismissal the cap could not reach is a real coverage gap and says so distinctly.
+assert_eq "gate_deferred_reason_is_budget" "gate-budget-exhausted" "$(result gate_spare_why)"
+
+# A refuted dismissal must not reach the synthesizer at all. Otherwise a killed "nobody is affected"
+# claim rides into the verdict as a live one, which is the whole reason dismissals get attacked.
+assert_eq "gate_refuted_not_revived" "0" "$(result gate_killed_count)"
+
+# A dismissal that held appears exactly once, and is marked as actually challenged.
+assert_eq "gate_survivor_appears_once" "1" "$(result gate_held_count)"
+assert_eq "gate_survivor_was_challenged" "true" "$(result gate_held_ran)"
+
+# The three gate arms must be three distinct values, same as the verdict pass. If 'unaccounted' ever
+# collapses into 'gate-budget-exhausted', `gateDeferred` becomes dead weight and this is what notices.
+assert_eq "gate_unaccounted_is_its_own_state" "unaccounted" "$(result gate_orphan_why)"
+
+# --- the verdict_critical firewall ---
+#
+# A triage finding that carried verdict_critical would enter selectForRefutation, spend a slot the
+# verdict pass needs, and break MAX_REFUTED's floor argument. Two things keep it out, and both are
+# asserted here rather than over a local fixture. The old check ran `!x.verdict_critical` over findings
+# this file builds itself, which never set the field, and neither function under test reads it. It could
+# not fail.
+#
+# Every grep -c below ends in `|| true`, for the same reason the counts further down do. grep exits 1 on
+# zero matches and this file runs under `set -euo pipefail`, so an unguarded count terminates the run
+# instead of asserting zero.
+
+# The schema is the first half. `verdict_critical` is absent from TRIAGE_FINDING_ITEM's required list on
+# purpose, so no triage agent is ever asked for it.
+awk '/^const TRIAGE_FINDING_ITEM = \{/,/^\}$/' "$SKILL" | grep '^  required: \[' > "$WORK/triage_required.txt" || true
+
+# Prove the extraction landed before counting an absence in it. An awk range that matched nothing yields
+# zero hits for verdict_critical too, which is exactly the vacuous shape this section replaces.
+TRIAGE_REQUIRED_FOUND="$(grep -c "'gate_critical'" "$WORK/triage_required.txt" || true)"
+assert_eq "triage_required_extracted" "1" "$TRIAGE_REQUIRED_FOUND"
+TRIAGE_REQUIRED_LEAK="$(grep -c 'verdict_critical' "$WORK/triage_required.txt" || true)"
+assert_eq "triage_required_omits_verdict_critical" "0" "$TRIAGE_REQUIRED_LEAK"
+
+# The dispatch is the second half. Even if an agent volunteered the field, allFindings drops every
+# triage result before `critical` is computed, so nothing reaches selectForRefutation. Grepped with the
+# declaration line as its anchor, so the filter cannot be credited to some other call on `reported`.
+grep -A1 '^const allFindings = reported$' "$WORK/script.js" > "$WORK/all_findings.txt" || true
+ALL_FINDINGS_DECL="$(grep -c '^const allFindings = reported$' "$WORK/all_findings.txt" || true)"
+assert_eq "all_findings_decl_found" "1" "$ALL_FINDINGS_DECL"
+ALL_FINDINGS_FILTER="$(grep -c "probeKind !== 'triage'" "$WORK/all_findings.txt" || true)"
+assert_eq "all_findings_excludes_triage" "1" "$ALL_FINDINGS_FILTER"
+
+# --- cross-file invariants ---
+#
+# These three facts live in two files each and nothing else checks them. The wrap risk below
+# applies differently to each of the three checks, so they are worth naming separately.
+#
+# The required-token loop checks single tokens with no space in them, so a line wrap cannot split
+# one and there is nothing to mitigate.
+#
+# The lens-count pattern matches indentation inside the fenced JavaScript block. That text is not
+# hand-wrapped prose, so the same is true there.
+#
+# The companion-count check is the one multi-word phrase living in wrapped prose. That is why it
+# is asserted positively instead of checked for absence. A wrap that splits "all three" makes the
+# check fail instead of pass, and a false failure is the safe direction because someone looks. A
+# zero-hit check on the same phrase would have been a guaranteed pass.
+
+# Everything the inline triage path needs from VALIDATION.md must be named in SKILL.md, or that path
+# silently skips it while the workflow path runs it.
+#
+# The three agent names alone did not check that. They are a whole-file grep, and all three appear in
+# Step 1's classifier rule, so the entire Step 2 inline-triage paragraph could be deleted and this loop
+# would still pass. `TRIAGE_SCHEMA` and `triageRules` live in SKILL.md only inside that paragraph, so
+# losing it now fails here. Dropping the schema is the worst of the three companions, because
+# `gate_critical` lives there and without it nothing separates an argument against the work from one
+# for it.
+for required in reachability exploit-realism fix-cost TRIAGE_SCHEMA triageRules; do
+  if ! grep -q "$required" "$SKILL_MD"; then
+    echo "'$required' is required by VALIDATION.md's triage pass but never named in SKILL.md" >&2
+    exit 1
+  fi
+done
+echo "cross_file_triage_agents=ok"
+
+# The completeness critic's premise counts the code lenses. If LENSES grows and that prompt does not,
+# the one pass whose job is finding omissions starts from a false premise.
+#
+# Scoped to the LENSES array literal on purpose. A bare grep for the key lines matches TELEMETRY and
+# TRIAGE too, which have the same indentation, and would return 12 rather than 7.
+#
+# Every grep -c here ends in `|| true`. This file runs under `set -euo pipefail` and grep exits 1 on
+# zero matches, so an unguarded count terminates the run instead of asserting zero. pipefail means the
+# guard has to sit on the whole substitution, not on the grep alone.
+LENS_COUNT="$(awk '/^const LENSES = \[/,/^\]$/' "$SKILL" | grep -c "^    key: '" || true)"
+assert_eq "lens_count_is_seven" "7" "$LENS_COUNT"
+
+# The two files must agree on how many companions a brief needs. They disagreed once, three against
+# four, for the same three items.
+#
+# Asserted POSITIVELY, on purpose. The obvious form is a zero-hit check for the old wrong string, and
+# that form cannot fail. Both files are hand-wrapped, so a future rewrap that splits "all four" across
+# a line break also yields zero, and grep is line-based so no pattern catches it. A zero-hit check on a
+# multi-word phrase in wrapped prose is a guaranteed pass. Asserting the right string is present fails
+# loudly if a rewrap splits it, and a false failure is the safe direction because someone looks.
+SKILL_THREE="$(grep -c 'all three' "$SKILL_MD" || true)"
+VALIDATION_THREE="$(grep -c 'all three' "$SKILL" || true)"
+if [[ "$SKILL_THREE" == "0" || "$VALIDATION_THREE" == "0" ]]; then
+  echo "the two files must both say a brief needs three companions" >&2
+  echo "SKILL.md hits: $SKILL_THREE, VALIDATION.md hits: $VALIDATION_THREE" >&2
+  exit 1
+fi
+echo "companion_count_agrees=ok"
 
 echo "work_on_validation_test: ok"

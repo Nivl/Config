@@ -4,14 +4,17 @@ description: >
   Takes a Jira ticket key and drives it end to end. Validates the ticket is still real against
   the code at HEAD, the merged PRs the branch does not contain, the open PRs that overlap, and the
   related Jira tickets that may already duplicate it or have carved scope out of it.
+  On a bug or a security ticket it also establishes the real impact and the effort to fix, so a
+  fix that is not worth doing gets caught before any code is written.
   Rewrites the ticket from what it found. Then hands off to brainstorming or
   systematic-debugging, commits, pushes, runs review-and-fix to completion, and opens a draft PR.
   Use this skill when the user says "work on WMP-837", "/work-on ABC-123", "pick up this
   ticket", "start on this ticket", "take this Jira ticket end to end", or hands over a Jira key
   or Jira URL and expects the whole loop rather than one step of it. Also use it when the user
-  wants a ticket checked for staleness before any code gets written ("is this ticket still
-  valid", "does this ticket still reproduce"). Do not use it for a ticket the user only wants
-  read or summarized, and do not use it to fix an existing PR (that is fix-pr).
+  wants a ticket checked for staleness, or for whether it is worth doing, before any code gets
+  written ("is this ticket still valid", "is this bug worth fixing", "how bad is this security
+  issue really", "does this ticket still reproduce"). Do not use it for a ticket the user only
+  wants read or summarized, and do not use it to fix an existing PR (that is fix-pr).
 ---
 
 # Work On
@@ -29,9 +32,9 @@ a premise that has been checked.
 |---|---|---|
 | 0 | Preflight. Ticket key, branch, tooling. | no |
 | 1 | Gather ground truth once, in the main thread. | no |
-| 2 | Validate. Inline when the surface is small, seven parallel lenses plus the telemetry probes when it is not. | no |
+| 2 | Validate. Inline when the surface is small, seven parallel lenses plus the telemetry probes and the triage agents when it is not. | no |
 | 3 | Ask only what investigation could not settle. | no |
-| 4 | Verdict gate. Valid, invalid, or narrowed. | only if the user picks option (a) |
+| 4 | Verdict gate. Valid, invalid, superseded, or partial. | only if the user picks option (a) |
 | 5 | Rewrite the ticket. Description in place, plus a validation comment. | **Jira** |
 | 6 | Do the work via brainstorming or systematic-debugging. | local files |
 | 7 | Commit everything, push. No PR yet. | **remote** |
@@ -86,6 +89,7 @@ the questions you do ask are worth their attention.
 | Does this really happen in production, how often | A Datadog probe subagent |
 | Do users actually hit this path, how many | An Amplitude probe subagent |
 | How many rows, accounts, or records are affected | A query skill if one works, else the user, per [DB-QUERIES.md](DB-QUERIES.md) |
+| Is this bug or security issue worth fixing at all | The triage agents in Step 2, then a priority call to the user |
 
 **These are never questions for the user.** Each one is a search you skipped:
 
@@ -147,7 +151,12 @@ the inline path has to supply all three itself or the probe comes back unusable:
 production, such as an error occurring, a rate, or a regression. Amplitude when it asserts something
 about users, such as how many are affected, a segment, or a funnel. Both off for a refactor or an
 internal cleanup, which is the common case. A probe with nothing to ask burns a discovery sequence
-and returns nothing.
+and returns nothing. **A `bug` or `security` kind, decided in Step 1, turns Datadog on regardless
+of what the ticket asserts**, and turns Amplitude on too when the path is user-facing. This is the
+one case where the flags are not set from the ticket's own claims, because the triage pass makes a
+production claim the ticket never made. It asks whether anybody is actually affected, and that
+question has exactly one honest source. Without the flags the triage block comes back unmeasured
+on the tickets it exists for, and an unmeasured impact reads as a small one.
 
 **A probe that cannot reach its source reports that**, and every production claim in the ticket
 stays unverified. Carry that into Step 4 and into the rewritten ticket. Unchecked is not the same as
@@ -385,11 +394,42 @@ actually asked it.
 **Repo conventions.** Read the root `AGENTS.md` / `CLAUDE.md` and the nearest sub-project one.
 Step 6 writes code and Step 8 reviews it against these, so load them before either.
 
+**Decide what kind of ticket this is.** You have read it and nothing downstream has, so this call is
+yours, exactly like the telemetry flags below. The ticket fetch already used `fields: ["*all"]`, so
+`issuetype`, `labels`, `components`, and `priority` are in the payload you have. Read those and the
+description, then record `{ kind, kind_because }` where `kind` is `bug`, `security`, or `other`.
+Step 2 passes it to the workflow as `args.kind` or dispatches the triage agents directly on the
+inline path.
+
+Judge it, do not read it off one field. Bugs get filed as Tasks and Stories constantly, and a scanner
+finding pasted into a Story with no label is exactly the ticket where this matters most. A `security`
+kind is anything about authorization, authentication, tokens, secrets, tenant isolation, or data
+exposure, however it was filed.
+
+**A ticket that qualifies as both takes `security`.** The two mistakes are not symmetric.
+`exploit-realism` is the one assessment nothing else supplies. A security issue labelled `bug`
+loses it silently, and the `triage` block still looks complete, because `fix-cost` runs either
+way. A bug labelled `security` gets `exploit-realism` instead of `reachability`, and it reports
+that no attacker model applies. That is a cheap and visible wrong answer, not a missing one. The
+gate pass weighs findings by this same asymmetry when deciding which ones get skeptics, so this
+rule is consistent with the rest of the design rather than a new principle.
+
+**In doubt between a `bug` and `other`, record `bug`.** Two extra agents is cheap. A skipped
+assessment is silent, and silence here reads as "nobody thought this was worth checking".
+
+**Say which kind you chose in the Step 2 handoff**, with the reason. An `other` on an obvious bug is
+the failure mode, and it is invisible unless the choice is stated.
+
 **Decide which telemetry probes to launch.** You have read the ticket and nothing downstream has,
 so this call is yours. Datadog on when the ticket asserts something about production behavior.
 Amplitude on when it asserts something about users. Both off for a refactor or internal cleanup.
-Record it as `{ datadog: bool, amplitude: bool }`. Step 2 passes it to the workflow as
-`args.telemetry` or dispatches the probes directly on the inline path.
+A `bug` or `security` kind from the kind decision above overrides that. Datadog goes on
+regardless of what the ticket asserts. Amplitude goes on too when the path is user-facing. The
+triage pass makes a production claim the ticket never made, so the flags cannot come from the
+ticket's own claims alone. See "Datadog and Amplitude go to subagents" above for the full
+reasoning. Record it as
+`{ datadog: bool, amplitude: bool }`. Step 2 passes it to the workflow as `args.telemetry` or
+dispatches the probes directly on the inline path.
 
 Note on command shape, because this repo's hooks enforce it: `git` and `gh` run outside the
 sandbox and must run **alone**, with no pipe and no chaining. Redirect to a file under
@@ -423,16 +463,35 @@ Datadog or Amplitude yourself. If the Step 1 flags turned either on, dispatch th
 from [VALIDATION.md](VALIDATION.md)'s `TELEMETRY` array. Their digests come back while you are still
 in the code, which is the point.
 
+**Triage goes to subagents on this path too.** If Step 1 recorded a `bug` or `security` kind,
+dispatch the triage agents in one message, alongside the telemetry probes, using the brief from each
+entry in [VALIDATION.md](VALIDATION.md)'s `TRIAGE` array whose `enabled` matches that kind. A brief
+is not the whole prompt. Pair each one with `triageRules()`, the context block including its
+`<<<UNTRUSTED_INPUT_BEGIN>>>` and `<<<UNTRUSTED_INPUT_END>>>` markers, and `TRIAGE_SCHEMA`. Dropping
+the schema is the worst of the three, because `gate_critical` lives there and without it nothing
+separates an argument against the work from an argument for it.
+
+**Keep the cost agent blind to the impact answer, and the impact agent blind to the cost.** On this
+path you are holding both, which makes it your job not to leak either. Dispatching them in one message
+is what enforces it.
+
+**You have no skeptics here, so say so.** The workflow path attacks every dismissal before it reaches
+a verdict. Inline, nothing does. A `worth_fixing` of `no` from this path is a dismissal nobody tested,
+and it goes to Step 4 marked that way, as a coverage gap. Presenting it as settled would be the silent
+degradation this skill refuses everywhere else.
+
 **Run the workflow when the surface is real.** Any of: the branch is far behind, several open PRs
 overlap, the ticket makes many claims, the blast radius spans services, several related tickets
 suggest scope has already moved out of this one, or the inline pass has already turned up two findings
 that contradict each other.
 
-[VALIDATION.md](VALIDATION.md) has the script, the seven lens prompts, the two telemetry probe briefs,
-and the schemas. It runs once, not in a loop. Seven lenses plus whichever telemetry probes Step 1
-enabled all go out in one parallel batch, then skeptics attack any finding that could flip the
-verdict, then one synthesizer produces the verdict. Pass the Step 1 artifacts via `args` so no agent
-re-fetches, including `telemetry` with the probe flags and `related_tickets` with the tracker results.
+[VALIDATION.md](VALIDATION.md) has the script, the seven lens prompts, the two telemetry probe
+briefs, the three triage briefs, and the schemas. It runs once, not in a loop. Seven lenses,
+whichever telemetry probes Step 1 enabled, and the triage agents on a bug or security ticket all go
+out in one parallel batch, then skeptics attack any finding that could flip the verdict, then one
+synthesizer produces the verdict. Pass the Step 1 artifacts via `args` so no agent re-fetches,
+including `kind` and `kind_because` from the classification above, `telemetry` with the probe flags,
+and `related_tickets` with the tracker results.
 
 **Check the `Workflow` tool is actually available before routing a wide ticket to it.** It is a
 harness capability, not something this repo ships, so it is present in some contexts and absent in
@@ -454,7 +513,8 @@ whole phase exists to prevent, and it would be silent about having done so. Say 
 and why.
 
 Either way the output is the same shape and Step 4 reads it identically: a verdict, evidence with
-locators, and the questions investigation could not settle.
+locators, the questions investigation could not settle, and on a bug or security ticket the triage
+block, with whatever the path could not establish named as a coverage gap.
 
 ## Step 3: Ask what investigation could not settle
 
@@ -466,6 +526,20 @@ Ask conversationally. If a couple of genuine decisions came out of validation, p
 message. Use `AskUserQuestion` when the choices are discrete enough to be worth options, at most
 four per call, each with its real consequence and your recommendation first. Batch related ones so
 the user answers a theme rather than a trickle.
+
+**A triage question is a priority call, not a request for a number.** "How many users are
+affected?" is a search somebody else owns and this skill forbids asking it. What reaches the user
+is the decision. Here is what is reachable, here is what it costs, do we fix it, defer it, or run
+a query first. If it carries SQL, it goes down the warehouse path below like any other query, and
+the priority call is what remains after the query comes back. **Suppress the question entirely when
+the answer could not change the decision**, such as an S-sized fix that gets done regardless of who
+is affected, and treat that as a rule for whoever composes the question, on the workflow path and
+the inline one alike.
+
+**The defer option must say what it does.** Offer it as posting a comment carrying the impact and
+cost evidence, so the ticket can be deprioritized on the tracker itself. Stating that up front is
+what makes the write authorized once the user picks it, the same way option (a) is authorized by
+its own wording at Step 4.
 
 **Warehouse queries get run before they get asked.** If any probe returned a `sql` field, pool those
 queries and check whether a skill that runs SQL is installed and working. Judge a candidate by what it
@@ -494,10 +568,54 @@ running list that "Final report" reads out.
 
 Validation returns one of four verdict values, `valid`, `invalid`, `superseded`, or `partial`, which
 fall into the three response paths below. Present the evidence for whichever it is, in chat, before
-doing anything.
+doing anything. On a bug or security ticket the triage block goes out with that evidence, in the
+same message, ahead of any option list.
 
-**Valid.** The problem reproduces at HEAD, no merged commit fixed it, no open PR covers it.
-State where it reproduces and go to Step 5.
+**Valid.** The problem reproduces at HEAD, no merged commit fixed it, no open PR covers it. State
+where it reproduces, present the triage block below alongside that evidence on a bug or security
+ticket, then go to Step 5.
+
+**The triage block, on a bug or security ticket.** It rides with the verdict evidence, in the same
+message, whatever the verdict is, and always ahead of the (a)/(b)/(c) list that follows Invalid and
+Superseded below. Four lines: whether anybody is affected now and how that was measured, whether the
+path is live and at which `path:line`, what a fix costs and why, and the recommendation with its
+confidence. On a security ticket the second line is the precondition chain instead, including how
+long each precondition stays valid, because a value that expires in a minute and a sequential id
+are different tickets.
+
+Name what was not established. An unattacked dismissal, an unreachable telemetry source, or a cost
+estimate that never named a file all bound what this block can claim. On the workflow path, every
+one of them is in the workflow's `gate_coverage`. On the inline path, where that field does not
+exist, name the gap directly, the same way "You have no skeptics here" above already requires. A
+confident recommendation over thin evidence is the worst thing this pass can produce, and it is
+worse than no recommendation because it looks like one.
+
+**This is not a verdict and it does not stop the run on its own.** A `worth_fixing` of `no` or
+`unclear` reaches the user earlier, as one blocking question at Step 3, so by the time this gate
+runs the answer is already in hand. Present the triage block together with that answer, and act on
+it here. Do not ask it again. A defect that reproduces is still a defect that reproduces, and
+whether it is worth the money is the user's call and not this skill's.
+
+**Map the Step 3 answer to what happens next.** Fixing it continues to Step 5 on the ticket as it
+stands. Deferring it ends the run the way option (a) below does for a dead ticket, so post the
+comment carrying the impact and cost evidence, and let the stash rule's (a) branch apply. A query
+that had to run first resolves through the warehouse handoff, and its answer then decides between
+the other two. A query the user declined or waived leaves the call unanswered. Treat that the same
+as the case below where Step 3 asked nothing. Present the block and continue, because an unmeasured
+impact is never evidence of no impact.
+
+**On an `invalid` or `superseded` verdict, this mapping does not apply.** There is nothing to fix,
+so the priority call is moot. Present the triage block for context, then take the Invalid or
+Superseded path below as usual. That path's own comment carries the evidence, and the two endings
+never merge or double up.
+
+**When Step 3 asked nothing, there is nothing to decide here either.** Step 3 suppresses the
+priority question when the answer could not change the decision, such as an S-sized fix that gets
+done regardless of who is affected. Present the block and continue.
+
+**If `worth_fixing` is `yes`, say so in one line and move on.** The block still gets presented,
+because the cost is worth knowing before Step 6, but a recommendation to proceed does not need a
+decision from anybody.
 
 **Superseded.** Something already handles it. The two causes need different evidence, and asking for
 the wrong one produces a report that cannot be assembled.
@@ -530,6 +648,12 @@ Present the evidence, then offer:
 - (a) post a comment carrying this evidence so the user can close the ticket themselves,
 - (b) narrow the ticket to whatever still reproduces and continue from Step 5 on that,
 - (c) proceed anyway, because the user disagrees with the finding.
+
+This (a)/(b)/(c) list belongs to a dead ticket. A triage priority call is a different question,
+asked once at Step 3 and never re-asked here, per the triage block above. Only the a/b/c choice
+itself does not carry over, since that choice already happened at Step 3. Everything else option
+(a) requires of its comment still applies to a deferral, including the drafting and read-back path,
+the authorization rule, the stash rule's (a) branch just below, and the TODO roll-call.
 
 Closing or rewriting someone else's ticket on an automated verdict is not this skill's call to
 make. Option (c) is a real option. Take it at face value, note the disagreement in one line,
@@ -637,6 +761,27 @@ Validated <date> against <sha> on branch <branch>.
 - PR #830 (open) overlaps on the same file, so scope narrowed to the tax path only
 - could not verify the claim about the nightly job. No such job exists in this repo.
 ```
+
+On a bug or security ticket the trail gains the triage facts, in the same shape as every other line
+here, each with its locator:
+
+```
+- path is live at src/billing/retry.ts:88, behind FLAG_RETRY_V2, and the flag is on in prod since 2026-07-02
+- the error fires 340 times a day, from the Datadog query in this run
+- a fix is size M, in src/billing/retry.ts, src/billing/retryQueue.ts, and src/billing/retryWorker.ts, plus a backfill over billing_invoice, which has no index on the filter column
+```
+
+**The recommendation itself is not published.** It has no locator of any accepted kind, and nothing
+previews this write, so a judgement about somebody else's ticket would ship with no human having read
+it. The facts belong in the trail because the next reader would otherwise redo them. The conclusion
+belongs in the conversation at Step 4, where a human is present to disagree with it.
+
+**A triage number nobody ran is a `TODO(user):` line**, exactly like any other unrun query. Do not
+soften it into prose instead. `writing-work-docs` forbids hedging qualifiers, so there is no register
+between a locator and a TODO line, and reaching for one produces a claim that reads as measured.
+
+**Never a table.** A triage assessment is the natural table and a table is the single most common way
+a ticket arrives mangled. One bullet per row, per [JIRA-FORMAT.md](JIRA-FORMAT.md).
 
 Preserve the reporter's facts and links even when they read awkwardly. Say in one line what you
 cut. Flag anything that looks wrong rather than silently fixing it.
@@ -806,8 +951,9 @@ Three things to get right when invoking it:
   out with inside one. `review-and-fix` cannot launch its reviewers, and `in-depth-review` cannot
   launch its eight to twelve roles. What comes back is an abort with no coverage, not a review.
   Step 2 is what makes reaching for a workflow here feel natural, and it is the contrast rather
-  than the precedent. Its seven lenses are leaf readers that spawn nothing, so they lose nothing
-  inside a workflow agent. A reviewer is itself a fan-out, so it loses everything.
+  than the precedent. Its seven lenses, its telemetry probes, and its triage agents are all leaf
+  readers that spawn nothing, so they lose nothing inside a workflow agent. A reviewer is itself
+  a fan-out, so it loses everything.
 
 It commits each fix and never pushes. Step 9 pushes.
 
@@ -1013,6 +1159,12 @@ reason: it is the user's problem now, and they cannot see it from where they are
   Step 8's reviewers.
 - **Never invent** a ticket key, a PR number, a dashboard link, a date, a metric, or a test
   result. Unknown becomes a `TODO(user):` line, and every one of those reaches "Final report".
+- **A triage recommendation never gets published.** The facts go into the Jira comment with their
+  locators. The recommendation stays in the conversation at Step 4. Step 5 explains why.
+- **`worth_fixing: 'no'` requires evidence that reaches.** A query with a result, a flag state at a
+  `file:line`, or a precondition chain read out of the code. An unmeasured impact is `unclear`, never
+  `no`. "No telemetry covers this path" and "nobody is affected" are opposite conclusions and only one
+  of them stops work.
 - **Verify the Jira formatting by reading it back.** Do not trust that the markdown converted.
 - **Execution mode is not a question.** When `writing-plans` offers its Execution Handoff choice,
   take Subagent-Driven (`superpowers:subagent-driven-development`) and say so in one line. Every other

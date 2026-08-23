@@ -93,7 +93,9 @@ identical inputs.
   "known": [
     { "question": "should this cover trial accounts?", "answer": "no, paid only", "source": "user" }
   ],
-  "telemetry": { "datadog": true, "amplitude": false }
+  "telemetry": { "datadog": true, "amplitude": false },
+  "kind": "bug",
+  "kind_because": "issuetype=Task but the description reports a double charge on retry"
 }
 ```
 
@@ -122,6 +124,16 @@ asserts something about users (how many are affected, a segment, a funnel, wheth
 reached). Both off for a pure refactor or an internal cleanup, which is the common case. A probe
 launched with nothing to ask burns a discovery sequence and returns nothing.
 
+`kind` decides whether the triage agents run and which benefit agent is chosen. `bug` runs
+`reachability` and `fix-cost`. `security` runs `exploit-realism` and `fix-cost`. `other` runs neither
+and the verdict's `triage` block is absent, which is not the same as empty. Set it from your own read
+of the ticket rather than from `issuetype` alone, and in doubt set `bug`, because two extra agents is
+cheaper than an assessment nobody notices was skipped. `kind_because` is a deliberate audit trail
+rather than an input anything downstream reads programmatically. It lets every lens see that the
+classification call was made and on what basis, since it rides in `args` next to `kind` and is what
+Step 1 states in the handoff. Record the evidence that decided the call, especially when it
+overrides what `issuetype` alone would suggest, which is what the example above models.
+
 `coverage_notes` carries anything Step 1 capped, so a lens can flag when a skipped commit is the
 one that mattered. `known` carries anything the user already settled, either earlier in the
 conversation or during an inline pass that escalated to the workflow. It is usually empty. Its job
@@ -136,10 +148,10 @@ re-sending the body.
 ```javascript
 export const meta = {
   name: 'work-on-validate',
-  description: 'Validate a Jira ticket against HEAD, missing merged PRs, open PRs, and related tickets',
+  description: 'Validate a Jira ticket against HEAD, missing merged PRs, open PRs, and related tickets, and triage a bug or security ticket for impact and effort',
   phases: [
-    { title: 'Investigate', detail: 'seven independent lenses, each pinned to one question' },
-    { title: 'Refute', detail: 'skeptics attack every verdict-critical finding' },
+    { title: 'Investigate', detail: 'seven independent lenses, each pinned to one question, plus telemetry and triage' },
+    { title: 'Refute', detail: 'skeptics attack every verdict-critical finding and every dismissal' },
     { title: 'Critique', detail: 'what did nobody look at' },
     { title: 'Synthesize', detail: 'verdict plus the questions that block it' },
   ],
@@ -159,6 +171,15 @@ export const meta = {
 // the verdict with nothing attacking it.
 const MAX_REFUTED = 6
 const SKEPTICS = ['evidence', 'alternative-explanation']
+
+// The gate budget, separate from MAX_REFUTED on purpose. Two, because at most two triage agents run on
+// any ticket and this gives each of them one slot before either gets a second.
+//
+// It is deliberately NOT folded into MAX_REFUTED. That cap sits exactly at its floor, six sources that
+// can each flip the verdict against a budget of six, and a test pins the arrangement. Adding triage
+// findings to the same pass would make them compete with a duplicate-ticket finding for a slot, and a
+// wrongly-closed ticket costs more than an unchallenged cost estimate.
+const MAX_GATE_REFUTED = 2
 
 // Wrapped in a named fence rather than interpolated bare, because most of what is in here was
 // typed by other people. A Jira description, a comment thread, and a PR title are all writable by
@@ -250,6 +271,30 @@ const REFUTE_PRIORITY = [
   'blast-radius',
 ]
 
+// Interleaves any number of queues, taking index 0 from every queue before any queue's index 1.
+// Pure, and shared between selectForRefutation and orderGateFindings, which both round-robin their
+// sources and would otherwise carry two copies of the same loop to keep in sync.
+//
+// Takes its total from the queues themselves rather than a count parameter, so a caller cannot pass
+// a total that drifts from the queues it actually built.
+function roundRobin(queues) {
+  const total = queues.reduce((sum, q) => sum + q.length, 0)
+  const ordered = []
+  let round = 0
+  while (ordered.length < total) {
+    let movedAny = false
+    for (const q of queues) {
+      if (q.length > round) {
+        ordered.push(q[round])
+        movedAny = true
+      }
+    }
+    if (!movedAny) break
+    round += 1
+  }
+  return ordered
+}
+
 // Chooses which verdict-critical findings get skeptics. Pure, and tested alongside tallyVotes.
 //
 // Two things a plain slice got wrong. Lenses are MEANT to overlap, so three of them reporting the
@@ -269,7 +314,7 @@ function selectForRefutation(critical, cap) {
     // `status` belongs in the key so only genuine agreement collapses. Without it, two lenses reaching
     // opposite conclusions about the same line hash the same, the second is dropped as a duplicate, and the
     // survivor reads as corroborated. That deletes a disagreement and reports it as agreement, which is the
-    // inversion of why six blind lenses exist.
+    // inversion of why seven blind lenses exist.
     const key = [
       (f.claim || '').trim().toLowerCase(),
       (f.locator || '').trim().toLowerCase(),
@@ -310,22 +355,10 @@ function selectForRefutation(critical, cap) {
     const i = REFUTE_PRIORITY.indexOf(lens)
     return i === -1 ? REFUTE_PRIORITY.length : i
   }
-  const ordered = []
   const queues = [...bySource.entries()]
     .sort((a, b) => rank(a[0]) - rank(b[0]))
     .map(([, findings]) => findings)
-  let round = 0
-  while (ordered.length < seen.size) {
-    let movedAny = false
-    for (const q of queues) {
-      if (q.length > round) {
-        ordered.push(q[round])
-        movedAny = true
-      }
-    }
-    if (!movedAny) break
-    round += 1
-  }
+  const ordered = roundRobin(queues)
 
   return { selected: ordered.slice(0, cap), deferred: ordered.slice(cap), duplicates }
 }
@@ -358,6 +391,53 @@ function composeStanding(allFindings, toRefute, duplicates, tallied, tallyLost, 
           : deferredSet.has(f)
             ? 'budget-exhausted' // eligible, and the cap could not reach it. A real gap.
             : 'unaccounted', // critical, not selected, not deferred. Should be impossible.
+      })),
+    ...tallied.filter((f) => f.survived),
+    ...tallyLost,
+  ]
+}
+
+// Orders the dismissals a skeptic could attack, one per source before any source gets a second slot.
+// Pure, and a named function so the test exercises this code rather than a copy of it.
+//
+// A plain slice would let one agent take the whole gate budget. Two dismissals from the reachability
+// agent would leave "the fix is a month of work" unchallenged, and a cost dismissal is exactly as
+// capable of killing the work as an impact one. This is the same round-robin as the verdict pass, minus
+// the priority table. There are only two possible sources here and neither outranks the other.
+function orderGateFindings(gateCritical) {
+  const bySource = new Map()
+  for (const f of gateCritical) {
+    if (!bySource.has(f.lens)) bySource.set(f.lens, [])
+    bySource.get(f.lens).push(f)
+  }
+  return roundRobin([...bySource.values()])
+}
+
+// Assembles the triage findings the synthesizer gets to see. Pure, and deliberately separate from
+// composeStanding rather than a second call into it.
+//
+// Three reasons it cannot be the same function. That one's label ladder tests `!f.verdict_critical`
+// first, and no triage finding carries that flag, so every one of them would come back labelled
+// 'not-verdict-critical', which the synthesize prompt reads as "nothing is missing". Its `accountedFor`
+// set is built from one pass's arrays by object identity and it is called once, so a second call would
+// either double-list a finding or revive one whose panel killed it. And the labels themselves differ.
+// What matters here is whether a finding argued against the work, not whether it could flip the verdict.
+function composeGateStanding(allGateFindings, toRefute, tallied, tallyLost, deferred) {
+  const accountedFor = new Set(toRefute)
+  const deferredSet = new Set(deferred || [])
+  return [
+    ...allGateFindings
+      .filter((f) => !accountedFor.has(f))
+      .map((f) => ({
+        ...f,
+        refutationRan: false,
+        // Only a finding arguing AGAINST the work is ever attacked, so the ineligible case is the
+        // common one and must not read as a gap. A dismissal the cap could not reach is a real gap.
+        whyUnrefuted: !f.gate_critical
+          ? 'argues-for-fixing' // never eligible for a skeptic. Nothing is missing.
+          : deferredSet.has(f)
+            ? 'gate-budget-exhausted' // eligible, and the cap could not reach it. A real gap.
+            : 'unaccounted', // dismissive, not selected, not deferred. Should be impossible.
       })),
     ...tallied.filter((f) => f.survived),
     ...tallyLost,
@@ -522,6 +602,29 @@ const FINDING_ITEM = {
   },
 }
 
+// Same shape as FINDING_ITEM with one field swapped. `verdict_critical` is absent on purpose rather
+// than optional. A triage agent that set it would put a finding about whether the work is worth doing
+// into selectForRefutation, spend a slot the verdict pass needs, and break MAX_REFUTED's floor.
+const TRIAGE_FINDING_ITEM = {
+  type: 'object',
+  required: ['claim', 'status', 'locator', 'gate_critical', 'reasoning'],
+  properties: {
+    claim: { type: 'string', description: 'One sentence. What you determined.' },
+    status: { enum: ['confirmed', 'refuted', 'unverifiable'] },
+    locator: {
+      type: 'string',
+      description:
+        'path:line, a commit sha, PR #N, or the telemetry query that produced the number. Use "none" only when unverifiable.',
+    },
+    gate_critical: {
+      type: 'boolean',
+      description:
+        'True only if this argues AGAINST doing the work. Those get attacked by skeptics. A finding arguing the work matters does not.',
+    },
+    reasoning: { type: 'string' },
+  },
+}
+
 const QUESTION_ITEM = {
   type: 'object',
   required: ['question', 'blocking', 'why', 'options', 'searched'],
@@ -641,6 +744,38 @@ const VERDICT_SCHEMA = {
     in_scope: { type: 'array', items: { type: 'string' } },
     out_of_scope: { type: 'array', items: { type: 'string' } },
     side_effects: { type: 'array', items: { type: 'string' } },
+    // Absent, not empty, when the ticket is neither a bug nor a security issue. An empty block and a
+    // block nobody filled read identically, and only one of them means "we looked".
+    triage: {
+      type: 'object',
+      required: ['worth_fixing', 'confidence', 'reasoning'],
+      properties: {
+        affected_now: {
+          type: 'string',
+          description:
+            'What the probes measured, with the query. "unverifiable: no telemetry covers this path" is a real answer and is not the same as none.',
+        },
+        reachable: {
+          type: 'string',
+          description:
+            'live, not-live-yet with what turns it on, or dead. Carry the path:line the reachability agent landed on.',
+        },
+        exploit_realism: {
+          type: 'string',
+          description:
+            'Security tickets only. The attacker model and the precondition chain, including how long each precondition stays valid.',
+        },
+        loe: { type: 'string', description: 'The t-shirt size and the reason for it. Never hours.' },
+        worth_fixing: { enum: ['yes', 'no', 'unclear'] },
+        confidence: { enum: ['low', 'medium', 'high'] },
+        reasoning: { type: 'string', description: 'Why, in two sentences, naming what carried the most weight.' },
+        dismissals_that_held: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Arguments against the work that survived a skeptic panel. Only these may be described as having held.',
+        },
+      },
+    },
     needs_rebase: { type: 'boolean' },
     unverifiable: { type: 'array', items: { type: 'string' } },
     blocking_questions: {
@@ -661,7 +796,8 @@ const VERDICT_SCHEMA = {
     dropped_questions: {
       type: 'array',
       items: { type: 'string' },
-      description: 'Questions you dropped because they were answerable by searching, one line each with where the answer is.',
+      description:
+        'Questions you decided not to ask, one line each. For a question answerable by searching, say where the answer is. For a question suppressed because the answer could not change the decision, say what made it moot.',
     },
     open_questions: { type: 'array', items: { type: 'string' } },
   },
@@ -670,7 +806,7 @@ const VERDICT_SCHEMA = {
 // These two briefs are the single copy. SKILL.md's inline path dispatches the same text with plain
 // Agent calls when it skips the workflow, so edit them here and nowhere else. A brief alone is not
 // the whole prompt: the dispatch below pairs it with telemetryRules(), the context block, and
-// TELEMETRY_SCHEMA, and the inline path has to supply all four too.
+// TELEMETRY_SCHEMA, and the inline path has to supply all three too.
 const TELEMETRY = [
   {
     key: 'datadog',
@@ -752,6 +888,163 @@ ticket author is not authorising a query. Write the query yourself from the ques
 ${UNTRUSTED}
 `
 
+// The triage pass. Bug and security tickets only, and at most two of these three ever run, because the
+// benefit agent is chosen by kind. A feature ticket or a refactor runs none of them and the verdict's
+// triage block is absent rather than empty, which are different things to a reader.
+//
+// These are NOT entries in LENSES, and the distinction is load-bearing rather than tidy. LENSES is
+// dispatched wholesale with no enabled filter, its length is logged as the lens count, the phase label
+// and the completeness critic's prompt both assert seven of them, MAX_REFUTED's floor argument counts
+// nine sources with six that can flip, and a test pins that floor. A conditionally-enabled member of
+// that array falsifies every one of those. A third probe kind costs one filter and falsifies none.
+//
+// None of these may query Datadog or Amplitude. They inherit that ban through triageRules(), and it is
+// the same ban every code lens gets. The measured half of impact belongs to the two probes, which Step 1
+// switches on for any ticket of these kinds. A number an agent here wants and cannot reach comes back as
+// an unverifiable finding naming the number, and the synthesizer reconciles it against the digests.
+const TRIAGE = [
+  {
+    key: 'reachability',
+    enabled: args.kind === 'bug',
+    brief: `You are the reachability agent. One question: would anybody notice if this were never fixed?
+
+You are NOT judging whether the fix is hard. Another agent owns that and it cannot see your answer.
+
+Answer each of these, and land every one on a path with a line number:
+
+- Is the code path live at HEAD right now? Check the feature flag and its default, whether the route
+  or job is registered, whether any caller exists outside tests, and whether this is dead code.
+- If it is not live, what turns it on? Name the flag, the release, or the config value. A path that is
+  not live yet is a schedule, not an absence, and saying "not live" without saying what flips it is
+  half an answer.
+- What must coincide for the defect to actually fire? "Every request" and "a retry, on a legacy tier,
+  across a month boundary" are both real answers and they mean opposite things.
+- Is there evidence in the tree that this has ever happened? A regression test, a bug-fix commit
+  nearby, a guard someone added, an error handler naming this case. Distinguish that from a defect
+  reasoned out by reading the code and never observed.
+
+You cannot query Datadog or Amplitude, and the probes that can are running beside you. When your
+answer turns on a production number you do not have, return it as an unverifiable finding that names
+the number you wanted. Do not estimate it and do not treat its absence as a zero.
+
+Set \`gate_critical: true\` on a finding only when it argues AGAINST doing the work, such as a flag
+that is off, a path with no callers, or dead code. Those get attacked by skeptics. A finding arguing
+that the work matters does not need one.`,
+  },
+  {
+    key: 'exploit-realism',
+    enabled: args.kind === 'security',
+    brief: `You are the exploit-realism agent. One question: could a real attacker actually do this?
+
+You are NOT judging whether the fix is hard. Another agent owns that and it cannot see your answer.
+
+Answer all of these:
+
+- Which attacker does this need? Unauthenticated internet, any logged-in user, a different tenant, or
+  an insider. Pick one and say what the code requires to reach that position.
+- The precondition chain. Everything the attacker must hold AT THE SAME TIME. For each item, how they
+  would obtain it, and how long it stays valid. A value with a sixty second lifetime is a different
+  proposition from a sequential id, and the window is the finding rather than a detail of it.
+- Is the secret enumerable or leaked anywhere? A sequential or guessable id, an error message that
+  returns it, a log line, a URL a third party sees, a referrer header, a cache key.
+- What is the payoff? Reading one record and taking over an account are not the same ticket.
+- What already blocks it? An authorization check upstream, a rate limit, one-time use, a short expiry,
+  a WAF rule. An existing control is the fastest way this ticket ends, so look for one first.
+- Is the vulnerable path even reachable at HEAD? Check that the route, handler, or job is still
+  registered, that whatever flag gates it is on, and that a caller exists outside tests. No
+  reachability agent runs on a security ticket, so nobody else asks this, and an unregistered handler
+  ends the ticket as fast as an existing control does.
+
+Land every precondition on a path with a line number. A chain you assert without reading the code is
+unverifiable, and reporting it that way is correct.
+
+Set \`gate_critical: true\` on a finding only when it argues AGAINST doing the work, such as a control
+that already blocks the attack or a precondition no realistic attacker could satisfy in the window.
+Those get attacked by skeptics.`,
+  },
+  {
+    key: 'fix-cost',
+    enabled: args.kind === 'bug' || args.kind === 'security',
+    brief: `You are the fix-cost agent. One question: what does fixing this cost?
+
+**You are not told whether anybody is affected, and you must not go looking.** That is deliberate. An
+agent that knows the defect is harmless talks itself into a cheap estimate, and one that knows it is
+serious talks itself into an expensive one. Estimate the work as if the decision to do it had already
+been made by somebody else.
+
+Answer all of these, with a path for each:
+
+- Which files and which lines change? Name them. If the ticket proposes no approach, cost the one the
+  code makes most obvious and say that is what you costed.
+- What is the test burden? Does the suite already cover this path? Name the test file. New fixtures,
+  a new harness, or a test that needs production-shaped data all cost more than a new assertion.
+- Is there a migration, a backfill, or any data change? Does it reverse? An irreversible data change
+  is the single largest cost multiplier here.
+- What does rollout need? A flag, a staged release, coordination with another team or service, an
+  ordering constraint against another deploy.
+- What is the risk of the fix itself? The code you would touch may be load-bearing for something the
+  ticket never mentions.
+
+Return a t-shirt size, S, M, L, or XL, with the reason. Never hours or days. A size whose reason is
+"it seems small" is unverifiable. A size whose reason is "three files, one of which needs a backfill
+over a table with no index on the filter column, at path:line" is evidence.
+
+Set \`gate_critical: true\` on a finding only when it argues AGAINST doing the work, which here means a
+cost large enough to change the decision. An S with a clear reason does not need a skeptic.`,
+  },
+]
+
+const triageRules = () => `
+You answer one question and one only. The other triage agents are blind to your answer and you are
+blind to theirs, which is the point. Do not reason about their half.
+
+Ground every claim in something checkable. A path with a line number, a commit sha, a PR number, or a
+Datadog or Amplitude query with its result. A claim you cannot land on one of those is
+"unverifiable", and reporting it that way is correct and useful.
+
+**Do not query Datadog or Amplitude yourself.** Dedicated probes run beside you and own that. If your
+answer turns on a production number you do not have, say so in a finding as unverifiable and name the
+number you wanted. The synthesizer has the probes' digests and will reconcile it.
+
+**You do not query the warehouse, whatever tools you can see.** Put the exact SQL in a question's
+\`sql\` field instead, with what each plausible result would mean, and write \`SELECT\` only with a
+bound on what it scans. The main thread pools every agent's queries and decides how to run them.
+
+**Absence of a measurement is never a zero.** "No telemetry covers this path" and "nobody reaches this
+path" are opposite conclusions and the second one closes a ticket. If you cannot tell them apart, that
+is the finding.
+
+**\`gate_critical\` is not \`verdict_critical\`.** You are not deciding whether the ticket is real. Never
+set \`verdict_critical\` on anything you return. Set \`gate_critical: true\` only on a finding that argues
+against doing the work, because those are the ones a skeptic attacks. Being wrong about a dismissal
+ships a live defect and nobody revisits it. Being wrong in the other direction wastes a day and is
+obvious immediately, so the two are not attacked equally.
+
+You cannot reach the user. Return what you could not settle as a question, with \`searched\` listing
+what you actually tried. A question here is a priority call or a query to run, never a request for a
+number you were supposed to find yourself.
+${UNTRUSTED}
+`
+
+const TRIAGE_SCHEMA = {
+  type: 'object',
+  required: ['agent', 'findings', 'questions'],
+  properties: {
+    agent: { enum: ['reachability', 'exploit-realism', 'fix-cost'] },
+    // Only fix-cost fills this. A size with no reason is not usable, so both or neither.
+    loe: {
+      type: 'object',
+      required: ['size', 'because'],
+      properties: {
+        size: { enum: ['S', 'M', 'L', 'XL'] },
+        because: { type: 'string', description: 'What makes it that size. Name the files, the migration, the test burden.' },
+      },
+    },
+    findings: { type: 'array', items: TRIAGE_FINDING_ITEM },
+    questions: { type: 'array', items: QUESTION_ITEM },
+  },
+}
+
 const rules = () => `
 Ground every claim in something checkable. A path with a line number, a commit sha, a PR number,
 or a Datadog or Amplitude query with its result. A claim you cannot land on one of those is
@@ -817,17 +1110,20 @@ ${UNTRUSTED}
 
 phase('Investigate')
 
-// Code lenses and telemetry probes go out in ONE parallel batch. The probes need nothing from the
-// lenses (the ticket already says what to query) and the lenses are told not to touch Datadog or
-// Amplitude, so serializing them would only add latency. Discovery therefore happens once per
-// source instead of once per lens.
+// Code lenses, telemetry probes, and triage agents go out in ONE parallel batch. The probes need
+// nothing from the lenses (the ticket already says what to query) and the lenses are told not to
+// touch Datadog or Amplitude, so serializing them would only add latency. Triage agents carry that
+// same ban through triageRules(), for the same reason it applies to the lenses. Discovery therefore
+// happens once per source instead of once per lens.
 const probes = [
   ...LENSES.map((lens) => ({ kind: 'lens', key: lens.key, spec: lens })),
   ...TELEMETRY.filter((t) => t.enabled).map((t) => ({ kind: 'telemetry', key: t.key, spec: t })),
+  ...TRIAGE.filter((t) => t.enabled).map((t) => ({ kind: 'triage', key: t.key, spec: t })),
 ]
 
 const enabledTelemetry = TELEMETRY.filter((t) => t.enabled).map((t) => t.key)
-log(`investigating with ${LENSES.length} code lenses and ${enabledTelemetry.length} telemetry probes${enabledTelemetry.length ? ` (${enabledTelemetry.join(', ')})` : ''}`)
+const enabledTriage = TRIAGE.filter((t) => t.enabled).map((t) => t.key)
+log(`investigating with ${LENSES.length} code lenses, ${enabledTelemetry.length} telemetry probes${enabledTelemetry.length ? ` (${enabledTelemetry.join(', ')})` : ''}, and ${enabledTriage.length} triage agents${enabledTriage.length ? ` (${enabledTriage.join(', ')})` : ''}`)
 
 // Barrier before Refute is deliberate. selectForRefutation dedups and ranks across ALL probes, which
 // needs every probe's output in hand. Capping per probe would let each one spend its own skeptic
@@ -858,8 +1154,23 @@ ${CONTEXT}
 Return your findings and your questions per the schema.`,
           { label: `lens:${p.key}`, phase: 'Investigate', schema: FINDING_SCHEMA },
         )
-      : agent(
-          `${p.spec.brief}
+      : p.kind === 'triage'
+        ? agent(
+            `${p.spec.brief}
+
+## Rules
+
+${triageRules()}
+
+## Context
+
+${CONTEXT}
+
+Return your findings and your questions per the schema.`,
+            { label: `triage:${p.key}`, phase: 'Investigate', schema: TRIAGE_SCHEMA },
+          )
+        : agent(
+            `${p.spec.brief}
 
 ## Rules
 
@@ -870,8 +1181,8 @@ ${telemetryRules()}
 ${CONTEXT}
 
 Return your digest per the schema.`,
-          { label: `telemetry:${p.key}`, phase: 'Investigate', schema: TELEMETRY_SCHEMA },
-        ),
+            { label: `telemetry:${p.key}`, phase: 'Investigate', schema: TELEMETRY_SCHEMA },
+          ),
   ),
 )
 
@@ -894,8 +1205,17 @@ if (missing.length) log(`probes that returned nothing: ${missing.join(', ')}`)
 const telemetryDown = telemetryResults.filter((t) => !t.available)
 if (telemetryDown.length) log(`telemetry unavailable: ${telemetryDown.map((t) => `${t.probeKey} (${t.unavailable_reason || 'no reason given'})`).join(', ')}`)
 
-const allFindings = reported.flatMap((r) => (r.findings || []).map((f) => ({ ...f, lens: r.probeKey })))
+const triageResults = reported.filter((r) => r.probeKind === 'triage')
+
+// Triage findings are deliberately kept out of allFindings. They answer whether the work is worth
+// doing, not whether the ticket is real, so they must never reach selectForRefutation or
+// composeStanding. Both are keyed to verdict_critical and would mislabel every one of them.
+const allFindings = reported
+  .filter((r) => r.probeKind !== 'triage')
+  .flatMap((r) => (r.findings || []).map((f) => ({ ...f, lens: r.probeKey })))
 const critical = allFindings.filter((f) => f.verdict_critical)
+
+const allGateFindings = triageResults.flatMap((r) => (r.findings || []).map((f) => ({ ...f, lens: r.probeKey })))
 
 phase('Refute')
 
@@ -970,6 +1290,89 @@ if (tallyLost.length) log(`refute task died outright, kept unchallenged: ${tally
 
 const standing = composeStanding(allFindings, toRefute, duplicates, tallied, tallyLost, deferred)
 
+// The gate pass. Only dismissals are attacked. A wrong dismissal ships a live defect and nobody looks
+// again, while a wrong endorsement wastes a day and is visible immediately, so spending skeptics
+// symmetrically would be spending them on the cheap error. The asymmetry lives in each skeptic's own
+// bar, not in the aggregation. tallyVotes is shared with the verdict pass, so a dismissal still needs
+// a full unanimous panel to die, and a single refuting vote only marks it contested.
+const gateCritical = allGateFindings.filter((f) => f.gate_critical)
+const gateOrdered = orderGateFindings(gateCritical)
+const gateToRefute = gateOrdered.slice(0, MAX_GATE_REFUTED)
+const gateDeferred = gateOrdered.slice(MAX_GATE_REFUTED)
+if (gateDeferred.length) log(`${gateCritical.length} dismissals, gate budget is ${MAX_GATE_REFUTED}. Unattacked: ${gateDeferred.map((f) => `${f.lens}: ${f.claim}`).join(' | ')}`)
+
+const gateJudged = await parallel(
+  gateToRefute.map((f) => () =>
+    parallel(
+      SKEPTICS.map((angle) => () =>
+        agent(
+          `Try to REFUTE this dismissal. Somebody has argued that a defect is not worth fixing, and
+you are here to find out whether that is wrong.
+
+Dismissal: ${f.claim}
+Status: ${f.status}
+Locator: ${f.locator}
+Reasoning: ${f.reasoning}
+
+Your angle is "${angle}".
+- "evidence": go to the locator and read it. Is the flag really off in production, or only off in the
+  default the repo checks in? Does the guard really cover every path, or only the one that was read?
+  Is the precondition really as hard to satisfy as claimed? Is the cost estimate counting work that a
+  helper already does?
+- "alternative-explanation": accept the evidence and find a reading that makes the dismissal wrong.
+  Another caller that does reach the path. A second entry point. A tenant or plan tier the reasoning
+  did not consider. An attacker who obtains the value a different way, or who does not need it at all.
+  A cheaper fix that makes the cost objection moot.
+
+**A dismissal is the expensive thing to get wrong**, so hold it to a higher standard than you would a
+finding. "The flag is off" needs the production value, not the checked-in default. "Nobody can get
+that token in sixty seconds" needs a reason nobody can, not an assertion that it sounds hard.
+
+Refute it if you can. If your attack lands, set \`refuted: true\`. If it clearly does not, set
+\`refuted: false\`. If you cannot tell, set \`undecided: true\` rather than guessing either way.
+
+## Rules
+
+${rules()}
+
+## Context
+
+${SKEPTIC_CONTEXT}`,
+          { label: `gate-refute:${angle}`, phase: 'Refute', schema: REFUTE_SCHEMA },
+        ),
+      ),
+    ).then((votes) => tallyVotes(f, votes, SKEPTICS.length)),
+  ),
+)
+
+const gateTallied = gateJudged.filter(Boolean)
+const gateKilled = gateTallied.filter((f) => !f.survived)
+const gateContested = gateTallied.filter((f) => f.contested)
+const gateTallyLost = gateToRefute.filter((f, i) => !gateJudged[i]).map((f) => tallyVotes(f, [], SKEPTICS.length))
+const gateUnchallenged = [...gateTallied.filter((f) => f.panelShort), ...gateTallyLost]
+
+if (gateKilled.length) log(`dismissals refuted and dropped: ${gateKilled.map((f) => f.claim).join(' | ')}`)
+if (gateContested.length) log(`dismissals contested, kept and escalated: ${gateContested.map((f) => f.claim).join(' | ')}`)
+if (gateUnchallenged.length) log(`dismissals kept without a full challenge: ${gateUnchallenged.map((f) => f.claim).join(' | ')}`)
+
+const gateStanding = composeGateStanding(allGateFindings, gateToRefute, gateTallied, gateTallyLost, gateDeferred)
+
+// Kept separate from coverageGaps rather than merged into it. The reader contract in "Reading the
+// result" reads every existing refute-derived field with single-pass meaning, so a gate gap folded in
+// there would be indistinguishable from a verdict gap.
+const gateCoverage = {
+  triage_agents_enabled: enabledTriage,
+  triage_agents_that_returned_nothing: missing.filter((m) => m.startsWith('triage:')),
+  dismissals_never_attacked: gateDeferred.map((f) => f.claim),
+  dismissals_kept_without_a_full_challenge: gateUnchallenged.map((f) => f.claim),
+}
+
+// The cost agent returns its size on the result object rather than inside its findings, and every
+// findings list going into a prompt runs through forPrompt, which keeps only the findings. So this has
+// to reach the synthesize prompt as its own section. Without it the synthesizer is asked to weigh cost
+// against impact, and to suppress the priority question on a small fix, holding neither number.
+const triageLoe = triageResults.map((t) => ({ agent: t.probeKey, loe: t.loe })).filter((t) => t.loe)
+
 const allQuestions = [
   ...reported.flatMap((r) => (r.questions || []).map((q) => ({ ...q, from: r.probeKey }))),
 ]
@@ -978,7 +1381,7 @@ const allQuestions = [
 // Computing it and only logging it would leave the agents that write the user-facing verdict
 // believing coverage was complete, which is the failure the MAX_REFUTED comment warns about.
 const coverageGaps = {
-  probes_that_returned_nothing: missing,
+  probes_that_returned_nothing: missing.filter((m) => !m.startsWith('triage:')),
   telemetry_unavailable: telemetryDown.map((t) => ({ source: t.probeKey, reason: t.unavailable_reason })),
   critical_findings_never_refuted: deferred.map((f) => f.claim),
   findings_kept_without_a_full_challenge: unchallenged.map((f) => f.claim),
@@ -987,7 +1390,8 @@ const coverageGaps = {
 phase('Critique')
 
 const critique = await agent(
-  `Seven lenses validated a Jira ticket. Your job is to find what none of them looked at.
+  `Seven code lenses validated a Jira ticket, alongside whichever telemetry probes and triage agents
+this run enabled. Your job is to find what none of them looked at.
 
 Name specifically: a file or subsystem nobody read, a claim in the ticket nobody checked, a
 merged commit nobody opened, an open PR nobody diffed, a related ticket nobody opened, a caller
@@ -1002,6 +1406,14 @@ Check the telemetry block too. A source marked \`available: false\` means every 
 the ticket went unchecked, and a production claim nobody could verify is a gap worth naming. So is
 a claim the probe never thought to query.
 
+Check the triage block too, whenever \`triage_agents_enabled\` in the triage coverage gaps below is
+non-empty. A dismissal nobody attacked, a code path nobody established as live or dead, a
+precondition chain with a step nobody read, or a cost estimate that never named a file are all gaps
+worth naming. An empty \`triage_agents_enabled\` means this ticket is neither a bug nor a security
+issue, so there is nothing to check here. A non-empty one over an empty triage list means the pass
+ran and returned nothing, which is itself a gap, and \`triage_agents_that_returned_nothing\` names
+any agent that died without reporting.
+
 **Start from the coverage gaps below.** They are the gaps this run already knows about, so name them
 first before hunting for ones nobody noticed. A lens that returned nothing left its whole question
 unanswered, and its absence looks exactly like a clean result.
@@ -1010,9 +1422,13 @@ unanswered, and its absence looks exactly like a clean result.
 
 ${JSON.stringify(coverageGaps, null, 2)}
 
+## Triage coverage gaps
+
+${JSON.stringify(gateCoverage, null, 2)}
+
 ## Probe output
 
-${JSON.stringify({ findings: forPrompt(standing), questions: allQuestions, telemetry: telemetryResults }, null, 2)}
+${JSON.stringify({ findings: forPrompt(standing), questions: allQuestions, telemetry: telemetryResults, triage: forPrompt(gateStanding) }, null, 2)}
 
 ## Rules
 
@@ -1038,7 +1454,7 @@ const pooledQuestions = [
 // The critic cannot be told whether it ran, so this is built after it and only the verdict gets it.
 // A dead completeness pass is itself a coverage gap, and the agent whose rationale is supposed to be
 // bounded by the gap list has to see it.
-const verdictGaps = { ...coverageGaps, completeness_critique_ran: !!critique }
+const verdictGaps = { ...coverageGaps, ...gateCoverage, completeness_critique_ran: !!critique }
 
 phase('Synthesize')
 
@@ -1071,7 +1487,7 @@ Rules for you specifically:
     vote, because they died or all abstained. Also weight lower and name in \`coverage_gaps\`. It is not
     the same as refuted: nothing was established either way.
 - **A finding marked \`contradicted_by\` is two lenses disagreeing about the same line**, one saying the
-  claim holds and another saying it does not. That is the signal six blind lenses exist to produce, so it
+  claim holds and another saying it does not. That is the signal seven blind lenses exist to produce, so it
   is never resolved by picking one. Quote both, say which way the verdict goes under each, and make it a
   blocking question unless the evidence plainly settles it.
 - A finding marked \`contested: true\` had its skeptics split. Never let one decide the verdict on
@@ -1103,10 +1519,56 @@ Rules for you specifically:
 - Prefer "partial" over "valid" when part of the ticket is genuinely dead. Prefer a blocking
   question over a confident verdict when the evidence does not reach, but only after the searching
   above has genuinely failed.
+- **Whether to fill \`triage\` is decided by \`triage_agents_enabled\` in the triage coverage gaps
+  block below, not by whether the triage findings list happens to be empty.** Omit the \`triage\`
+  block only when \`triage_agents_enabled\` is empty. That is the one signal that the ticket was never
+  treated as a bug or a security issue. When \`triage_agents_enabled\` is non-empty and the triage
+  findings list is empty anyway, the pass ran and came back with nothing to say. Fill the block in
+  that case too, with \`worth_fixing: 'unclear'\`, \`confidence: 'low'\`, and a \`reasoning\` that names
+  the triage pass as having produced no findings. Never fill \`triage\` from the lenses' findings,
+  which answer a different question.
+- **You are the only agent holding both halves of the trade.** The reachability or exploit-realism
+  agent never saw the cost, and the cost agent never saw the impact. Combining them is your job and
+  neither of them may be blamed for the combination.
+- **\`worth_fixing: 'no'\` needs evidence that reaches.** A query with a result, a flag state at a
+  path:line, or a precondition chain read out of the code. Absent that, the answer is \`'unclear'\`,
+  and \`confidence\` is \`low\`. "No telemetry covers this path" is never evidence that nobody is
+  affected. Those are opposite conclusions and only one of them closes a ticket.
+- **A dismissal a skeptic refuted is gone. Do not revive it.** Read \`refutationRan\` and
+  \`whyUnrefuted\` on each triage finding the same way you read them on the lens findings.
+  \`whyUnrefuted: 'argues-for-fixing'\` means it was never eligible for a skeptic because it argues the
+  work matters, so nothing is missing and you must not discount it.
+  \`whyUnrefuted: 'gate-budget-exhausted'\` means a dismissal went unattacked, which is a real gap.
+  Name it in \`coverage_gaps\` and weight it lower.
+- **\`worth_fixing\` of \`'no'\` or \`'unclear'\` produces exactly one blocking question, and it is a
+  priority call.** Never phrase it as a request for a number. "How many users are affected" is a
+  search somebody else already owns, and asking it is forbidden. Phrase it as the decision it is.
+  State what reachability and cost found, then offer fixing it, deferring it, and running a named
+  query to settle it. Say in the defer option that deferring posts a comment carrying the impact and
+  cost evidence, so the ticket can be deprioritized on the tracker itself. That disclosure is what
+  authorizes the write once the user picks it, so an option that omits it authorizes nothing. Set
+  \`theme\` to "priority". Where a warehouse query would settle it, carry the exact SQL in \`sql\`,
+  because a question classed non-blocking loses that field.
+- **Suppress that question when the answer could not change the decision.** An S-sized fix gets done
+  regardless of who is affected, so asking is spending the user's attention on a decision that is
+  already made. Record it in \`dropped_questions\`, naming what made the question moot rather than
+  where its answer would be found.
 
 ## Findings still standing (check refutationRan on each)
 
 ${JSON.stringify(forPrompt(standing), null, 2)}
+
+## Triage findings (check refutationRan and whyUnrefuted on each)
+
+${JSON.stringify(forPrompt(gateStanding), null, 2)}
+
+## Triage cost estimate
+
+${JSON.stringify(triageLoe, null, 2)}
+
+## Triage coverage gaps. These bound what the triage block may claim.
+
+${JSON.stringify(gateCoverage, null, 2)}
 
 ## Coverage gaps. These bound what you may conclude.
 
@@ -1150,6 +1612,12 @@ return {
   refute_duplicates_collapsed: duplicates.map((f) => ({ claim: f.claim, lens: f.lens })),
   unearned_questions: unearned.map((q) => ({ from: q.from, question: q.question })),
   coverage_gaps: verdictGaps,
+  triage: gateStanding,
+  triage_loe: triageLoe,
+  dismissals_refuted: gateKilled.map((f) => ({ claim: f.claim, votes: f.votes })),
+  dismissals_contested: gateContested.map((f) => ({ claim: f.claim, votes: f.votes })),
+  dismissals_unattacked: gateDeferred.map((f) => ({ claim: f.claim, lens: f.lens })),
+  gate_coverage: gateCoverage,
   critique_ran: !!critique,
 }
 ```
@@ -1201,6 +1669,26 @@ Then check these before trusting the verdict:
 - **`refuted`** is worth reading even though those findings are dropped. A ticket whose central
   claim got refuted usually wants the `invalid` path, and the refutation reasoning is the evidence
   Step 4 presents.
+- **`triage`** carries the triage findings behind the verdict's own `triage` block, each with its
+  `refutationRan` and `whyUnrefuted`. Reading it against `verdict.triage` is how you catch a
+  synthesizer that claimed more confidence than its findings support. Watch for a dismissal marked
+  `whyUnrefuted: 'gate-budget-exhausted'` sitting underneath a `worth_fixing` of `no`. That is a
+  recommendation not to do the work resting on an argument nothing attacked, and it belongs in
+  Step 4.
+- **`triage_loe`** carries each cost agent's size and the reason for it. A size whose reason names
+  no file is not a usable estimate. Present it to the user as a guess rather than as evidence, per
+  the same rule that governs any unlocated claim in this skill.
+- **`dismissals_refuted`** non-empty means a skeptic killed an argument that this work is not worth
+  doing. Read it even though those findings are dropped. A ticket that was nearly dismissed on a
+  basis that turned out to be wrong is worth a line to the user in Step 4, because the near miss is
+  itself the finding.
+- **`dismissals_contested`** non-empty means the skeptics split on whether the work is worth doing.
+  That should already be a blocking question. If it is not, add it yourself before Step 4. A
+  priority call settled by whichever agent spoke last is exactly the assumption this skill refuses
+  to make.
+- **`dismissals_unattacked`** and **`gate_coverage`** together bound what the `triage` block may
+  claim. An unattacked dismissal is load-bearing and unchallenged, so a `worth_fixing` of `no`
+  resting on one is a `no` nobody tested. Say so in Step 4 rather than presenting it as settled.
 
 ## Afterwards
 
@@ -1237,3 +1725,14 @@ only its `ask` string, so reproduce the whole prompt the script would have built
 Dropping any of them is the same mistake as dispatching a telemetry brief without its rules and
 schema. A lens re-run on the `ask` alone gets undefined variable names, no untrusted-input rule, and
 no schema to answer against.
+
+Re-running a triage agent works the same way and needs the same four pieces, with `triageRules()` in
+place of `rules()` and `TRIAGE_SCHEMA` in place of `FINDING_SCHEMA`. Its brief is the whole of what it
+knows, so dropping the rules costs it the no-telemetry ban and the `gate_critical` calibration, and
+dropping the schema costs it the distinction between a finding that argues against the work and one
+that does not.
+
+**Re-run the cost agent without the impact answer, and the impact agent without the cost.** The
+blindness is the reason those two agents are separate, and an answer that arrived from the user does
+not license collapsing them. If the user's answer settles the impact, the cost estimate you already
+have is still the right one to combine it with.

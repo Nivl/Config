@@ -229,6 +229,13 @@ func TestLinkDirEntries_MkdirFailureIsWrapped(t *testing.T) {
 // cannot be looked into surfaces as a wrapped inspect error. Distinct
 // from a missing target, which is simply "not linked yet".
 func TestLinkDirEntries_InspectTargetFailureIsWrapped(t *testing.T) {
+	// This test forces its failure by chmodding localDir to 0 so the
+	// lstat inside LinkDirEntries is denied. Root ignores permission
+	// bits, so under root that lstat still succeeds and the
+	// require.Error below never fires.
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses the directory permissions this test uses to force the failure")
+	}
 	p := newLinkDirEnv(t, "work-on")
 	require.NoError(t, LinkDirEntries(p, "skills", &bytes.Buffer{}, liveOpts()))
 	localDir := filepath.Join(p.HomeDir, "skills")

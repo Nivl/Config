@@ -236,6 +236,13 @@ func TestInstall_ReplaceRelinksSymlinkPointingElsewhere(t *testing.T) {
 // does can fail too. A parent that denies writes blocks the move, so
 // nothing is touched and the error names the step.
 func TestInstall_ReplaceFailsWhenMoveAsideFails(t *testing.T) {
+	// This test forces the rename to fail by chmodding the parent
+	// directory to 0o555 so the move-aside is denied. Root ignores
+	// directory permissions, so under root the rename still succeeds
+	// and the require.Error below never fires.
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses the directory permissions this test uses to force the failure")
+	}
 	tmp := t.TempDir()
 	source := filepath.Join(tmp, "src")
 	require.NoError(t, os.MkdirAll(source, 0o755))
@@ -293,6 +300,13 @@ func TestInstall_ReplaceRelinksRegularFile(t *testing.T) {
 // the target used to be. The unremovable child is what forces the
 // delete to fail.
 func TestInstall_ReplaceKeepsLinkWhenCleanupFails(t *testing.T) {
+	// This test forces the cleanup to fail by chmodding a
+	// subdirectory to 0o555 so RemoveAll cannot remove its children.
+	// Root ignores permission bits, so under root that RemoveAll
+	// still succeeds and the require.Error below never fires.
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses the directory permissions this test uses to force the failure")
+	}
 	tmp := t.TempDir()
 	source := filepath.Join(tmp, "src")
 	require.NoError(t, os.MkdirAll(source, 0o755))

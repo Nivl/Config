@@ -40,7 +40,7 @@ Verbatim from the request.
 
 ## Bug Fix and Security
 
-Verbatim from the request. The `### Stats` block and its `rating from 1 to 5` wording are load-bearing. They are what makes a bug ticket triageable without a follow-up question.
+Verbatim from the request, plus the rendered rating line and the rubric under the template, which exist so Step 4 has one scale to pick from. The `### Stats` block and its `rating from 1 to 5` wording are load-bearing. They are what makes a bug ticket triageable without a follow-up question.
 
 ```
 ## Problem
@@ -48,6 +48,8 @@ Verbatim from the request. The `### Stats` block and its `rating from 1 to 5` wo
 
 ### Stats
 [how many people are impacted? Are impacted users in a locked state? does this require a backfill? Is this in a legacy route? Is this in a live codepath? We also want a rating from 1 to 5 about the odds of this to trigger. 1 mean the bugs has a low probability of happening, 5 mean the bug is actively impacting users at a very high rate]
+
+Odds of triggering: [1-5]/5 - [why, landed on a path with a line number or on the query that measured it]
 
 ## Root Cause
 [What's causing the issue - file and line reference]
@@ -76,6 +78,26 @@ Verbatim from the request. The `### Stats` block and its `rating from 1 to 5` wo
 ## Related Code
 - [Where similar issues might exist]
 ```
+
+### The odds rating
+
+The request's own wording sets the ends of the scale at 1 and 5. These five rungs fill it in, and Step 4 picks from this scale and no other.
+
+- **1.** Needs a combination of conditions no known user hits.
+- **2.** Needs a non-default config or an unusual input.
+- **3.** On a normal path, but behind a condition only some users meet.
+- **4.** Fires on the default path for anyone who takes it.
+- **5.** Measured, and actively firing in production now.
+
+Rungs 1 through 4 measure preconditions, so a code read alone places a defect anywhere in that range and the probes only sharpen the number. Rung 5 is the deliberate exception. It needs a measurement, so a read of the guards tops out at 4 however severe the defect looks, and only a probe moves it past that. A 4 argued from the guards and a 4 Datadog measured are both legal, and the rationale is what tells them apart.
+
+Population share never enters the scale. An Amplitude count of how many users reach the path belongs in the Stats block's own impact question and cannot raise a rating by itself.
+
+A defect that cannot fire at HEAD has no rung here. A dead path goes to the Step 9 gate as a question rather than onto the scale, because filing it as a 1 reads as work worth doing.
+
+**A bare digit is not a rating.** The rationale carries either a path with a line number or the query that produced the number. `4/5` gives a triager nothing they can check. `4/5 - default branch in checkout submit, no flag guard (src/checkout/submit.ts:142)` tells them where to look and lets them disagree.
+
+**When nothing derived the number, the line carries a `TODO(user):` where the digit would go.** The Shared rules above already demand that shape for any number nobody ran, and a rating is a number. Write `Odds of triggering: TODO(user): run <the query> to place this on the scale.` and never a digit standing in for one.
 
 ## Technical Debt
 

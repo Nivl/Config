@@ -67,6 +67,47 @@ assert_line_count "tpl_eli5_section_count" '^## ELI5$' 4 "$TEMPLATES_MD"
 assert_line_count "tpl_bug_has_stats" '^### Stats$' 1 "$TEMPLATES_MD"
 assert_contains "tpl_bug_has_rating" "rating from 1 to 5" "$TEMPLATES_FLAT"
 
+# The request's own wording defines 1 and 5 and nothing between them. Without the
+# four boundaries below, two runs rate the same defect differently and the board
+# cannot sort on the number at all. Each boundary is pinned on its own, because a
+# partial rubric is the failure mode here rather than a missing one.
+assert_line_count "tpl_has_odds_rubric" '^### The odds rating$' 1 "$TEMPLATES_MD"
+assert_contains "tpl_odds_1" "**1.** Needs a combination of conditions no known user hits." "$TEMPLATES_FLAT"
+assert_contains "tpl_odds_2" "**2.** Needs a non-default config or an unusual input." "$TEMPLATES_FLAT"
+assert_contains "tpl_odds_3" "**3.** On a normal path, but behind a condition only some users meet." "$TEMPLATES_FLAT"
+assert_contains "tpl_odds_4" "**4.** Fires on the default path for anyone who takes it." "$TEMPLATES_FLAT"
+assert_contains "tpl_odds_5" "**5.** Measured, and actively firing in production now." "$TEMPLATES_FLAT"
+
+# Preconditions and not population share. Lose this sentence and the next reader
+# reads the scale as a percentage of users, which no code read can answer, so
+# every unmeasured defect starts arriving with no rating at all.
+assert_contains "tpl_odds_is_preconditions" "Rungs 1 through 4 measure preconditions" "$TEMPLATES_FLAT"
+
+# Rung 5 is measurement-defined while 1 through 4 are not, so a code read tops out
+# at 4. Saying the whole scale measures preconditions contradicts its own top rung
+# and tells a reader a guard read can reach 5, which is the rating inflation the
+# evidence requirement exists to stop.
+assert_contains "tpl_odds_five_needs_measurement" "a read of the guards tops out at 4" "$TEMPLATES_FLAT"
+
+# Amplitude measures the one axis the scale does not use. Without this the probe's
+# number looks like it belongs in the rating, and a big reach count silently
+# inflates a defect that fires only behind a rare precondition.
+assert_contains "tpl_odds_excludes_population" "Population share never enters the scale." "$TEMPLATES_FLAT"
+
+# The rubric starts at 1, so a defect that cannot fire has no rung. Filed as a 1 it
+# reads as work worth doing, which is the opposite of what a dead path deserves.
+assert_contains "tpl_odds_dead_path_has_no_rung" "A defect that cannot fire at HEAD has no rung here." "$TEMPLATES_FLAT"
+
+# The template has to admit the fallback SKILL.md mandates, or a drafter with no
+# derived number has only a digit to write and writes one.
+assert_contains "tpl_odds_todo_rendering" "the line carries a \`TODO(user):\` where the digit would go" "$TEMPLATES_FLAT"
+
+# The rendered line in the template, and the ban on a digit with nothing behind
+# it. A rating a triager cannot check is the thing this whole block exists to
+# stop, and the bare digit is what it decays into.
+assert_contains "tpl_odds_rendered_line" "Odds of triggering: [1-5]/5" "$TEMPLATES_FLAT"
+assert_contains "tpl_odds_no_bare_digit" "A bare digit is not a rating." "$TEMPLATES_FLAT"
+
 # Never a table. A ticket arrives mangled more often from a table than from
 # anything else, and a triage assessment is the natural table.
 assert_contains "tpl_bans_tables" "Never a table" "$TEMPLATES_FLAT"
@@ -311,6 +352,96 @@ done
 # while every assertion above still passes. These two pin what each of those steps actually is.
 assert_line_count "sk_step_4_is_exploration" '^## Step 4: Explore the codebase$' 1 "$SKILL_MD"
 assert_line_count "sk_step_9_is_the_gate" '^## Step 9: The plan gate$' 1 "$SKILL_MD"
+
+# ---- The odds of triggering ----
+# TEMPLATES.md asks a bug ticket for a 1-to-5 rating. These assertions pin the
+# half of the skill that derives it. Drop any one of them and the rating still
+# gets asked for, so the run fills it with a number nobody derived, and a guessed
+# digit in a Stats block reads exactly like triage somebody performed.
+assert_line_count "sk_has_odds_section" '^### The odds of triggering, on a defect report only$' 1 "$SKILL_MD"
+
+# The token alone is satisfied by any of its scattered mentions, so the needle has
+# to reach the sentence that says when the reader runs. Otherwise the paragraph
+# defining the reader can go and the suite still finds the name somewhere else.
+assert_contains "sk_names_trigger_odds_reader" "\`trigger-odds\` runs whenever Step 3 called the request a defect report" "$SKILL_FLAT"
+
+# The one silent-failure guard in the section. An absent or unauthenticated MCP
+# read as "measured nothing" sets the rating too low, which is the direction that
+# gets a real defect deprioritized rather than the direction that wastes time.
+assert_contains "sk_probe_unreachable_is_reported" "A probe that cannot reach its source says so" "$SKILL_FLAT"
+
+# The gate is per node, and Step 3's request-level flag can disagree with Step 7's
+# per-node type. Lose this and a Bug leaf on a request nobody flagged as a defect
+# report reaches Step 8 with a Stats block and no authorized producer for the number.
+assert_contains "sk_odds_gate_is_per_node" "The gate is per node and not per request" "$SKILL_FLAT"
+
+# The inline path collapses the two halves into one context, so the independence
+# ban cannot hold there. Stating the ban without stating where it fails is how a
+# single judgement gets read as two that agreed.
+assert_contains "sk_inline_loses_independence" "the independence is gone" "$SKILL_FLAT"
+
+# Step 3 owns both gates, because Step 7 picks the issue type three steps after
+# the exploration that has to act on it. Lose this and the reader has nothing to
+# switch it on, so it either never runs or runs on every feature request.
+assert_contains "sk_step_3_gates_odds" "names a production symptom" "$SKILL_FLAT"
+
+# The independence ban. A reader that has seen the rate stops reading the guards
+# honestly, and the two halves then agree because one copied the other. That
+# turns a disagreement worth acting on into a silent consensus.
+assert_contains "sk_odds_reader_cannot_query" "may not query Datadog or Amplitude" "$SKILL_FLAT"
+
+# Which half wins. A measured rate beats a read of the guards, and without this
+# the two halves have no stated precedence, so a run picks whichever it liked.
+assert_contains "sk_telemetry_wins" "Telemetry wins when the two halves disagree" "$SKILL_FLAT"
+
+# That the loser survives is a separate rule from which half wins, and the needle
+# above cannot reach it. The losing half is the one worth keeping, because a flag
+# defaulting off against a measured twelve thousand a day is a second defect. Both
+# places the rule is stated get their own needle, since either one alone leaves
+# the other deletable.
+assert_contains "sk_losing_half_is_kept" "Record the losing half in the plan file anyway." "$SKILL_FLAT"
+assert_contains "sk_plan_file_carries_odds" "the odds-of-triggering rating on every defect node" "$SKILL_FLAT"
+assert_contains "sk_plan_file_carries_loser" "whichever half lost the disagreement" "$SKILL_FLAT"
+
+# The probes are gated on a production symptom, so a defect request without one
+# produces no digests at all. Demanding them unconditionally would make the bullet
+# unsatisfiable on that path, and the reason they were gated off is the thing a
+# human at the gate actually needs in its place.
+assert_contains "sk_plan_file_says_gated_off" "the reason they were gated off when they did not" "$SKILL_FLAT"
+
+# telemetryRules() in work-on/VALIDATION.md is the single copy of the rules the
+# probes follow. Restate them here and the two copies drift, then a run follows
+# whichever it read last. The pointer names that function and not the file,
+# because the absence-is-never-a-zero rule sits in triageRules() next door and
+# this skill states that one itself rather than pointing at it.
+assert_contains "sk_points_at_telemetry_rules" "telemetryRules()" "$SKILL_FLAT"
+assert_contains "sk_absence_rule_is_local" "triageRules()" "$SKILL_FLAT"
+
+# The five readers stay five. A conditional sixth row in that table falsifies the
+# count the inline-path paragraph asserts, on every feature request that never
+# switches it on. This is the same trap work-on/VALIDATION.md documents for its
+# own LENSES array.
+assert_contains "sk_odds_not_a_reader_row" "None of this is a row in the table above." "$SKILL_FLAT"
+
+# Neither half landing a number is a TODO(user): line and never a guess. The
+# needle has to run through the token itself. Stopped one word short, at "makes
+# the rating a", it matches "makes the rating a reasonable guess" just as
+# happily, so the assertion passes on the exact outcome it exists to ban.
+assert_contains "sk_odds_falls_back_to_todo" "makes the rating a \`TODO(user):\` line carrying the query" "$SKILL_FLAT"
+
+# The delegated path skips Step 4 entirely, so nothing there can derive a rating.
+# Without this the path either guesses one from files somebody else chose, or the
+# gap goes unstated and a delegated Bug arrives with the field silently empty.
+assert_contains "sk_delegated_odds_rule" "A delegated \`Bug\` takes its odds rating from the caller." "$SKILL_FLAT"
+
+# The caller needs a row in the supplied-value table, or the sentence above names
+# a channel the contract does not have and work-on sends six values that omit it.
+assert_contains "sk_delegated_supplies_odds" "Step 4's \`trigger-odds\` reader, which never runs here" "$SKILL_FLAT"
+
+# The file list replaced the exploration, so the reader has nothing this run chose.
+# The probes are gated on the requirement text the caller does supply, so they are
+# not suppressed by the same reason and the two get stated apart.
+assert_contains "sk_delegated_probes_can_run" "the probes can still run and the reader cannot" "$SKILL_FLAT"
 
 # Step 0 tells the reader the hook is the primary control and this skill's own check is only the
 # backstop. Rename that hook, or drop the open-ticket entry from its DENIED_SKILLS tuple, and the

@@ -142,6 +142,7 @@ delegated call files a single issue. The other is that a recorded agreement can 
 | `the files involved` | Step 4's exploration |
 | `the originating ticket's key` | Step 6's exclusion and the description's context line |
 | `the originating ticket's own parent, when it has one` | Step 7's parenting |
+| `the odds rating and its rationale, on a Bug` | Step 4's `trigger-odds` reader, which never runs here |
 
 **What always runs regardless.** A caller can vouch for its own scope decision and cannot vouch for
 Jira access, so Step 0's preflight always runs. It cannot vouch for whether somebody already filed
@@ -149,6 +150,17 @@ the same work either, so the sweep and the gate always run, and skipping either 
 duplicate under a clean verdict. Step 3's sizing runs unchanged, and so do Steps 7 through 12, whose
 field ids and create recipes stay the single copy in [CREATE-FIELDS.md](CREATE-FIELDS.md). Step 7
 and Step 9 are each narrowed on this path, and the paragraphs below state exactly how.
+
+**A delegated `Bug` takes its odds rating from the caller.** The table above carries the row for it. A
+caller that reached a defect worth filing has usually established how often it fires already, and
+`work-on` in particular has run its own probes before it arrives here, so handing the number over
+costs it nothing while re-deriving it would spend the same queries twice.
+
+**Without a supplied rating the probes can still run and the reader cannot.** Step 3 runs unchanged on
+this path, so the production-symptom flag is available, and the probes need only the requirement text
+the caller supplied. `trigger-odds` needs the exploration that the caller's file list replaced, so it
+would rate a defect against a slice of the code this run never chose. A rating neither the caller nor
+a probe produced is a `TODO(user):` line.
 
 **One issue, of the type the caller stated, and never a tree.** A delegated call files exactly one
 issue. It takes the issue type from the caller instead of deriving a second one at Step 7, and it
@@ -268,6 +280,15 @@ The same number drives Step 7, so one estimate serves both the reading and the t
 and the two numbers disagree, so the exploration depth and the tree shape end up sized for different
 work.
 
+**Decide two more things here.** Whether the request is a defect report at all, and whether it names
+a production symptom, meaning an error somebody hits now, a rate, or a count of affected users. The
+first turns on Step 4's `trigger-odds` reader. The second turns on Step 4's two telemetry probes. A
+defect the request only reasons out of the code gets the reader and no probes, so no run opens an MCP
+connection to answer a question nobody asked.
+
+Both flags come from the request and not from Step 7's issue type, which is picked three steps later.
+Waiting for the type would put the decision after the exploration that has to act on it.
+
 ## Step 4: Explore the codebase
 
 On the fan-out path, launch these concurrently in one message. Each one is a leaf reader that spawns
@@ -292,6 +313,83 @@ so the coverage claim reads as complete when one pass is all that happened.
 Generic issues are the failure this whole step exists to prevent. Every leaf in the tree carries at
 least one real path from here, or the plan file says it could not find one. A ticket that names no
 file hands its assignee this search to do again from scratch.
+
+### The odds of triggering, on a defect report only
+
+[TEMPLATES.md](TEMPLATES.md)'s Stats block carries a 1-to-5 rating for how likely the defect is to
+fire. Its `### The odds rating` subsection, below the fenced template, carries the rubric the number
+is picked from, and that rubric is the only scale this step uses. A rating nobody derived is a number
+the assignee has to derive again, which is the whole thing that block exists to prevent. Step 3 set
+the two flags that gate the work below.
+
+**None of this is a row in the table above.** That table's five readers run on the fan-out path only,
+which is the path Step 3 picks at five points and over, and the inline-path paragraph asserts their
+count. A conditional member of that table would falsify the assertion on every request that never
+switches it on. The odds work is gated on something else entirely, so it lives here instead.
+
+**The gate is per node and not per request.** Step 3's flag decides whether this subsection runs at
+all. Step 7 then types each node, and only a node it types `Bug` needs a rating, because only that
+template has a Stats block. Those two can disagree. A request Step 3 did not call a defect report can
+still produce a `Bug` leaf, and when it does, that leaf has no derived rating behind it. Run
+`trigger-odds` for that leaf at Step 7 before drafting, or leave the rating as a `TODO(user):` line.
+Do not let the leaf reach Step 8 with a number nobody produced.
+
+`trigger-odds` runs whenever Step 3 called the request a defect report. It answers one question,
+which is what must coincide for the defect to actually fire. It answers all of these, and lands each
+one on a path with a line number.
+
+- Is the path live at HEAD? Check the flag and its default, whether the route or job is registered,
+  and whether a caller exists outside tests.
+- What has to hold at the same time for the defect to fire? "Every request" and "a retry, on a legacy
+  tier, across a month boundary" are both real answers and they mean opposite things.
+- Does the tree show this has already happened? A regression test, a nearby fix commit, a guard
+  somebody added, or an error handler naming this case. That is different from a defect read out of
+  the code and never observed.
+
+**A path that is not live at HEAD is not a rating.** The rubric starts at 1, which is a defect that
+fires rarely, and it has no rung for one that cannot fire at all. Put that finding in the plan file
+as a question for the Step 9 gate instead, and name the flag that is off or the caller that is
+missing. Filed as a 1 it reads as work worth doing, and whether a dead path gets a ticket is the
+human's call at the gate.
+
+**`trigger-odds` may not query Datadog or Amplitude.** The probes below own the measured half. A
+reader that has already seen the rate stops reading the guards honestly, and the two halves then
+agree because one copied the other rather than because they found the same thing.
+
+The two probes run only when Step 3 found a production symptom. Datadog answers whether the error
+actually fires, at what rate, over what window, and whether it is still firing now. That is the half
+the rating can move to a 5. Amplitude answers how many users reach the path, which the rubric does not
+use at all, because the scale counts preconditions. Its number lands in the Stats block's own
+question about how many people are impacted, so run it for that and never to set the rating. Both
+follow `telemetryRules()` in
+[../work-on/VALIDATION.md](../work-on/VALIDATION.md), the single copy of the rule that a number
+arrives with the query that produced it, the ban on pasting raw rows, and the ban on presenting a
+figure you reasoned out as measured. The rule that a missing measurement is never a zero is not in
+there. It sits in that file's `triageRules()`, so the paragraph below states it for this skill
+instead of pointing at it. Do not reuse the probe briefs verbatim either. They correlate a timeline
+against `merged_prs` and `repo.missing_commits`, and neither exists before the ticket does.
+
+**A probe that cannot reach its source says so, and the reading then stands alone.** An MCP that is
+absent or unauthenticated is a real answer. A silent skip reads as "measured nothing", which is the
+opposite conclusion and it sets the rating too low.
+
+**Telemetry wins when the two halves disagree.** A measured rate beats a read of the guards. Record
+the losing half in the plan file anyway. "The flag defaults to off and Datadog shows twelve thousand
+a day" is usually a second defect, and dropping the loser is what hides it.
+
+**On the inline path the main thread answers these questions itself, and the independence is gone.**
+One context cannot unsee a rate it just measured. Read the guards and write that rating down before
+running any probe query, so the order stands in for the separation the fan-out gets for free. Then
+say in the plan file that the two halves were not independent. A rating produced this way is one
+judgement wearing the shape of two that agreed, and the reader of the plan file cannot tell which
+they are holding unless it says so.
+
+Keep only the digests on either path. A raw chart payload or a page of log lines in the main context
+costs the rest of the run its room, and Step 5's sweep is where that room runs out.
+
+**Neither half landing a number makes the rating a `TODO(user):` line carrying the query.** Step 8
+governs every number nobody ran and this is one of them. A guessed digit in a Stats block reads as
+triage somebody performed.
 
 ## Step 5: Dedup sweep
 
@@ -477,6 +575,9 @@ The file carries everything.
 - the full drafted description for every node
 - every `TODO(user):` line
 - anything Step 4 could not find a real path for
+- the odds-of-triggering rating on every defect node, with the reader's rationale behind it, the
+  probe digests when the probes ran, the reason they were gated off when they did not, and whichever
+  half lost the disagreement
 
 Show it and wait. **One yes covers the whole run.** Nothing is created before it, and after it
 creation proceeds with no further prompts. A second gate partway through creation would ask a human

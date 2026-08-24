@@ -228,6 +228,20 @@ jobs:
       - name: Run deny-review-in-workflow test
         run: bash tests/deny_review_in_workflow_test.sh
 
+  # ubuntu, unlike the hook tests above. This one is bash plus tr and grep with
+  # no zsh, no brew and no darwin build tag, so it behaves identically and
+  # Linux minutes bill at a tenth the rate.
+  open-ticket-contract:
+    name: open-ticket contract test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run open-ticket contract test
+        run: bash tests/open_ticket_contract_test.sh
+
   # ubuntu, unlike the hook tests above. Those need macOS for zsh, brew, or -tags darwin. This one is
   # bash plus sed, awk, tr, diff and node --check, and the test deliberately avoids in-place sed, so it
   # behaves identically and Linux minutes bill at a tenth the rate.

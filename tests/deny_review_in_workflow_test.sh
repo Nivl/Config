@@ -53,6 +53,26 @@ assert_eq "deny_pr_review" "deny" \
 assert_eq "deny_work_on" "deny" \
   "$(decision script "run the work-on skill on WMP-837")"
 
+# open-ticket is denied for a different reason than the four above. It does not
+# lose a fan-out inside a workflow. It loses the human who approves the Jira
+# creation, so it would either block forever or create unapproved issues.
+assert_eq "deny_open_ticket" "deny" \
+  "$(decision script "await agent({ skill: 'open-ticket', prompt: req })")"
+assert_eq "deny_open_ticket_in_name" "deny" \
+  "$(decision name "open-ticket")"
+assert_eq "deny_open_ticket_capitalized" "deny" \
+  "$(decision script "run Open-Ticket for this requirement")"
+
+# BOUNDARY_BEFORE excludes letters and digits only, so a leading hyphen still
+# matches and a prefixed name denies.
+assert_eq "deny_nightly_open_ticket" "deny" \
+  "$(decision script "await agent({ skill: 'nightly-open-ticket' })")"
+
+# BOUNDARY_AFTER also excludes a hyphen, so a longer name sharing the prefix
+# falls through. This is what lets a future open-ticket-validate workflow run.
+assert_eq "silent_open_ticket_validate" "silent" \
+  "$(decision script "await agent({ skill: 'open-ticket-validate' })")"
+
 # ---- Deny: case and punctuation variants of the real spelling ----
 assert_eq "deny_slash_prefix" "deny" "$(decision script "/pr-review 4821")"
 assert_eq "deny_mixed_case" "deny" "$(decision script "skill: 'In-Depth-Review'")"

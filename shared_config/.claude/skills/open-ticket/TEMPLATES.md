@@ -40,19 +40,19 @@ Verbatim from the request.
 
 ## Bug Fix and Security
 
-Verbatim from the request, plus the rendered rating line and the rubric under the template, which exist so Step 4 has one scale to pick from. The `### Stats` block and its `rating from 1 to 5` wording are load-bearing. They are what makes a bug ticket triageable without a follow-up question.
+From the request, plus the rubric under the template, which exists so Step 4 has one scale to pick from. The `## Stats` block is load-bearing. It is what makes a bug ticket triageable without a follow-up question. Its six questions are the request's own and so is the `Odds of triggering` rating, but the request asked for all of it in one paragraph and this block answers it one bullet each. Do not put that paragraph back. A stakeholder reads this block to decide whether the bug gets picked up, and a paragraph makes them hunt for each answer.
 
 ```
 ## Problem
 [Description of the bug and impact, if possible in a "As a user..." type of sentence]
 
-### Stats
-[how many people are impacted? Are impacted users in a locked state? does this require a backfill? Is this in a legacy route? Is this in a live codepath? We also want a rating from 1 to 5 about the odds of this to trigger. 1 mean the bugs has a low probability of happening, 5 mean the bug is actively impacting users at a very high rate]
-
-Odds of triggering: [1-5]/5 - [why, landed on a path with a line number or on the query that measured it]
-
-## Root Cause
-[What's causing the issue - file and line reference]
+## Stats
+- **How many people are impacted**: [number]
+- **Are impacted users in a locked state**: [yes/no]
+- **Odds of triggering**: [1-5]/5 - [why, landed on a path with a line number or on the query that measured it]
+- **Is a backfill required to unblock users**: [yes/no]
+- **Is this in a legacy route**: [yes/no]
+- **Is this in a live codepath**: [yes/no]
 
 ## Reproduction Steps
 1. [Step 1]
@@ -61,6 +61,13 @@ Odds of triggering: [1-5]/5 - [why, landed on a path with a line number or on th
 
 ## Expected Behavior
 [What should happen instead]
+
+## ELI5
+
+[explain the ticket in a way so someone with no knowledge of the project understands what needs to be done]
+
+## Root Cause
+[What's causing the issue - file and line reference]
 
 ## Proposed Fix
 
@@ -71,13 +78,11 @@ Odds of triggering: [1-5]/5 - [why, landed on a path with a line number or on th
 - [ ] Add regression test
 - [ ] Verify in [affected areas]
 
-## ELI5
-
-[explain the ticket in a way so someone with no knowledge of the project understands what needs to be done]
-
 ## Related Code
 - [Where similar issues might exist]
 ```
+
+**Every Stats answer is short.** A number, a yes or a no, or the rating with its rationale. Nothing in that block is a paragraph and no bullet there argues a case. The rating's rationale is the one exception, because a bare digit is not checkable. The impact count is a number too, so one nobody measured is a `TODO(user):` line and never a guess sitting in the `[number]` slot.
 
 ### The odds rating
 
@@ -97,7 +102,7 @@ A defect that cannot fire at HEAD has no rung here. A dead path goes to the Step
 
 **A bare digit is not a rating.** The rationale carries either a path with a line number or the query that produced the number. `4/5` gives a triager nothing they can check. `4/5 - default branch in checkout submit, no flag guard (src/checkout/submit.ts:142)` tells them where to look and lets them disagree.
 
-**When nothing derived the number, the line carries a `TODO(user):` where the digit would go.** The Shared rules above already demand that shape for any number nobody ran, and a rating is a number. Write `Odds of triggering: TODO(user): run <the query> to place this on the scale.` and never a digit standing in for one.
+**When nothing derived the number, the bullet carries a `TODO(user):` where the digit would go.** The Shared rules above already demand that shape for any number nobody ran, and a rating is a number. Write `- **Odds of triggering**: TODO(user): run <the query> to place this on the scale.` and never a digit standing in for one. The bullet keeps its label either way, so the block still reads as six questions with one of them open.
 
 ## Technical Debt
 
@@ -107,17 +112,17 @@ Verbatim from the request.
 ## Overview
 [What and why in 2-3 sentences, if possible in a "As a user..." type of sentence]
 
+## ELI5
+[explain the ticket in a way so someone with no knowledge of the project understands what needs to be done]
+
+## Benefits
+- [Improved maintainability / performance / etc.]
+
 ## Current State
 [What exists now and why it's problematic]
 
 ## Desired State
 [What the code should look like]
-
-## Benefits
-- [Improved maintainability / performance / etc.]
-
-## ELI5
-[explain the ticket in a way so someone with no knowledge of the project understands what needs to be done]
 
 ## Implementation Plan
 1. [Phase 1 - file paths and changes]

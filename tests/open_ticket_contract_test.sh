@@ -64,8 +64,23 @@ assert_line_count "tpl_eli5_section_count" '^## ELI5$' 4 "$TEMPLATES_MD"
 
 # The bug template's Stats block is what makes a bug ticket triageable. The
 # 1-to-5 likelihood rating is the part most likely to be quietly dropped.
-assert_line_count "tpl_bug_has_stats" '^### Stats$' 1 "$TEMPLATES_MD"
-assert_contains "tpl_bug_has_rating" "rating from 1 to 5" "$TEMPLATES_FLAT"
+assert_line_count "tpl_bug_has_stats" '^## Stats$' 1 "$TEMPLATES_MD"
+assert_contains "tpl_bug_has_rating" "sets the ends of the scale at 1 and 5" "$TEMPLATES_FLAT"
+
+# Each question is pinned on its own, the same way the rubric rungs below are. A
+# partial block is the failure mode here rather than a missing one, and a reader
+# cannot tell a question nobody answered from one nobody asked.
+assert_contains "tpl_stats_impact_count" "- **How many people are impacted**: [number]" "$TEMPLATES_FLAT"
+assert_contains "tpl_stats_locked_state" "- **Are impacted users in a locked state**: [yes/no]" "$TEMPLATES_FLAT"
+assert_contains "tpl_stats_backfill" "- **Is a backfill required to unblock users**: [yes/no]" "$TEMPLATES_FLAT"
+assert_contains "tpl_stats_legacy_route" "- **Is this in a legacy route**: [yes/no]" "$TEMPLATES_FLAT"
+assert_contains "tpl_stats_live_codepath" "- **Is this in a live codepath**: [yes/no]" "$TEMPLATES_FLAT"
+
+# One bullet per question, answered in a number or a yes or a no. Lose these two
+# sentences and the block grows back into the paragraph the request asked it as,
+# which is the shape a stakeholder has to hunt through for each answer.
+assert_contains "tpl_stats_answers_short" "Every Stats answer is short." "$TEMPLATES_FLAT"
+assert_contains "tpl_stats_no_paragraph" "Do not put that paragraph back." "$TEMPLATES_FLAT"
 
 # The request's own wording defines 1 and 5 and nothing between them. Without the
 # four boundaries below, two runs rate the same defect differently and the board
@@ -100,12 +115,12 @@ assert_contains "tpl_odds_dead_path_has_no_rung" "A defect that cannot fire at H
 
 # The template has to admit the fallback SKILL.md mandates, or a drafter with no
 # derived number has only a digit to write and writes one.
-assert_contains "tpl_odds_todo_rendering" "the line carries a \`TODO(user):\` where the digit would go" "$TEMPLATES_FLAT"
+assert_contains "tpl_odds_todo_rendering" "the bullet carries a \`TODO(user):\` where the digit would go" "$TEMPLATES_FLAT"
 
-# The rendered line in the template, and the ban on a digit with nothing behind
+# The rendered bullet in the template, and the ban on a digit with nothing behind
 # it. A rating a triager cannot check is the thing this whole block exists to
 # stop, and the bare digit is what it decays into.
-assert_contains "tpl_odds_rendered_line" "Odds of triggering: [1-5]/5" "$TEMPLATES_FLAT"
+assert_contains "tpl_odds_rendered_line" "**Odds of triggering**: [1-5]/5" "$TEMPLATES_FLAT"
 assert_contains "tpl_odds_no_bare_digit" "A bare digit is not a rating." "$TEMPLATES_FLAT"
 
 # Never a table. A ticket arrives mangled more often from a table than from

@@ -123,6 +123,73 @@ and a reader who is not told treats the two verdicts as the same.
 No `git fetch` and no branch check. Neither has a consumer in this pipeline, so both would cost a
 call that nothing reads.
 
+## Delegated entry
+
+A caller that already knows the project, the scope and the files can hand those to this skill
+directly, instead of asking Step 1 through Step 4 to work them out from a bare requirement. This is
+a narrowing of the existing pipeline and never a second pipeline. Every step the table below does
+not name still runs as written, apart from the two narrowings stated further down. One is that a
+delegated call files a single issue. The other is that a recorded agreement can stand in for Step
+9's wait.
+
+**What a caller supplies.**
+
+| Supplied value | Satisfies |
+|---|---|
+| `project key` | Step 2's project inference |
+| `the requirement text` | Step 1 |
+| `the issue type` | Step 7's issue-type-by-intent call |
+| `the files involved` | Step 4's exploration |
+| `the originating ticket's key` | Step 6's exclusion and the description's context line |
+| `the originating ticket's own parent, when it has one` | Step 7's parenting |
+
+**What always runs regardless.** A caller can vouch for its own scope decision and cannot vouch for
+Jira access, so Step 0's preflight always runs. It cannot vouch for whether somebody already filed
+the same work either, so the sweep and the gate always run, and skipping either one would file a
+duplicate under a clean verdict. Step 3's sizing runs unchanged, and so do Steps 7 through 12, whose
+field ids and create recipes stay the single copy in [CREATE-FIELDS.md](CREATE-FIELDS.md). Step 7
+and Step 9 are each narrowed on this path, and the paragraphs below state exactly how.
+
+**One issue, of the type the caller stated, and never a tree.** A delegated call files exactly one
+issue. It takes the issue type from the caller instead of deriving a second one at Step 7, and it
+never splits. If Step 3's sizing lands over 5 points, abort with `DELEGATED_TOO_LARGE: <points>` and
+report that number to the caller. Step 7's rule that any leaf over 5 splits until every leaf is 5 or
+under does not run on this path.
+
+**Why the abort is right and a split is not.** The caller's human approved one issue of a stated
+type and a stated size. A tree is a different artifact than the one they approved, and so is an
+issue of a type they were never shown. Nothing rolls a Jira create back, so the moment either one
+exists the approval it was filed under is about something else. Reporting the number hands the
+decision back to the person who made the scope call, and they can narrow the scope or file it some
+other way. Step 7's shape table already gives one issue for a total under 5, so the only sizing this
+rule has to override is one that reaches 5 or more.
+
+**Sibling and never child.** A follow-up is a sibling of the originating ticket and never its child.
+This is a Jira validity rule and not a preference. This skill parents a `Story`, a `Task` or a `Bug`
+to an `Epic`, and it parents a subtask type to a `Story`. A follow-up `Story` cannot take a `Story`
+as its parent, so filing it under the originating ticket would either fail the create or force the
+follow-up to be a subtask of work it is not part of.
+
+Read the originating ticket's own `parent`. Take the same parent when it has one. File with no
+parent when it has none. The relationship to the originating ticket lives in prose, in the
+follow-up's description, because this skill writes no issue links beyond `parent`.
+
+**No sprint.** There is no sprint in delegated mode, and none gets inferred either. A follow-up
+belongs in the backlog until somebody schedules it, and Step 2's open-sprint query is about what the
+caller is working on right now.
+
+**The approval.** A delegated caller may supply its own recorded human agreement in place of Step
+9's wait, and it must say so plainly. This is not a bypass. Step 9 exists so no issue gets created
+that no human approved, and a caller that already holds that agreement on record satisfies the same
+requirement. A caller with no such agreement gets the normal Step 9 gate. Getting this wrong means
+an issue created on nobody's authority.
+
+**The plan file is still written and still shown, and only the wait goes away.** Write
+`/tmp/claude/open-ticket-<slug>-plan.md` with everything Step 9 lists, show it, and proceed on the
+caller's recorded agreement. Nothing else in a delegated run previews what is about to be created,
+so a run that skipped the file would leave the caller's human reading about an issue that already
+exists.
+
 ## Step 1: Read the request
 
 Take the requirement as prose. Accept file paths, ticket keys and URLs as supporting material.
@@ -271,6 +338,20 @@ A match is not credible on any one of these alone.
 
 Q5 exists to widen recall, so its hits get read and not trusted.
 
+In delegated mode, the originating ticket supplied by the caller is never a credible match. The
+follow-up is by construction about the same area and often the same files, so the sweep finds it
+every time, and the gate would abort with `DUPLICATE_FOUND` naming the ticket the caller is mid-way
+through fixing.
+
+By contrast, a sibling follow-up already filed off the same originating ticket is not excluded. It
+goes through the two credibility tests above like any other match, which is a different thing from
+being credible on its own. A sibling whose summary describes the same change stops the run, and that
+is the most valuable hit the sweep can return in a delegated run. It is the same case `work-on` Step
+4 already detects from the other direction. A sibling that shares only a component, a label or a Q5
+stemmed concept fails those tests the way any other match does. Reading a sibling as credible on the
+strength of being a sibling would upgrade exactly the three hits the list above rules out. The
+originating-ticket exclusion covers one key, and it is not an amnesty for the whole area.
+
 Borderline goes to the user. A match reported and dismissed costs one question. A duplicate filed
 costs somebody a week of finding out.
 
@@ -299,6 +380,8 @@ The points rule, applied mechanically so the plan file carries a number the user
 | under 5 | one issue, no epic, no subtasks |
 | 5 to 13 | flat stories and tasks, no epic |
 | over 13 | an epic at the root |
+
+A delegated call files exactly one issue whatever this table says, per "Delegated entry" above.
 
 A total under 5 points gets one issue, and a total over 13 points gets an epic at the root. Both
 boundaries are numbers so the shape does not move with the run's mood. Size a tree by feel and the
@@ -485,12 +568,15 @@ finished normally.
 | `JIRA_WRITE_DENIED` | Tooling is present and the write was refused. Kept separate because the remedy differs. |
 | `DUPLICATE_FOUND: <KEY> (status <S>)` | Step 6 found a credible match. |
 | `GATE_UNREACHABLE_NO_HUMAN` | Step 0 could not reach a human to answer the Step 9 gate. |
+| `DELEGATED_TOO_LARGE: <points>` | Step 3 sized a delegated call over 5. One issue was approved, so the number is reported and the work is not split. |
 
 ## Constraints
 
 - **Nothing is created before Step 9's one yes.** Every earlier step reads Jira and writes local
   files. A creation cannot be undone, so the gate belongs in front of it and there is nowhere else
-  it could go.
+  it could go. A delegated caller can satisfy that yes with a human agreement it already holds on
+  record, on the terms "Delegated entry" sets out, and nothing else substitutes for it. Leave that
+  path unmentioned here and this list reads as if one gate covered every create the skill makes.
 - **This skill creates and reads. It never transitions, closes or deletes an issue.** A new GRO
   issue lands in To Do on its own, so a transition has nothing to fix. Deleting leaves a hole in the
   key sequence and throws away the only record of what got filed.

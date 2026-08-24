@@ -239,7 +239,7 @@ assert_contains "dq_sprint_name_dropped" "customfield_10021" "$DEDUP_FLAT"
 DEDUP_WMP="$(grep -c 'WMP' "$DEDUP_MD" || true)"
 assert_eq "dq_no_wmp_examples" "0" "$DEDUP_WMP"
 
-# ---- SKILL.md: the pipeline, the one gate and the four abort codes ----
+# ---- SKILL.md: the pipeline, the one gate and the five abort codes ----
 require_file "$SKILL_MD"
 
 SKILL_FLAT="$(flatten "$SKILL_MD")"
@@ -253,12 +253,17 @@ assert_contains "sk_frontmatter_desc" "description:" "$SKILL_FLAT"
 # the needle is the phrase that carries the rule.
 assert_contains "sk_says_not_work_on" "that is work-on" "$SKILL_FLAT"
 
-# All four abort codes, as literal tokens. The token is the wire contract, and
+# All five abort codes, as literal tokens. The token is the wire contract, and
 # a paraphrased reason is not an abort a caller can recognize.
 assert_contains "sk_abort_no_tooling" "JIRA_UNAVAILABLE_NO_TOOLING" "$SKILL_FLAT"
 assert_contains "sk_abort_write_denied" "JIRA_WRITE_DENIED" "$SKILL_FLAT"
 assert_contains "sk_abort_duplicate" "DUPLICATE_FOUND" "$SKILL_FLAT"
 assert_contains "sk_abort_no_human" "GATE_UNREACHABLE_NO_HUMAN" "$SKILL_FLAT"
+
+# The delegated abort. A delegated call files one issue of the type its caller stated, so a sizing
+# over 5 is reported and never split. Drop this rule and an oversized delegated scope becomes a tree
+# of issues no human approved, which is the one outcome no Jira create can be rolled back out of.
+assert_contains "sk_abort_delegated_too_large" "DELEGATED_TOO_LARGE" "$SKILL_FLAT"
 
 # acli is not a fallback. Even authenticated it cannot set sprint, story
 # points, or any custom field, so a tree is not expressible through it.
@@ -317,5 +322,46 @@ assert_contains "sk_names_denied_skills" "DENIED_SKILLS" "$SKILL_FLAT"
 # WMP does not exist on this site. An example using it teaches a wrong key.
 SKILL_WMP="$(grep -c 'WMP' "$SKILL_MD" || true)"
 assert_eq "sk_no_wmp_examples" "0" "$SKILL_WMP"
+
+# The delegated entry is what work-on calls. Drop the section and work-on's two
+# filing paths have no contract to call, while nothing in this suite notices.
+assert_line_count "sk_has_delegated_entry" '^## Delegated entry$' 1 "$SKILL_MD"
+
+# Sibling and never child is a Jira validity rule, not a preference. open-ticket
+# parents a Story to an Epic, so a follow-up Story filed under a Story either
+# fails the create or forces the follow-up to be a subtask of work it is not
+# part of. This is the single most expensive sentence in the section to lose.
+assert_contains "sk_followup_is_a_sibling" "sibling of the originating ticket" "$SKILL_FLAT"
+
+# The supplied values. Each one names a step it satisfies, so dropping a row
+# silently puts a step back in the delegated path that the caller already answered.
+# Each needle is the mapping phrase itself and not the supplied value, because the
+# supplied value alone is common prose that deleting a table row would still leave
+# sitting elsewhere in the file.
+assert_contains "sk_delegated_supplies_project" "Step 2's project inference" "$SKILL_FLAT"
+assert_contains "sk_delegated_supplies_type" "Step 7's issue-type-by-intent call" "$SKILL_FLAT"
+assert_contains "sk_delegated_supplies_files" "Step 4's exploration" "$SKILL_FLAT"
+assert_contains "sk_delegated_supplies_origin" "Step 6's exclusion and the description's context line" "$SKILL_FLAT"
+assert_contains "sk_delegated_supplies_parent" "Step 7's parenting" "$SKILL_FLAT"
+
+# Preflight, the sweep and the gate always run. A caller can vouch for its own
+# scope decision and cannot vouch for Jira access, so skipping either would file
+# a duplicate under a clean verdict.
+assert_contains "sk_delegated_still_runs_preflight" "Step 0's preflight always runs" "$SKILL_FLAT"
+assert_contains "sk_delegated_still_runs_sweep" "the sweep and the gate always run" "$SKILL_FLAT"
+
+# No sprint in delegated mode. A follow-up lands in the backlog until somebody
+# schedules it, and Step 2's open-sprint query is about the caller's current work.
+assert_contains "sk_delegated_no_sprint" "no sprint in delegated mode" "$SKILL_FLAT"
+
+# The parent exclusion, inside the Step 6 gate. Without it the sweep finds the
+# originating ticket, which is by construction about the same area and often the
+# same files, and the gate aborts on the ticket the caller is mid-way through.
+assert_contains "sk_origin_not_a_duplicate" "never a credible match" "$SKILL_FLAT"
+
+# A sibling follow-up already filed off the same origin is not excluded from the sweep. It goes
+# through the two credibility tests above like any other match. Losing this rule could exempt a
+# sibling from the sweep entirely, or promote it past the tests just for being one.
+assert_contains "sk_sibling_still_counts" "a sibling follow-up already filed" "$SKILL_FLAT"
 
 echo "open_ticket_contract_test: ok"

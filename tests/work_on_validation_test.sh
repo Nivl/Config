@@ -9,6 +9,12 @@
 # The script itself cannot be imported: it runs inside the Workflow tool with injected globals and
 # no module system. So this extracts the fenced javascript block, strips everything from the first
 # top-level statement that needs those globals, and evaluates just the pure function.
+#
+# What this suite does not cover. Everything it checks against SKILL.md is a handful of strings the
+# triage feature needs, plus one count the two files have to agree on. The follow-up filing rules in
+# Step 4 and Step 8, including the delegated invocation and the points gate in front of it, have no
+# assertion here and none anywhere else in this repo. So a green run says nothing about whether those
+# rules are still stated or still right.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 # SKILL holds the path to VALIDATION.md, and SKILL_MD holds the path to SKILL.md. The name SKILL

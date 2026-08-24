@@ -697,6 +697,81 @@ the follow-up. Name that key alongside the scope you propose to keep, so the use
 not being dropped. This case is easy to miss because the description still describes the whole
 original problem.
 
+**Propose filing the cut scope as its own follow-up, in this same presentation.** Show four
+things and nothing else, in the same compact block shape "Final report" below uses.
+
+```
+Type      <Story, Task, or Bug>
+Summary   <one line>
+Points    <n>
+Parent    <key, or none>
+```
+
+Showing more than these four turns the agreement into a review of drafted prose, and that is the
+one wording gate this skill does not have anywhere else in the run.
+
+**The agreement to the reduced scope is the agreement to file this.** State that plainly, or a
+reader who does not see it stated will read the create as missing its own approval. Step 5 below
+already rewrites the parent ticket's whole description with no preview, on this skill's stated
+rule that it asks about decisions and never about wording. Whether to file a follow-up for cut
+scope is a decision, and the user is making it right here, in the same answer that sets the
+reduced scope. The follow-up's prose, once drafted, is wording, and a second prompt just for the
+create would ask about a decision already made, which is the redundant round trip that teaches a
+user their answers do not stick.
+
+**Agreeing to the reduced scope and declining the follow-up are two different answers, and both
+stay available.** Say so, or a reader cannot tell whether declining the create also reopens the
+scope question. When the user takes the smaller scope and declines the follow-up, Step 5
+describes the cut work in prose with no key, exactly as it does today.
+
+### Filing the follow-up
+
+This runs only on the agreement described above. A decline skips it, and Step 5 proceeds as it
+does today.
+
+**It runs after the agreement and before Step 5.** Step 5's "Out of scope" section names the new
+key, and it cannot name a key that does not exist yet. This is what makes the line about the work
+not being dropped true here, the same as it already is for a follow-up somebody else filed.
+
+**Check the proposal's points before invoking anything.** If the `Points` value from the
+proposal above is over 5, do not invoke `open-ticket` at all. Say instead that the split proposed
+at Step 4 was too coarse, and ask the user to narrow the cut further until the follow-up sizes at
+5 or under. This is the cheap check and it is not the only one. `open-ticket` sizes a delegated
+requirement itself at its own Step 3, and a delegated call whose sizing lands over 5 aborts with
+`DELEGATED_TOO_LARGE` rather than splitting into a tree. So skipping this check costs a round trip
+and may come back with a number somebody still has to act on. The check sits here because this is
+where the user can still narrow the cut, and `open-ticket` only has the abort.
+
+**It invokes `open-ticket` through its Delegated entry section.** Supply the six values that
+section names, mapped from what this run already has rather than restated here. The project key
+comes from the originating ticket's own key, so a cut carved out of `GRO-1234` files under project
+`GRO`. The requirement text is the cut scope as just agreed. The issue type is the `Type` line from
+the proposal above, and it is the type that gets filed, because a delegated call takes the type from
+its caller rather than deriving its own. Send it, or the user approves one type and a different one
+lands. The files are what Step 2's validation already read. The originating ticket's key is
+`GRO-1234` itself, this run's own ticket. The parent is that ticket's own `parent`, read from Jira,
+or none when it has none.
+
+**The recorded agreement from above is what satisfies `open-ticket`'s Step 9.** Pass it as the
+delegated approval, and say plainly that this run is doing so. A run that somehow reaches this
+subsection with no such agreement on record goes through `open-ticket`'s normal Step 9 gate
+instead, because an issue created on nobody's authority is the one outcome that gate exists to
+prevent.
+
+**It runs in the main thread, never inside a `Workflow`.** `open-ticket` sits in `DENIED_SKILLS`
+in `deny-review-in-workflow.py`, so a workflow naming it is denied before it can run. A workflow
+agent could not host this gate even if the deny were lifted, because putting Step 9's approval in
+front of a human is exactly what a workflow agent cannot do. Step 2's validation lenses are a
+contrast here too, but not for Step 8's reason. Step 8's reason is fan-out loss, because
+`review-and-fix` inside a workflow has no `Agent` tool to launch its reviewers with. This one is
+the gate. `AGENTS.md` names it as the one exception to the fan-out reason the rest of
+`DENIED_SKILLS` carries.
+
+**A failed create never blocks Step 5.** If `open-ticket` cannot file the follow-up, Step 5 still
+runs and describes the cut work in prose with no key, and the final report says the follow-up
+could not be filed and why. The parent ticket's rewrite is this run's main deliverable, and a
+follow-up is an addition to it, not a precondition for it.
+
 ## Step 5: Rewrite the ticket
 
 Two writes. The description gets replaced in place. A comment gets appended.
@@ -743,10 +818,14 @@ ask.
 Problem            what is wrong now, in the reader's terms
 Evidence           file:line, commit shas, PR links. one line each
 Scope              what this ticket covers
-Out of scope       what it does not, especially anything Step 4 cut
+Out of scope       what it does not, especially anything Step 4 cut, plus the follow-up's key
+                   when one was filed
 Proposed solution  the approach, and why not the alternatives
 Open questions     only when non-blocking questions survived Step 3
 ```
+
+Cut scope with no key reads as dropped instead of moved, and the key is what tells a reader
+otherwise.
 
 Drop any section the work does not touch rather than padding it. A rollout-percentage bump does
 not need six headings.
@@ -957,6 +1036,108 @@ Three things to get right when invoking it:
 
 It commits each fix and never pushes. Step 9 pushes.
 
+### Follow-ups from what review-and-fix left
+
+`review-and-fix` has no out-of-scope category. Its "Remaining Issues" section covers findings
+that did not become a commit, and the reasons it names are a row 2 stop, a fix abandoned because
+lint or tests failed, and a finding skipped for want of a test. Its "Tickets examined" section
+carries deferred and dismissed ticket findings with a decision. Nothing in either section says a
+finding belongs to a different ticket. The classification below is `work-on`'s own judgement
+against the scope agreed at Step 4, not something the review reports for you.
+
+Once `review-and-fix` returns, read both sections and sort every item in them into exactly one of
+two buckets.
+
+**Unfinished here.** A fix abandoned because lint or tests failed. A finding skipped for want of a
+test. A row 2 stop. None of these becomes a ticket. Step 8 says run `review-and-fix` all the way.
+Filing a ticket for a test failure converts that failure into a backlog item that reads like
+planned work, so the failure stops being visible as a failure. This is the rule a well-meaning run
+is most likely to break, so check every item against it before proposing anything.
+
+**Belongs to a different ticket.** A finding about code that the scope agreed at Step 4 does not
+cover. Only items in this bucket get proposed.
+
+Put an item you cannot confidently place into "Unfinished here." The cost of leaving real
+out-of-scope work unfiled is that somebody finds it later. The cost of filing unfinished work as a
+ticket is that the branch ships with a known gap wearing a ticket number.
+
+**The batch approval.** Propose the second bucket as one batch with one yes, at the end of Step 8,
+once the loop has stopped. The Step 4 cut needs no separate approval, because the user's agreement
+to the reduced scope there already covers it. This bucket needs its own, because these findings
+did not exist when that agreement was made, so it cannot cover them. Present each candidate in the
+same compact block Step 4 uses for its own proposal.
+
+```
+Type      <Story, Task, or Bug>
+Summary   <one line>
+Points    <n>
+Parent    <key, or none>
+```
+
+Say nothing when the second bucket is empty. A report with nothing to decide trains the user to
+skim exactly the messages that do carry a decision.
+
+**The cap.** The batch approval above does not change when the second bucket holds more than three
+items. One batch, one yes, and nothing gets filed without that yes, whatever the count. Findings
+from Step 8 are machine-generated and carry no human scope call of their own, so a noisy review
+round could otherwise turn one `work-on` run into a stack of tickets nobody asked for. A user who
+reads every candidate and says yes has just supplied that human scope call directly, so the cap
+does not sit between that yes and the create. A cap that overrode an explicit yes would not be a
+safety rail. It would only block work somebody already approved.
+
+What the cap adds above three is a reporting step, not a block. Report the count, and say plainly
+that a count this size is a signal about the change itself and not just a list of tickets. Then
+propose the batch the same way as below the cap, one compact block per candidate, and let the same
+single yes decide whether to file all of them.
+
+Do not file past the cap without first reporting the count and the signal. Filing everything past
+three with no word about either is the exact noisy-review-round outcome the cap exists to surface.
+Do not truncate the list without saying so either. A silently truncated list reads as "that was all
+of them" when it was not, and a yes given on a truncated list is a yes to a batch the user never
+actually saw.
+
+**Filing.** Reuse Step 4's "### Filing the follow-up" subsection by name, one call per approved
+item, rather than writing a second filing path here. Two copies of the same filing rule drift
+apart over time, and a follow-up filed from a Step 8 leftover would then silently follow
+different rules than one filed from the Step 4 cut, for no reason anyone decided on purpose.
+
+It already carries the points gate, the delegated invocation, the Step 9 approval substitution,
+and the main-thread-only rule. The single yes from the batch approval above is the recorded
+agreement each of those calls passes in place of Step 9's gate.
+
+Timing does not carry over the same way. This call fires at the end of Step 8 once the loop has
+stopped, the timing already stated above, not after Step 4's agreement the way Step 4's own filing
+runs.
+
+The points gate's remedy does not carry over unchanged either. The threshold stays the same. An
+item scored over 5 still does not get invoked. Step 4's remedy tells the user its proposed split
+was too coarse and asks them to narrow a cut that is theirs to narrow, but there is no such split
+at Step 8. The candidate here is a review finding, so say instead that the finding is too large to
+file as one follow-up, and let the user decide what to do with it, rather than pointing them at a
+narrowing that was never theirs to do.
+
+One more thing changes beyond the mechanics above. This run's own ticket key, not a parent's, is
+what gets supplied for the dedup exclusion and the description's context line. The
+sibling-parenting rule from `open-ticket`'s "Delegated entry" applies the same way it always does.
+A finding about adjacent code is a sibling of this ticket at best, and never its child.
+
+One call per approved item can leave a partial batch, and this is the uncommon ending rather than
+what a batch normally does. `open-ticket`'s Delegated entry runs its dedup sweep and gate on every
+call, and a sibling follow-up already filed off the same originating ticket is judged on the same
+two credibility tests as any other match. Two candidates out of one review round are usually about
+different code, so the earlier call's freshly created sibling does not describe the same change and
+does not stop the later call. When it does describe the same change, the later call aborts with
+`DUPLICATE_FOUND` and the batch ends partway through, and what that abort has found is two
+candidates that were the same work seen twice. Report a partial batch as what was created and what
+was not, each with its key when it has one. Do not suppress the sweep and do not special-case it
+here, since the sweep finding a real sibling is correct behavior. The reporting is what keeps a
+partial result visible instead of silent.
+
+A create that fails here gets the same treatment Step 4's subsection already gives a failed
+create. Say in "Final report" that the follow-up could not be filed and why. No later step in this
+run consumes the new key the way Step 5's "Out of scope" section consumes the key the Step 4 cut
+creates, so a failed create here blocks nothing downstream from running.
+
 ### When `review-and-fix` aborts with `REVIEW_UNAVAILABLE_NO_FANOUT`
 
 That sentinel means the `Agent` tool was absent where the skill was invoked, so not one reviewer
@@ -980,7 +1161,9 @@ because a draft already reads as reviewed by the pipeline and not by a person.
 
 Emit "Final report" before you stop, the same as the `open-pr` failure path does. Step 5's Jira
 writes already happened, so any `TODO(user):` line that shipped has to be reported whether or not a
-review ran. Put the sentinel where the `PR` URL would go, write `0` on the `Iterations` line, and
+review ran. A follow-up filed from the Step 4 scope cut, if the run filed one, gets reported the
+same way, since the run never reached the point in Step 8 where a leftover could be proposed. Put
+the sentinel where the `PR` URL would go, write `0` on the `Iterations` line, and
 name the branch so the user can invoke `review-and-fix` from a context that has the `Agent` tool and
 pick the pipeline back up at Step 9.
 
@@ -1057,9 +1240,10 @@ guessing at. The work is committed and pushed either way. Only the PR is missing
 rather than letting a success-shaped summary imply otherwise.
 
 **Still emit "Final report" on that path.** The Jira writes already happened, so the ticket is live
-and may be carrying `TODO(user):` lines with no PR to report them against. Emit the report with `PR`
-as the error instead of a URL, and every other field filled in from what actually happened, the
-`Ticket` parenthetical included.
+and may be carrying `TODO(user):` lines with no PR to report them against. It may also be carrying
+a follow-up filed from either trigger, with no PR to report that against either. Emit the report
+with `PR` as the error instead of a URL, and every other field filled in from what actually
+happened, the `Ticket` parenthetical included.
 
 ## Final report
 
@@ -1072,6 +1256,10 @@ past.
 ```
 PR            <url>  (draft)
 Ticket        <url>  (description: rewritten | write failed; comment: posted | not posted)
+Follow-ups (<n>)
+  - <key>  filed from the Step 4 scope cut  <one-line summary>
+  - <key>  filed from a Step 8 leftover  <one-line summary>
+  - could not file  <Step 4 scope cut | Step 8 leftover>  <why>
 Branch        <name>
 Jira write    verified | could not read it back to verify | failed
 TODOs (<n>)
@@ -1090,6 +1278,24 @@ find it.
 
 **Zero TODOs is stated, not omitted.** Write `TODOs (0)  none`. A missing section reads identically
 to a forgotten one, and the reader cannot tell which they are looking at.
+
+**Every follow-up this run created or attempted gets its own line, naming its key and which case
+created it, or naming why a create failed.** The Step 4 scope cut and a Step 8 leftover are the
+two cases, and each filed key says which one filed it. `<n>` counts every line in the list, filed
+keys and failed creates together, never successful creates alone. A run that creates a Jira ticket
+and never says so hands the user a ticket they do not know exists, and the whole point of
+reporting a create is that nothing previewed it before it went out.
+
+**A follow-up that could not be filed gets its own line too, naming why.** Step 4's "### Filing the
+follow-up" subsection, and the "### Follow-ups from what review-and-fix left" subsection that
+reuses it, both say a failed create never blocks the rest of the run. This line is where that
+failure becomes visible to a human instead of disappearing into a step that just moved on. A run
+with one failed create and no successful ones still shows that one line, because the count above
+already includes it.
+
+**Zero follow-ups is stated, not omitted, for the same reason as zero TODOs above.** Write
+`Follow-ups (0)  none` only when neither trigger produced any candidate at all, filed or failed. A
+missing section reads identically to a forgotten one here too.
 
 **`Jira write` uses those exact words.** `could not read it back to verify` is the phrase
 [JIRA-FORMAT.md](JIRA-FORMAT.md) requires for that outcome. Unverified is its own result. Do not fold
@@ -1111,15 +1317,30 @@ the one that reaches this step. The Step 4 option (a) exit, the Step 8 no-fanout
 `open-pr` failure path all emit the roll-call too. Same rule as the stash disclosure, for the same
 reason: it is the user's problem now, and they cannot see it from where they are sitting.
 
+**No run ends with a filed follow-up unmentioned either.** A follow-up can reach Jira well before
+this step runs, since a Step 4 cut files before Step 5 and a Step 8 leftover files before Step 9.
+The Step 8 no-fanout abort and the `open-pr` failure path both name every follow-up filed by that
+point, the same way each already names its `TODO(user):` lines. The Step 4 option (a) exit does not
+carry this risk. That exit belongs to a dead ticket and a Step 4 follow-up belongs to a partially
+valid one, so the two never happen in the same run.
+
 ## Constraints
 
 - **Nothing writes before Step 5 unless the user asks for it.** Steps 0 through 4 are read-only
   against Jira, GitHub, and the working tree on their own initiative, which is what makes the
-  validation phase safe to run aggressively. Step 4's option (a) is the one exception, and it happens
-  only after the user has seen the evidence and chosen it.
-- **Decisions get asked about. Wording never does.** Step 3's questions and Step 4's a/b/c pick are
-  decisions and they stay. The Jira description, the Jira comment, the commit messages, and the PR
-  body are wording. None of them gets a preview, a confirmation, or an "does this look right?".
+  validation phase safe to run aggressively. There are two exceptions and neither one moves without
+  an answer from the user first. Step 4's option (a) posts a comment, and it happens only after the
+  user has seen the evidence and chosen it. "Filing the follow-up" creates a Jira issue between
+  Step 4 and Step 5, and it happens only on the agreement to the reduced scope. Leave that second
+  one off this list and a later reader treats the Step 4 filing as a bug, which is a bad way to
+  discover a create that has no rollback.
+- **Decisions get asked about. Wording never does.** Step 3's questions, Step 4's a/b/c pick, the
+  follow-up proposal Step 4 presents alongside the reduced scope, and the one yes over Step 8's
+  batch of leftover follow-ups are decisions and they stay. The Jira description, the Jira comment,
+  the commit messages, the PR body, and every follow-up's drafted prose are wording. None of them
+  gets a preview, a confirmation, or an "does this look right?". Both follow-up decisions belong on
+  this list because each one authorizes a Jira create, and a create nobody was asked about is the
+  one thing the wording rule must never be read to allow.
 - **Every write is verified after the fact, since none is approved before it.** Read the Jira ticket
   back, fetch the PR body back. Report the Jira read-back's outcome in "Final report" using its three
   exact words. Verification replaces the preview, so skipping it leaves a write with no control on it

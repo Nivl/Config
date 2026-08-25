@@ -341,9 +341,9 @@ either. Both are carried to the Final Report.
    - **Do not commit if lint or tests fail.** Fix the failures first or escalate to the user.
 
 5. **Stage the fix, then scan the staged diff.** Run `git add -A`, then `git diff --staged`, and
-   read the added lines only. Sub-step 6 stages again, which is then a harmless no-op. Five
+   read the added lines only. Sub-step 6 stages again, which is then a harmless no-op. Six
    checks. Each starts from a pattern match on the added lines, never from a review of the
-   design. Three of them need a judgement call, and each is named where it arises. Fix whatever
+   design. Four of them need a judgement call, and each is named where it arises. Fix whatever
    a check catches, re-stage, and rerun the scan. Never commit with a note to fix it later. A
    noted violation is next iteration's finding, which is the cost this scan exists to remove.
    - **Pattern scan, authored prose and added lines only.** No `→ ← … ≥ ≤ × — –` and no curly
@@ -366,6 +366,12 @@ either. Both are carried to the Final Report.
      path that no longer resolves is next iteration's finding. The judgement call is whether a
      token is a claim about this repo or an illustrative example, and only a claim has to
      resolve.
+   - **Quantifier scan.** In authored prose, no `nothing`, `never`, `always`, `every`, `only`,
+     `none`, `the one`, or `the only` ranging over a set the line does not name. Either the line
+     names the set, or the word goes. AGENTS.md's "Claims in authored prose" section carries the
+     rule and its carve-outs. Literal content is exempt here as it is in the pattern scan, so one
+     of these words inside a string, a fixture, or a list of the words themselves is not a
+     violation. The judgement call is whether a hit is a carve-out or a real claim.
 
 6. **Commit the fix:**
 
@@ -552,8 +558,9 @@ role 9 in rather than trusting the productive set alone.
 rerun judges the new test code through role 9 alone. Sub-step 5's staged-diff scan is the partial
 backstop. It runs before the commit exists and catches the mechanical subset, meaning added
 `as any` and `as unknown as`, the banned glyphs, ` - ` clause joiners in comments, ticket keys,
-changelog literals, and paths or identifiers that do not resolve. It is NOT a substitute for
-role 1's full AGENTS.md read or role 12's type analysis. This is a deliberate cost trade, since
+changelog literals, paths or identifiers that do not resolve, and quantifiers over a set the
+line does not name. It is NOT a substitute for role 1's full AGENTS.md read or role 12's type
+analysis. This is a deliberate cost trade, since
 the loop is uncapped and those three roles would be paid on every test iteration. The next
 `logic` commit forces a full rerun (row 4) and they see the accumulated test code then.
 

@@ -101,6 +101,23 @@ Commenting code is good. Keep doing it. But every comment must earn its place. F
   - Good: `// Log first. It is the primary signal and must not be suppressed.`
   - This bans the dash and colon only as clause JOINERS. Leave them alone everywhere else: hyphenated words (`read-only`, `already-committed`), CLI flags (`-c`), ranges (`1-10`), label prefixes at the start of a line (`TODO:`, `NOTE:`, `IMPORTANT:`, `Good:`, `Bad:`), ratios and times (`3:1`, `12:00`), and code, paths, or URLs.
 
+## Claims in authored prose
+
+This governs prose that asserts something about the code: comments and docstrings, commit messages, PR and issue descriptions. A false claim in prose is worse than no prose, because a reader trusts it and nothing checks it. Every rule below exists because the claim it bans was written and was wrong.
+
+- **Point at code, never paraphrase it.** A comment describing what another function does is a claim that rots. A comment naming where the answer lives is not. Point at a symbol this code already names. Never point at code this file does not reference, because that adds coupling the file cannot see and the comment then goes stale without anyone touching its line. If you have not opened the file you are about to describe, you may not describe it.
+  - Bad: `// updateSubscriptionWithNewData would mail the subscriber`
+  - Good: `// See the docstring on updateSubscriptionWithNewData for why a terminal answer must not reach it.`
+  - The pointer is checkable by opening one file. The paraphrase is checkable only by re-deriving the collaborator's behavior, which is work that reliably does not happen. A claim that needs code this file does not reference is not a comment. It belongs in the PR description or a doc.
+- **Name the set, never quantify it.** The words `nothing`, `never`, `always`, `every`, `only`, `none`, `the one`, and `the only` each assert a search result. Either you ran the search, or you do not write the word. When you ran it, write the result instead of the quantifier.
+  - Bad: `// every reader checks canceled_at first`
+  - Good: `// read by subscription-details.ts:791 and twice in subscription-details-controller.ts`
+  - A named list ages visibly. "Every" rots silently. The rule covers a quantifier ranging over a set you would have had to go and enumerate. Three things are therefore not violations, and a grep for these words surfaces all three. A quantifier about the function in front of you needs no search, so `// this function never throws` is fine. An instruction is not a claim, so a rule that says never do X is fine. Neither is a rhetorical aside about people rather than about code.
+- **Claim nothing you cannot observe from this repo.** A payment vendor's validation rules, an upstream API's ordering, a browser quirk. Assert what we send. Do not assert what they accept.
+  - Bad: `// Braintree requires the cap to exceed the current cycle`
+  - Good: `// We send a cap above the current cycle. No claim is made here about which caps Braintree accepts.`
+- **Describe an artifact from the artifact.** A commit message describes `git diff --cached`. A PR body describes the branch diff. Read the diff, then write the description. Writing either from your own fix list produces a message describing work you did not do.
+
 ## TypeScript: narrow with type guards, don't cast
 
 A cast tells the compiler to stop checking. It does not change what the value actually is at runtime. If the value does not match the asserted type, nothing fails at the cast itself. It fails later, somewhere else, with an error that points at the wrong line. A type guard checks the value and narrows the type from that check, so the runtime truth and the static type stay in agreement.

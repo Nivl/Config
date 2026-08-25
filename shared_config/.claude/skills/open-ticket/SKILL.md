@@ -143,6 +143,7 @@ delegated call files a single issue. The other is that a recorded agreement can 
 | `the originating ticket's key` | Step 6's exclusion and the description's context line |
 | `the originating ticket's own parent, when it has one` | Step 7's parenting |
 | `the odds rating and its rationale, on a Bug` | Step 4's `trigger-odds` reader, which never runs here |
+| `the impact count and the query that produced it, on a Bug` | Step 4's warehouse ask |
 
 **What always runs regardless.** A caller can vouch for its own scope decision and cannot vouch for
 Jira access, so Step 0's preflight always runs. It cannot vouch for whether somebody already filed
@@ -161,6 +162,19 @@ this path, so the production-symptom flag is available, and the probes need only
 the caller supplied. `trigger-odds` needs the exploration that the caller's file list replaced, so it
 would rate a defect against a slice of the code this run never chose. A rating neither the caller nor
 a probe produced is a `TODO(user):` line.
+
+**A delegated `Bug` takes its impact count from the caller too.** `work-on` has usually already taken
+its own warehouse queries through [../work-on/DB-QUERIES.md](../work-on/DB-QUERIES.md) by the time it
+delegates, so it arrives holding both the count and the query behind it. Handing over the pair keeps
+the number's provenance attached to it, and re-deriving it would put the same SQL in front of the
+same person twice inside one run.
+
+**Without a supplied count the ask still runs, and a still-open query brings the wait back.** Step 0
+established that a human is reachable or the run aborted, so the ask has somewhere to go even here.
+The recorded agreement covers the issue that gets filed and says nothing about a number nobody has,
+so it cannot stand in for the proceed-without Step 8 requires before a `TODO(user):` line ships. Show
+the plan file, name the open query, and wait for that one answer. Nothing else about this narrowing
+changes.
 
 **One issue, of the type the caller stated, and never a tree.** A delegated call files exactly one
 issue. It takes the issue type from the caller instead of deriving a second one at Step 7, and it
@@ -391,6 +405,35 @@ costs the rest of the run its room, and Step 5's sweep is where that room runs o
 governs every number nobody ran and this is one of them. A guessed digit in a Stats block reads as
 triage somebody performed.
 
+### The impact count, owed on every `Bug` node
+
+[TEMPLATES.md](TEMPLATES.md)'s Stats block opens with how many people are impacted. That question is
+owed on every node Step 7 types `Bug`, and it is gated on neither of Step 3's two flags. The
+subsection above is gated on the defect-report flag, and the Amplitude probe inside it is gated again
+on a production symptom, so a defect the request never called a production symptom reaches Step 8
+with no source for that number at all. Closing that gap is what this subsection is for.
+
+**Amplitude answers it when the probe ran. A warehouse query answers it the rest of the time.** An
+impact count is usually a row count against product tables, which no dashboard and no saved chart
+holds. Compose the SQL here and take it through
+[../work-on/DB-QUERIES.md](../work-on/DB-QUERIES.md), the single copy of how a skill with no
+warehouse connection of its own gets a number out of one. It carries the check for a skill that runs
+SQL, the read-only rule, the bound-the-scan rule, the handoff file format and the re-asking loop.
+Follow all of it as written. The handoff file on this path is
+`/tmp/claude/open-ticket-<slug>-queries.sql`, keyed by the same slug as the plan file.
+
+**Pool the query here and hand it over before Step 5, not at the gate.** `DB-QUERIES.md` says never
+block on it, and Steps 5 through 8 all run without the number. The sweep, the sizing and the drafting
+are what the run does while it waits. A query handed over at Step 9 instead arrives with nothing left
+to overlap it, so the run either stalls in front of the gate or takes the gate's yes as cover for a
+number nobody was ever asked for.
+
+**Asking is not the fallback here, and "Earn every question" does not override it.** That doctrine is
+about a question whose answer is already sitting in the repo. A production row count is not in the
+repo, so no amount of reading finds it, and once no query skill exists the user is the only source
+left. Skipping the ask files a triage block with a hole in it, which is the single thing the Stats
+block exists to prevent.
+
 ## Step 5: Dedup sweep
 
 [DEDUP-QUERIES.md](DEDUP-QUERIES.md) carries the six literal queries, the quoting recipe, the
@@ -538,6 +581,14 @@ drafted, with the issue it will land in and what would resolve it. Step 12 reads
 Written as prose the same number reads as a measured claim, and the next reader treats it as
 evidence.
 
+**That line is where a number ends up and never the first place it lands.** Every number owes an
+attempt before it becomes one. The probes owe the odds rating theirs, and
+[../work-on/DB-QUERIES.md](../work-on/DB-QUERIES.md) owes every number a query would answer both a
+check for a skill that runs SQL and an ask. Only the two endings that file names resolve a number to
+a `TODO(user):` line, meaning an explicit decline or an explicit proceed-without, and silence is
+neither one. Reaching for the line first ships a triage block whose numbers nobody tried to get, and
+to the assignee reading it that is indistinguishable from one somebody tried and could not.
+
 ### The publish override, declared once for the whole run
 
 `writing-work-docs` refuses to publish in three separate places, and a run that overrides one and
@@ -574,6 +625,7 @@ The file carries everything.
 - every dedup query that ran and what it returned, including Q0's control hit
 - the full drafted description for every node
 - every `TODO(user):` line
+- every query handed over and not yet run, with the absolute path of the file holding it
 - anything Step 4 could not find a real path for
 - the odds-of-triggering rating on every defect node, with the reader's rationale behind it, the
   probe digests when the probes ran, the reason they were gated off when they did not, and whichever
@@ -587,6 +639,16 @@ would be about nothing.
 **Offer edit as a response, not only yes or no.** A wrong split or a wrong assignee is cheap to fix
 here and expensive afterwards, because a filed issue keeps its key, its notification and its sprint
 placement whatever happens to it next.
+
+**A still-open query makes the number itself one of the gate's answers.** The four responses are yes,
+no, edit, or the result of a query the plan file lists as unrun. A yes taken while one of those is
+still open is `DB-QUERIES.md`'s explicit proceed-without, so say that is what the yes will mean
+before taking it, and the `TODO(user):` line then ships because somebody chose it. Read a yes as
+silent consent to an unmeasured Stats block instead, and the run files exactly the untriaged ticket
+the ask existed to prevent.
+
+The one-line nag from that file keeps its own message. This is the gate listing what is still open,
+which the plan file does for everything else too. It is not the ask riding along on the gate.
 
 ## Step 10: Create
 

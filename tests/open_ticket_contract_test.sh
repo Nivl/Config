@@ -17,6 +17,11 @@ TEMPLATES_MD="$SKILL_DIR/TEMPLATES.md"
 CREATE_FIELDS_MD="$SKILL_DIR/CREATE-FIELDS.md"
 DEDUP_MD="$SKILL_DIR/DEDUP-QUERIES.md"
 
+# Lives under work-on and is shared. open-ticket's Step 4 routes the Stats block's
+# impact count through it, so this suite asserts the half of that file open-ticket
+# depends on. work-on owns everything else in there.
+DB_QUERIES_MD="$SCRIPT_DIR/shared_config/.claude/skills/work-on/DB-QUERIES.md"
+
 . "$(cd "$(dirname "$0")" && pwd)/test_helpers.sh"
 
 flatten() { tr '\n' ' ' < "$1" | tr -s ' '; }
@@ -116,6 +121,17 @@ assert_contains "tpl_odds_dead_path_has_no_rung" "A defect that cannot fire at H
 # The template has to admit the fallback SKILL.md mandates, or a drafter with no
 # derived number has only a digit to write and writes one.
 assert_contains "tpl_odds_todo_rendering" "the bullet carries a \`TODO(user):\` where the digit would go" "$TEMPLATES_FLAT"
+
+# The templates admit the TODO(user): shape, so they are where a drafter decides to use
+# one. Deciding it here skips the ask, and the line then asserts a human was asked and
+# declined when nobody was asked. The verdict belongs to Step 8 and the rendering
+# belongs here.
+assert_contains "tpl_todo_not_decided_in_template" "Never resolve a number to that line from inside a template." "$TEMPLATES_FLAT"
+
+# The impact count is the one Stats bullet with no telemetry probe behind it on most
+# runs, so it is the one that decays into an unrun TODO(user):. The template says what
+# it is owed first.
+assert_contains "tpl_impact_owed_a_query_and_an_ask" "owed a warehouse query and an ask before that line is its answer" "$TEMPLATES_FLAT"
 
 # The rendered bullet in the template, and the ban on a digit with nothing behind
 # it. A rating a triager cannot check is the thing this whole block exists to
@@ -454,6 +470,54 @@ assert_contains "sk_odds_not_a_reader_row" "None of this is a row in the table a
 # happily, so the assertion passes on the exact outcome it exists to ban.
 assert_contains "sk_odds_falls_back_to_todo" "makes the rating a \`TODO(user):\` line carrying the query" "$SKILL_FLAT"
 
+# The impact count gets its own subsection because its gating differs from the odds
+# work above it. That subsection runs on Step 3's defect-report flag and its Amplitude
+# probe needs a production symptom on top, while every node Step 7 types Bug owes the
+# count regardless. Fold the count back under the odds heading and a defect nobody
+# called a production symptom reaches Step 8 with no source for the number at all,
+# which is the shipped-unrun-TODO this whole route exists to stop.
+assert_line_count "sk_has_impact_count_section" '^### The impact count, owed on every `Bug` node$' 1 "$SKILL_MD"
+assert_contains "sk_impact_not_gated_on_flags" "gated on neither of Step 3's two flags" "$SKILL_FLAT"
+
+# The route to the number. DB-QUERIES.md is the single copy of the skill check, the
+# read-only and bound rules, the handoff format and the re-asking loop. Without the
+# pointer this skill has Amplitude and nothing else, and an impact count is a row
+# count against product tables that no chart holds. The needle is Step 4's own
+# sentence about that file and not the link target, because a markdown link spells
+# its target twice and this skill now carries three of them. A bare path needle
+# would stay green on all six halves while the one link that matters was deleted.
+assert_contains "sk_impact_points_at_db_queries" "the single copy of how a skill with no warehouse connection of its own gets a number out of one" "$SKILL_FLAT"
+
+# The handoff file is keyed by slug and not by a Jira key, because on this path the
+# ticket does not exist yet. Lose the literal and a run either invents a key or
+# collides with another run's file.
+assert_contains "sk_impact_handoff_path" "/tmp/claude/open-ticket-<slug>-queries.sql" "$SKILL_FLAT"
+
+# Timing. Steps 5 through 8 all run without the number, so the ask overlaps the sweep,
+# the sizing and the drafting. Handed over at the gate instead it has nothing left to
+# overlap, and the run then either stalls in front of the gate or reads the gate's yes
+# as cover for a number nobody was asked for.
+assert_contains "sk_impact_asks_before_sweep" "hand it over before Step 5, not at the gate" "$SKILL_FLAT"
+
+# "Earn every question" bans asking what the repo answers, and a reader applying it
+# here skips the one question the repo cannot answer. Naming the doctrine is the point
+# of the needle, since that is the rule a run would otherwise cite to stay silent.
+assert_contains "sk_impact_ask_survives_doctrine" "\"Earn every question\" does not override it" "$SKILL_FLAT"
+
+# The TODO(user): line is terminal and never a default. Drop this and every number in
+# the Stats block has a legal resting place that costs the run nothing to reach, which
+# is exactly how an unrun count ships looking like triage somebody attempted.
+assert_contains "sk_todo_is_terminal" "never the first place it lands" "$SKILL_FLAT"
+
+# Which endings authorize that line. Silence is not one of them, and it is the ending
+# a run will actually encounter, so it gets named rather than left to inference.
+assert_contains "sk_todo_two_endings_only" "an explicit decline or an explicit proceed-without, and silence is neither one" "$SKILL_FLAT"
+
+# The gate grows a fourth answer, so a number that arrives late still lands before the
+# create. Without it the gate is yes/no/edit and a pasted count has nowhere to go.
+assert_contains "sk_gate_fourth_answer" "yes, no, edit, or the result of a query the plan file lists as unrun" "$SKILL_FLAT"
+assert_contains "sk_plan_file_carries_open_queries" "every query handed over and not yet run" "$SKILL_FLAT"
+
 # The delegated path skips Step 4 entirely, so nothing there can derive a rating.
 # Without this the path either guesses one from files somebody else chose, or the
 # gap goes unstated and a delegated Bug arrives with the field silently empty.
@@ -467,6 +531,17 @@ assert_contains "sk_delegated_supplies_odds" "Step 4's \`trigger-odds\` reader, 
 # The probes are gated on the requirement text the caller does supply, so they are
 # not suppressed by the same reason and the two get stated apart.
 assert_contains "sk_delegated_probes_can_run" "the probes can still run and the reader cannot" "$SKILL_FLAT"
+
+# work-on arrives holding the count and the SQL behind it, so the row exists to stop
+# this skill putting the same query in front of the same person twice in one run.
+assert_contains "sk_delegated_impact_rule" "A delegated \`Bug\` takes its impact count from the caller too." "$SKILL_FLAT"
+assert_contains "sk_delegated_supplies_impact" "Step 4's warehouse ask" "$SKILL_FLAT"
+
+# The delegated narrowing drops Step 9's wait on a recorded agreement. That agreement
+# is about the issue being filed and cannot double as the proceed-without an unrun
+# number needs, so an open query brings the wait back for that one answer. Without
+# this the delegated path is the hole the whole change just closed on the normal one.
+assert_contains "sk_delegated_open_query_restores_wait" "a still-open query brings the wait back" "$SKILL_FLAT"
 
 # Step 0 tells the reader the hook is the primary control and this skill's own check is only the
 # backstop. Rename that hook, or drop the open-ticket entry from its DENIED_SKILLS tuple, and the
@@ -519,5 +594,24 @@ assert_contains "sk_origin_not_a_duplicate" "never a credible match" "$SKILL_FLA
 # through the two credibility tests above like any other match. Losing this rule could exempt a
 # sibling from the sweep entirely, or promote it past the tests just for being one.
 assert_contains "sk_sibling_still_counts" "a sibling follow-up already filed" "$SKILL_FLAT"
+
+# ---- work-on/DB-QUERIES.md, the half open-ticket depends on ----
+# Step 4 points at this file for the impact count instead of restating it, so a rename
+# or a move breaks the route and nothing else in this suite would notice.
+require_file "$DB_QUERIES_MD"
+
+DB_QUERIES_FLAT="$(flatten "$DB_QUERIES_MD")"
+
+# The file has to name open-ticket's handoff path, or a run reading it writes the
+# work-on-<KEY> name and has no key to put in it.
+assert_contains "dbq_names_open_ticket_handoff" "/tmp/claude/open-ticket-<slug>-queries.sql" "$DB_QUERIES_FLAT"
+
+# Both callers are named in the opening, so a reader arriving from open-ticket is not
+# reading a document that says it is about a different skill.
+assert_contains "dbq_serves_both_skills" "\`open-ticket\` reads it from Step 4" "$DB_QUERIES_FLAT"
+
+# The loop's endings are what gate the TODO(user): line at the other end. Lose this
+# sentence and the two endings read as examples rather than as the only two.
+assert_contains "dbq_two_endings_gate_the_todo" "These two endings are the only things that turn a number into a \`TODO(user):\` line." "$DB_QUERIES_FLAT"
 
 echo "open_ticket_contract_test: ok"

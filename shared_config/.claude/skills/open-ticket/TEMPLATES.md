@@ -12,6 +12,8 @@ Write one line per paragraph and one line per list item, however long it runs, b
 
 A number nobody ran becomes a `TODO(user):` line carrying the query, never prose. Prose reads as a measured claim, and a later reader treats a number nobody ran as evidence.
 
+"Nobody ran it" is a verdict [SKILL.md](SKILL.md)'s Step 8 defines, and it is reached only after the attempt that step requires. Never resolve a number to that line from inside a template. A drafter that decides it here skips the ask, and the line then says a human was asked and declined when nobody was asked at all.
+
 ## Feature Story
 
 Verbatim from the request.
@@ -83,6 +85,8 @@ From the request, plus the rubric under the template, which exists so Step 4 has
 ```
 
 **Every Stats answer is short.** A number, a yes or a no, or the rating with its rationale. Nothing in that block is a paragraph and no bullet there argues a case. The rating's rationale is the one exception, because a bare digit is not checkable. The impact count is a number too, so one nobody measured is a `TODO(user):` line and never a guess sitting in the `[number]` slot.
+
+**The impact count is owed a warehouse query and an ask before that line is its answer.** SKILL.md's Step 4 subsection on it carries the route. This bullet is the one in the block with no telemetry probe behind it on most runs, so it is the one that decays into an unrun `TODO(user):` unless Step 4 went and got it.
 
 ### The odds rating
 

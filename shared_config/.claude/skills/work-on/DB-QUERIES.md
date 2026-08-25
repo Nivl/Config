@@ -1,18 +1,20 @@
 # Warehouse queries
 
-How `work-on` gets a number out of the data warehouse. Referenced from SKILL.md's "Earn every
-question" and from the validation probes.
+How a skill gets a number out of the data warehouse. `work-on` reads it from SKILL.md's "Earn every
+question" and from the validation probes. `open-ticket` reads it from Step 4, for the Stats block's
+impact count. Both follow it as written, and the only thing that differs between them is the name of
+the handoff file.
 
-**This skill has no warehouse connection of its own.** It writes SQL and then needs someone or
+**Neither skill has a warehouse connection of its own.** Each writes SQL and then needs someone or
 something else to run it. Two paths, in this order:
 
 1. **A skill that runs SQL**, if this environment has one that works. Check before asking.
 2. **The user**, otherwise. Pool the queries into one file, hand over the path, and keep asking until
    it resolves.
 
-Path 2 is the reliable one, so it gets most of this document. Do not treat it as a failure state. A
-validation agent composing SQL against production tables it has never seen, with no view of their
-size, is a good thing to have a human read first.
+Path 2 is the reliable one, so it gets most of this document. Do not treat it as a failure state. An
+agent composing SQL against production tables it has never seen, with no view of their size, is a
+good thing to have a human read first.
 
 - [Try to run them first](#try-to-run-them-first). Check for a query skill before asking.
 - [Every query obeys these two rules](#every-query-obeys-these-two-rules). Read-only, and bounded.
@@ -23,8 +25,8 @@ size, is a good thing to have a human read first.
 
 ## Try to run them first
 
-**Only the main thread does this, and only once**, after the validation phase has pooled what it
-wants. A validation subagent never runs SQL, whatever it finds available. A wide run dispatches twenty
+**Only the main thread does this, and only once**, after the phase that needs the numbers has pooled
+what it wants. A subagent never runs SQL, whatever it finds available. A wide run dispatches twenty
 or so agents, and each one probing the same skill produces the same answer that many times. A subagent
 that hits a failure also cannot ask the user what to do about it, so the decision has to sit where the
 user is reachable.
@@ -100,13 +102,16 @@ Hand the work over instead:
 1. Pool **every** query the run needs into one file. Not one file per query, and not a query at a
    time. The user is going to run these in one sitting and switching context per query wastes their
    time.
-2. Write it to `/tmp/claude/work-on-<KEY>-queries.sql`.
+2. Write it to `/tmp/claude/work-on-<KEY>-queries.sql`, or to
+   `/tmp/claude/open-ticket-<slug>-queries.sql` when `open-ticket` is the caller. There is no Jira key
+   on that path, because the ticket does not exist yet, so the file takes the run's slug the same way
+   its plan file does.
 3. Give them the **absolute path**, on its own line, in its own message.
 4. Follow [Keep asking](#keep-asking) until it resolves.
 
 **Collect before you ask.** One file at one moment beats three asks across three turns, so let the
-validation phase finish and pool what it wants. A question that arrives after the user already ran the
-first batch costs them a second sitting.
+phase that needs the numbers finish and pool what it wants. A question that arrives after the user
+already ran the first batch costs them a second sitting.
 
 **Only the queries that did not run.** If a query skill answered some of them, those results are done
 and their queries stay out of the file. Keep the numbering contiguous in whatever you do write, so
@@ -181,8 +186,12 @@ not land. All of these mean ask again:
 - **An explicit decline.** "Don't run queries", "skip the SQL", "I don't have warehouse access", "no
   DB for this one". Stop asking, and mark every dependent claim unverified.
 - **An explicit proceed-without.** Continue, and carry each dependent claim into the ticket as a
-  `TODO(user):` line rather than as a fact. Add each one to the running list SKILL.md's "Final
-  report" reads out, with its query, so the user ends the run holding the exact SQL nobody ran.
+  `TODO(user):` line rather than as a fact. Add each one to the running list the calling skill's final
+  report reads out, with its query, so the user ends the run holding the exact SQL nobody ran.
+
+These two endings are the only things that turn a number into a `TODO(user):` line. Reaching for that
+line before the ask happened ships a claim nobody tried to check, wearing the shape of one somebody
+tried and could not.
 
 Silence is never a decline. Neither is impatience with a different part of the run.
 
@@ -209,4 +218,7 @@ ignored. Say what is blocked and what it is blocking.
   appears anyway, tell them to rotate it and do not reuse or repeat it.
 - Never treat an empty result set as a missing result, or a missing result as an empty set. "Nobody
   is affected" and "nobody ran the query" support opposite conclusions.
-- Never let a query the user declined silently become a confirmed claim in the rewritten ticket.
+- Never let a query the user declined silently become a confirmed claim in the ticket.
+- Never let a number reach a ticket as a `TODO(user):` line without the ask having happened. The line
+  records that somebody was asked and did not run it, so writing it unasked makes a false statement
+  about what the run did.

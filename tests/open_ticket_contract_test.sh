@@ -158,6 +158,16 @@ assert_contains "cf_bans_components" "Never send components or fixVersions" "$CR
 assert_contains "cf_two_call_types" "Bug, Epic and Bug Subtask" "$CREATE_FIELDS_FLAT"
 assert_contains "cf_names_two_calls" "two calls" "$CREATE_FIELDS_FLAT"
 
+# The second call is an editJiraIssue, which has no additional_fields parameter
+# at all. Carrying the create call's shape over to the edit fails it after the
+# create has landed, leaving an issue with no description and no points. The
+# pattern anchors on a line that opens with `fields:` and mentions
+# additional_fields later, which is only ever an edit recipe. A create line
+# carries additional_fields alone and does not match. This catches the one-line
+# recipe shape, not a multi-line rewrite of the same mistake.
+assert_line_count "cf_edit_takes_no_additional_fields" '^ *fields: .*additional_fields' 0 "$CREATE_FIELDS_MD"
+assert_contains "cf_edit_param_list" 'There is no `additional_fields` on it, and no `assignee_account_id` either.' "$CREATE_FIELDS_FLAT"
+
 # markdown works on create. Stating contentFormat explicitly costs nothing and
 # the shared enum text hedges about defaults.
 assert_contains "cf_content_format" "contentFormat" "$CREATE_FIELDS_FLAT"

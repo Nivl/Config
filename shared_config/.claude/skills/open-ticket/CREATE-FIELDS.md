@@ -61,6 +61,8 @@ There is no `Subtask` recipe here because this skill never emits `Subtask`. Step
 
 Bug, Epic and Bug Subtask all need two calls, because both `description` and the points field are absent from their create screens. The first call carries whatever that type's screen has and this skill sets. The second is an `editJiraIssue` with `contentFormat: "markdown"` that adds the description and the points. The three first calls are not the same shape.
 
+`editJiraIssue` is `additionalProperties: false` too, and its whole parameter list is `cloudId`, `issueIdOrKey`, `fields`, `contentFormat` and `responseContentFormat`. There is no `additional_fields` on it, and no `assignee_account_id` either. Everything the second call sets goes inside `fields`, keyed by field name or `customfield_*` id. Carrying the create call's shape over to the edit fails the call outright, and it fails after the create has already landed, so the issue exists with no description and no points.
+
 | Type | First call carries | Second call adds |
 |---|---|---|
 | `Bug` | summary, parent, assignee, sprint | description, points |
@@ -75,7 +77,7 @@ createJiraIssue({
 })
 editJiraIssue({
   cloudId, issueIdOrKey: "GRO-1235", contentFormat: "markdown",
-  fields: { description: "..." }, additional_fields: { customfield_10028: 5 }
+  fields: { description: "...", customfield_10028: 5 }
 })
 ```
 
@@ -86,7 +88,7 @@ createJiraIssue({
 })
 editJiraIssue({
   cloudId, issueIdOrKey: "GRO-1236", contentFormat: "markdown",
-  fields: { description: "..." }, additional_fields: { customfield_10503: 3 }
+  fields: { description: "...", customfield_10503: 3 }
 })
 ```
 
@@ -97,8 +99,7 @@ createJiraIssue({
 })
 editJiraIssue({
   cloudId, issueIdOrKey: "GRO-1237", contentFormat: "markdown",
-  fields: { description: "..." }, additional_fields: { customfield_10028: 1 },
-  assignee_account_id: "..."
+  fields: { description: "...", customfield_10028: 1, assignee: { accountId: "..." } }
 })
 ```
 
@@ -138,7 +139,7 @@ Every id in this file is specific to the GRO instance. Re-check them against `ge
 
 The sprint value. Try bare `9511` against `[9511]`. Confirm whichever one works on the run's first create, read the result back, then reuse that proven shape for every later call in the run.
 
-Assignee on `Bug Subtask`. Attempt it through the second call's edit, since the create screen has no field for it. Report plainly whether it stuck.
+Assignee on `Bug Subtask`. Attempt it through the second call's edit, since the create screen has no field for it. The value shape is unproven along with the route. The edit takes a raw Jira field object under `fields`, so `assignee: {accountId: "..."}` is the shape to try, and not the create call's flat `assignee_account_id`. Report plainly whether it stuck.
 
 Both of these get confirmed once against a real write, then reported in the run's final report. A guessed field shape here causes a real failed create.
 

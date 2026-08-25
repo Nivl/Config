@@ -84,7 +84,7 @@ The hook only sees a `Workflow` whose text names a skill, so it cannot catch a w
 
 ## Code comments
 
-Commenting code is good. Keep doing it. But every comment must earn its place. Follow these rules:
+A comment that carries a hazard, a constraint, or an invariant is worth writing. One that describes what the code already says is not. The test is counterfactual. Would a reader reach a wrong conclusion without this sentence? Not "is this true." Not "is this interesting." Follow these rules:
 
 - **Explain _why_, not _what_.** Capture intent, a constraint, an edge case, or the reason for an unobvious choice. Do not narrate code that already reads clearly. `// increment the counter` above `count++` is noise. You can explain the what, if it help explaining the why.
 - **No changelog or diff comments.** A comment describes the code as it stands now, never how it got there. Ban `// added this`, `// changed from X`, `// new logic`, `// was previously ...`, `// TODO: remove old impl`. That history lives in git, not in the source.

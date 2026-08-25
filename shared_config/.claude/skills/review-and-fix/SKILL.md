@@ -320,19 +320,32 @@ either. Both are carried to the Final Report.
      anything else a caller can observe. When it does, list the call sites first with a
      reference search (`mcp__serena__find_referencing_symbols`, or `rg` on the symbol name),
      report the count in one line, and read every call site the change reaches. Any call site
-     that needs a matching change goes in the same commit. Fixes confined to comments,
-     formatting, or doc files skip this entirely.
+     that needs a matching change goes in the same commit.
+   - **A fix that corrects a factual claim gets the same treatment, in prose as much as in
+     code.** Search for the claim elsewhere before committing, report the count in one line, and
+     correct every occurrence in the same commit. Record the result in the commit body as
+     `Swept: <fragment> (<n> sites)`. Search by a distinctive FRAGMENT rather than the whole
+     phrase, with `rg -U` or `\s+` for every space, because prose wraps and a line-oriented
+     search cannot match a phrase split across two lines. That wrap is how the miss this rule
+     exists to prevent actually happened. Bound the search to tracked files the branch has
+     ALREADY modified. Report a hit outside that set in one line and do not edit it. The bound
+     is what keeps this rule from making things worse. Every lens that raises a prose finding is
+     scoped to the branch's own changes, so an occurrence in an unmodified file could never have
+     become a finding, and editing it pulls that file into the modified set where role 5 then
+     reads all of its pre-existing comments. The judgement call is whether a hit is the same
+     claim or a different one that shares wording. A fix confined to formatting or punctuation
+     still skips both bullets.
    - Run the project's linter/formatter if one exists and fix any violations it reports.
    - Run the project's tests (`pnpm run test:unit` for the web sub-project, or the equivalent
      for the relevant sub-project) to confirm no regressions.
    - **Do not commit if lint or tests fail.** Fix the failures first or escalate to the user.
 
 5. **Stage the fix, then scan the staged diff.** Run `git add -A`, then `git diff --staged`, and
-   read the added lines only. Sub-step 6 stages again, which is then a harmless no-op. Four
-   checks. Each is a pattern match on the added lines, never a review of the design. Two of them
-   need a judgement call, and both are named where they arise. Fix whatever a check catches,
-   re-stage, and rerun the scan. Never commit with a note to fix it later. A noted violation is
-   next iteration's finding, which is the cost this scan exists to remove.
+   read the added lines only. Sub-step 6 stages again, which is then a harmless no-op. Five
+   checks. Each starts from a pattern match on the added lines, never from a review of the
+   design. Three of them need a judgement call, and each is named where it arises. Fix whatever
+   a check catches, re-stage, and rerun the scan. Never commit with a note to fix it later. A
+   noted violation is next iteration's finding, which is the cost this scan exists to remove.
    - **Pattern scan, authored prose and added lines only.** No `→ ← … ≥ ≤ × — –` and no curly
      quotes. In comment bodies and prose or doc files only, no ` - ` joining two independent
      clauses. Arithmetic, YAML and markdown list markers, and CLI examples are not violations.
@@ -345,8 +358,14 @@ either. Both are carried to the Final Report.
    - **Catch artifact.** Every added `catch` rethrows or carries a why-comment (sub-step 4).
    - **`Red:` presence.** The commit message you are about to write in sub-step 6 carries a
      `Red:` line when this was a behavior finding (sub-step 3).
-   - **Scope.** `git diff --staged --stat` lists only files the finding named or the
-     reference search in sub-step 4 turned up. For any other file, state why in one line.
+   - **Scope.** `git diff --staged --stat` lists only files the finding named or either search
+     in sub-step 4 turned up. For any other file, state why in one line.
+   - **Paths and identifiers resolve.** Every file path and every code identifier written into
+     authored prose on an added line must resolve. Resolve each one before the commit lands, and
+     correct or drop whatever does not. Prose written during a fix is unreviewed prose, and a
+     path that no longer resolves is next iteration's finding. The judgement call is whether a
+     token is a claim about this repo or an illustrative example, and only a claim has to
+     resolve.
 
 6. **Commit the fix:**
 
@@ -355,7 +374,8 @@ either. Both are carried to the Final Report.
    git commit -m "<type>: <short description of what was fixed>
 
    <optional body explaining why>
-   Red: <first line of the failing assertion, behavior findings only>"
+   Red: <first line of the failing assertion, behavior findings only>
+   Swept: <fragment> (<n> sites), claim corrections only"
    ```
 
    Use conventional commit types: defined in the `.github/semantic.yml` file (e.g., `fix`,
@@ -452,7 +472,8 @@ aggregated, before Step 2 applies a single fix. The Step 0 trigger aborts there 
 any launch. The launch-failure trigger also fires in Step 1, as soon as the last launch has failed. Rows 1b, 4, and 5 are the only rows that go back to Step 1. Row 1b is
 bounded at one retry per reviewer kind per run, and rows 4 and 5 both require `any_commit == true`,
 because row 2 stops the run the moment an iteration commits nothing. So the loop continues only
-while every single iteration commits at least one fix. That is real progress on almost every run.
+while every single iteration commits at least one fix. That is real progress only when the fix
+targets something the branch did not author during this run.
 It is not a termination proof. One iteration's fixes can introduce a defect the next iteration then
 finds, and that cycle can sustain itself. A run that is going nowhere is stopped by the user
 interrupting it, which is why every iteration that reaches Step 3 emits a per-iteration summary.
@@ -531,10 +552,23 @@ role 9 in rather than trusting the productive set alone.
 rerun judges the new test code through role 9 alone. Sub-step 5's staged-diff scan is the partial
 backstop. It runs before the commit exists and catches the mechanical subset, meaning added
 `as any` and `as unknown as`, the banned glyphs, ` - ` clause joiners in comments, ticket keys,
-and changelog literals. It is NOT a substitute for role 1's full AGENTS.md read or role 12's type
-analysis. This is a deliberate cost trade, since the loop is uncapped and those three roles would
-be paid on every test iteration. The next `logic` commit forces a full rerun (row 4) and they see
-the accumulated test code then.
+changelog literals, and paths or identifiers that do not resolve. It is NOT a substitute for
+role 1's full AGENTS.md read or role 12's type analysis. This is a deliberate cost trade, since
+the loop is uncapped and those three roles would be paid on every test iteration. The next
+`logic` commit forces a full rerun (row 4) and they see the accumulated test code then.
+
+**What a pruned `prose` iteration gives up, and why that lane is absorbing.** The commit class
+that sets neither flag is the same class the prose lenses produce. So a `prose` commit hands
+roles 1 and 5 their own output, because `productive_reviewers` is built from the findings that
+got fixed, and fixing a prose finding authors prose. Row 4 needs a `logic` commit and a
+prose-only iteration has none, so there is no route from this lane back to a full rerun. The only
+exits are row 1 once the prose lenses accept what the run wrote, row 2 once an iteration commits
+nothing, and the user's interrupt. Sub-step 4's claim sweep and sub-step 5's scan are what
+shorten the lane. They review the authored prose before it lands rather than an iteration later,
+and they do not close the lane. The two booleans in the per-iteration summary are the signal to
+read. Three consecutive iterations with `any_logic_change` and `any_test_change` both false, on a
+run whose logic commits have stopped changing, is this lane. The finding count is not the signal,
+because it falls monotonically the whole time the lane runs.
 
 Note: a non-empty `unaddressed_pool` in PR mode does NOT prevent the loop from terminating.
 "Still unaddressed" items are surfaced for the user to consider, but the fix loop is

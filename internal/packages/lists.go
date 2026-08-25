@@ -17,6 +17,11 @@ var Formulae = []string{
 	"shfmt",
 	"lsd",
 	"gh",
+	"ripgrep", // faster grep
+	"fd",      // faster find
+	"sd",      // faster sed
+	"bat",     // faster cat
+	"parallel",
 }
 
 // Fonts is the set of font formulae. Separated for grouping in the

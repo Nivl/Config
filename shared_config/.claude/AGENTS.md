@@ -94,7 +94,7 @@ Commenting code is good. Keep doing it. But every comment must earn its place. F
   - Bad: `// some comment (TICKET-0123).`
 - **Keep them short and focused.** One or two lines is the norm. Only write a long paragraph when the logic is genuinely complex and a short note cannot carry it.
 - **Write plainly.** Use short sentences. Avoid semicolons. Aim for a middle-school or high-school reading level, while still using normal software engineering terms.
-- **One thought per sentence. Don't glue clauses with a dash or a colon.** When you catch yourself joining two independent clauses with ` - ` (space-hyphen-space, used as a stand-in for an em-dash) or with a `:` that splits a claim from its elaboration, stop and write two sentences instead. This is the same "split the sentence" rule as the Plain ASCII section below, applied to the punctuation people actually reach for.
+- **One thought per sentence. Don't glue clauses with a dash or a colon.** When you catch yourself joining two independent clauses with `-` (space-hyphen-space, used as a stand-in for an em-dash) or with a `:` that splits a claim from its elaboration, stop and write two sentences instead. This is the same "split the sentence" rule as the Plain ASCII section below, applied to the punctuation people actually reach for.
   - Bad: `// This function never throws and never rejects - a Redis failure must not turn an already-committed write into an error.`
   - Good: `// This function never throws and never rejects. A Redis failure must not turn an already-committed write into an error.`
   - Bad: `// log first: it is the primary signal and must not be suppressed.`
@@ -118,10 +118,7 @@ Prefer these instead:
 - **A user-defined type predicate** when the shape needs a real runtime check. Write the check once and let every call site benefit:
   ```ts
   function isUser(x: unknown): x is User {
-    return (
-      typeof x === 'object' && x !== null &&
-      'id' in x && typeof x.id === 'string'
-    );
+    return typeof x === "object" && x !== null && "id" in x && typeof x.id === "string";
   }
   ```
 - **A discriminated union** with a literal `kind` or `type` field, then `switch` on that field. Each branch narrows for free, and the compiler can tell you when a new variant is unhandled.
@@ -167,7 +164,7 @@ Text you write for humans -- commit messages, code comments, PR and issue descri
 - `...` not `…`
 - `>=` / `<=` not `≥` / `≤`, and `x` not `×`
 - straight quotes `'` and `"`, not the curly variants
-- two separate sentences instead of the em-dash `—` or en-dash `–` to join clauses. Do not chain thoughts with a dash at all. That includes the ASCII stand-in ` - ` (space-hyphen-space) and a clause-splitting `:`. Split the sentence instead. (See the "One thought per sentence" rule under Code comments for the allowed non-joiner uses of `-` and `:`.)
+- two separate sentences instead of the em-dash `—` or en-dash `–` to join clauses. Do not chain thoughts with a dash at all. That includes the ASCII stand-in `-` (space-hyphen-space) and a clause-splitting `:`. Split the sentence instead. (See the "One thought per sentence" rule under Code comments for the allowed non-joiner uses of `-` and `:`.)
 
 This governs prose you author. It does NOT mean mangling literal content: quoted command output, a string or identifier in the code, file contents you are reproducing, or a name that genuinely contains a Unicode character all stay verbatim. Don't "fix" a `→` that is actually part of the data.
 
@@ -205,3 +202,10 @@ This surfaces in three shapes:
 - **`WebFetch` denied or failed.** An unknown domain prompts first; if you decline it (or it errors / is blocklisted), `report-access-failure.py` fires on `PermissionDenied` / `PostToolUseFailure` and reminds you to stop and ask. Don't route around it with `curl` or a web search. Prefer `WebFetch` over `curl` for web pages. It prompts on an unknown host and the same `--fetch` add unblocks it.
 - **`curl` / `wget` to an unknown host** is denied before it runs by `deny-unallowlisted-host.py`, with a reason naming the host and the fix. Surface it; don't reach for a workaround.
 - **Tools that resolve a host from config, not argv** (`go get`, `npm`/`pnpm install`, `pip`, a git-over-HTTPS clone of a new host) aren't seen by either hook. They fail mid-run with an opaque network error (`could not connect`, `operation not permitted`, a TLS/timeout error to a non-local host). Treat that as a blocked host, not a flake. Stop and ask.
+
+## Installed CLI tools
+
+- **ripgrep** (`rg`) is installed — prefer over `grep` for shell searches
+- **fd** is installed — prefer over `find` for file finding by name/pattern
+- **sd** is installed — prefer over `sed` for find-and-replace in files
+- **GNU parallel** is installed — use for concurrent shell tasks when beneficial

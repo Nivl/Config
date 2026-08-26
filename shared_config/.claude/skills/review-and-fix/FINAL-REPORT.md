@@ -19,6 +19,7 @@ Summarise the entire session in a clear report to the user:
 **Iterations completed:** N
 **Total commits made:** N
 **Run log:** <run_log_path>
+**Ended:** <date -u +%FT%TZ, taken as this report is written>
 
 ### Changes Made (omit when the run committed nothing)
 
@@ -47,15 +48,28 @@ Summarise the entire session in a clear report to the user:
 iterations, intermediate snapshots are not reproduced here. The per-iteration summaries
 above track them as counts plus what changed each iteration.)
 
-### Where the run went (omit when the run was a single iteration)
+### Where the run went
 
-| Iteration | Waiting | Fixing | Findings | Self-inflicted | Commits |
-|---|---|---|---|---|---|
-| <n> | <t1-t0> | <t2-t1> | <count> | <self_inflicted_count> | <count> |
+| Iteration | Range | Waiting | Fixing | Unaccounted | Findings | Self-inflicted | Commits |
+|---|---|---|---|---|---|---|---|
+| <n> | <commits in range at t0> | <t1-t0> | <t2-t1> | <gap before this iteration's t0> | <count> | <self_inflicted_count> | <count> |
+| **Total** | | <sum> | <sum> | <sum> | <sum> | <sum> | <sum> |
 
-One row per iteration that reached Step 3, plus a totals row. This is the section that answers why
-a run took as long as it did, and it is built from measurements rather than from findings. Read the
-two time columns against each other. A long wait beside a near-zero fix is a
+**Never omit this section, and never omit a row.** Each iteration already emitted its own row in its
+Step 3 block, so this table is those rows concatenated plus the totals. Building it that way is what
+keeps it available to a run that never reaches Step 4. On the first two real logs this section
+appeared zero times out of two, which is why it is no longer optional and no longer assembled here
+from scratch.
+
+**The totals row has to reconcile.** Waiting plus Fixing plus Unaccounted must equal the run's end
+stamp minus `Started` in the header. Stamp the run's end when this report is written. Unaccounted is
+the time inside the run that no iteration claims, meaning whatever fell between one iteration's `t2`
+and the next one's `t0`. That is where a human answering a question sits, and where an external
+interruption sits. A table that must add up is a table an author cannot quietly skip, and the
+residual is a measurement rather than an omission.
+
+This is the section that answers why a run took as long as it did, and it is built from measurements
+rather than from findings. Read the two time columns against each other. A long wait beside a near-zero fix is a
 pruned iteration, which costs few reviewers and close to a full iteration's wall clock.
 
 The Self-inflicted column is the count of that iteration's findings whose target line an earlier

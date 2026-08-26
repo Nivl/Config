@@ -16,6 +16,17 @@ Step 2 commits with `git add -A` and would sweep that file into the next fix com
 Appending live is what gives an interrupted run a record. That run is often the one worth reading
 later, and its only other trace is chat scrollback plus `git log`.
 
+**Refuse to emit a block whose stamps fail `t0 < t1 < t2`.** Go back and find the real values
+instead. On the first two real logs one iteration printed a `t1` fifteen minutes before its own
+`t0`, having reused the previous iteration's value, and the block was emitted anyway with a
+sentence explaining the reuse. An ordering check catches that without needing the author to notice
+it. A stamp that cannot be recovered is recorded as absent, never as an approximation, because an
+approximated stamp reads as a measurement.
+
+Close the block with the run's own row for the Final Report's "Where the run went" table, in the
+same shape that table uses. Emitting the row here rather than building the whole table in Step 4 is
+what keeps it available when a run never reaches Step 4.
+
 Cover these in this order, one line each, and drop any line that has nothing to say:
 
 - The `iteration` number and the active reviewer set that ran.
@@ -37,9 +48,11 @@ Cover these in this order, one line each, and drop any line that has nothing to 
 - Waiting time and fixing time, as `t1` minus `t0` and `t2` minus `t1`. Two numbers, one line. A
   long wait beside a near-zero fix is what a cheap iteration actually costs, and pruning cuts the
   reviewers launched without cutting the wait.
-- `self_inflicted_count` out of the iteration's finding count, when it is above zero. These are
-  findings whose target line an earlier commit of this same run wrote. Say nothing when it is
-  zero, and never present it as a reason a finding was handled differently, because it never is.
+- `self_inflicted_count` out of the iteration's finding count, **always, including when it is
+  zero**. These are findings whose target line an earlier commit of this same run wrote. A field
+  allowed to go silent at zero cannot be told apart from a field that was dropped, which is what
+  happened to this one on both of the first two real logs. Never present it as a reason a finding
+  was handled differently, because it never is.
 - Discussion Context in PR mode, as resolved and unaddressed counts plus whatever changed since
   the previous iteration. Say so instead when gh-style was not active and the previous snapshot
   carries forward unchanged.

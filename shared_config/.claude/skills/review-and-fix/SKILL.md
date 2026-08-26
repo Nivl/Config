@@ -198,10 +198,13 @@ or, for a full iteration:
 > Iter N: launching 3 reviewer passes in parallel (2 x in-depth-review [all roles], 1 x gh-style-review).
 > Target: PR #<PR> [draft]  <-  or  Target: branch range <RANGE>
 
-**Stamp `t0` before the launch**, with `date -u +%FT%TZ`. This is the first of the iteration's
-three timestamps and it costs one command. Together they separate the time spent waiting on
-reviewers from the time spent fixing, which is what lets the run log say where a long run's time
-actually went.
+**Stamp `t0` before the launch**, with `date -u +%FT%TZ`, and append it to `run_log_path` on its
+own line the moment you take it. Every stamp in this skill goes to the file when taken, never held
+back for the end-of-iteration block. A stamp that lived only in memory is gone when the run is
+interrupted, and it gets approximated from recall when the block is finally written.
+
+Record `git rev-list --count <RANGE>` beside `t0`. The range grows as the run commits, and the
+count is what turns that into a number rather than an impression.
 
 Spawn the active sub-agents **in a single message** (concurrent tool-use blocks). Sequential
 launches defeat the purpose. Never serialize.
@@ -247,9 +250,18 @@ prompt the sub-agent receives.
 
 ### Aggregating across the active instances
 
-**Stamp `t1` the moment collection ends**, meaning when every launched sub-agent is accounted for
-or the give-up bound was reached. `t1` minus `t0` is the iteration's waiting time, and on a pruned
-iteration that number is most of the wall clock.
+**Stamp each instance's arrival as you read its result**, with `date -u +%FT%TZ`, appending one
+line per instance that names the instance. `t1` is the last of them. `t1` minus `t0` is the
+iteration's waiting time, and on a pruned iteration that number is most of the wall clock.
+
+Do not try to stamp the moment collection ended, because there is no such moment to observe.
+Results arrive asynchronously on later turns, and you learn collection is over by noticing that
+three turns brought nothing new, which is minutes after the last arrival. Measured on the first two
+real logs, `t1` was a usable stamp in one iteration out of four, while every `t2` was exact. `t2`
+falls where you are acting and the old `t1` fell where you were waiting. Per-instance arrivals
+replace one unobservable moment with three observable ones, and they record what a single `t1`
+cannot say, which is whether every instance ran long or one straggler held up two that finished
+early.
 
 Collect every active sub-agent's result, pool them, deduplicate, and merge into one flat list
 filtered to `confidence >= 50`. Follow [AGGREGATING.md](AGGREGATING.md) exactly — four rules
@@ -401,8 +413,11 @@ either. Both are carried to the Final Report.
    a check catches, re-stage, and rerun the scan. Never commit with a note to fix it later. A
    noted violation is next iteration's finding, which is the cost this scan exists to remove.
    - **Pattern scan, authored prose and added lines only.** No `→ ← … ≥ ≤ × — –` and no curly
-     quotes. In comment bodies and prose or doc files only, no ` - ` joining two independent
-     clauses. Arithmetic, YAML and markdown list markers, and CLI examples are not violations.
+     quotes. In comment bodies and prose or doc files only, no ` - ` and no `:` joining two
+     independent clauses. AGENTS.md bans both as joiners and this check covers both, because a
+     colon joiner caught by role 1 instead costs a whole iteration. A `:` is fine as a
+     line-leading label prefix such as `TODO:` or `NOTE:`, and in a ratio, a time, a path, or a
+     URL. Arithmetic, YAML and markdown list markers, and CLI examples are not violations.
      No ticket key matching
      `\b[A-Z][A-Z0-9]{1,9}-\d{1,6}\b`, excluding protocol names such as UTF-8, SHA-256,
      RFC-7231, ISO-8601, and CVE-2024. None of the changelog literals `added this`,
@@ -484,9 +499,10 @@ either. Both are carried to the Final Report.
 
 8. After the bookkeeping, move to the next finding.
 
-**Stamp `t2` when the fix phase ends**, after the last finding is processed. `t2` minus `t1` is the
-iteration's fixing time. An iteration whose findings were all deferred or skipped still gets a
-`t2`, and a near-zero fixing time next to a long wait is itself the finding.
+**Stamp `t2` when the fix phase ends**, after the last finding is processed, appending it on its own
+line as you take it. `t2` minus `t1` is the iteration's fixing time. An iteration whose findings
+were all deferred or skipped still gets a `t2`, and a near-zero fixing time next to a long wait is
+itself the finding.
 
 ## Step 3: Loop Control
 

@@ -45,11 +45,16 @@ Track state explicitly:
   appends each per-iteration block to it and Step 4 appends the Final Report. The Final Report
   names it, so a reader can tell which of the two homes a run used rather than guessing whether it
   fell back.
-- `t0`, `t1`, `t2`: per-iteration UTC timestamps from `date -u +%FT%TZ`. `t0` is stamped before the
-  Step 1 launch, `t1` when collection ends, `t2` when the Step 2 fix phase ends. `t1` minus `t0` is
-  waiting time and `t2` minus `t1` is fixing time. Nothing reads them but the summary block and the
-  Final Report. They exist because pruning cuts the reviewers launched and not the wait, so token
-  cost and wall clock diverge and only the second one is what a long run feels like.
+- `t0`, `arrivals`, `t2`: per-iteration UTC timestamps from `date -u +%FT%TZ`, each appended to the
+  run log on its own line the moment it is taken. `t0` goes before the Step 1 launch, one arrival
+  stamp goes beside each instance's result as it is read, and `t2` goes when the Step 2 fix phase
+  ends. `t1` is derived rather than stamped. It is the last arrival. `t1` minus `t0` is waiting time
+  and `t2` minus `t1` is fixing time. Nothing reads them but the summary block and the Final Report.
+  A block whose stamps fail `t0 < t1 < t2` is refused rather than emitted.
+  Arrivals are per instance because there is no observable moment at which collection ends.
+  Results land asynchronously on later turns and the give-up bound is noticed minutes after the
+  last one, so a single collection-end stamp is a guess. Measured: across the first two real logs a
+  stamped `t1` was usable in one iteration out of four, while every `t2` was exact.
 - `self_inflicted_count`: per-iteration count of findings whose target line an earlier commit of
   this same run wrote, from the `git blame` check in Step 2 sub-step 1. No stop rule reads it and it
   never changes how a finding is handled. It distinguishes a run making progress from a run

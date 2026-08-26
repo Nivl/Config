@@ -50,23 +50,24 @@ above track them as counts plus what changed each iteration.)
 
 ### Where the run went
 
-| Iteration | Range | Waiting | Fixing | Unaccounted | Findings | Self-inflicted | Commits |
+The per-iteration rows are already in the run log. Each Step 3 block closed with one, so recover them
+with `rg '^\| iter ' <run_log_path>` rather than rebuilding them from anything. Paste those rows
+under this header in iteration order, then add one totals row:
+
+| | Range | Waiting | Fixing | Unaccounted | Findings | Self-inflicted | Commits |
 |---|---|---|---|---|---|---|---|
-| <n> | <commits in range at t0> | <t1-t0> | <t2-t1> | <gap before this iteration's t0> | <count> | <self_inflicted_count> | <count> |
 | **Total** | | <sum> | <sum> | <sum> | <sum> | <sum> | <sum> |
 
-**Never omit this section, and never omit a row.** Each iteration already emitted its own row in its
-Step 3 block, so this table is those rows concatenated plus the totals. Building it that way is what
-keeps it available to a run that never reaches Step 4. On the first two real logs this section
-appeared zero times out of two, which is why it is no longer optional and no longer assembled here
-from scratch.
+**Do not author a per-iteration row here.** A row that is not in the log is a row nobody stamped, and
+this section exists to report measurements rather than to produce them. A missing row is reported as
+missing.
 
 **The totals row has to reconcile.** Waiting plus Fixing plus Unaccounted must equal the run's end
 stamp minus `Started` in the header. Stamp the run's end when this report is written. Unaccounted is
 the time inside the run that no iteration claims, meaning whatever fell between one iteration's `t2`
-and the next one's `t0`. That is where a human answering a question sits, and where an external
-interruption sits. A table that must add up is a table an author cannot quietly skip, and the
-residual is a measurement rather than an omission.
+and the next one's `t0`. That is where a human answering a question sits, and where an interruption
+sits. The residual is a measurement rather than an omission, and a totals row that does not
+reconcile is itself the finding.
 
 This is the section that answers why a run took as long as it did, and it is built from measurements
 rather than from findings. Read the two time columns against each other. A long wait beside a near-zero fix is a

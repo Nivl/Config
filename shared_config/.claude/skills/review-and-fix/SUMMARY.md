@@ -30,9 +30,23 @@ Round seconds are the tell, and an in-block check cannot see a cross-iteration o
 A stamp that cannot be recovered is recorded as absent, never as an approximation, because an
 approximated stamp reads as a measurement.
 
-Close the block with the run's own row for the Final Report's "Where the run went" table, in the
-same shape that table uses. Emitting the row here rather than building the whole table in Step 4 is
-what keeps it available when a run never reaches Step 4.
+**Close the block with one ledger row, in exactly this shape:**
+
+```
+| iter <n> | <commits in range at t0> | <t1-t0> | <t2-t1> | <findings kept> | <self_inflicted_count> | <commits> |
+```
+
+The literal `iter ` prefix is what makes the run's ledger `rg '^\| iter '` over the log. Keep the
+cell order fixed and emit a cell for every column, using `-` where a value is genuinely absent, so
+the row parses even when a field could not be measured.
+
+**This row is the whole ledger, and nothing assembles a table later.** The Final Report adds a totals
+row and reconciles it, and that is all it does with these numbers. Three runs in a row omitted the
+old "Where the run went" table, and the third omitted the entire Final Report, because it stopped on
+its own judgement and never reached Step 4. A summary that lives only in the report a
+non-terminating run never writes is in the wrong place. So the rows are stamped as they are earned
+and the table is derived from them, which also keeps this clear of the rule against reconstructing a
+Final Report for a run that was cut short.
 
 Cover these in this order, one line each, and drop any line that has nothing to say:
 

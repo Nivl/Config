@@ -50,7 +50,9 @@ Track state explicitly:
   stamp goes beside each instance's result as it is read, and `t2` goes when the Step 2 fix phase
   ends. `t1` is derived rather than stamped. It is the last arrival. `t1` minus `t0` is waiting time
   and `t2` minus `t1` is fixing time. Nothing reads them but the summary block and the Final Report.
-  A block whose stamps fail `t0 < t1 < t2` is refused rather than emitted.
+  A block whose stamps fail `previous t2 < t0 < t1 < t2` is refused rather than emitted. The chain
+  spans the run, because iterations are sequential and an overlap between two of them means a stamp
+  was reconstructed.
   Arrivals are per instance because there is no observable moment at which collection ends.
   Results land asynchronously on later turns and the give-up bound is noticed minutes after the
   last one, so a single collection-end stamp is a guess. Measured: across the first two real logs a

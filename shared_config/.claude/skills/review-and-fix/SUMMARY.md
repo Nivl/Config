@@ -16,11 +16,18 @@ Step 2 commits with `git add -A` and would sweep that file into the next fix com
 Appending live is what gives an interrupted run a record. That run is often the one worth reading
 later, and its only other trace is chat scrollback plus `git log`.
 
-**Refuse to emit a block whose stamps fail `t0 < t1 < t2`.** Go back and find the real values
-instead. On the first two real logs one iteration printed a `t1` fifteen minutes before its own
-`t0`, having reused the previous iteration's value, and the block was emitted anyway with a
-sentence explaining the reuse. An ordering check catches that without needing the author to notice
-it. A stamp that cannot be recovered is recorded as absent, never as an approximation, because an
+**Refuse to emit a block whose stamps fail `previous t2 < t0 < t1 < t2`.** Go back and find the real
+values instead. The chain runs across the whole run, not just inside one block. Iterations are
+sequential, so this iteration's `t0` cannot precede the previous iteration's `t2`, and a pair that
+overlaps means at least one of the two was reconstructed rather than stamped.
+
+Both halves of that chain are there because both have failed. On the first two real logs a `t1`
+printed fifteen minutes before its own `t0`, reusing the previous iteration's value, and the block
+was emitted anyway with a sentence explaining the reuse. On the third log every `t2` after iteration
+1 landed on `:00` seconds and five consecutive iterations started before the previous one ended.
+Round seconds are the tell, and an in-block check cannot see a cross-iteration overlap at all.
+
+A stamp that cannot be recovered is recorded as absent, never as an approximation, because an
 approximated stamp reads as a measurement.
 
 Close the block with the run's own row for the Final Report's "Where the run went" table, in the

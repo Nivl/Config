@@ -26,3 +26,6 @@ shared_config/.claude/scheduled_tasks.lock
 shared_config/.bin-remote/melvin-config
 
 __pycache__
+
+# review-and-fix run logs (Step 0 writes here when this repo is present)
+/logs/

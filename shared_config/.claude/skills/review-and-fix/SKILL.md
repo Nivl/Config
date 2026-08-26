@@ -137,6 +137,37 @@ for the reads they do. Local `git` calls need no `gh`.
     Step 3 recomputes both before each subsequent iteration. Iteration 1 always runs the full
     set.
 
+11. **Open the run log.** Resolve its home by running these two commands in order and reading the
+    exit code of the first:
+
+    ```
+    mkdir -p ~/.melvin/config/logs/review-and-fix
+    mkdir -p /tmp/claude-skills-logs/review-and-fix
+    ```
+
+    Exit 0 on the first makes that directory the home. Any non-zero exit falls back to the second,
+    which is `/tmp` and therefore works on any machine. Run the fallback only after a non-zero
+    exit, and never decide the preferred home is unavailable without having tried it. A preference
+    with no check behind it becomes the fallback on every run, and a log that silently landed in
+    `/tmp` looks the same as one that was meant to.
+
+    Then set `run_log_path` to `<home>/<YYYYMMDD-HHMMSS>-<repo>-<branch>.md`, taking the stamp from
+    `date -u +%Y%m%d-%H%M%S`, the repo from the remote's basename, and the branch from
+    `git rev-parse --abbrev-ref HEAD`. The stamp leads so a directory listing sorts by run. Write
+    the header now, naming the target, the mode, `<RANGE>`, `HEAD`'s short sha, the initial active
+    set, and the start time.
+
+    Append to this file as the run goes, never assemble it at the end. Step 3 appends each
+    per-iteration block as it emits it, and Step 4 appends the Final Report. The loop has no
+    iteration cap, so a run that is not converging ends when the user interrupts it, and an
+    interrupted run never reaches Step 4. Appending live is what leaves that run a record, and
+    those are the runs most worth reading afterwards.
+
+    The home is deliberately outside the repo under review. Step 2 commits with `git add -A`, so a
+    log inside the working tree would land in a fix commit and the next iteration would review it.
+    When the repo under review IS `~/.melvin/config`, its `.gitignore` entry for `logs/` is what
+    keeps that from happening, so do not write the log anywhere else in that repo.
+
 ## Step 1: Review — Active Parallel Sub-Agents (up to 2 in-depth-review + 1 gh-style-review)
 
 Launch the iteration's **active** reviewers only:
@@ -166,6 +197,11 @@ or, for a full iteration:
 
 > Iter N: launching 3 reviewer passes in parallel (2 x in-depth-review [all roles], 1 x gh-style-review).
 > Target: PR #<PR> [draft]  <-  or  Target: branch range <RANGE>
+
+**Stamp `t0` before the launch**, with `date -u +%FT%TZ`. This is the first of the iteration's
+three timestamps and it costs one command. Together they separate the time spent waiting on
+reviewers from the time spent fixing, which is what lets the run log say where a long run's time
+actually went.
 
 Spawn the active sub-agents **in a single message** (concurrent tool-use blocks). Sequential
 launches defeat the purpose. Never serialize.
@@ -211,6 +247,10 @@ prompt the sub-agent receives.
 
 ### Aggregating across the active instances
 
+**Stamp `t1` the moment collection ends**, meaning when every launched sub-agent is accounted for
+or the give-up bound was reached. `t1` minus `t0` is the iteration's waiting time, and on a pruned
+iteration that number is most of the wall clock.
+
 Collect every active sub-agent's result, pool them, deduplicate, and merge into one flat list
 filtered to `confidence >= 50`. Follow [AGGREGATING.md](AGGREGATING.md) exactly — four rules
 from it matter enough to repeat here: results arrive asynchronously in each sub-agent's own
@@ -248,9 +288,9 @@ user can see the diff's effect on the PR's discussion thread evolving across ite
 
 ## Step 2: Fix
 
-At the start of the iteration's fix phase, reset five per-iteration accumulators. The first
+At the start of the iteration's fix phase, reset six per-iteration accumulators. The first
 four are what Step 3 reads to decide the next active set. The fifth is what Step 3's commit
-table is built from:
+table is built from. The sixth is for the run log, and no stop rule reads it:
 - `any_commit` = false — set true the moment any fix is committed.
 - `any_logic_change` = false. Set true if any committed fix is classified `logic`
   (sub-step 7).
@@ -262,6 +302,8 @@ table is built from:
   `any_test_change` can add role 9 on top of it.
 - `iteration_commits` = empty — one `(short sha, finding title)` pair per committed fix, in
   commit order. Step 3's commit table is this list.
+- `self_inflicted_count` = 0. How many of this iteration's findings target a line an earlier
+  commit of this same run wrote (sub-step 1).
 
 Process each finding from the ordered work list (Step 1) one at a time. Skip any
 `ticket`-category finding already recorded in `resolved_ticket_findings` (deferred or
@@ -272,6 +314,18 @@ either. Both are carried to the Final Report.
 ### For each finding:
 
 1. **Read the relevant file(s)** to understand the context.
+
+   Then decide whether this finding is one the run created. Run
+   `git blame -L <line_range> -- <file>` and check every sha it returns against `run_commits`. A
+   hit means an earlier commit of this same run wrote the line now being reported, so increment
+   `self_inflicted_count` and note it on the finding. Do this BEFORE the fix, because afterwards
+   blame shows the fix instead. Skip it when `run_commits` is empty, which is every finding in
+   iteration 1.
+
+   **This changes nothing about how the finding is handled.** Fix it exactly as you would any
+   other, and never dismiss or deprioritise a finding for carrying the mark. A defect the run
+   introduced is still a defect, and the loop's stop rules do not read this count. It exists so
+   the run log can say how much of a long run was spent on its own output.
 
 2. **Assess confidence:**
    - If the fix is clear and unambiguous -> implement it directly.
@@ -430,6 +484,10 @@ either. Both are carried to the Final Report.
 
 8. After the bookkeeping, move to the next finding.
 
+**Stamp `t2` when the fix phase ends**, after the last finding is processed. `t2` minus `t1` is the
+iteration's fixing time. An iteration whose findings were all deferred or skipped still gets a
+`t2`, and a near-zero fixing time next to a long wait is itself the finding.
+
 ## Step 3: Loop Control
 
 Re-running all three passes every iteration is wasteful when the iteration only touched
@@ -572,10 +630,12 @@ prose-only iteration has none, so there is no route from this lane back to a ful
 exits are row 1 once the prose lenses accept what the run wrote, row 2 once an iteration commits
 nothing, and the user's interrupt. Sub-step 4's claim sweep and sub-step 5's scan are what
 shorten the lane. They review the authored prose before it lands rather than an iteration later,
-and they do not close the lane. The two booleans in the per-iteration summary are the signal to
-read. Three consecutive iterations with `any_logic_change` and `any_test_change` both false, on a
-run whose logic commits have stopped changing, is this lane. The finding count is not the signal,
-because it falls monotonically the whole time the lane runs.
+and they do not close the lane. `self_inflicted_count` is the direct signal, because it counts
+findings whose target line the run itself wrote. The two booleans corroborate it. Three
+consecutive iterations with `any_logic_change` and `any_test_change` both false, on a run whose
+logic commits have stopped changing, is this lane. The finding count is not the signal, because it
+falls monotonically the whole time the lane runs, which is why a run can look like it is
+converging while it eats its own output.
 
 Note: a non-empty `unaddressed_pool` in PR mode does NOT prevent the loop from terminating.
 "Still unaddressed" items are surfaced for the user to consider, but the fix loop is
@@ -595,11 +655,20 @@ that iteration's commit table, emitted last in Step 3 after the table has picked
 next active set is computed. See [SUMMARY.md](SUMMARY.md) for exactly what to cover, in what
 order, and the commit table format.
 
+Append that same block to `run_log_path` as you emit it, byte for byte. Two destinations, one
+text. Do not write a different version for the file, and do not hold blocks back to batch them,
+because an interrupt between two iterations has to leave the earlier one on disk.
+
 ## Step 4: Final Report
 
 Summarize the entire session in a report to the user. See [FINAL-REPORT.md](FINAL-REPORT.md)
 for the exact template, how to select the Outcome line, and the per-section rules for Changes
 Made, Remaining Issues, and Tickets examined.
+
+Append the report to `run_log_path` too, then tell the user where the log is. That path is the last
+line of the run, so it is there whether they want to read the run back or hand several logs to
+another agent. A run that aborted on row 0 gets neither, because nothing was reviewed and the log
+holds only its header.
 
 ## Constraints
 

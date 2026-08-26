@@ -8,10 +8,13 @@ table's "go to Step 1" and "proceed to Final Report" actions both happen after t
 Never batch two iterations into one block, and never hold a block back to the end of the run.
 
 There is no iteration cap, so the user stops a run that is not converging by interrupting it, and
-an interrupted run never reaches Step 4. These blocks plus the commits are then the only record of
-what the run did. Emit it to chat, the same as the iteration-start announcement. Do not write it to
-a file in the working tree, because Step 2 commits with `git add -A` and would sweep that file into
-the next fix commit.
+an interrupted run never reaches Step 4. Emit the block to chat, the same as the iteration-start
+announcement, and append the identical text to `run_log_path` as you emit it. Step 0 opened that
+file outside the repo under review. Do not write it to a file in the working tree instead, because
+Step 2 commits with `git add -A` and would sweep that file into the next fix commit.
+
+Appending live is what gives an interrupted run a record. That run is often the one worth reading
+later, and its only other trace is chat scrollback plus `git log`.
 
 Cover these in this order, one line each, and drop any line that has nothing to say:
 
@@ -31,6 +34,12 @@ Cover these in this order, one line each, and drop any line that has nothing to 
   `unscored`, or `citation_verified` false).
 - `any_logic_change` and `any_test_change` for the iteration, which are what row 4 and row 5
   read. Both false means every commit was `prose`.
+- Waiting time and fixing time, as `t1` minus `t0` and `t2` minus `t1`. Two numbers, one line. A
+  long wait beside a near-zero fix is what a cheap iteration actually costs, and pruning cuts the
+  reviewers launched without cutting the wait.
+- `self_inflicted_count` out of the iteration's finding count, when it is above zero. These are
+  findings whose target line an earlier commit of this same run wrote. Say nothing when it is
+  zero, and never present it as a reason a finding was handled differently, because it never is.
 - Discussion Context in PR mode, as resolved and unaddressed counts plus whatever changed since
   the previous iteration. Say so instead when gh-style was not active and the previous snapshot
   carries forward unchanged.

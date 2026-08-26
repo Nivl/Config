@@ -4,6 +4,7 @@
 - Report template
 - Selecting the Outcome line
 - Changes Made section
+- Where the run went section
 - Remaining Issues section
 - Tickets examined section
 
@@ -17,6 +18,7 @@ Summarise the entire session in a clear report to the user:
 **Target:** PR #<PR>  <-  or  branch range <RANGE>
 **Iterations completed:** N
 **Total commits made:** N
+**Run log:** <run_log_path>
 
 ### Changes Made (omit when the run committed nothing)
 
@@ -44,6 +46,22 @@ Summarise the entire session in a clear report to the user:
 (This reflects the LATEST iteration's gh-style-review snapshot. If the loop ran many
 iterations, intermediate snapshots are not reproduced here. The per-iteration summaries
 above track them as counts plus what changed each iteration.)
+
+### Where the run went (omit when the run was a single iteration)
+
+| Iteration | Waiting | Fixing | Findings | Self-inflicted | Commits |
+|---|---|---|---|---|---|
+| <n> | <t1-t0> | <t2-t1> | <count> | <self_inflicted_count> | <count> |
+
+One row per iteration that reached Step 3, plus a totals row. This is the section that answers why
+a run took as long as it did, and it is built from measurements rather than from findings. Read the
+two time columns against each other. A long wait beside a near-zero fix is a
+pruned iteration, which costs few reviewers and close to a full iteration's wall clock.
+
+The Self-inflicted column is the count of that iteration's findings whose target line an earlier
+commit of the same run wrote. A column that stays near zero says the run was working on the
+branch. A column that climbs while Findings falls says the run was converging on its own output,
+and those two shapes are indistinguishable from the finding count alone.
 
 ### Coverage
 complete | partial — `partial` whenever `reviewer_unavailable` is non-empty for the run, OR a kind's

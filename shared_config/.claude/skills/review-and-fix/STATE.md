@@ -39,6 +39,22 @@ Track state explicitly:
 - `<ACTIVE_ROLES>`, `<ACTIVE_GH_STYLE>`: the next iteration's active reviewer set
 - `discussion_context_snapshot`: per-iteration snapshot of resolved/unaddressed pools (PR
   mode only) — useful for the per-iteration summary
+- `run_log_path`: per-RUN. The absolute path Step 0 resolved for the run log, under
+  `~/.melvin/config/logs/review-and-fix/` when that `mkdir` succeeded and
+  `/tmp/claude-skills-logs/review-and-fix/` when it did not. Set once and never changed. Step 3
+  appends each per-iteration block to it and Step 4 appends the Final Report. The Final Report
+  names it, so a reader can tell which of the two homes a run used rather than guessing whether it
+  fell back.
+- `t0`, `t1`, `t2`: per-iteration UTC timestamps from `date -u +%FT%TZ`. `t0` is stamped before the
+  Step 1 launch, `t1` when collection ends, `t2` when the Step 2 fix phase ends. `t1` minus `t0` is
+  waiting time and `t2` minus `t1` is fixing time. Nothing reads them but the summary block and the
+  Final Report. They exist because pruning cuts the reviewers launched and not the wait, so token
+  cost and wall clock diverge and only the second one is what a long run feels like.
+- `self_inflicted_count`: per-iteration count of findings whose target line an earlier commit of
+  this same run wrote, from the `git blame` check in Step 2 sub-step 1. No stop rule reads it and it
+  never changes how a finding is handled. It distinguishes a run making progress from a run
+  correcting its own output, which the finding count alone cannot do, because that count falls
+  either way.
 - `resolved_ticket_findings`: ticket findings the user deferred or dismissed (keyed by
   `ticket_id` + title), so later iterations skip them instead of re-prompting.
 - `skipped_findings`: per-RUN set of findings of any category that were examined and then

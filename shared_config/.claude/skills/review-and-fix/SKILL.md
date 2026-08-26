@@ -401,6 +401,12 @@ either. Both are carried to the Final Report.
      reads all of its pre-existing comments. The judgement call is whether a hit is the same
      claim or a different one that shares wording. A fix confined to formatting or punctuation
      still skips both bullets.
+   - **Correcting a claim about another file's mechanism means deleting it, not narrowing it.**
+     AGENTS.md's "Claims in authored prose" carries the rule. It matters most here, because a fix
+     authored under review pressure reaches for the smallest edit that answers the finding, and for
+     a mechanism sentence the smallest edit is a rescope. That leaves a sentence of the same kind,
+     which fails again next iteration on a different reader. Replace it with a pointer, an
+     invariant, a locally derivable fact, or nothing.
    - Run the project's linter/formatter if one exists and fix any violations it reports.
    - Run the project's tests (`pnpm run test:unit` for the web sub-project, or the equivalent
      for the relevant sub-project) to confirm no regressions.

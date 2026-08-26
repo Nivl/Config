@@ -109,6 +109,7 @@ This governs prose that asserts something about the code: comments and docstring
   - Bad: `// updateSubscriptionWithNewData would mail the subscriber`
   - Good: `// See the docstring on updateSubscriptionWithNewData for why a terminal answer must not reach it.`
   - The pointer is checkable by opening one file. The paraphrase is checkable only by re-deriving the collaborator's behavior, which is work that reliably does not happen. A claim that needs code this file does not reference is not a comment. It belongs in the PR description or a doc.
+  - **When a mechanism claim turns out to be wrong, delete it. Do not narrow it.** Replace it with a pointer, an invariant, or a fact derivable from the lines in front of you, or with nothing. A narrowed mechanism sentence is still a mechanism sentence, so it fails again on the next reader who knows the collaborator better, in a new way each time. Measured across one seven-iteration repair loop: the corrections that held were the ones that removed a claim, and the ones that rescoped a mechanism sentence broke it differently every round.
 - **Name the set, never quantify it.** The words `nothing`, `never`, `always`, `every`, `only`, `none`, `the one`, and `the only` each assert a search result. Either you ran the search, or you do not write the word. When you ran it, write the result instead of the quantifier.
   - Bad: `// every reader checks canceled_at first`
   - Good: `// read by subscription-details.ts:791 and twice in subscription-details-controller.ts`

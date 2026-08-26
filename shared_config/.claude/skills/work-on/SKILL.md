@@ -35,7 +35,7 @@ a premise that has been checked.
 | 2 | Validate. Inline when the surface is small, seven parallel lenses plus the telemetry probes and the triage agents when it is not. | no |
 | 3 | Ask only what investigation could not settle. | no |
 | 4 | Verdict gate. Valid, invalid, superseded, or partial. | only if the user picks option (a) |
-| 5 | Rewrite the ticket. Description in place, plus a validation comment. | **Jira** |
+| 5 | Rewrite the ticket. Status to In Progress, description in place, plus a validation comment. | **Jira** |
 | 6 | Do the work via brainstorming or systematic-debugging. | local files |
 | 7 | Commit everything, push. No PR yet. | **remote** |
 | 8 | `review-and-fix`, every iteration, no early stop. | local commits |
@@ -774,7 +774,40 @@ follow-up is an addition to it, not a precondition for it.
 
 ## Step 5: Rewrite the ticket
 
-Two writes. The description gets replaced in place. A comment gets appended.
+Three writes. The status moves to In Progress, the description gets replaced in place, and a comment
+gets appended. The status move goes first, because it is mechanical and the other two need drafting.
+
+### Move the ticket to In Progress
+
+**Reaching this step means work is going to happen, and that is the whole condition.** No verdict
+check. A `valid` or `partial` verdict arrives here directly, and a dead-ticket verdict arrives here
+only when the user chose Step 4's option (b) to narrow the ticket or option (c) to proceed anyway,
+which are the user saying continue in plainer terms than a verdict can. Option (a) stops the run
+before this step, so a ticket this run concluded should be closed never gets parked on the active
+board.
+
+Fetch the ticket's available transitions rather than writing a status directly. Then:
+
+- **Already in a work-started status.** No-op. Say so in one line.
+- **Match on a transition's TARGET status, not on its name.** A transition named `Start Progress`
+  leads to the status `In Progress`, and the target is the field carrying the meaning. When the tool
+  exposes only transition names, match those instead.
+- **Match case-insensitively against `In Progress`, `In Development`, and `Doing`**, preferring an
+  exact `In Progress`. Do not hardcode one string. Projects rename this status, and a hardcoded
+  match turns a renamed workflow into a silent no-op that reads like a broken skill.
+- **No match, or the transition needs fields this run does not hold.** No-op. Say so in one line and
+  carry on.
+
+**A failed transition never blocks the rest of Step 5 and never ends the run.** It is a board
+update. Letting it abort would give the cheapest write in this skill the power to kill the work the
+run exists to do. Report the outcome in the final report either way, so a reader can tell a no-op
+from a move.
+
+This write carries no gate of its own. It rides on Step 4, and invoking this skill on a key is
+already the intent to work on that key. It also carries no authored prose, so there is nothing to
+mangle in conversion and nothing to read back, which is why it skips the rollback artifact and the
+read-back the description write gets below. The transition either took or it did not, and the
+transition list you matched against says which.
 
 **Draft with `writing-work-docs`.** Invoke it for both pieces. It carries the voice rules, the
 banned words, the invent-nothing rule, and the no-hard-wrapping rule that keeps text from
@@ -1256,6 +1289,7 @@ past.
 ```
 PR            <url>  (draft)
 Ticket        <url>  (description: rewritten | write failed; comment: posted | not posted)
+Status        moved to <name> | already <name> | no matching transition | write failed
 Follow-ups (<n>)
   - <key>  filed from the Step 4 scope cut  <one-line summary>
   - <key>  filed from a Step 8 leftover  <one-line summary>

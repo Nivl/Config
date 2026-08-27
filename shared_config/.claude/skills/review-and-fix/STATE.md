@@ -36,7 +36,9 @@ Track state explicitly:
   `iteration_commits` as soon as its pairs are appended here. Step 1 sends a clean batch straight
   to Step 3, so Step 2's reset never runs on that iteration, and a stale list would reprint the
   previous iteration's rows under this iteration's header.
-- `<ACTIVE_ROLES>`, `<ACTIVE_GH_STYLE>`: the next iteration's active reviewer set
+- `<ACTIVE_ROLES>`, `<ACTIVE_GH_STYLE>`: the next iteration's active reviewer set.
+  `<ACTIVE_GH_STYLE>` is true on row 4, and on row 5 only through the floor that fires when
+  `<ACTIVE_ROLES>` would be empty. Being in `productive_reviewers` does not activate it.
 - `discussion_context_snapshot`: per-iteration snapshot of resolved/unaddressed pools (PR
   mode only) — useful for the per-iteration summary
 - `run_log_path`: per-RUN. The absolute path Step 0 resolved for the run log, under

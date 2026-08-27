@@ -188,6 +188,12 @@ Discussion Context, which in-depth cannot produce at all. This matters more here
 caps the iteration count, so a redundant instance is paid again on every pass. Do not raise
 gh-style back to parity, and do not drop it to zero.
 
+The same measurement is why Step 3 gates it on a logic change. A pass that re-reads unchanged logic
+through the weaker lens surfaces a subset of what in-depth already cleared. So gh-style runs on
+row 4, and on row 5 only through the floor that keeps the active set from emptying. Its
+Discussion Context is why it is not zero, and Step 1.5 carries the previous snapshot forward on an
+iteration where it did not run.
+
 Announce at iteration start, reflecting the ACTUAL active set, e.g.:
 
 > Iter N: launching 2 in-depth-review passes (roles: AGENTS.md, comment guidance); gh-style-review skipped.
@@ -471,6 +477,14 @@ either. Both are carried to the Final Report.
      to in-depth role number(s) via the table in in-depth-review's Step 1, and add the
      `gh-style-review` unit if the finding came (also) from that source. A finding merged
      across both sources adds both.
+
+     **Three gh-style categories need an alias, because its vocabulary and in-depth's differ.**
+     `gh-style-review` emits `CLAUDE.md` where in-depth's table says `AGENTS.md`, and `style`
+     for a convention the same role covers. Both map to **role 1**. A `style` finding is not
+     role 5, which is specifically in-file comments and narrower. Its `discussion` category
+     maps to no role at all, because Discussion Context is the one lens in-depth cannot
+     produce. Without these aliases a gh-style AGENTS-compliance finding attributes to no
+     in-depth role, so the reviewer that would catch it again is not in the next pruned set.
    - **Classify the commit (diff-based).** Inspect the commit's own diff
      (`git show --format= <sha>`) and put it in exactly ONE of three classes. Evaluate them in
      this order and take the first that matches:
@@ -528,8 +542,9 @@ actually committed:
 - **A `test` commit adds role 9 to that pruned set**, even when no test-coverage finding was
   what got fixed. A test-only commit still adds executable code, and role 9 is the only
   reviewer that judges tests. `gh-style-review` is NOT added. Its findings were measured as a
-  strict subset of in-depth's and it skipped test-coverage findings entirely (see Step 1), so
-  it reruns only when it is already in the productive set.
+  strict subset of in-depth's and it skipped test-coverage findings entirely (see Step 1), so on
+  a pruned rerun it runs only through row 5's floor, which fires when the in-depth set would
+  otherwise be empty.
 - **An iteration committed nothing** (every finding was deferred, dismissed, or skipped for
   want of a test) -> **stop**. The diff is unchanged, so a rerun would resurface the
   identical findings. An iteration that skips every finding is the intended outcome of that
@@ -575,10 +590,22 @@ Computing the next active set, for every row that goes back to Step 1 (1b, 4, an
 - **Row 4 (full):** `<ACTIVE_ROLES>` = all roles `1..12` (drop `10` when `<SKIP_TICKET>`),
   `<ACTIVE_GH_STYLE>` = true.
 - **Row 5 (pruned):** `<ACTIVE_ROLES>` = the in-depth role numbers in `productive_reviewers`,
-  unioned with `{9}` when `any_test_change` is true. `<ACTIVE_GH_STYLE>` = true iff the
-  `gh-style-review` unit is in `productive_reviewers`. `any_test_change` never sets
-  `<ACTIVE_GH_STYLE>`. (At least one is non-empty here, because `any_commit` was true and
-  every committed fix attributes to a reviewer.) The role-9 union is computed HERE, so the
+  unioned with `{9}` when `any_test_change` is true. `<ACTIVE_GH_STYLE>` = **false**, with one
+  floor below. Row 5 fires only when no commit changed logic, and gh-style's findings were
+  measured as a strict subset of in-depth's, so a pass that re-reads unchanged logic through the
+  weaker lens buys nothing. Being in `productive_reviewers` no longer activates it, and
+  `any_test_change` never did.
+
+  **The floor: `<ACTIVE_GH_STYLE>` = true when `<ACTIVE_ROLES>` would otherwise be empty.** That
+  is the one case where the alternative is launching nothing at all. An empty active set finds
+  nothing, and an empty findings list with `reviewer_unavailable` and `roles_missing` both empty
+  is row 1, so the run would stop and report `complete` coverage with no reviewer having read the
+  final tree. The category aliases in Step 2 sub-step 7 narrow this to a fixed `discussion`
+  finding as an iteration's only commit, since every other gh-style category now attributes to an
+  in-depth role too. (`<ACTIVE_ROLES>` plus the floor is what keeps at least one non-empty here.
+  `any_commit` was true and every committed fix attributes to a reviewer, but after this change
+  the reviewer it attributes to can be the gh-style unit alone.) The role-9 union is computed
+  HERE, so the
   retry union below can still add a short kind back and the `reviewer_unavailable` subtraction
   below can still remove role 9 along with the rest of an unavailable `in-depth-review` kind.
 

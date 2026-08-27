@@ -147,6 +147,8 @@ These are fine and are not what this rule is about:
 - `as const` for literal types. It narrows rather than asserting something unproven.
 - `satisfies` to check a value against a type while keeping its narrow inferred type. Reach for `satisfies` before reaching for `as`.
 - Deliberately partial fixtures in tests, where the missing fields are the point.
+- The definite-assignment declaration `let x!: T`. It is a declaration rather than an expression assertion, and it is normal with dependency injection or late initialization.
+- A `!` where the value was genuinely validated but the compiler lost the narrowing across a closure or an `await`. Restructuring so the narrowing survives is better, and this is not the defect the rule targets.
 
 When a cast looks unavoidable, that is usually a signal that a type is wrong further upstream or that a boundary is missing its validation step. Fix the upstream type or add the guard. Do not paper over it at the use site.
 

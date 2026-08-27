@@ -10,6 +10,15 @@ For the top few hits, read review comments:
 
   gh pr view <pr-number> --comments
 
+**Bound the fan-out, and say when you did.** Four roles make remote calls, being this one, #3, #10
+and #11, and this is the one whose call count scales with the diff. #3 and #11 call once per run and
+#10 scales with the ticket count. Here it is one search per changed file plus a comment read per
+hit. Search the **10 files
+with the most lines changed** and stop. Read comments on at most **3 PRs per file**. Any finding
+you emit after truncating says so in one clause, naming what was skipped, such as "searched the 10
+largest of 34 changed files". A truncation nobody can see reads as an exhaustive search that found
+nothing, which is the one outcome this role must never produce silently.
+
 Surface any past feedback that applies to the current change. Past reviewers may have already
 flagged the same class of issue, or there may be agreed-upon conventions documented in the
 discussion.

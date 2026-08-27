@@ -5,6 +5,15 @@ Your job: for the modified lines, run `git --no-pager blame <SCOPE_OR_RANGE> -- 
 `git --no-pager log -p -L <line>,<line>:<file>` to understand WHY the original code was written
 that way.
 
+**Bound the line-history walk.** `log -p -L` is range-unaware and emits a full patch for every
+commit back to the file's creation, which makes it the likeliest single cost in this role. That
+ranking is read off the command's shape rather than measured, so treat the bound as cheap insurance
+rather than as a known saving. Two ways to bound it,
+either is fine. Add `--max-count=10`. Or run it once without `-p` to list the candidate commits,
+then pull `-p` for only the two or three that look relevant. The commits that explain a line are
+almost always the recent ones, and a finding that needed the fortieth commit back would not survive
+its own citation check below.
+
 (In PR mode, use the PR's base ref for blame: `gh pr view <PR> --json baseRefName` then
 `git fetch origin <base>` and `git --no-pager blame origin/<base> -- <file>`.)
 

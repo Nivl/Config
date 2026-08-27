@@ -212,6 +212,10 @@ interrupted, and it gets approximated from recall when the block is finally writ
 Record `git rev-list --count <RANGE>` beside `t0`. The range grows as the run commits, and the
 count is what turns that into a number rather than an impression.
 
+Record `git diff --name-only <RANGE> | wc -l` beside it. Two numbers, same line. Commits measure how
+much the run added and files measure how wide the reviewers had to read, and the second is what
+tells you whether a rerun was expensive because the diff grew or because it spread.
+
 Spawn the active sub-agents **in a single message** (concurrent tool-use blocks). Sequential
 launches defeat the purpose. Never serialize.
 
@@ -478,6 +482,14 @@ either. Both are carried to the Final Report.
      `gh-style-review` unit if the finding came (also) from that source. A finding merged
      across both sources adds both.
 
+     **Append the category and the role numbers it mapped to, to the run log, on the same line as
+     the commit's sha.** You are holding both here and nowhere else. Without it, per-role yield can
+     only be inferred from which roles the next pruned set contains, and that inference is blind to
+     a role whose finding was dismissed, blind to a role that did its whole job on iteration 1, and
+     blind to a category that maps to no role at all. All three have already happened. A recorded
+     category makes the question "which lens earns its cost" answerable from one run instead of
+     argued from a proxy.
+
      **Three gh-style categories need an alias, because its vocabulary and in-depth's differ.**
      `gh-style-review` emits `CLAUDE.md` where in-depth's table says `AGENTS.md`, and `style`
      for a convention the same role covers. Both map to **role 1**. A `style` finding is not
@@ -673,8 +685,11 @@ the loop is uncapped and those three roles would be paid on every test iteration
 
 **What a pruned `prose` iteration gives up, and why that lane is absorbing.** The commit class
 that sets neither flag is the same class the prose lenses produce. So a `prose` commit hands
-roles 1 and 5 their own output, because `productive_reviewers` is built from the findings that
-got fixed, and fixing a prose finding authors prose. Row 4 needs a `logic` commit and a
+roles 1, 5 and 11 their own output, because `productive_reviewers` is built from the findings that
+got fixed, and fixing a prose finding authors prose. Role 11 belongs in that list and is not
+interchangeable with the other two. Roles 1 and 5 check authored prose against rule text, and role
+11 checks a claim in a commit message or a PR body against the runtime site it names, which is the
+shape of error this lane actually produces. Row 4 needs a `logic` commit and a
 prose-only iteration has none, so there is no route from this lane back to a full rerun. The only
 exits are row 1 once the prose lenses accept what the run wrote, row 2 once an iteration commits
 nothing, and the user's interrupt. Sub-step 4's claim sweep and sub-step 5's scan are what

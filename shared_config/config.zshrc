@@ -425,7 +425,6 @@ function wt() {
   fi
 
   cd "$worktree_path" || return 1
-  code . &
 
   echo "Ready to work."
 }

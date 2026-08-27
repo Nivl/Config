@@ -4,7 +4,6 @@
 - Report template
 - Selecting the Outcome line
 - Changes Made section
-- Where the run went section
 - Remaining Issues section
 - Tickets examined section
 
@@ -48,36 +47,6 @@ Summarise the entire session in a clear report to the user:
 iterations, intermediate snapshots are not reproduced here. The per-iteration summaries
 above track them as counts plus what changed each iteration.)
 
-### Where the run went
-
-The per-iteration rows are already in the run log. Each Step 3 block closed with one, so recover them
-with `rg '^\| iter ' <run_log_path>` rather than rebuilding them from anything. Paste those rows
-under this header in iteration order, then add one totals row:
-
-| | Range | Waiting | Fixing | Unaccounted | Findings | Self-inflicted | Commits |
-|---|---|---|---|---|---|---|---|
-| **Total** | | <sum> | <sum> | <sum> | <sum> | <sum> | <sum> |
-
-**Do not author a per-iteration row here.** A row that is not in the log is a row nobody stamped, and
-this section exists to report measurements rather than to produce them. A missing row is reported as
-missing.
-
-**The totals row has to reconcile.** Waiting plus Fixing plus Unaccounted must equal the run's end
-stamp minus `Started` in the header. Stamp the run's end when this report is written. Unaccounted is
-the time inside the run that no iteration claims, meaning whatever fell between one iteration's `t2`
-and the next one's `t0`. That is where a human answering a question sits, and where an interruption
-sits. The residual is a measurement rather than an omission, and a totals row that does not
-reconcile is itself the finding.
-
-This is the section that answers why a run took as long as it did, and it is built from measurements
-rather than from findings. Read the two time columns against each other. A long wait beside a near-zero fix is a
-pruned iteration, which costs few reviewers and close to a full iteration's wall clock.
-
-The Self-inflicted column is the count of that iteration's findings whose target line an earlier
-commit of the same run wrote. A column that stays near zero says the run was working on the
-branch. A column that climbs while Findings falls says the run was converging on its own output,
-and those two shapes are indistinguishable from the finding count alone.
-
 ### Coverage
 complete | partial — `partial` whenever `reviewer_unavailable` is non-empty for the run, OR a kind's
 shortfall was still outstanding when the run stopped, OR the unioned `roles_missing` is non-empty.
@@ -85,8 +54,8 @@ Consult all three. `reviewer_unavailable` is the per-run set and is the one that
 being dropped from later iterations, so a run that gave up on a reviewer still reports `partial` here
 rather than looking complete. A shortfall is **outstanding** when a kind fell short and has not
 reported since. The retry union above relaunches such a kind on the next pass, so the only way one
-survives to the end of the run is a stop that fires before the retry can happen. That is a row 2
-stop, and nothing else. Report it as `partial`, because that kind's lenses really were not applied
+survives to the end of the run is a stop that fires before the retry can happen, meaning a row 2 or a
+row 2b stop. Report it as `partial`, because that kind's lenses really were not applied
 to the final tree.
 
 Do NOT decide `partial` from the per-iteration `reviewers_missing` on its own. Report a shortfall that
@@ -106,13 +75,19 @@ reviewers ALL reported, they found nothing actionable, and Coverage is `complete
 — OR —
 ⚠️ Stopped with incomplete coverage — Coverage is `partial`, so this is not a clean result whatever
 else the run achieved. Names what made it partial and says what went unreviewed, and names the row
-that stopped the run. Row 1c is the empty-findings case with either an `unavailable` kind or a
-non-empty unioned `roles_missing`. A row 2 stop
-uses this outcome too whenever Coverage is `partial`, adding that nothing was committed.
+that stopped the run. Row 1c fires on either an `unavailable` kind or a non-empty unioned
+`roles_missing`, whether or not findings survived, and names any that did. A row 2 or row 2b stop
+uses this outcome too whenever Coverage is `partial`.
 — OR —
 ✅ Converged — the last iteration committed no changes and Coverage is `complete`. Every finding it
 surfaced was deferred, dismissed, or left unfixed, and Remaining Issues (or Tickets examined, for
 ticket gaps) lists them. Done.
+— OR —
+⚠️ Stopped at the severity floor — row 2b fired. Findings survive and every one is `suggestion`
+severity in a non-shipping category. Not a clean result and not converged, because the loop stopped
+while it could still have committed. Names the count and points at Remaining Issues. Coverage may be
+`complete` here and the outcome still carries no green check, because what ended the run was a
+judgement about severity rather than an absence of findings.
 ```
 
 ## Selecting the Outcome line
@@ -123,8 +98,11 @@ that force `partial`, so a rule keyed on that variable alone would let a green c
 `partial` Coverage line as soon as another input fired. This governs every stop, not just row 1c.
 Whenever Coverage is `partial` the Outcome MUST be the incomplete-coverage line, naming what made it
 partial and what went unreviewed. So "✅ Clean batch" is reachable only from row 1 with complete
-coverage, and "✅ Converged" only from a row 2 stop with complete coverage. Never pair a green check
-with `partial` coverage. The two sections are read together, and a green check above a `partial`
+coverage, and "✅ Converged" only from a row 2 stop with complete coverage. **Row 2b never carries a
+green check, at any coverage value.** Row 1c can also fire with findings in hand, so that is not what
+separates them. What separates row 2b is that it stops on a judgement about severity rather than on
+an absence of findings or a gap in coverage, and a green check there would claim a completeness
+nothing measured supports. Never pair a green check with `partial` coverage either. The two sections are read together, and a green check above a `partial`
 Coverage line is exactly the unearned clean result this machinery exists to prevent.
 
 ## Changes Made section

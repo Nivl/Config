@@ -50,11 +50,15 @@ Track state explicitly:
 - `t0`, `arrivals`, `t2`: per-iteration UTC timestamps from `date -u +%FT%TZ`, each appended to the
   run log on its own line the moment it is taken. `t0` goes before the Step 1 launch, one arrival
   stamp goes beside each instance's result as it is read, and `t2` goes when the Step 2 fix phase
-  ends. `t1` is derived rather than stamped. It is the last arrival. `t1` minus `t0` is waiting time
-  and `t2` minus `t1` is fixing time. Nothing reads them but the summary block and the Final Report.
-  A block whose stamps fail `previous t2 < t0 < t1 < t2` is refused rather than emitted. The chain
-  spans the run, because iterations are sequential and an overlap between two of them means a stamp
-  was reconstructed.
+  ends. `t_fix` goes before Step 2's first finding. `t1` is derived rather than stamped. It is the
+  last arrival, and it is a coverage record only.
+  **Waiting is `t_fix` minus `t0`. Fixing is `t2` minus `t_fix`.** Neither is measured from `t1`. A
+  straggler instance can arrive after fixing has begun, which put two measured iterations at a fixing
+  time of `0m00s` while git shows two commits landing inside each.
+  Three checks gate the block. Ordering allowing equality, `previous t2 <= t0 <= t_fix <= t2`, since a
+  back-to-back seam is real and nine measured pairs were exactly equal. `t2` not preceding the author
+  date of the iteration's last commit, which is the check that catches two stamps wrong together. And
+  seconds present, with an unrecoverable stamp written as the literal `unrecorded`.
   Arrivals are per instance because there is no observable moment at which collection ends.
   Results land asynchronously on later turns and the give-up bound is noticed minutes after the
   last one, so a single collection-end stamp is a guess. Measured: across the first two real logs a

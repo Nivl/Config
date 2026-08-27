@@ -327,6 +327,15 @@ table is built from. The sixth is for the run log, and no stop rule reads it:
 - `self_inflicted_count` = 0. How many of this iteration's findings target a line an earlier
   commit of this same run wrote (sub-step 1).
 
+**Stamp `t_fix` before the first finding**, with `date -u +%FT%TZ`, appending it on its own line as
+you take it. This is the fix phase's real start and it is what waiting and fixing time are measured
+against. `t_fix` minus `t0` is waiting. `t2` minus `t_fix` is fixing.
+
+Do not measure either against `t1`. `t1` is the last arrival, and a straggler instance can arrive
+after fixing has already begun, which put two measured iterations at a fixing time of `0m00s` while
+git shows two commits landing inside each. `t1` stays as the coverage record of when collection
+finished, and it is no longer a duration boundary.
+
 Process each finding from the ordered work list (Step 1) one at a time. Skip any
 `ticket`-category finding already recorded in `resolved_ticket_findings` (deferred or
 dismissed in a prior iteration), and any finding of any category recorded in
@@ -532,9 +541,21 @@ either. Both are carried to the Final Report.
 8. After the bookkeeping, move to the next finding.
 
 **Stamp `t2` when the fix phase ends**, after the last finding is processed, appending it on its own
-line as you take it. `t2` minus `t1` is the iteration's fixing time. An iteration whose findings
+line as you take it. `t2` minus `t_fix` is the iteration's fixing time. An iteration whose findings
 were all deferred or skipped still gets a `t2`, and a near-zero fixing time next to a long wait is
 itself the finding.
+
+Then append one line carrying the iteration's raw stamps, in this shape:
+
+```
+stamps: iter=<n> t0=<...> t_fix=<...> t1=<...> t2=<...> range=<commits> files=<count>
+```
+
+Raw values, no subtraction, no derived duration. A reader who wants a timeline greps for `stamps:`
+and does the arithmetic. This replaces the summary table that was specified three separate ways and
+produced zero rows across seven runs. Every field that landed in those runs was an inline imperative
+in this file at the moment of the act, and every field that did not was specified elsewhere for
+later assembly, so the line goes here rather than in a sub-file.
 
 ## Step 3: Loop Control
 
@@ -570,29 +591,44 @@ The first that matches wins:
 | 0 | No fan-out. Three triggers, and any one fires this row. Step 0 found no `Agent` tool in this skill's own tool list, every Step 1 launch that was attempted failed because the `Agent` tool was unavailable so no reviewer started, or an active reviewer instance returned `coverage: "impossible"`, OR the `REVIEW_UNAVAILABLE_NO_FANOUT` line instead of parseable JSON | **Abort the run.** Not a stop, not `partial` coverage, and no Final Report claiming a review happened. Surface the `REVIEW_UNAVAILABLE_NO_FANOUT` line verbatim, reason included, and tell the caller to re-run from the main thread. No `batch_clean` is computed and no per-iteration summary is emitted for that iteration, because the abort message is the whole record |
 | 1 | Findings list empty, every reviewer **launched this iteration** reported, **`reviewer_unavailable` is empty**, **and the unioned `roles_missing` is empty** | **Stop** — clean. Proceed to Final Report |
 | 1b | Findings list empty BUT a reviewer launched this iteration is missing and still has retry budget | **Not clean.** Relaunch it next iteration; go to Step 1 |
-| 1c | Findings list empty, every reviewer launched this iteration either reported or is `unavailable`, **and EITHER `reviewer_unavailable` is non-empty OR the unioned `roles_missing` is non-empty** | **Stop** — coverage is `partial`, not clean. Use the incomplete-coverage outcome. |
+| 1c | Every reviewer launched this iteration either reported or is `unavailable`, **and EITHER `reviewer_unavailable` is non-empty OR the unioned `roles_missing` is non-empty**. The findings list may be empty or not | **Stop** — coverage is `partial`, not clean. Use the incomplete-coverage outcome, and list any surviving findings under Remaining Issues |
 | 2 | `any_commit == false` (findings existed but nothing was committed)         | **Stop** — proceed to Final Report                            |
+| 2b | Every surviving finding is `suggestion` severity, AND none is in category `bug`, `db`, `security`, `error-handling`, or `types` | **Stop** — severity floor reached. Proceed to Final Report and list them under Remaining Issues |
 | 4 | `any_logic_change == true`                                                 | **Full rerun**: set active set to ALL reviewers; go to Step 1 |
 | 5 | Otherwise (committed, but no logic change)                                 | **Pruned rerun**: set active set to `productive_reviewers`, plus role 9 when `any_test_change`; go to Step 1 |
 
 A role-level shortfall is deliberately NOT retried. It blocks the clean exit and surfaces in Coverage
 as `partial`, which is why row 1 now requires an empty unioned `roles_missing`.
 
-**There is no iteration cap, and the number column is a label column, not an index.** Rows 1, 1c,
-and 2 are the only stops. Row 0 is an abort rather than a stop, so the run ends there without a
+**There is no iteration cap, and the number column is a label column, not an index.** Rows 1, 1c, 2,
+and 2b are the only stops. Row 0 is an abort rather than a stop, so the run ends there without a
 Final Report. Row 0 is a backstop. The abort fires in Step 1 the moment an impossible result is
 aggregated, before Step 2 applies a single fix. The Step 0 trigger aborts there instead, before
 any launch. The launch-failure trigger also fires in Step 1, as soon as the last launch has failed. Rows 1b, 4, and 5 are the only rows that go back to Step 1. Row 1b is
 bounded at one retry per reviewer kind per run, and rows 4 and 5 both require `any_commit == true`,
-because row 2 stops the run the moment an iteration commits nothing. So the loop continues only
-while every single iteration commits at least one fix. That is real progress only when the fix
-targets something the branch did not author during this run.
+because row 2 stops the run the moment an iteration commits nothing. So the loop continues while an
+iteration still commits a fix that row 2b would not have floored. That is real progress only when
+the fix targets something the branch did not author during this run.
 It is not a termination proof. One iteration's fixes can introduce a defect the next iteration then
-finds, and that cycle can sustain itself. A run that is going nowhere is stopped by the user
-interrupting it, which is why every iteration that reaches Step 3 emits a per-iteration summary.
+finds, and that cycle can sustain itself. Row 2b bounds how long that cycle can run on polish, and
+nothing bounds it on substance. A run that is going nowhere on substance is still stopped by the
+user, which is why every iteration that reaches Step 3 emits a per-iteration summary.
 `iteration` is a label for the announce line, that summary, and the Final Report header. No stop
 rule reads it. Do not add a cap row, an iteration count of any size, a periodic check-in, or an
 oscillation detector, and do not renumber the rows that remain.
+
+**Row 2b is a severity floor, and it is none of the four forbidden things above.** It reads the
+severity and category of the findings currently in hand. It does not count iterations, does not
+compare an iteration to an earlier one, does not fire on a schedule, and does not detect a cycle. It
+is added because measured across seven runs no stop this table defines ever fired, and every one of
+those runs stopped anyway on a criterion its own orchestrator invented and recorded nowhere. One
+announced row 1c and denied that row's own precondition in the next clause. An unwritten stop varies
+per run, has no Outcome line, and cannot be audited. A written one can be argued with.
+
+The floor is deliberately narrow. `suggestion` severity only, and it never fires while a `bug`, `db`,
+`security`, `error-handling`, or `types` finding survives at any severity, because those are the
+categories where a miss ships rather than costing a pass. A run that reaches row 2b has findings left
+and says so under Remaining Issues. It is not a clean result and does not get a green check.
 
 Computing the next active set, for every row that goes back to Step 1 (1b, 4, and 5):
 - **Row 1b (retry):** the active set is the short kind ONLY. `<ACTIVE_ROLES>` = the roles this

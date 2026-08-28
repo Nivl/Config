@@ -139,6 +139,32 @@ one that mattered. `known` carries anything the user already settled, either ear
 conversation or during an inline pass that escalated to the workflow. It is usually empty. Its job
 is to stop a lens asking something already answered.
 
+## Every agent call pins its own model and effort
+
+Both are pinned at each of the seven `agent()` calls below rather than left to inherit. An unset
+`model` or `effort` takes the session's, so validation cost would track whatever the user last typed
+into `/effort`. That is what `docs/research/pr-review-cost-efficiency/EFFORT.md` found in the review
+skills, and the fix there was a per-agent pin.
+
+The tiers differ by what the stage does:
+
+- **Lenses at `medium`.** A lens is a recall task. The measured effort sweep in that file scored
+  recall 86.4-90.9% across low, medium, high and xhigh with no trend, `low` tying `xhigh`, while
+  latency scaled 3.9x. Raising these buys wall-clock.
+- **Telemetry probes on `sonnet` at `low`.** A probe runs one query and digests the result. There is
+  no judgment in it.
+- **Triage agents and the critic at `high`.** Whether a defect is worth fixing, and what a run failed
+  to cover, are judgment rather than recall.
+- **Skeptics at `medium`.** They stay on `opus` because a refutation deletes a finding, and a
+  wrongly-refuted "an open PR already ships this" costs a ticket's worth of work. Dropping them to
+  `sonnet` is the largest remaining cut here and is unmeasured, so it wants its own experiment on
+  refutation false positives first.
+- **The synthesizer at `xhigh`.** It writes the verdict, and the same sweep saw xhigh produce the
+  fewest unmatched findings of the four levels.
+
+Raising a stage back to `xhigh` needs a reason beyond wanting a better answer. The sweep measured one
+sample per level on three fixtures, so it bounds how much effort buys, not whether it ever helps.
+
 ## The script
 
 Invoke with `Workflow({ script: <this>, args: <the object above> })`. Every invocation persists
@@ -1152,7 +1178,7 @@ ${rules()}
 ${CONTEXT}
 
 Return your findings and your questions per the schema.`,
-          { label: `lens:${p.key}`, phase: 'Investigate', schema: FINDING_SCHEMA },
+          { label: `lens:${p.key}`, phase: 'Investigate', schema: FINDING_SCHEMA, model: 'opus', effort: 'medium' },
         )
       : p.kind === 'triage'
         ? agent(
@@ -1167,7 +1193,7 @@ ${triageRules()}
 ${CONTEXT}
 
 Return your findings and your questions per the schema.`,
-            { label: `triage:${p.key}`, phase: 'Investigate', schema: TRIAGE_SCHEMA },
+            { label: `triage:${p.key}`, phase: 'Investigate', schema: TRIAGE_SCHEMA, model: 'opus', effort: 'high' },
           )
         : agent(
             `${p.spec.brief}
@@ -1181,7 +1207,7 @@ ${telemetryRules()}
 ${CONTEXT}
 
 Return your digest per the schema.`,
-            { label: `telemetry:${p.key}`, phase: 'Investigate', schema: TELEMETRY_SCHEMA },
+            { label: `telemetry:${p.key}`, phase: 'Investigate', schema: TELEMETRY_SCHEMA, model: 'sonnet', effort: 'low' },
           ),
   ),
 )
@@ -1258,7 +1284,7 @@ ${rules()}
 ## Context
 
 ${SKEPTIC_CONTEXT}`,
-          { label: `refute:${angle}`, phase: 'Refute', schema: REFUTE_SCHEMA },
+          { label: `refute:${angle}`, phase: 'Refute', schema: REFUTE_SCHEMA, model: 'opus', effort: 'medium' },
         ),
       ),
     ).then((votes) => tallyVotes(f, votes, SKEPTICS.length)),
@@ -1338,7 +1364,7 @@ ${rules()}
 ## Context
 
 ${SKEPTIC_CONTEXT}`,
-          { label: `gate-refute:${angle}`, phase: 'Refute', schema: REFUTE_SCHEMA },
+          { label: `gate-refute:${angle}`, phase: 'Refute', schema: REFUTE_SCHEMA, model: 'opus', effort: 'medium' },
         ),
       ),
     ).then((votes) => tallyVotes(f, votes, SKEPTICS.length)),
@@ -1437,7 +1463,7 @@ ${rules()}
 ## Context
 
 ${CONTEXT}`,
-  { label: 'completeness-critic', phase: 'Critique', schema: FINDING_SCHEMA },
+  { label: 'completeness-critic', phase: 'Critique', schema: FINDING_SCHEMA, model: 'opus', effort: 'high' },
 )
 
 if (!critique) log('completeness critique returned nothing. Synthesis runs without that pass, so treat its coverage_gaps as a floor rather than the full list.')
@@ -1591,7 +1617,7 @@ ${UNTRUSTED}
 ## Context
 
 ${SYNTHESIS_CONTEXT}`,
-  { label: 'synthesize-verdict', phase: 'Synthesize', schema: VERDICT_SCHEMA },
+  { label: 'synthesize-verdict', phase: 'Synthesize', schema: VERDICT_SCHEMA, model: 'opus', effort: 'xhigh' },
 )
 
 if (!verdict) log('synthesis returned nothing. Re-run before acting on any verdict.')

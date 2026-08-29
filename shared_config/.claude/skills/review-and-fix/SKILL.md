@@ -510,24 +510,47 @@ either. Both are carried to the Final Report.
      (`git show --format= <sha>`) and put it in exactly ONE of three classes. Evaluate them in
      this order and take the first that matches:
      - **`prose`** if every changed hunk is confined to comments, docstrings / block comments,
-       blank-line or whitespace-only edits, or pure-documentation files (`*.md`, `docs/**`).
-     - **`test`** if every changed FILE is a test file. A test file is one whose name matches
+       blank-line or whitespace-only edits, or a file on the never-logic list below. This is a
+       HUNK test rather than a file test, and the distinction is the whole point. A commit that
+       rewrites only the comments inside a live source file is `prose`, because nothing
+       executable changed.
+     - **`test`** if at least one changed file is a test file, and every other changed file is
+       either a test file or on the never-logic list. A test file is one whose name matches
        `*.test.<code-ext>`, `*.spec.<code-ext>`, `*_test.<code-ext>`, or `test_*.<code-ext>`,
        or one that sits under a `__tests__`, `__mocks__`, `__snapshots__`, `tests`, `test`, or
        `spec` directory. Add the equivalent convention for whatever language the repo uses, so
        a genuine test file is not missed. `<code-ext>` means a source-code extension, so
        `parse.spec.ts` is a test file and `openapi.spec.yaml` is not. Directory names match a
        path SEGMENT anywhere in the path, not just at the repo root, so
-       `packages/api/tests/parse.test.ts` counts. Two shapes do not qualify. Test-runner
-       configuration (`jest.config.*`, `vitest.config.*`, `pytest.ini`, `conftest.py`,
-       `playwright.config.*`) is always `logic`, because it changes which tests run and how.
-       Match it on basename wherever it sits. A file under a test path that is not itself a
-       test, such as a shared helper or fixture module, is instead a doubt case for the rule
-       below, because non-test code may import it.
+       `packages/api/tests/parse.test.ts` counts. One shape does not qualify. A file under a
+       test path that is not itself a test, such as a shared helper or fixture module, is a
+       doubt case for the rule below, because non-test code may import it.
      - **`logic`** otherwise. Any change to executable code lands here. That includes a
-       string/number literal that logic reads, a moved statement, an import, and config that
-       alters behavior. So does a behavior fix, because its red test (sub-step 3) and the
-       change to the code under test share one commit.
+       string/number literal that logic reads, a moved statement, and an import. So does a
+       behavior fix, because its red test (sub-step 3) and the change to the code under test
+       share one commit. Application configuration is `logic` too, meaning whatever the running
+       app reads. In this repo that is `config/src/**`, `config/*.yml` and `config/*.yaml`, plus
+       any constants or env-default module the app imports. A code path behind a flag that is
+       currently off is `logic` as well. The flag is flipped remotely, so no commit marks the
+       moment that path goes live.
+
+     **The never-logic list.** A file here never makes a commit `logic` on its own, and never
+     disqualifies a commit from `prose` or `test`:
+
+     - Documentation and data: `*.md`, `*.mdx`, `*.txt`, `docs/**`, `*.snap`, `LICENSE`.
+       Markdown is on this list unconditionally. A fenced code block inside a `*.md` file does
+       not change its class, including in a repo whose tooling extracts and runs those fences.
+     - Build, lint and CI configuration: `jest.config.*`, `vitest.config.*`,
+       `playwright.config.*`, `pytest.ini`, `conftest.py`, `.eslintrc*`, `.oxlint/**`,
+       `.prettierrc*`, `.github/workflows/**`, `Dockerfile*`, `*.lock`, `pnpm-lock.yaml`. Match
+       the config basenames wherever they sit.
+     - `*.json`, except `tsconfig*.json` and `package.json`. Those two are `logic`, because one
+       decides what the compiler emits and the other decides which code is installed.
+
+     Test-runner configuration sits on that list rather than being forced to `logic`. The cost
+     is real. A change that breaks which tests run no longer triggers a full rerun, so a suite
+     that stopped executing can reach a clean batch. Row 4 exists to revalidate application
+     logic, and test wiring is not that.
 
      Then set the flags: `test` -> `any_test_change = true`; `logic` ->
      `any_logic_change = true`. `prose` sets neither. **First match governs.** A comment-only
@@ -704,10 +727,12 @@ is caught by the diff classifier, not by re-running everyone.
 executable. A `test` commit does add executable code, so it earns its place on the non-logic side
 for a different reason. Nothing in production imports a test file, so production behavior after
 the commit is byte-identical to what the logic reviewers cleared. That is why the classifier's
-`test` bucket excludes the two shapes where that claim fails, a test-runner config file and a
-shared helper under a test path that non-test code may import. Both are `logic`. What a `test`
-commit CAN introduce is a bad test, which is exactly role 9's lens, and that is why row 5 unions
-role 9 in rather than trusting the productive set alone.
+`test` bucket excludes the one shape where that claim fails, a shared helper under a test path
+that non-test code may import. That shape is `logic`. A test-runner config file is on the
+never-logic list instead. Nothing in production imports one of those either, so the
+byte-identical claim holds for it, and what it can break is which tests run rather than what the
+app does. What a `test` commit CAN introduce is a bad test, which is exactly role 9's lens, and
+that is why row 5 unions role 9 in rather than trusting the productive set alone.
 
 **What a pruned `test` iteration gives up.** Roles 1, 5, and 12 are not unioned in, so a pruned
 rerun judges the new test code through role 9 alone. Sub-step 5's staged-diff scan is the partial

@@ -587,6 +587,12 @@ either. Both are carried to the Final Report.
      cost of classifying up is only rerunning more reviewers next iteration, never a missed
      defect.
 
+     **Append the class to the run log beside the sha now, as the commit lands.** Not later in the
+     per-iteration summary, which is a rollup of what this step already wrote. A run that stops
+     emitting summaries mid-way still has to leave a derived class behind for every commit, because
+     the next iteration's stop decision reads those classes. See
+     [SUMMARY.md](SUMMARY.md)'s note under the commit table for the run where that failed.
+
 8. After the bookkeeping, move to the next finding.
 
 **Stamp `t2` when the fix phase ends**, after the last finding is processed, appending it on its own
@@ -673,6 +679,19 @@ is added because measured across seven runs no stop this table defines ever fire
 those runs stopped anyway on a criterion its own orchestrator invented and recorded nowhere. One
 announced row 1c and denied that row's own precondition in the next clause. An unwritten stop varies
 per run, has no Outcome line, and cannot be audited. A written one can be argued with.
+
+**A recommendation to stop is held to the same standard, and it is where the invented criterion
+now shows up.** Row 2b covers the findings in hand. It does not cover a sentence to the user saying
+nothing substantive is left. Before writing one, every commit in the range the next iteration would
+review needs a class derived in sub-step 7, and none of them may be `logic`. If a class is missing,
+derive it from the commit's diff first. If any is `logic`, that sentence is not available, and the
+honest report is that unreviewed logic remains and here is what it touches.
+
+This is the check that would have caught a measured failure. An orchestrator recommended stopping
+on the premise that the two unreviewed commits were prose corrections. Neither had a derived class,
+both were `logic`, and one had restructured error propagation across a function boundary. The base
+rate pointed the other way the whole time. Each of the three prior iterations had found defects in
+its predecessor's own logic, ten of them in one case.
 
 The floor is deliberately narrow. `suggestion` severity only, and it never fires while a `bug`, `db`,
 `security`, `error-handling`, or `types` finding survives at any severity, because those are the
@@ -770,23 +789,42 @@ analysis. This is a deliberate cost trade, since
 the loop is uncapped and those three roles would be paid on every test iteration. The next
 `logic` commit forces a full rerun (row 4) and they see the accumulated test code then.
 
-**What a pruned `prose` iteration gives up, and why that lane is absorbing.** The commit class
-that sets neither flag is the same class the prose lenses produce. So a `prose` commit hands
-roles 1, 5 and 11 their own output, because `productive_reviewers` is built from the findings that
-got fixed, and fixing a prose finding authors prose. Role 11 belongs in that list and is not
-interchangeable with the other two. Roles 1 and 5 check authored prose against rule text, and role
-11 checks a claim in a commit message or a PR body against the runtime site it names, which is the
-shape of error this lane actually produces. Row 4 needs a `logic` commit and a
+**What a pruned `prose` iteration gives up, and why that lane is absorbing.** A `prose` commit
+usually hands roles 1, 5 and 11 their own output, because `productive_reviewers` is built from the
+findings that got fixed, and fixing one of their findings often authors prose. Role 11 belongs in
+that list and is not interchangeable with the other two. Roles 1 and 5 check authored prose against
+rule text, and role 11 checks a claim in a commit message or a PR body against the runtime site it
+names, which is the shape of error this lane actually produces. Row 4 needs a `logic` commit and a
 prose-only iteration has none, so there is no route from this lane back to a full rerun. The only
-exits are row 1 once the prose lenses accept what the run wrote, row 2 once an iteration commits
-nothing, and the user's interrupt. Sub-step 4's claim sweep and sub-step 5's scan are what
-shorten the lane. They review the authored prose before it lands rather than an iteration later,
-and they do not close the lane. `self_inflicted_count` is the direct signal, because it counts
-findings whose target line the run itself wrote. The two booleans corroborate it. Three
-consecutive iterations with `any_logic_change` and `any_test_change` both false, on a run whose
-logic commits have stopped changing, is this lane. The finding count is not the signal, because it
-falls monotonically the whole time the lane runs, which is why a run can look like it is
-converging while it eats its own output.
+exits are row 1 once roles 1, 5 and 11 accept what the run wrote, row 2 once an iteration commits
+nothing, and the user's interrupt.
+
+Sub-step 4's claim sweep and sub-step 5's scan are what shorten the lane. They review the authored
+prose before it lands rather than an iteration later, and they do not close the lane.
+`self_inflicted_count` is the direct signal, because it counts findings whose target line the run
+itself wrote. The two booleans corroborate it. Three consecutive iterations with
+`any_logic_change` and `any_test_change` both false, on a run whose logic commits have stopped
+changing, is this lane. The finding count is not the signal, because it falls monotonically the
+whole time the lane runs, which is why a run can look like it is converging while it eats its own
+output.
+
+**Role 11 is the seam, and "fixing their findings authors prose" does not hold for it.** A role 11
+finding names two things, a claim and the runtime site it describes, and either one can be the
+thing that is wrong. Correcting the claim is a `prose` fix. Making the site match the claim is a
+`logic` fix, and it is frequently the right one. So an iteration whose findings came from roles 1,
+5 and 11 can legitimately commit `logic` and sit on row 4, and it is not in this lane at all.
+Measured: one iteration fixed two role-11-shaped findings by changing a function's return type
+from `Promise<void>` to an error union, converting two throws into returns, and moving a
+control-flow gate that decides who receives a one-shot email. Both commits were `logic`. Both were
+reported to the user as corrections to prose, because the findings had been about claims, and the
+stop recommendation that followed was wrong.
+
+**Never call a commit or an iteration `prose`, `test`, or `logic` unless that word is the
+classifier's verdict for it.** Those three are classes derived from a diff in sub-step 7, and the
+same words are used loosely elsewhere in this file for authored text and for what these three roles
+review. A finding can be about prose while its fix is `logic`, so the lane a finding came from
+never names the class of the commit that fixed it. When no class was derived, say that rather than
+supplying one from the finding's subject matter.
 
 Note: a non-empty `unaddressed_pool` in PR mode does NOT prevent the loop from terminating.
 "Still unaddressed" items are surfaced for the user to consider, but the fix loop is

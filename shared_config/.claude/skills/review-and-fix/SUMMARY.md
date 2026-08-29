@@ -105,6 +105,18 @@ to from sub-step 7.
 second, and eleven runs added a `class` column unasked, which is a better signal about what the
 table wants than this template was.
 
+**Write each commit's class to the run log beside its sha as the commit lands, not here.** This
+table is a rollup of values already on disk rather than the place they are first derived. Sub-step
+7 computes the class from the commit's own diff, so the moment to record it is the moment it is
+computed. One measured run emitted this block for iteration 1 and then never again, while
+iterations 2, 3 and 4 still committed. Iteration 3 wrote `<sha> logic`, `<sha> prose` and
+`<sha> test` inline anyway and those classes survived. Iteration 4 wrote none, so its two commits
+reached a stop decision with no derived class at all, and the orchestrator described them from the
+lane its findings came from instead. Both were `logic`.
+
+So the inline record is the load-bearing one and this table is the convenience. A block that never
+gets emitted must not be able to take the classes down with it.
+
 **A commit covers as many findings as it covers.** The old text asserted one commit per finding, so
 one title per row, and runs batch instead. One measured iteration committed eleven fixes against
 about forty-five findings. That assertion is why the table could not be built at all, since a

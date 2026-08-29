@@ -29,6 +29,32 @@ The skill never invokes `gh pr comment`, `gh pr review`, `gh pr edit`, or any wr
 Read-only `gh` calls inside the sub-skills (in-depth-review's prior-PR-comment role, plus
 gh-style-review's PR conversation/review-thread fetches) are fine.
 
+## Working-tree side-effect policy
+
+A separate policy from the one above, and the one that has actually cost work. **Only this
+orchestrator touches the working tree. No reviewer sub-agent may.** Forbidden inside any of them:
+`git checkout -- <path>`, `git checkout .`, `git restore`, `git reset --hard`, `git clean`, `rm`,
+`git push`, and any edit, creation, or deletion of a file.
+
+Two runs lost work. One reviewer reverted a source file mid-review and concurrent roles read the
+reverted state. Another ran `git checkout`-style cleanup, reported "Worktree is now clean", and
+discarded the user's own uncommitted edits with no stash entry to recover from. Both agents were
+trying to run a **negative control**, which is a good check that needs the tree. Negative controls
+belong to this orchestrator, in the fix phase, where they already happen.
+
+**Re-check the tree before every reviewer launch, not only at Step 0.** A run can last hours and
+the user can edit files while it is in flight, which is exactly how the uncommitted edits above
+were lost. If `git status --porcelain` is non-empty before a launch, stop and tell the user what
+is uncommitted rather than launching agents over it. Their work is not yours to stage or to risk.
+
+**After every fan-out returns, and before staging anything, probe content rather than status.**
+`git status` cannot detect a revert-and-restore. It reads clean before and after, and dirty only
+in the window between, so a status check timed to the fan-out's return sees nothing. Probe for
+something the diff deleted, for example `grep -c <removed-symbol> <file>` expecting 0. Do this
+before every `git add`, because a reviewer killed between its revert and its restore leaves the
+tree holding a revert of the change under review, and the next fix commit would silently include
+it.
+
 ## GitHub access (GitHub MCP with `gh` fallback)
 
 This skill's only direct GitHub call is `gh pr view` (PR detection, Step 0.5), written as a `gh`

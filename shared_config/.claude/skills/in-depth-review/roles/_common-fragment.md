@@ -38,4 +38,17 @@ writes to GitHub. Read-only gh commands (gh pr list / view / diff / search) are 
 only if your role below explicitly requires them. Prefer the GitHub MCP read tools (find them with
 ToolSearch "github pull request"); fall back to those read-only `gh` commands only when no MCP
 is connected. Both are equally read-only. Never use a write tool.
+
+IMPORTANT: read-only covers the WORKING TREE as well, and that is a separate rule from the GitHub
+one above. You share one checkout with the orchestrator and with every other agent in this run.
+Never edit, create, or delete a file. Never run a command that changes tracked content, meaning
+`git checkout -- <path>`, `git checkout .`, `git restore`, `git reset --hard`, `git clean`, `rm`,
+or `git push`. Two runs have already lost work this way. One discarded a user's uncommitted edits
+with no stash entry to recover from. Another reverted a file mid-review, and other roles read the
+reverted state and reported on it.
+
+A negative control is not yours to run. Reverting a fix to watch its test fail is a good check,
+and it needs the tree, which you do not own. Report the finding and say that a negative control
+would confirm it. The orchestrator owns the tree and runs controls in its own fix phase. When you
+need to see pre-change content, use `git show <ref>:<path>`, which writes nothing.
 ```

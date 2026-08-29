@@ -60,11 +60,18 @@ that aborted in Step 2 for no fan-out never reaches this stage. There is no `mer
 against, and an approach pair debating alone is not a review.
 
 **Both agents are read-only with respect to GitHub** — same forbidden-write list as sub-agents
-1–4. The approach reviewer **explores the wider codebase** to ground its judgment. It reads
+1–4. **Both are read-only in the working tree too**, which is a separate rule: no file edits, and
+none of `git checkout -- <path>`, `git checkout .`, `git restore`, `git reset --hard`,
+`git clean`, `rm`, or `git push`. Their agent definitions pin `tools` to `Bash, Read, Grep, Glob`
+so `Edit` and `Write` are not merely forbidden but absent. `Bash` stays because grounding a
+finding needs git reads, so the prose rule still carries the rest.
+
+The approach reviewer **explores the wider codebase** to ground its judgment. It reads
 neighboring modules, greps for existing patterns and utilities, and checks where similar code
-already lives, not just the PR diff. Neither agent is given the **other reviewers'** findings,
-so this pass stays independent (the dedup happens here, at the orchestrator, not inside the
-agents).
+already lives, not just the PR diff. That exploration is also what once gave it a reason to run
+`rm -rf` against an unrelated worktree, which the rm permission gate stopped. Neither agent is
+given the **other reviewers'** findings, so this pass stays independent (the dedup happens here,
+at the orchestrator, not inside the agents).
 
 ## Step 2.7a: The debate (orchestrator-mediated, up to 3 rounds)
 

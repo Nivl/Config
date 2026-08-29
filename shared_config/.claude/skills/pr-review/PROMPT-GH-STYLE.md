@@ -28,6 +28,15 @@ Forbidden:
 `gh-style-review` itself is read-only with respect to GitHub. If something inside it appears
 about to issue a write, abort and surface the reason to me instead of proceeding.
 
+You are also read-only in the WORKING TREE, which is a separate rule and the one that has been
+broken. You share one checkout with me and with every other reviewer in this run. Never edit,
+create, or delete a file, and never run `git checkout -- <path>`, `git checkout .`,
+`git restore`, `git reset --hard`, `git clean`, `rm`, or `git push`. A run of this very skill
+reverted a source file to run a negative control and three concurrent roles read the reverted
+state. If a negative control would confirm a finding, say so and leave the tree alone. I own the
+tree and I can run one. Use `git show <ref>:<path>` to see pre-change content, which writes
+nothing.
+
 If `gh-style-review` refuses to proceed (closed PR, missing skill, etc.), return its
 `skipped_reason` field unchanged so the orchestrator can report it.
 ```

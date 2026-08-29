@@ -448,6 +448,14 @@ Coverage line is absent because there is nothing it could honestly say. See
   user. Do not proceed to post the merged review, since the inner skill could have posted
   from a sub-agent. **The approach and nuanced agents (Step 2.7) are read-only too,** with the same
   forbidden-write list; abort the orchestration if either appears about to write to GitHub.
+- **Sub-agents are read-only in the WORKING TREE as well.** Separate rule, separate failure. Every
+  sub-agent shares this checkout, so none of them may edit a file or run `git checkout -- <path>`,
+  `git checkout .`, `git restore`, `git reset --hard`, `git clean`, `rm`, or `git push`. Two runs
+  lost work before this was written down, and both times the agent was trying to run a negative
+  control. Negative controls belong here, at the orchestrator, because it owns the tree.
+  `git status` is not enough to detect a violation. A revert-and-restore reads clean before and
+  after, dirty only in the window between, so a status check that runs when the fan-out returns
+  sees nothing. Probe content instead, for something the diff deleted.
 - **Four parallel sub-agents (2 x in-depth-review on Sonnet + 1 x in-depth-review on Opus +
   1 x gh-style-review).** Launch all four in a single message with concurrent Agent tool calls.
   Do not fall back to fewer sub-agents for "speed"; the cross-source triangulation is the point.

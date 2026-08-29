@@ -76,6 +76,32 @@ Permitted read-only `gh` calls: `gh pr list`, `gh pr view`, `gh pr diff`, `gh se
 If a sub-agent appears about to issue any write command, abort and surface the attempt to the
 caller.
 
+## Working-tree side-effect policy
+
+This is a SECOND policy, not a restatement of the one above, and it is the one that has been
+broken. "Read-only" has been read as "read-only with respect to GitHub" by the reviewer agents,
+and the local tree went unnamed.
+
+**This skill and every role it spawns leave the working tree alone.** Forbidden:
+`git checkout -- <path>`, `git checkout .`, `git restore`, `git reset --hard`, `git clean`, `rm`,
+`git push`, and any edit, creation, or deletion of a file. This holds however the skill was
+invoked, and it holds hardest when it runs as a sub-agent, because then one checkout is shared
+with the orchestrator and with every other reviewer in that run.
+
+Two runs lost work before this policy was written down. One discarded a user's uncommitted edits
+with no stash entry to recover from. Another reverted a file mid-review, and concurrent roles read
+the reverted state and reported on it.
+
+**A negative control is not this skill's to run.** Reverting a fix to watch its test fail is a
+good check, and it needs the tree, which a reviewer does not own. Report the finding and say a
+negative control would confirm it. The caller owns the tree and can run one.
+
+To read content at another revision, use `git show <ref>:<path>`. It writes nothing, so it is
+always the right way to see a pre-change state.
+
+If a sub-agent appears about to change tracked content, abort and surface the attempt to the
+caller, the same way you would for a GitHub write.
+
 ## GitHub access (GitHub MCP with `gh` fallback)
 
 Every GitHub call below is written as a `gh` command for reference. **Prefer the GitHub MCP

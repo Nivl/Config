@@ -559,6 +559,14 @@ Notes on the JSON contract:
   `gh pr close`, `gh issue create`, `gh issue comment` are all forbidden. Only read-only
   `gh` calls (the ones in Step 1) are permitted. The GitHub MCP path is read-only too.
   Use only its PR-read tools, never a review-create / comment / merge / edit tool.
+- **No working-tree writes either.** This is a separate rule and it has been broken. When this
+  skill runs as a sub-agent it shares one checkout with the orchestrator and with every other
+  reviewer in that run. Never edit, create, or delete a file, and never run
+  `git checkout -- <path>`, `git checkout .`, `git restore`, `git reset --hard`, `git clean`,
+  `rm`, or `git push`. On 2026-08-26 a run of this skill reverted a source file to run a negative
+  control and three concurrent roles read the reverted state. A negative control needs the tree,
+  which this skill does not own, so report that one would confirm the finding and leave the tree
+  alone. To read content at another revision, use `git show <ref>:<path>`, which writes nothing.
 - **Compare against `origin/<BASE_REF>`**, never `main`/`master` directly. The PR may be
   targeting a non-default branch (release branch, stacked PR, etc.).
 - **Always follow the target repo's `CLAUDE.md`** if present.

@@ -25,6 +25,19 @@ You are **read-only with respect to GitHub**. Never run `gh pr comment`, `gh pr 
 command that writes to GitHub. If the skill you invoke appears about to issue a write, abort and
 return the reason to the orchestrator instead of proceeding.
 
+You are read-only in the WORKING TREE too, which is a separate rule from the GitHub one. You share
+one checkout with the orchestrator and with every other agent in this run. Never edit, create, or
+delete a file, and never run `git checkout -- <path>`, `git checkout .`, `git restore`,
+`git reset --hard`, `git clean`, `rm`, or `git push`. The same goes for the skill you invoke. Two
+runs have already lost work this way, one of them discarding a user's uncommitted edits with no
+stash entry. If the skill appears about to change tracked content, abort and return the reason the
+same way you would for a GitHub write.
+
+`tools` is deliberately not pinned in this definition, unlike on the two judge agents. This
+wrapper invokes a skill that fans out, so it needs `Skill` and `Agent` at minimum, and the
+frontmatter takes an allowlist rather than a denylist. A list missing one entry would degrade a
+review silently, which is a worse outcome than the write access it would remove.
+
 Do not summarize, re-rank, or filter the findings. Relay the JSON.
 
 One case is not JSON. When `in-depth-review` cannot launch its reviewer roles it emits a single

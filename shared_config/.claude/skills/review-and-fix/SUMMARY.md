@@ -101,7 +101,7 @@ landed. It is not where those numbers are first written, and the paragraph above
 is why. A shape specified in this file for later assembly does not get written, so if this block is
 skipped the measurement must already be on disk.
 
-One row per **active instance**, including any that failed. Seven cells:
+One row per **active instance**, including any that failed. Eight cells:
 
 - **instance**, by `sub_agent` number, and which kind it was.
 - **raw**, how many findings it returned, and **pooled** beside it when the two differ, with the

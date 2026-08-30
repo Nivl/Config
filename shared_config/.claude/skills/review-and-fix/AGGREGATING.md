@@ -192,7 +192,10 @@ active instance, keyed by `sub_agent`:
 - `shared`: merged findings this instance raised alongside at least one other. `unique` is only
   readable next to this. Three unique out of forty is a different claim from three out of five.
 - `unique_kept`: of its `unique`, how many cleared the `>= 50` threshold.
-- `roles`: for its `unique_kept`, which roles produced them. In-depth only.
+- `roles`: for its `unique_kept`, which roles produced them. In-depth only, so gh-style records
+  `n/a` rather than an empty value, which would read as a role list nobody filled in.
+- `state`: reported, partial, or failed, naming what was lost. An instance that returned nothing
+  still gets this field, and it is the one that separates a quiet instance from a dead one.
 
 **Append these to the run log the moment you have them, one line per instance, before Step 2
 starts.** Not later as an assembled table. This file's own record is that a shape specified for
@@ -201,9 +204,13 @@ zero rows across seven runs, and the commit table was emitted for iteration 1 on
 six-iteration run. A rule stated at the moment of the act gets followed. So the line goes down
 here, where the numbers exist, in whatever form is legible:
 
-    attribution iter=3 sub_agent=1 kind=in-depth raw=38 pooled=38 unique=9 shared=29 state=reported
-    attribution iter=3 sub_agent=2 kind=in-depth raw=42 pooled=42 unique=13 shared=29 state=reported
-    attribution iter=3 sub_agent=3 kind=gh-style raw=2 pooled=0 unique=0 shared=0 state=below-threshold
+    attribution iter=3 sub_agent=1 kind=in-depth raw=38 pooled=38 unique=9 unique_kept=7 shared=29 roles=2,6,9 state=reported
+    attribution iter=3 sub_agent=2 kind=in-depth raw=42 pooled=42 unique=13 unique_kept=11 shared=29 roles=1,5,8,11 state=reported
+    attribution iter=3 sub_agent=3 kind=gh-style raw=2 pooled=0 unique=0 unique_kept=0 shared=0 roles=n/a state=below-threshold
+
+Every field above appears on every line, so the example is not a shorter form of the list. A line
+that drops one is the omission this section exists to prevent, and a reader copying the example is
+the likeliest way it happens.
 
 `unique_kept` and `unique_actionable` are not known yet. The threshold has run so `unique_kept` can
 go on that line, but whether a commit fixed one is not known until Step 2 has. So carry the

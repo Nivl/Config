@@ -357,10 +357,34 @@ table is built from. The sixth is for the run log, and no stop rule reads it:
 you take it. This is the fix phase's real start and it is what waiting and fixing time are measured
 against. `t_fix` minus `t0` is waiting. `t2` minus `t_fix` is fixing.
 
-Do not measure either against `t1`. `t1` is the last arrival, and a straggler instance can arrive
+Do not measure either against `t1`. `t1` is the last arrival, and a straggler's report can arrive
 after fixing has already begun, which put two measured iterations at a fixing time of `0m00s` while
 git shows two commits landing inside each. `t1` stays as the coverage record of when collection
 finished, and it is no longer a duration boundary.
+
+**No reviewer may still be RUNNING when `t_fix` is stamped.** This is about the agent, not its
+notification, and the two come apart. A reviewer that has reported is finished, so a notification
+still in transit from it is harmless and is exactly the straggler case above. A reviewer that has
+not reported and is still working will read the tree while the fix phase edits it, and that is the
+hazard. Before stamping `t_fix`, every launched reviewer must be reported or resolved. Resolve one
+by `SendMessage`, asking it to finalize with only what it genuinely received, or by `TaskStop` when
+a later full rerun supersedes it. Never begin fixing with one left spinning.
+
+Recording an instance in `reviewers_missing` at [AGGREGATING.md](AGGREGATING.md)'s give-up bound is
+the coverage half and it does not satisfy this. That entry says its findings are not in the pool. It
+says nothing about whether the process is still reading files, and a written-off reviewer goes on
+running until something stops it. Both halves are owed, so record the shortfall and resolve the
+agent.
+
+Spawned agents do not appear in `TaskList`. To see whether one is alive, `find` its transcript
+under the session's `subagents` directory with `-mmin`, or `wc -c` its `tasks/<id>.output`. Never
+`Read` or `tail` that file, which overflows context. Rising bytes prove it is alive, and identical
+repeated increments do not prove a poll loop, so nudge before stopping. Stopping discards whatever
+roles had already finished inside it.
+
+Measured cost of skipping this: one iteration applied a fix between the gh-style arrival and both
+in-depth arrivals, and the Final Report had to caveat that an instance read a tree mutated
+mid-review. Coverage was `complete` on every other axis, so the caveat was the only trace.
 
 Process each finding from the ordered work list (Step 1) one at a time. Skip any
 `ticket`-category finding already recorded in `resolved_ticket_findings` (deferred or
@@ -589,9 +613,15 @@ either. Both are carried to the Final Report.
 
      **Append the class to the run log beside the sha now, as the commit lands.** Not later in the
      per-iteration summary, which is a rollup of what this step already wrote. A run that stops
-     emitting summaries mid-way still has to leave a derived class behind for every commit, because
-     the next iteration's stop decision reads those classes. See
-     [SUMMARY.md](SUMMARY.md)'s note under the commit table for the run where that failed.
+     emitting summaries mid-way still has to leave a derived class behind, because the next
+     iteration's stop decision reads it. See [SUMMARY.md](SUMMARY.md)'s note under the commit table
+     for the run where that failed.
+
+     If the log has compressed to one line per iteration, the per-class counts are the floor that
+     must survive, as in `commits=9 logic=5 test=3 prose=1`. A measured six-iteration run emitted
+     summaries for iteration 1 only, wrote per-sha classes inline for iteration 3, nothing at all
+     for iteration 4, and counts for iterations 5 and 6. The counts are enough for rows 4 and 5 and
+     enough for the stop gate in Step 3. Iteration 4's nothing is what is banned.
 
 8. After the bookkeeping, move to the next finding.
 
@@ -686,6 +716,12 @@ nothing substantive is left. Before writing one, every commit in the range the n
 review needs a class derived in sub-step 7, and none of them may be `logic`. If a class is missing,
 derive it from the commit's diff first. If any is `logic`, that sentence is not available, and the
 honest report is that unreviewed logic remains and here is what it touches.
+
+A per-class count for the iteration satisfies this, such as `commits=9 logic=5 test=3 prose=1`. The
+gate asks only whether any commit in the range is `logic`, so a count of zero answers it as well as
+a per-sha list does, and a count above zero closes the sentence off whichever commit it was. The
+per-sha class is still what the commit table and per-role yield need. It is not what this check
+needs.
 
 This is the check that would have caught a measured failure. An orchestrator recommended stopping
 on the premise that the two unreviewed commits were prose corrections. Neither had a derived class,

@@ -117,6 +117,12 @@ lane its findings came from instead. Both were `logic`.
 So the inline record is the load-bearing one and this table is the convenience. A block that never
 gets emitted must not be able to take the classes down with it.
 
+Iterations 5 and 6 of that same run wrote per-class counts rather than per-sha classes, as
+`commits=9 logic=5 test=3 prose=1`. That is the floor and it is acceptable. It answers rows 4 and 5
+and it answers Step 3's stop gate, which asks only whether any commit in the range is `logic`. What
+it does not answer is which commit to attribute to which role, so a run that wants per-role yield
+still needs the per-sha form. Recording nothing, as iteration 4 did, answers none of them.
+
 **A commit covers as many findings as it covers.** The old text asserted one commit per finding, so
 one title per row, and runs batch instead. One measured iteration committed eleven fixes against
 about forty-five findings. That assertion is why the table could not be built at all, since a

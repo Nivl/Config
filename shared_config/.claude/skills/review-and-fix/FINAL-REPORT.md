@@ -88,6 +88,12 @@ severity in a non-shipping category. Not a clean result and not converged, becau
 while it could still have committed. Names the count and points at Remaining Issues. Coverage may be
 `complete` here and the outcome still carries no green check, because what ended the run was a
 judgement about severity rather than an absence of findings.
+— OR —
+⚠️ Stopped at the user's direction — no row fired. The loop was still finding real things and could
+have continued, and the user was shown where it was going and chose to stop. Names the iteration it
+stopped after, names the signal it was shown, and points at Remaining Issues. Carries no green check
+at any coverage value, for the same reason row 2b carries none. Nothing here measured an absence of
+findings.
 ```
 
 ## Selecting the Outcome line
@@ -98,12 +104,17 @@ that force `partial`, so a rule keyed on that variable alone would let a green c
 `partial` Coverage line as soon as another input fired. This governs every stop, not just row 1c.
 Whenever Coverage is `partial` the Outcome MUST be the incomplete-coverage line, naming what made it
 partial and what went unreviewed. So "✅ Clean batch" is reachable only from row 1 with complete
-coverage, and "✅ Converged" only from a row 2 stop with complete coverage. **Row 2b never carries a
-green check, at any coverage value.** Row 1c can also fire with findings in hand, so that is not what
-separates them. What separates row 2b is that it stops on a judgement about severity rather than on
-an absence of findings or a gap in coverage, and a green check there would claim a completeness
-nothing measured supports. Never pair a green check with `partial` coverage either. The two sections are read together, and a green check above a `partial`
-Coverage line is exactly the unearned clean result this machinery exists to prevent.
+coverage, and "✅ Converged" only from a row 2 stop with complete coverage. **Row 2b and the
+user-directed stop never carry a green check, at any coverage value.** Row 1c can also fire with
+findings in hand, so that is not what separates them. What separates those two is that they stop on
+a judgement, about severity in one case and about whether to keep going in the other, rather than on
+an absence of findings or a gap in coverage. A green check on either would claim a completeness
+nothing measured supports. A user-directed stop at `partial` coverage uses the incomplete-coverage
+line and says the user ended it, the same way a row 2 or row 2b stop does.
+
+Never pair a green check with `partial` coverage either. The two sections are read together, and a
+green check above a `partial` Coverage line is exactly the unearned clean result this machinery
+exists to prevent.
 
 ## Changes Made section
 

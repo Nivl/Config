@@ -84,7 +84,7 @@ for the reads they do. Local `git` calls need no `gh`.
    empty with a kind `unavailable` or the unioned `roles_missing` non-empty (row 1c, which stops
    with partial coverage), or an iteration commits nothing, or no reviewer can start at all, or an
    active reviewer instance returns `coverage: "impossible"` (row 0, which aborts the run without a
-   report)
+   report), or the user is shown where the run is going and says to stop (not a row, see Step 3)
 7. Emit the per-iteration summary before the loop returns to step 2 or falls through to the
    report. A row 0 abort emits none
 8. Deliver a final summary report
@@ -686,9 +686,10 @@ A role-level shortfall is deliberately NOT retried. It blocks the clean exit and
 as `partial`, which is why row 1 now requires an empty unioned `roles_missing`.
 
 **There is no iteration cap, and the number column is a label column, not an index.** Rows 1, 1c, 2,
-and 2b are the only stops. Row 0 is an abort rather than a stop, so the run ends there without a
-Final Report. Row 0 is a backstop. The abort fires in Step 1 the moment an impossible result is
-aggregated, before Step 2 applies a single fix. The Step 0 trigger aborts there instead, before
+and 2b are the only rows that stop. The user-directed stop below ends a run without being a row, and
+an interrupt ends one without reaching Step 4 at all. Row 0 is an abort rather than a stop, so the
+run ends there without a Final Report. Row 0 is a backstop. The abort fires in Step 1 the moment an
+impossible result is aggregated, before Step 2 applies a single fix. The Step 0 trigger aborts there instead, before
 any launch. The launch-failure trigger also fires in Step 1, as soon as the last launch has failed. Rows 1b, 4, and 5 are the only rows that go back to Step 1. Row 1b is
 bounded at one retry per reviewer kind per run, and rows 4 and 5 both require `any_commit == true`,
 because row 2 stops the run the moment an iteration commits nothing. So the loop continues while an
@@ -701,6 +702,25 @@ user, which is why every iteration that reaches Step 3 emits a per-iteration sum
 `iteration` is a label for the announce line, that summary, and the Final Report header. No stop
 rule reads it. Do not add a cap row, an iteration count of any size, a periodic check-in, or an
 oscillation detector, and do not renumber the rows that remain.
+
+**The user-directed stop is a terminal state and it is not a row.** The paragraph above assumed the
+user ends such a run by interrupting it, and an interrupted run never reaches Step 4, so no Outcome
+line was ever written for one. What happens instead is that the user is shown where the run is going
+and says to stop, in band, and that run does reach Step 4. Measured across nine logged runs: two
+ended that way and wrote an outcome by hand, four stopped on a criterion their orchestrator invented
+and no row defines, and one of those four named it `converged-on-self`. The rows were never the
+problem. The graceful human exit had nowhere to land, so each run built its own.
+[FINAL-REPORT.md](FINAL-REPORT.md) now carries its Outcome line. Use that rather than bending row 1c
+or row 2 to fit, and rather than naming a stop of your own.
+
+**Ask, do not decide.** The four invented stops decided. The two clean ones asked. When the absorbing
+lane's signal is showing, meaning `self_inflicted_count` in the majority with `any_logic_change` and
+`any_test_change` both false across three consecutive iterations, put that in front of the user and
+let them choose. Presenting a signal is not one of the four forbidden things. It counts no
+iterations, fires on no schedule, and stops nothing by itself, and the paragraph above already makes
+the user the exit for this case. What is forbidden is ending the run on that signal yourself. Every
+invented stop in those four runs was a defensible reading of real evidence, which is what makes them
+worth banning. A plausible stop nobody authorized is harder to argue with than a bad one.
 
 **Row 2b is a severity floor, and it is none of the four forbidden things above.** It reads the
 severity and category of the findings currently in hand. It does not count iterations, does not
@@ -833,7 +853,8 @@ rule text, and role 11 checks a claim in a commit message or a PR body against t
 names, which is the shape of error this lane actually produces. Row 4 needs a `logic` commit and a
 prose-only iteration has none, so there is no route from this lane back to a full rerun. The only
 exits are row 1 once roles 1, 5 and 11 accept what the run wrote, row 2 once an iteration commits
-nothing, and the user's interrupt.
+nothing, and the user, either by direction or by interrupt. This lane is the case the user-directed
+stop exists for, and its signal is the one to put in front of them.
 
 Sub-step 4's claim sweep and sub-step 5's scan are what shorten the lane. They review the authored
 prose before it lands rather than an iteration later, and they do not close the lane.

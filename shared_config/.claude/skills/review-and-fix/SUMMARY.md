@@ -54,6 +54,12 @@ rule stated inline in `SKILL.md` at the moment of the act gets followed and a ru
 file for later assembly does not, so a fourth wording is not the missing piece. Recovering the
 timeline is a grep for a stamp, not a grep for an authored shape.
 
+This bans a summary whose data exists nowhere else. It does not ban the commit table or the
+attribution table below, and the difference is where their numbers are first written. Both are
+rollups of lines the run log already holds, appended at the moment each was computed, so a skipped
+block costs the reader a convenience rather than the measurement. Judge any future block by that
+test. If the block is the only place a number would ever appear, it will not be written.
+
 Cover these in this order, one line each, and drop any line that has nothing to say:
 
 - The `iteration` number and the active reviewer set that ran.
@@ -88,6 +94,41 @@ Cover these in this order, one line each, and drop any line that has nothing to 
 - Any anomaly with no other home, such as a `subagent_type` that did not resolve and left effort
   inherited.
 - The row that fired, and either the next iteration's active set or the stop.
+
+Then emit the attribution table. It is a **rollup of the `attribution` lines already in the run
+log**, appended by [AGGREGATING.md](AGGREGATING.md) at merge time and by sub-step 7 as each commit
+landed. It is not where those numbers are first written, and the paragraph above about the ledger row
+is why. A shape specified in this file for later assembly does not get written, so if this block is
+skipped the measurement must already be on disk.
+
+One row per **active instance**, including any that failed. Seven cells:
+
+- **instance**, by `sub_agent` number, and which kind it was.
+- **raw**, how many findings it returned, and **pooled** beside it when the two differ, with the
+  reason. One measured instance returned 54 and pooled 1, its other 53 excluded as unfiltered leads
+  for `scoring.complete: false`. Reported as `54 -> 1 (scoring incomplete)`, that is a broken
+  instance. Reported as `1`, it reads as a weak one, and those two have opposite implications for
+  whether a second instance is worth running.
+- **unique**, merged findings only this instance raised.
+- **shared**, merged findings it raised alongside another. `unique` is not readable without this.
+- **actionable**, its `unique` findings that cleared the threshold AND became a commit. Name them,
+  do not only count them. There will be few and they are the entire argument.
+- **top confidence** among its `actionable` findings. Volume misleads on its own. Five unique
+  nitpicks and one unique data-loss bug are not the same contribution.
+- **roles** that produced its `actionable` findings, in-depth only. If one instance's actionable
+  uniques keep landing in the same one or two roles, the second instance is covering for a role
+  that intermittently fails to report rather than adding an independent read, and the cheaper fix
+  is at the role.
+- **state**, meaning reported, partial, or failed, with what was lost.
+
+**`actionable` is the counterfactual, and it is why this table exists.** Read per instance, it is
+what a run without that instance would have lost. Recording it for every instance yields every
+counterfactual from one run, so two or three runs decide whether the second in-depth pass earns its
+cost. Nine logged runs could not, because none of them recorded which instance a surviving finding
+came from.
+
+An instance with `unique` high and `actionable` zero found things nobody else found and none of them
+were worth fixing. That is a real result and it is not the same as finding nothing.
 
 Then close the block with the iteration's commit table, so the last thing every iteration emits
 is the work it actually did:

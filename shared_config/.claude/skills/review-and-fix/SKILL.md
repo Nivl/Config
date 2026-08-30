@@ -350,6 +350,9 @@ table is built from. The sixth is for the run log, and no stop rule reads it:
   `any_test_change` can add role 9 on top of it.
 - `iteration_commits` = empty — one `(short sha, finding title)` pair per committed fix, in
   commit order. Step 3's commit table is this list.
+- `attribution` = the ledger [AGGREGATING.md](AGGREGATING.md) built at merge time, one entry per
+  active instance. Sub-step 7 is what completes it, by marking which of an instance's `unique_kept`
+  findings a commit fixed. Step 3's attribution table is this ledger.
 - `self_inflicted_count` = 0. How many of this iteration's findings target a line an earlier
   commit of this same run wrote (sub-step 1).
 
@@ -540,6 +543,19 @@ either. Both are carried to the Final Report.
      to in-depth role number(s) via the table in in-depth-review's Step 1, and add the
      `gh-style-review` unit if the finding came (also) from that source. A finding merged
      across both sources adds both.
+   - **Record the finding's `raised_by` set too**, which is a different question from
+     `productive_reviewers` and the two are easy to conflate. `productive_reviewers` says which
+     ROLE found it, and drives row 5's pruned set. `raised_by` says which INSTANCE found it, and is
+     what turns [AGGREGATING.md](AGGREGATING.md)'s ledger entry for a `unique` finding into a
+     `unique_actionable` one. A commit here is the only evidence that a finding only one instance
+     raised was worth having, so this is the moment the counterfactual becomes measurable.
+
+     **When `raised_by` has exactly one member, append that to the run log on the commit's line**,
+     as `actionable_unique=<sub_agent> conf=<confidence>`. This is the counterfactual becoming a
+     fact, and it is the whole reason the ledger exists. Nine logged runs could not answer whether
+     the second in-depth pass earns its cost, because none recorded which instance a surviving
+     finding came from. Append it here rather than assembling it later, for the reason
+     [AGGREGATING.md](AGGREGATING.md) gives under the ledger.
 
      **Append the category and the role numbers it mapped to, to the run log, on the same line as
      the commit's sha.** You are holding both here and nowhere else. Without it, per-role yield can

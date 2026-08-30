@@ -147,7 +147,14 @@ reached (up to 3 active; fewer when the iteration is pruned):
 
 3. **For each duplicate group, produce one merged finding:**
    - `confidence`: **max** of the group's scores.
-   - `cross_instance_agreement`: count of distinct active instances that raised this finding.
+   - `raised_by`: the SET of distinct active instances that raised this finding, by their
+     `sub_agent` numbers. Keep the set, not just its size. A one-member set is a finding only
+     that instance found, and per-instance marginal value cannot be computed from a count.
+   - `cross_instance_agreement`: the SIZE of `raised_by`. Derived rather than counted separately,
+     so the two cannot disagree.
+   - `roles`: union of the in-depth roles that produced the group's members, kept per contributing
+     instance so a one-member `raised_by` can still say which role found it. gh-style has no
+     roles, so its contribution is recorded as `gh-style` rather than a number.
    - `sources`: set of distinct source skills (one of `{in-depth-review}`, `{gh-style-review}`,
      or both). Used as a tiebreaker. A both-source finding is stronger signal.
    - `title`, `description`, `suggested_fix`: pick the clearest from the group; if suggested
@@ -170,6 +177,54 @@ reached (up to 3 active; fewer when the iteration is pruned):
    2. `cross_instance_agreement` descending (more instances agreeing wins when severity ties)
    3. Both-sources first (a both-source finding beats a same-confidence single-source one)
    4. `confidence` descending
+
+## The attribution ledger
+
+Built here, from `raised_by`, once the merge and the threshold have both run. It exists to answer
+one question with measurements rather than argument: what would a one-instance run have missed. Per
+active instance, keyed by `sub_agent`:
+
+- `raw`: how many findings it returned.
+- `pooled`: how many of those entered the pool. Lower than `raw` when something was excluded before
+  the merge, such as an instance-level `scoring.complete: false` taking its unscored findings out as
+  unfiltered leads. Name the reason next to the number.
+- `unique`: merged findings whose `raised_by` is exactly this instance.
+- `shared`: merged findings this instance raised alongside at least one other. `unique` is only
+  readable next to this. Three unique out of forty is a different claim from three out of five.
+- `unique_kept`: of its `unique`, how many cleared the `>= 50` threshold.
+- `roles`: for its `unique_kept`, which roles produced them. In-depth only.
+
+**Append these to the run log the moment you have them, one line per instance, before Step 2
+starts.** Not later as an assembled table. This file's own record is that a shape specified for
+later assembly does not get written: the duration summary was specified three ways and produced
+zero rows across seven runs, and the commit table was emitted for iteration 1 only of a measured
+six-iteration run. A rule stated at the moment of the act gets followed. So the line goes down
+here, where the numbers exist, in whatever form is legible:
+
+    attribution iter=3 sub_agent=1 kind=in-depth raw=38 pooled=38 unique=9 shared=29 state=reported
+    attribution iter=3 sub_agent=2 kind=in-depth raw=42 pooled=42 unique=13 shared=29 state=reported
+    attribution iter=3 sub_agent=3 kind=gh-style raw=2 pooled=0 unique=0 shared=0 state=below-threshold
+
+`unique_kept` and `unique_actionable` are not known yet. The threshold has run so `unique_kept` can
+go on that line, but whether a commit fixed one is not known until Step 2 has. So carry the
+`unique_kept` findings forward by title, and let sub-step 7 append the actionable mark as each
+commit lands. [SUMMARY.md](SUMMARY.md)'s table is a rollup of these lines rather than the place they
+are first written, the same way the commit table is a rollup of the classes sub-step 7 appends.
+
+**Read `unique_actionable` as the counterfactual.** For each instance it is what a run without that
+instance would have lost. Recording it for every instance gives every counterfactual from a single
+run, so two or three runs settle whether the second in-depth pass earns its cost, rather than
+another argument from finding counts.
+
+**Do not read `unique` as value on its own.** An instance can be unique because it alone was right
+or because it alone was wrong, and the threshold plus Step 2's dismissals are what separate those.
+That is why the ledger carries `unique_kept` and `unique_actionable` beside it rather than stopping
+at `unique`.
+
+**An instance that failed contributed nothing, and that is a measurement.** Record its row with
+zeros and its state rather than omitting it. A missing row reads as an instance that was never
+launched, and the difference between "ran and found nothing new" and "died" is most of what the
+ledger is for.
 
 ## Aggregating tickets_examined
 

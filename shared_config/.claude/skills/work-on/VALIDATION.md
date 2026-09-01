@@ -189,7 +189,8 @@ export const meta = {
 // Six, not four, because there are up to nine sources and six of them can flip the verdict on their
 // own: the two telemetry probes, ticket-overlap, open-pr-overlap, merged-delta, and reproduce. Four
 // guaranteed at least one of those went unchallenged on any run where each emitted a critical
-// finding. Six covers that case at a worst case of twelve skeptics.
+// finding. Six covers that case, and it costs no extra agents now that the skeptics are batched by
+// angle, so the cap bounds ballots rather than processes.
 //
 // Six flipping sources against a cap of six means selectForRefutation's first round-robin pass hands
 // each of them exactly one slot, so this is now at its floor rather than above it. Adding another lens
@@ -220,7 +221,7 @@ ${JSON.stringify(args, null, 2)}
 // PR metadata (a skeptic may need to know what the ticket claimed and which PRs are in play) and drops
 // the log text:
 //
-//   - the skeptics, up to twelve of them, each reading one locator
+//   - the skeptics, two of them, one per angle, each reading every selected locator
 //   - the synthesizer, whose prompt already carries standing, the gaps, the digests and the questions
 //
 // The lenses keep the full context because `merged-delta` is asked to read the logs, and the critic keeps
@@ -740,6 +741,31 @@ const REFUTE_SCHEMA = {
   },
 }
 
+// One skeptic agent now covers every selected finding from ONE angle, so its return is a list of
+// per-finding ballots rather than a single one. REFUTE_SCHEMA above is still the shape of each ballot
+// and is reused here rather than restated, so the two cannot drift.
+//
+// `finding_id` is the index the dispatch assigned, not a claim string. Matching ballots back to
+// findings by claim text would break on any paraphrase, and a mismatched ballot is worse than a
+// missing one, because it applies one finding's verdict to another.
+const REFUTE_BATCH_SCHEMA = {
+  type: 'object',
+  required: ['ballots'],
+  properties: {
+    ballots: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['finding_id', 'refuted', 'confidence', 'reasoning'],
+        properties: {
+          finding_id: { type: 'integer' },
+          ...REFUTE_SCHEMA.properties,
+        },
+      },
+    },
+  },
+}
+
 const VERDICT_SCHEMA = {
   type: 'object',
   required: ['verdict', 'rationale', 'evidence', 'coverage_gaps', 'blocking_questions', 'open_questions'],
@@ -1249,17 +1275,32 @@ const { selected: toRefute, deferred, duplicates } = selectForRefutation(critica
 if (duplicates.length) log(`${duplicates.length} duplicate critical findings collapsed before refuting: ${duplicates.map((f) => `${f.lens}: ${f.claim}`).join(' | ')}`)
 if (deferred.length) log(`${critical.length} verdict-critical findings, budget is ${MAX_REFUTED}. Unrefuted: ${deferred.map((f) => `${f.lens}: ${f.claim}`).join(' | ')}`)
 
-const judged = await parallel(
-  toRefute.map((f, fi) => () =>
-    parallel(
-      SKEPTICS.map((angle) => () =>
-        agent(
-          `Try to REFUTE this finding. You are not here to confirm it.
+// One agent per ANGLE, each judging every selected finding, rather than one agent per
+// (finding x angle). Six findings against two angles was twelve opus agents, and the vote each
+// finding receives is identical either way: two ballots from two different angles, which is what
+// tallyVotes reduces. Nothing about the panel needed twelve processes to produce twelve ballots.
+//
+// The cost is a wider blast radius when an agent dies. Twelve agents meant one death cost one
+// finding one angle. Two agents mean one death costs EVERY finding that angle. The direction is
+// safe, because unanimousKill requires !panelShort so a short panel can never kill a finding, and
+// the findings survive marked as not fully challenged. But losing every challenge to one flaky
+// agent is a real hole in a stage that decides a Jira ticket's verdict, which is why the retry
+// below exists and why it did not exist before. Retrying one of twelve was not worth the
+// bookkeeping. Retrying one of two is nearly free.
+const refuteBatch = (angle, findings, label) =>
+  agent(
+    `Try to REFUTE each finding below. You are not here to confirm them.
 
-Finding: ${f.claim}
-Status: ${f.status}
-Locator: ${f.locator}
-Reasoning: ${f.reasoning}
+${findings.map((f, i) => `### finding_id ${i}\nClaim: ${f.claim}\nStatus: ${f.status}\nLocator: ${f.locator}\nReasoning: ${f.reasoning}`).join('\n\n')}
+
+Return one ballot per finding, each carrying the \`finding_id\` above. Every finding gets a ballot,
+including ones you could not settle.
+
+**Judge each finding on its own locator, never against the others in this list.** You hold several
+findings only so one agent can cover an angle. They are unrelated claims about different code, and
+the strongest finding here does not make a weaker one false. Ranking them against each other returns
+ballots that look internally consistent and are wrong about each finding taken alone, and nothing
+downstream re-checks them.
 
 Your angle is "${angle}".
 - "evidence": go to the locator and read it. Does it actually say what the finding claims? Is the
@@ -1284,11 +1325,51 @@ ${rules()}
 ## Context
 
 ${SKEPTIC_CONTEXT}`,
-          { label: `refute:${angle}`, phase: 'Refute', schema: REFUTE_SCHEMA, model: 'opus', effort: 'medium' },
-        ),
-      ),
-    ).then((votes) => tallyVotes(f, votes, SKEPTICS.length)),
-  ),
+    { label, phase: 'Refute', schema: REFUTE_BATCH_SCHEMA, model: 'opus', effort: 'medium' },
+  )
+
+// Reshapes one angle's batch into a lookup from finding_id to that angle's ballot. A dead agent
+// yields an empty map, so every finding reads `undefined` for that angle, which lands in tallyVotes
+// exactly where a dead single agent's null landed before.
+const ballotsById = (batch) =>
+  new Map((batch?.ballots || []).map((b) => [b.finding_id, b]))
+
+// Round one. Both angles, in parallel.
+let panels = await parallel(SKEPTICS.map((angle) => () => refuteBatch(angle, toRefute, `refute:${angle}`)))
+let byAngle = panels.map(ballotsById)
+
+// **Retry any angle that came back short, exactly once.** Short means the agent died or returned
+// fewer ballots than findings, and the retry asks only for the findings still missing a ballot from
+// that angle. Exactly one retry, because unbounded relaunches are the same bug with extra
+// bookkeeping. What is still missing after it stays missing and shows up as `panelShort`, which is
+// already a handled state rather than a new one.
+const missingFor = (i) => toRefute.filter((_, fi) => !byAngle[i].has(fi))
+const shortAngles = SKEPTICS.map((_, i) => i).filter((i) => missingFor(i).length > 0)
+
+if (shortAngles.length) {
+  log(`refute retry: ${shortAngles.map((i) => `${SKEPTICS[i]} missing ${missingFor(i).length}`).join(', ')}`)
+  const retries = await parallel(
+    shortAngles.map((i) => () => {
+      const gaps = missingFor(i)
+      // The retry re-indexes its own subset, so map its finding_ids back to the original positions.
+      const originalIds = toRefute.map((_, fi) => fi).filter((fi) => !byAngle[i].has(fi))
+      return refuteBatch(SKEPTICS[i], gaps, `refute-retry:${SKEPTICS[i]}`).then((batch) => ({
+        i,
+        ballots: (batch?.ballots || []).map((b) => ({ ...b, finding_id: originalIds[b.finding_id] })),
+      }))
+    }),
+  )
+  for (const r of retries.filter(Boolean)) {
+    for (const b of r.ballots) {
+      if (b.finding_id !== undefined) byAngle[r.i].set(b.finding_id, b)
+    }
+  }
+}
+
+// Same reduce as before, per finding, with the votes gathered across angles rather than across
+// agents. tallyVotes is unchanged and still receives one vote per angle in SKEPTICS order.
+const judged = toRefute.map((f, fi) =>
+  tallyVotes(f, SKEPTICS.map((_, i) => byAngle[i].get(fi)), SKEPTICS.length),
 )
 
 // Named `tallied`, not `survivors`. It holds every finding that came back from the refute stage,
@@ -1298,21 +1379,27 @@ const killed = tallied.filter((f) => !f.survived)
 const contested = tallied.filter((f) => f.contested)
 const shortPanel = tallied.filter((f) => f.panelShort)
 
-// A finding whose whole refute task died returns null from the outer parallel, so it is in neither
-// `tallied` nor `toRefute`'s complement, and it would vanish from the run with no trace. Route it
-// through tallyVotes with an empty ballot rather than hand-building the result, so a dead task and a
-// dead panel cannot drift apart and both carry a full set of fields.
-const tallyLost = toRefute.filter((f, i) => !judged[i]).map((f) => tallyVotes(f, [], SKEPTICS.length))
+// There is no separate died-outright case any more, and that is a consequence of batching by angle
+// rather than an oversight. Every finding is reduced through tallyVotes unconditionally, so a finding
+// whose angles both died reads as two undefined votes and comes back with `refutationRan: false` and
+// `whyUnrefuted: 'panel-failed'` like any other dead panel. It is in `tallied` with a full set of
+// fields. The old shape needed the second path because a dead outer task returned null and the
+// finding left no trace at all.
+//
+// `composeStanding` keeps its parameter and receives an empty array. Its tests already pass an empty
+// one in every case, so nothing about it changes here.
+const tallyLost = []
 
-// Every finding kept without a full challenge, however it got that way. `shortPanel` covers a panel
-// that partly reported; `tallyLost` covers a task that never ran. Downstream must see both, because
-// a reader told to check one field would miss the other entirely.
-const unchallenged = [...shortPanel, ...tallyLost]
+// Every finding kept without a full challenge. One source now instead of two, since a panel that
+// partly reported and one that wholly failed both land in `shortPanel` or carry
+// `refutationRan: false`.
+const unchallenged = [...shortPanel]
 
 if (killed.length) log(`refuted by the full panel and dropped: ${killed.map((f) => f.claim).join(' | ')}`)
 if (contested.length) log(`contested, kept and escalated: ${contested.map((f) => f.claim).join(' | ')}`)
 if (shortPanel.length) log(`kept without a full challenge, a skeptic did not report: ${shortPanel.map((f) => f.claim).join(' | ')}`)
-if (tallyLost.length) log(`refute task died outright, kept unchallenged: ${tallyLost.map((f) => f.claim).join(' | ')}`)
+const deadPanel = tallied.filter((f) => !f.refutationRan)
+if (deadPanel.length) log(`whole panel failed, kept unchallenged: ${deadPanel.map((f) => f.claim).join(' | ')}`)
 
 const standing = composeStanding(allFindings, toRefute, duplicates, tallied, tallyLost, deferred)
 
@@ -1327,18 +1414,20 @@ const gateToRefute = gateOrdered.slice(0, MAX_GATE_REFUTED)
 const gateDeferred = gateOrdered.slice(MAX_GATE_REFUTED)
 if (gateDeferred.length) log(`${gateCritical.length} dismissals, gate budget is ${MAX_GATE_REFUTED}. Unattacked: ${gateDeferred.map((f) => `${f.lens}: ${f.claim}`).join(' | ')}`)
 
-const gateJudged = await parallel(
-  gateToRefute.map((f) => () =>
-    parallel(
-      SKEPTICS.map((angle) => () =>
-        agent(
-          `Try to REFUTE this dismissal. Somebody has argued that a defect is not worth fixing, and
+// Batched by angle, exactly as the refute pass above, and for the same reason. Two dismissals against
+// two angles was four opus agents to produce four ballots.
+const gateBatch = (angle, findings, label) =>
+  agent(
+    `Try to REFUTE each dismissal below. Somebody has argued that a defect is not worth fixing, and
 you are here to find out whether that is wrong.
 
-Dismissal: ${f.claim}
-Status: ${f.status}
-Locator: ${f.locator}
-Reasoning: ${f.reasoning}
+${findings.map((f, i) => `### finding_id ${i}\nDismissal: ${f.claim}\nStatus: ${f.status}\nLocator: ${f.locator}\nReasoning: ${f.reasoning}`).join('\n\n')}
+
+Return one ballot per dismissal, each carrying the \`finding_id\` above. Every dismissal gets a
+ballot, including ones you could not settle.
+
+**Judge each dismissal on its own locator, never against the others in this list.** They are separate
+arguments about different code, and one being well-reasoned says nothing about another.
 
 Your angle is "${angle}".
 - "evidence": go to the locator and read it. Is the flag really off in production, or only off in the
@@ -1364,18 +1453,45 @@ ${rules()}
 ## Context
 
 ${SKEPTIC_CONTEXT}`,
-          { label: `gate-refute:${angle}`, phase: 'Refute', schema: REFUTE_SCHEMA, model: 'opus', effort: 'medium' },
-        ),
-      ),
-    ).then((votes) => tallyVotes(f, votes, SKEPTICS.length)),
-  ),
-)
+    { label, phase: 'Refute', schema: REFUTE_BATCH_SCHEMA, model: 'opus', effort: 'medium' },
+  )
 
-const gateTallied = gateJudged.filter(Boolean)
+const gatePanels = await parallel(SKEPTICS.map((angle) => () => gateBatch(angle, gateToRefute, `gate-refute:${angle}`)))
+const gateByAngle = gatePanels.map(ballotsById)
+
+// One retry per short angle, same rule as the refute pass. A dismissal that keeps its challenge is
+// the whole point of this pass, since a wrong dismissal ships a live defect and nobody looks again.
+const gateMissingFor = (i) => gateToRefute.filter((_, fi) => !gateByAngle[i].has(fi))
+const gateShortAngles = SKEPTICS.map((_, i) => i).filter((i) => gateMissingFor(i).length > 0)
+
+if (gateShortAngles.length) {
+  log(`gate refute retry: ${gateShortAngles.map((i) => `${SKEPTICS[i]} missing ${gateMissingFor(i).length}`).join(', ')}`)
+  const gateRetries = await parallel(
+    gateShortAngles.map((i) => () => {
+      const gaps = gateMissingFor(i)
+      const originalIds = gateToRefute.map((_, fi) => fi).filter((fi) => !gateByAngle[i].has(fi))
+      return gateBatch(SKEPTICS[i], gaps, `gate-refute-retry:${SKEPTICS[i]}`).then((batch) => ({
+        i,
+        ballots: (batch?.ballots || []).map((b) => ({ ...b, finding_id: originalIds[b.finding_id] })),
+      }))
+    }),
+  )
+  for (const r of gateRetries.filter(Boolean)) {
+    for (const b of r.ballots) {
+      if (b.finding_id !== undefined) gateByAngle[r.i].set(b.finding_id, b)
+    }
+  }
+}
+
+const gateTallied = gateToRefute.map((f, fi) =>
+  tallyVotes(f, SKEPTICS.map((_, i) => gateByAngle[i].get(fi)), SKEPTICS.length),
+)
 const gateKilled = gateTallied.filter((f) => !f.survived)
 const gateContested = gateTallied.filter((f) => f.contested)
-const gateTallyLost = gateToRefute.filter((f, i) => !gateJudged[i]).map((f) => tallyVotes(f, [], SKEPTICS.length))
-const gateUnchallenged = [...gateTallied.filter((f) => f.panelShort), ...gateTallyLost]
+// Empty for the same reason `tallyLost` is. Every dismissal is reduced through tallyVotes now, so a
+// dead panel arrives with `refutationRan: false` rather than vanishing.
+const gateTallyLost = []
+const gateUnchallenged = gateTallied.filter((f) => f.panelShort || !f.refutationRan)
 
 if (gateKilled.length) log(`dismissals refuted and dropped: ${gateKilled.map((f) => f.claim).join(' | ')}`)
 if (gateContested.length) log(`dismissals contested, kept and escalated: ${gateContested.map((f) => f.claim).join(' | ')}`)

@@ -12,13 +12,22 @@ skill, then return its result to me unchanged.
 
 Concretely:
 
-1. Invoke the `in-depth-review` skill with the arguments: `<PR> --raw`. Append
+1. Invoke the `in-depth-review` skill with the arguments: `<PR> --defer-scoring`. Append
    ` --skip-ticket` when the orchestrator's `<SKIP_TICKET>` is true (so the args become
-   `<PR> --raw --skip-ticket`). When `<SKIP_TICKET>` is false, pass `<PR> --raw` unchanged
-   so Role #10 runs.
+   `<PR> --defer-scoring --skip-ticket`). When `<SKIP_TICKET>` is false, pass
+   `<PR> --defer-scoring` unchanged so Role #10 runs.
    - The `<PR>` arg puts it in PR mode against this PR.
-   - The `--raw` flag tells in-depth-review to skip its internal <70 confidence filter so we
-     get every scored finding. The orchestrator will apply its own >=60 threshold.
+   - The `--defer-scoring` flag tells in-depth-review to score nothing and return every finding
+     with `confidence: null`. The orchestrator merges all four reviewers first, then scores each
+     unique finding once, then applies its own >=60 threshold.
+   - **`--raw` is deliberately NOT passed, and swapping it back in is a regression.** `--raw` asks
+     for scores and only skips the internal filter, so each instance would score its own findings
+     before the orchestrator had merged them. A finding several instances raised would be scored
+     once per instance and all but one number discarded. With four reviewers that waste is larger
+     here than anywhere else in this repo.
+   - Expect `confidence: null` on every finding and `scoring: { "deferred": true }` rather than a
+     `complete` field. That is the flag working. Do not add scores, do not mark anything
+     `unscored`, and do not report the nulls as a defect.
 2. Wait for `in-depth-review` to finish and return its structured JSON output.
 3. Return that JSON verbatim, with two additions at the top level:
    - `"sub_agent": N` (which of the 4 instances you are)

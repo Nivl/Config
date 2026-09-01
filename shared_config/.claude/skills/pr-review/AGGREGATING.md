@@ -95,9 +95,18 @@ lens yourself and attribute it, and do not carry a result forward from elsewhere
 
 ## Excluding unscored and unverified findings
 
+**An instance reporting `deferred: true` is a THIRD case, and nothing in this section excludes it.**
+This skill passes `--defer-scoring`, so a healthy instance returns every finding with
+`confidence: null` and no scores at all. Reading that as `complete: false` would exclude every
+finding from every in-depth instance, which is three quarters of the reviewer pool and effectively
+the whole review, and it would fail silently because the pool would just come out small. Carry those
+findings into the pool unchanged and let the scoring step below give them numbers. The
+`citation_verified` and `unscored` rules below still apply to them, unchanged.
+
 **Check `scoring.complete` on every in-depth-review result.** An instance reporting `false` did not
 run its two-stage confidence filter, so its numbers are self-assessments by the same model that
-proposed the findings, not scores.
+proposed the findings, not scores. This is a different state from `deferred: true` above, and
+`unscored: true` rather than a null confidence is what tells them apart.
 
 - **Do not feed its findings into the >=60 filter as though they were scored.** Treat them as
   unscored leads: exclude them from the posted review, list them separately in the Step 4 report as
@@ -127,8 +136,12 @@ Once collection has ended, whether all four reported or the give-up bound above 
    describe the same problem are duplicates, so merge them.
 
 3. **For each group, produce one merged finding:**
-   - `confidence`: **max** of the group's scores (any one reviewer with high confidence is strong
-     evidence; merging by max is intentionally non-conservative).
+   - `confidence`: not set here. It stays `null` until the scoring step below, which assigns one
+     score per unique finding after this merge. The rule was the `max` of the group's scores,
+     described as intentionally non-conservative, and with four instances scoring independently it
+     kept the largest of up to four noisy draws. That is a bias rather than a tie-break, and
+     corroboration was already counted on purpose by `cross_instance_agreement` below. There is no
+     group of scores left to reduce.
    - `cross_instance_agreement`: count of distinct sub-agents (1..4) that raised this finding.
      This is the name `review-and-fix` already uses. Do not invent a third.
      **Compute it yourself. Never reuse the `role_agreement` value on an incoming finding as this
@@ -155,20 +168,75 @@ Once collection has ended, whether all four reported or the give-up bound above 
      citation slips past the Step 5 exclusion.
    - `unscored`: merges downward the same way. Any `unscored: true` in the group makes the merged
      finding `unscored: true`.
-   - **Then re-cap.** If the merged finding came out `citation_verified: false`, re-apply the 60 cap
-     to the max confidence computed above. Confidence merges upward and this field merges downward,
-     so without the re-cap a verified member scoring 85 would carry an unverified finding to 85 and
-     straight through the filter. `in-depth-review` applies the same merge-down-then-recap rule
-     inside its own dedup. This is the identical hazard one layer up, across instances rather than
-     across roles.
+   - **There is nothing to re-cap here any more, and the hazard moved rather than went away.** The
+     old rule re-applied the 60 cap after the merge, because confidence merged upward while this
+     field merged downward, so a verified member scoring 85 would otherwise carry an unverified
+     finding to 85 and through the filter. No confidence exists at this point now, so the cap is the
+     scorer's job in the step below and it is applied once, to the merged `citation_verified` value
+     this step just resolved. That ordering is what makes it correct rather than a second attempt.
+     Pass the merged value to the scorer, never a member's own.
 
-4. **Snapshot the full merged set as `merged_all` BEFORE filtering.** `merged_all` is the
+4. **Score the merged set, once.** Every finding in the pool carries `confidence: null` at this
+   point, because the in-depth instances were run with `--defer-scoring`. Scoring used to happen
+   inside each instance, before anything had merged, so a finding several instances raised was
+   scored once per instance and all but one number was discarded. With four instances the waste and
+   the max bias were both larger here than in `review-and-fix`.
+
+   This step comes BEFORE the `merged_all` snapshot below, and the order is load-bearing. Step 2.7
+   reads `merged_all` to check whether a reviewer already proposed the same thing with
+   confidence > 50, so a snapshot taken before scoring would hand that check a set of nulls and
+   every approach finding would read as novel.
+
+   Spawn `subagent_type: review-scorer` and pass no `model` override, so its agent file stays the
+   source of truth for its tier. Give it, per finding: the identifier, `title`, `description`,
+   `suggested_fix`, `severity`, `role_agreement`, `cross_instance_agreement`, the merged
+   **`citation_verified`** from step 3, the diff for its lines, and the paths of any AGENTS.md or
+   CLAUDE.md a reviewer cited for it. Name the rubric's path in the prompt.
+
+   **`citation_verified` matters more here than in `review-and-fix`.** That skill excludes unverified
+   findings before its merge, so its scorer never sees one. This skill merges first, so the scorer
+   does see them and is the thing applying the rubric's 60 cap. The cap value equals this skill's own
+   threshold exactly, so a capped finding satisfies `confidence >= 60` and the cap alone would post
+   it. What keeps it out is the separate `citation_verified: false` drop in the filter below, which
+   is why both exist.
+
+   One agent for up to about 60 findings. Above that, batches of about 20, so a large review degrades
+   into a few agents rather than one holding everything.
+
+   **The ladder. After every rung, check whether any finding is still unscored, and stop as soon as
+   none is.**
+
+   1. Spawn the scorer with every unique finding.
+   2. Nothing came back at all. Nudge it once with `SendMessage`, asking it to finalize with
+      whatever it genuinely has.
+   3. Nothing came back, or only part did. Spawn ONE fresh scorer with only the findings still
+      unscored. Exactly one relaunch, because unbounded relaunches are the same bug with extra
+      bookkeeping. This rung sits before the inline one because a stall is usually transient.
+   4. Every finding has a score. Continue to the snapshot and filter below.
+   5. Findings are still unscored. Score those inline, and mark them `inline-fallback`.
+
+   **Rung 5 is not the self-scoring this repo bans.** That ban exists because a proposer graded its
+   own invention and a fabricated finding scored 100. The proposers here are role agents inside
+   `in-depth-review`, and this orchestrator merged their output without proposing anything.
+
+   It carries a different bias, which is why it is last and why it is marked. This orchestrator is
+   the model that POSTS these findings to a pull request, so it has an interest in what it will be
+   seen to have posted that a role agent does not have. A number from rung 5 is worth having and is
+   not worth the same as a number from rung 1. Reaching it still beats posting nothing because a
+   scorer died.
+
+   **Record `scored_by` on every finding**, one of `scorer`, `scorer-retry`, or `inline-fallback`,
+   and `inline_fallback_count` for the run. Per finding rather than per run, because the ladder
+   mixes provenance and one label would hide which numbers to distrust. Surface a nonzero
+   `inline_fallback_count` in the Step 4 report.
+
+5. **Snapshot the full merged set as `merged_all` BEFORE filtering.** `merged_all` is the
    complete list of merged findings with their max `confidence`, including the 51–59 ones that
    the next step discards. Step 2.7 (approach dedup) needs it, because once you apply the >=60 cut
    you can no longer tell whether a 51–59 finding "was already proposed by another reviewer."
    `merged_all` is used only by Step 2.7; it never affects posting on its own.
 
-5. **Filter:** keep only findings with `confidence >= 60`. Then drop every finding with
+6. **Filter:** keep only findings with `confidence >= 60`. Then drop every finding with
    `citation_verified: false` or `unscored: true` regardless of score. The threshold does not
    remove them. An unverified citation is capped at 60 upstream, and this filter is inclusive, so
    60 passes it. These two exclusions are what keep an unverified or self-graded finding out of the
@@ -187,7 +255,7 @@ Once collection has ended, whether all four reported or the give-up bound above 
 
 ## Ordering the surviving findings
 
-6. **Order the surviving findings:**
+7. **Order the surviving findings:**
    1. `confidence` descending
    2. `cross_instance_agreement` descending (4/4 > 2/4 > 1/4 when scores tie)
    3. Both-sources first (a finding raised by both in-depth-review and gh-style-review beats

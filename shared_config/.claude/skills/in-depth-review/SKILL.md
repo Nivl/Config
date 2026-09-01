@@ -38,8 +38,14 @@ fallback `main`).
 ### Modifier flags
 
 - `--raw` — skip the internal `< 70` confidence filter. Return ALL scored findings (0–100).
-  Callers that want to apply their own threshold (e.g. `pr-review` uses 60, `review-and-fix`
-  uses 50) pass this flag.
+  A caller that wants to apply its own threshold to scores this skill produced passes this flag.
+- `--defer-scoring` — score nothing. Return every finding with `confidence: null` and emit
+  `scoring: { "deferred": true }`. For a caller running several instances, which merges them and
+  then scores each unique finding once. Scoring before that merge scores every duplicate twice,
+  which is what this flag exists to stop. A standalone run must not pass it, because nothing
+  downstream would ever score. Distinct from `--raw`, which still scores and only skips the filter.
+  `pr-review` and `review-and-fix` pass this one, and each applies its own threshold afterwards,
+  60 and 50 respectively.
 - `--skip-ticket` — disable Reviewer Role #10 (ticket intent compliance). By default that
   role runs: it reads the Jira tickets referenced by the change and checks the code against
   them. Pass this to skip all ticket reading (no `acli` / Datadog calls, no related prompts).
@@ -139,6 +145,9 @@ to the argument.
 1. Parse the argument. First split it on whitespace into tokens; classify each token, then apply mode detection to the lone non-flag token:
    - Matches `^#?[0-9]+$` or a GitHub PR URL -> **PR mode**; `<PR>` = the number.
    - Matches `^--raw$` -> flag (defer until Step 4).
+   - Matches `^--defer-scoring$` -> flag; read in Step 2, which then spawns no scorer. It conflicts
+     with nothing. `--raw` alongside it is redundant rather than an error, since a deferred run has
+     no scores for a filter to skip.
    - Matches `^--skip-ticket$` -> flag; when set, Role #10 is omitted in Step 1.
    - Matches `^--roles$` (followed by its value) or `^--roles=...$` -> flag; parse the
      comma-separated value into `<ROLE_SET>` (role numbers 1..12 and/or category names via
@@ -438,7 +447,19 @@ Once collection has ended, whether every role reported or the Step 1 give-up bou
    The pessimistic direction is the only safe one here, because callers exclude
    `citation_verified: false` outright and an upward merge would silently smuggle an unverified
    citation past that exclusion.
-3. **Launch the scoring sub-agents in parallel, in BATCHES of about ten findings each**, all in
+3. **When `--defer-scoring` is in effect, skip this whole stage.** Spawn no scorer, leave every
+   finding's `confidence` at `null`, emit `scoring: { "deferred": true }`, and go to Step 3. The
+   caller merges your findings with the other instances' and scores each unique one once.
+
+   **Do not set `unscored` on those findings.** That field means a scorer was owed and did not
+   deliver, and a caller excludes on it before its merge, so setting it here would make the caller
+   discard every finding of a healthy deferred run. That is the entire review. A deferred run is not
+   a degraded run, and the two have to stay distinguishable at the field level rather than by
+   inference.
+
+   Everything below this point in Step 2 is for a run WITHOUT the flag.
+
+4. **Launch the scoring sub-agents in parallel, in BATCHES of about ten findings each**, all in
    a single message. **Spawn each scorer on Haiku** (Agent-tool `model: haiku`). Do not let it
    inherit the session model either.
 
@@ -478,9 +499,14 @@ with `confidence: null` (see below) instead of any `roles_missing`-style list.
    is evidence the scorer erred. Say so in the prompt, and require one score per finding with the
    finding's own identifier beside it rather than a ranked list.
 
-   **The scoring stage is MANDATORY and is not yours to perform.** Confidence is a second-stage
-   judgment by a different model than the one that proposed the finding. That two-stage split is
-   the whole reason a confidence number means anything here.
+   **Absent `--defer-scoring`, the scoring stage is MANDATORY and is not yours to perform.**
+   Confidence is a second-stage judgment by a different model than the one that proposed the
+   finding. That two-stage split is the whole reason a confidence number means anything here.
+
+   The flag does not weaken that. It moves the second stage to the caller, which merges several
+   instances first and then scores each unique finding once with its own scorer agent. What stays
+   banned in every case is THIS skill assigning a confidence value itself, with or without the flag.
+   Deferring means emitting `null` and letting the caller score. It never means scoring here.
 
    - **Never self-assign a confidence value.** If you find yourself writing a score without
      having spawned a scorer for that finding, you have collapsed the two stages into one model

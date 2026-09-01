@@ -38,9 +38,10 @@ Return this exact JSON shape:
   "coverage": "complete | partial | impossible",
   "scoring": {
     "unique_findings": <count after pre-score dedup>,
-    "findings_scored": <count of findings that came back with a score>,
+    "findings_scored": <count of findings that came back with a score; omit when deferred>,
     "scorers_spawned": <count of scoring sub-agents actually spawned; informational only>,
-    "complete": <true when findings_scored == unique_findings, else false>
+    "complete": <true when findings_scored == unique_findings, else false; omit when deferred>,
+    "deferred": <true only when --defer-scoring was passed; omit otherwise>
   },
   "tickets_examined": [
     { "id": "<JIRA-ID>", "gaps": <count of surviving ticket findings for this id>, "status": "ok | gaps | unread" }
@@ -97,6 +98,20 @@ ten findings, so `scorers_spawned` is roughly a tenth of `unique_findings` on a 
 comparison against it would report every run degraded. It stays in the block because a batch count
 is useful in a run log, and it answers no question about coverage. One batch returning eight scores
 for its ten findings leaves two findings unscored while the agent itself reported.
+
+**`deferred: true` is a THIRD case, and it is neither `complete: true` nor `complete: false`.** It
+means the caller passed `--defer-scoring`, so this skill scored nothing and the caller will score the
+merged set itself. A deferred block carries no `complete` and no `findings_scored`, because both
+would be zero and a reader keying on `complete: false` would then exclude every finding from a
+perfectly healthy instance. That is the whole review. Every reader of this block handles three cases.
+
+Findings from a deferred instance carry `confidence: null` and **do not** carry `unscored: true`.
+That field means a scorer was owed and did not deliver, which is a different thing, and callers
+exclude on it before merging. A deferred run is not a degraded run.
+
+Each finding a caller has scored carries `scored_by`, one of `scorer`, `scorer-retry`, or
+`inline-fallback`, naming which rung of the caller's recovery ladder produced its number. Absent on
+a deferred instance's own output, since it produced no numbers.
 
 `citation_verified` is `true` when the finding cites a commit / PR / branch that was checked and
 resolved, `false` when it cites one that could not be verified, and `null` when there is nothing to

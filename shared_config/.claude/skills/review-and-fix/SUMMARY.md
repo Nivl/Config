@@ -75,7 +75,15 @@ Cover these in this order, one line each, and drop any line that has nothing to 
   test was possible, or moot because an earlier commit this iteration already fixed it.
   Committed findings are the table below instead.
 - Unfiltered leads, naming the instance and which rule excluded them (`scoring.complete` false,
-  `unscored`, or `citation_verified` false).
+  `unscored`, or `citation_verified` false). An instance reporting `deferred: true` is never an
+  unfiltered lead. It was asked not to score and the orchestrator scored its findings after the
+  merge, so it belongs in the line below rather than here.
+- Scoring provenance for the iteration, as the `scored_by` spread across `scorer`, `scorer-retry`
+  and `inline-fallback`, plus `inline_fallback_count`. One line. A nonzero `inline-fallback` means
+  the scorer failed and its relaunch failed too, so this orchestrator scored the remainder itself.
+  Those numbers come from the model that then fixed the findings, which is a weaker guarantee than
+  the rest, and this line is where that becomes visible instead of being inferable only from a
+  per-finding field nobody reads.
 - `any_logic_change` and `any_test_change` for the iteration, which are what row 4 and row 5
   read. Both false means every commit was `prose`.
 - Waiting time and fixing time, as `t_fix` minus `t0` and `t2` minus `t_fix`. Two numbers, one line.

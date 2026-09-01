@@ -38,8 +38,9 @@ Return this exact JSON shape:
   "coverage": "complete | partial | impossible",
   "scoring": {
     "unique_findings": <count after pre-score dedup>,
-    "scorers_spawned": <count of scoring sub-agents actually spawned>,
-    "complete": <true when scorers_spawned == unique_findings, else false>
+    "findings_scored": <count of findings that came back with a score>,
+    "scorers_spawned": <count of scoring sub-agents actually spawned; informational only>,
+    "complete": <true when findings_scored == unique_findings, else false>
   },
   "tickets_examined": [
     { "id": "<JIRA-ID>", "gaps": <count of surviving ticket findings for this id>, "status": "ok | gaps | unread" }
@@ -90,6 +91,12 @@ filtered result from an unfiltered one. `scoring.complete: false` means the conf
 seeing it should treat the run as leads, not conclusions. Never omit the block to make a run look
 clean. Any finding carrying `unscored: true` has `confidence: null` and sits below every threshold by
 construction.
+
+`complete` keys on `findings_scored`, never on `scorers_spawned`. Scorers run in batches of about
+ten findings, so `scorers_spawned` is roughly a tenth of `unique_findings` on a healthy run and a
+comparison against it would report every run degraded. It stays in the block because a batch count
+is useful in a run log, and it answers no question about coverage. One batch returning eight scores
+for its ten findings leaves two findings unscored while the agent itself reported.
 
 `citation_verified` is `true` when the finding cites a commit / PR / branch that was checked and
 resolved, `false` when it cites one that could not be verified, and `null` when there is nothing to

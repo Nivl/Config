@@ -438,9 +438,24 @@ Once collection has ended, whether every role reported or the Step 1 give-up bou
    The pessimistic direction is the only safe one here, because callers exclude
    `citation_verified: false` outright and an upward merge would silently smuggle an unverified
    citation past that exclusion.
-3. **Launch a scoring sub-agent for each unique finding in parallel** (one sub-agent per
-   finding, all in a single message). **Spawn each scorer on Haiku** (Agent-tool
-   `model: haiku`). Do not let it inherit the session model either.
+3. **Launch the scoring sub-agents in parallel, in BATCHES of about ten findings each**, all in
+   a single message. **Spawn each scorer on Haiku** (Agent-tool `model: haiku`). Do not let it
+   inherit the session model either.
+
+   **Batch, rather than one agent per finding.** A measured instance raised 54 unique findings,
+   which under the old one-to-one shape meant 54 concurrent scorers, and 53 of them never
+   reported. That instance's findings were all `unscored`, which is below every caller threshold,
+   so a complete review was thrown away by its own scoring stage. [COLLECTING.md](COLLECTING.md)
+   also owes at least as many collecting turns as agents launched before its give-up counter may
+   arm, so 54 scorers bought 54 turns of polling in the orchestrator that then had to aggregate.
+   Ten per batch turns both numbers into single digits.
+
+   **Group a batch by file where the findings allow it**, so one diff excerpt serves several
+   findings rather than being pasted once per finding.
+
+   What batching must not change is that a different model scores than proposed. That is the
+   invariant below, and the batch size has nothing to do with it. Nothing here or in
+   [SCORING.md](SCORING.md) ever asked for one agent per finding.
 
 **Collect the scorers exactly per [COLLECTING.md](COLLECTING.md)**: here, the "agent" is the
 scorer you just launched, and a scorer that never reports leaves its finding `unscored: true`
@@ -448,11 +463,20 @@ with `confidence: null` (see below) instead of any `roles_missing`-style list.
 
    Scoring one finding against the rubric is a small, structured judgment
    with the diff and AGENTS.md handed in, not open-ended reasoning; Haiku is ~15–20x cheaper
-   than Opus for it. Give each scorer:
+   than Opus for it. Give each scorer, per finding in its batch:
    - The finding (file, line, severity, description, suggested fix)
    - The path of every AGENTS.md / CLAUDE.md file referenced by any reviewer that raised it
    - The diff for the relevant lines
    - The `role_agreement` count
+
+   **Tell the batch to score each finding against the rubric alone, never against its
+   batch-mates.** This is the one risk batching adds and it does not announce itself. A scorer
+   holding ten findings can rank them, scoring the worst of the ten low and the best high, and
+   return ten numbers that are internally sensible and wrong against
+   [SCORING.md](SCORING.md)'s bands. The bands are absolute. A batch of ten weak findings scores
+   ten low numbers, and a batch of ten strong ones scores ten high numbers, and neither outcome
+   is evidence the scorer erred. Say so in the prompt, and require one score per finding with the
+   finding's own identifier beside it rather than a ranked list.
 
    **The scoring stage is MANDATORY and is not yours to perform.** Confidence is a second-stage
    judgment by a different model than the one that proposed the finding. That two-stage split is
@@ -464,12 +488,18 @@ with `confidence: null` (see below) instead of any `roles_missing`-style list.
    - **A reviewer-authored confidence value is not a score.** Roles emit `severity`, which is
      theirs to judge. If a role also emits a confidence number, DISCARD it and score the finding
      properly. Never pass a role's own number through as the score.
-   - **Count what you spawned.** Record `scorers_spawned` and compare it to the number of unique
-     findings after dedup. They must be equal.
-   - **A finding with no scorer is `unscored`, not confident.** Set its confidence to `null`,
+   - **Count findings scored, not agents spawned.** Record `findings_scored` and compare it to the
+     number of unique findings after dedup. They must be equal. Under batching `scorers_spawned`
+     is roughly a tenth of that and says nothing about coverage, because one batch that returns
+     eight scores for the ten findings it was given leaves two findings unscored while the agent
+     itself reported. Keep recording `scorers_spawned` for the run log, and never compare it to
+     the finding count.
+   - **A finding with no score is `unscored`, not confident.** Set its confidence to `null`,
      mark it `unscored`, and treat it as BELOW every caller threshold. It must never be posted
-     or reported as a finding. List it separately as unscored so the gap is visible.
-   - If `scorers_spawned` is 0 while unique findings exist, the run is **degraded, not clean**:
+     or reported as a finding. List it separately as unscored so the gap is visible. This is
+     per finding rather than per agent, so a batch that comes back short leaves exactly the
+     findings it omitted unscored and the rest of its batch keeps its scores.
+   - If `findings_scored` is 0 while unique findings exist, the run is **degraded, not clean**:
      emit `scoring.complete: false`, report every finding as unscored, and say plainly that no
      confidence filtering happened. A scoring stage that cannot spawn anything at all looks like
      Step 1's no-fanout abort. It is not one. Step 1 launched its roles, so the `Agent` tool is

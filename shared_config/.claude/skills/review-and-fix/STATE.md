@@ -71,8 +71,8 @@ Track state explicitly:
 - `resolved_ticket_findings`: ticket findings the user deferred or dismissed (keyed by
   `ticket_id` + title), so later iterations skip them instead of re-prompting.
 - `skipped_findings`: per-RUN set of findings of any category that were examined and then
-  skipped because no test was possible (Step 2 sub-step 3's `ask_user`), keyed by the finding's
-  `file` plus `title`, the same two-real-field shape `resolved_ticket_findings` uses.
+  skipped because no test was possible (Step 2 sub-step 3's `AskUserQuestion`), keyed by the
+  finding's `file` plus `title`, the same two-real-field shape `resolved_ticket_findings` uses.
   Later iterations skip them instead of re-prompting. `resolved_ticket_findings` does not
   cover these, because it is keyed by `ticket_id` + title and gated to `category == ticket`.
   Without this set a skipped non-ticket finding is re-attempted on every iteration, and while

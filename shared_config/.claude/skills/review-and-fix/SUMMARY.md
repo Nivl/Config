@@ -1,5 +1,15 @@
 # Per-iteration summary format
 
+## Contents
+
+- The stamps are read back, not authored here
+- The three stamp checks
+- Why there is no summary table and no ledger row
+- What the block covers, in order
+- The attribution table
+- The commit table
+- Where each commit's class is written
+
 Every iteration that reaches Step 3 ends by emitting one summary block to chat. A row 0 abort
 emits none, because nothing was reviewed and the abort message is the whole record. Emit the block
 last in Step 3, after the table has picked a row and after the union and the subtraction have
@@ -7,6 +17,8 @@ computed the next active set. That is the earliest point at which the ROW and th
 exist. The table's "go to Step 1" and "proceed to Final Report" actions both happen after the block
 is out. Never batch two iterations into one block, and never hold a block back to the end of the
 run.
+
+## The stamps are read back, not authored here
 
 **The stamps are not among the items this block waits for.** Step 1 and Step 2 already appended
 each one to the log as it was taken, so the block is ASSEMBLED from values already on disk rather
@@ -23,6 +35,8 @@ Step 2 commits with `git add -A` and would sweep that file into the next fix com
 
 Appending live is what gives an interrupted run a record. That run is often the one worth reading
 later, and its only other trace is chat scrollback plus `git log`.
+
+## The three stamp checks
 
 Three checks on the stamps, and a block that fails any of them is not emitted until the real values
 are recovered.
@@ -46,6 +60,8 @@ pointer to another line. `- t0: see above` appeared in the corpus and pointed at
 never written. An approximation reads as a measurement, and a gap where a field should be cannot be
 told apart from a field nobody specified.
 
+## Why there is no summary table and no ledger row
+
 **There is no summary table and no ledger row.** The stamps Step 1 and Step 2 appended are the
 record, and a reader who wants durations subtracts them. That summary has been specified three ways
 now, as an optional Final Report section, then a required one, then a fixed-shape row closing this
@@ -59,6 +75,8 @@ attribution table below, and the difference is where their numbers are first wri
 rollups of lines the run log already holds, appended at the moment each was computed, so a skipped
 block costs the reader a convenience rather than the measurement. Judge any future block by that
 test. If the block is the only place a number would ever appear, it will not be written.
+
+## What the block covers, in order
 
 Cover these in this order, one line each, and drop any line that has nothing to say:
 
@@ -103,6 +121,8 @@ Cover these in this order, one line each, and drop any line that has nothing to 
   inherited.
 - The row that fired, and either the next iteration's active set or the stop.
 
+## The attribution table
+
 Then emit the attribution table. It is a **rollup of the `attribution` lines already in the run
 log**, appended by [AGGREGATING.md](AGGREGATING.md) at merge time and by sub-step 7 as each commit
 landed. It is not where those numbers are first written, and the paragraph above about the ledger row
@@ -138,6 +158,8 @@ came from.
 An instance with `unique` high and `actionable` zero found things nobody else found and none of them
 were worth fixing. That is a real result and it is not the same as finding nothing.
 
+## The commit table
+
 Then close the block with the iteration's commit table, so the last thing every iteration emits
 is the work it actually did:
 
@@ -153,6 +175,8 @@ to from sub-step 7.
 `class` and `category` are here because rows 4 and 5 read the first and per-role yield needs the
 second, and eleven runs added a `class` column unasked, which is a better signal about what the
 table wants than this template was.
+
+## Where each commit's class is written
 
 **Write each commit's class to the run log beside its sha as the commit lands, not here.** This
 table is a rollup of values already on disk rather than the place they are first derived. Sub-step

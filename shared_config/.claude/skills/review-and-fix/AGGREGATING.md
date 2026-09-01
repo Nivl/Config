@@ -5,6 +5,7 @@
 - A missing reviewer is not a clean reviewer (retry / unavailable rules)
 - Excluding unscored and unverified findings
 - Pooling, deduplication, and merge (the `>=50` filter)
+- The attribution ledger, and why `unique_actionable` is the counterfactual
 - Aggregating `tickets_examined`
 
 ## Collecting sub-agent results
@@ -135,9 +136,9 @@ proposed the findings, not scores.
   and merge below. Excluding first is what keeps this skill's merge safe without needing a
   downward-merge rule for the field. `pr-review` merges first and so needs one.
 - The `unscored: true` exclusion is for an instance that was owed scores and came up short. It never
-  fires on a deferred instance, which does not set the field, per
-  [in-depth-review's contract](../in-depth-review/OUTPUT-JSON.md). Those two states look alike from
-  a `confidence: null` alone, which is why the field rather than the null is what this reads.
+  fires on a deferred instance, which does not set the field, per in-depth-review's output contract
+  in its own `OUTPUT-JSON.md`. Those two states look alike from a `confidence: null` alone, which is
+  why the field rather than the null is what this reads.
 - **Fixing on an unscored finding is how a fabricated finding becomes a commit.** This skill edits
   and commits code, so the cost of acting on a self-graded finding is a commit that encodes an
   invented problem. When in doubt, leave it and report it.
@@ -192,7 +193,8 @@ reached (up to 3 active; fewer when the iteration is pruned):
    source of truth for its tier. Give it, per finding: the finding's identifier, `title`,
    `description`, `suggested_fix`, `severity`, `role_agreement`, `cross_instance_agreement`,
    **`citation_verified`**, the diff for its lines, and the paths of any AGENTS.md or CLAUDE.md a
-   reviewer cited for it. Name the rubric's path in the prompt.
+   reviewer cited for it. Name the rubric's path in the prompt, which is
+   `~/.claude/skills/in-depth-review/SCORING.md`.
 
    `citation_verified` is not optional. The rubric caps an unverified-citation finding at 60, the
    scorer refuses to score rather than guess when the field is missing, and `in-depth-review` no

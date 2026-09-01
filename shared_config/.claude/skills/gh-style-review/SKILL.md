@@ -573,10 +573,15 @@ Notes on the JSON contract:
 - **Print to the terminal only.** Do not write the review to a file unless the user asks.
 - **Single review pass.** This skill is not iterative. For the iterate-and-fix loop see
   `review-and-fix`; for cross-instance triangulation see `pr-review` or `in-depth-review`.
-- **Model policy (cost):** this skill spawns no sub-agents. It runs in one agent, so its
-  tier is set by whoever invokes it. When a caller (`pr-review`, `review-and-fix`) spawns it
-  as a sub-agent it MUST run on **Sonnet** (`model: sonnet`): a single bounded recall pass,
-  not worth Opus or a `[1m]` variant. Run directly by a user, it just uses the session model.
+- **Model policy (cost):** this skill spawns no sub-agents. It runs in one agent, and that is
+  what makes its tier different from the in-depth wrappers'. Their tier governs orchestration
+  while their findings come from role agents at `opus` `low`, so a cheap wrapper costs them
+  nothing. Here the tier IS the review, because this agent does the reading and the judging
+  itself. `pr-review` and `review-and-fix` therefore spawn it by `subagent_type:
+  pr-review-finder-ghstyle`, which pins `opus` at `low`, matching those role agents so a
+  comparison between the two reviewer kinds is not a comparison of tiers. That agent file is the
+  single source of truth. Do not set a `model` override at the call site, and do not read this
+  bullet as naming a tier of its own. Run directly by a user, it just uses the session model.
 - **Sub-agent mode contract.** When invoked as a sub-agent and asked for JSON, return the
   exact shape in "If invoked as a sub-agent" — including `discussion_context` (with empty
   arrays in branch mode). Don't drop fields the orchestrator depends on.

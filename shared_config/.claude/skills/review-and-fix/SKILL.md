@@ -974,9 +974,13 @@ holds only its header.
   active, and gh-style-review at 1x. An `unavailable` in-depth kind is not launched at all, so this
   multiplicity rule applies only while the kind is active (Step 3). There is no reduced-multiplicity
   path. A kind either relaunches in full or does not relaunch.
-- **Each sub-skill is invoked WITH `--raw`.** We want every scored finding (0–100), not
-  the sub-skill's default `< 70` filtered output. The orchestrator applies its own
-  `confidence >= 50` threshold after cross-instance, cross-source dedup.
+- **The two sub-skills are invoked with different flags, and the asymmetry is the point.**
+  `in-depth-review` gets `--defer-scoring` and returns unscored findings, because two instances of
+  it run and scoring before the merge would score every duplicate twice. `gh-style-review` gets
+  `--raw` and still scores its own findings, because exactly one instance of it runs, so its
+  findings are already scored once and there is no duplication to remove. Either way the
+  orchestrator applies its own `confidence >= 50` threshold after cross-instance, cross-source
+  dedup. Do not "unify" these onto one flag. The flag follows the multiplicity.
 - **Comment-punctuation findings are in scope but low priority.** The sub-skills flag comments
   the diff adds or edits that join clauses with ` - ` (space-hyphen-space) or a sentence-splitting
   `:`, per AGENTS.md. These are `suggestion`-severity: fix them if the batch surfaces nothing

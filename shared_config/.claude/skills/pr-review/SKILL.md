@@ -21,8 +21,10 @@ instances of `in-depth-review` on Sonnet** (each runs nine to twelve roles depen
 below), and
 **one instance of `gh-style-review`** (the `@claude review` GitHub Action prompt
 replicated locally, which adds Discussion Context — prior-human-comment cross-referencing
-— on top of standard findings). All four are invoked with `--raw`; the orchestrator merges and
-deduplicates the four result sets into one flat pool, applies a final **score >= 60** filter,
+— on top of standard findings). The three in-depth instances are invoked with `--defer-scoring` and
+the gh-style instance with `--raw`, per "Why the sub-agents get different flags" below; the
+orchestrator merges and deduplicates the four result sets into one flat pool, scores each unique
+finding once, applies a final **score >= 60** filter,
 classifies each surviving finding as INLINE (local) or GLOBAL, aggregates the still-unaddressed
 `discussion_context` from the gh-style instance, and posts a single PR review whose body
 carries the global findings in full, a names-only list of the local findings, and the
@@ -223,13 +225,29 @@ Identical prompt for all three; only the `subagent_type` differs. See
 
 See [PROMPT-GH-STYLE.md](PROMPT-GH-STYLE.md) for the exact prompt this sub-agent receives.
 
-### Why each sub-agent uses `--raw`
+### Why the sub-agents get different flags
 
 Both `in-depth-review` and `gh-style-review` default to discarding anything `< 70`. This
 orchestrator's threshold is **60** (lower than each sub-skill's default because the 4x
 cross-instance triangulation — three from the specialized-role structure, one from the
-GitHub-Action mirror — raises confidence in 60-69 findings). `--raw` makes the sub-agents
-return all scored findings; we apply the 60 cutoff in Step 2 after merging.
+GitHub-Action mirror — raises confidence in 60-69 findings). Either way this skill applies the 60
+cutoff in Step 2 after merging.
+
+The flag follows the multiplicity, so the two kinds get different ones.
+
+- **The three `in-depth-review` instances get `--defer-scoring`** and return every finding with
+  `confidence: null`. Three instances scoring their own findings meant a finding two or three of
+  them raised was scored two or three times and all but one number was thrown away, and the merge's
+  old `max` rule then kept the largest of several noisy draws. Step 2 scores each unique finding
+  once instead.
+- **The one `gh-style-review` instance gets `--raw`** and still scores its own findings. One
+  instance means its findings are already scored exactly once, so there is nothing to deduplicate
+  and no reason to move the work. It also spawns no roles of its own, so there is no second layer to
+  coordinate.
+
+Do not unify these onto one flag in either direction. Giving gh-style `--defer-scoring` would move
+work for no gain, and giving the in-depth instances `--raw` would restore the double scoring this
+design exists to remove.
 
 ## Step 2: Merge and deduplicate (findings)
 

@@ -426,6 +426,22 @@ either. Both are carried to the Final Report.
      When the user picks (b) or (c), record the finding in `resolved_ticket_findings` (keyed
      by `ticket_id` + title) so later iterations do not re-prompt for it.
 
+   **Once an approach is chosen, it is settled for this finding.** The choice above happens once,
+   before the edit. Reopening it after code exists is the failure mode this clause is here to stop,
+   and it looks like this: implement approach A, decide mid-edit that B is better, implement B, then
+   conclude A was right after all. Every lap costs a full implementation and leaves the tree in a
+   third state that is neither A nor B.
+
+   So the rule is that new information reopens the choice and rereading the same information does
+   not. New information is a test that fails, a type error, a call site that makes A impossible, or
+   an answer from the user. Your own second thoughts on the same facts are not new information. If
+   the doubt is real, finish A, run sub-step 4, and let the result decide. A working A beats an
+   unbuilt B, and the next iteration reviews A anyway, so a genuinely worse approach gets caught by
+   the loop rather than by relitigating it here.
+
+   When you do reopen a choice, say which new fact reopened it, in one line, before writing code.
+   If you cannot name the fact, that is the answer.
+
 3. **Behavior findings get a red test before the edit.** A behavior finding is one where you
    can name an input and the wrong output the current code gives for it. Write that test
    first, run it, and confirm it fails on the assertion the finding names rather than on an

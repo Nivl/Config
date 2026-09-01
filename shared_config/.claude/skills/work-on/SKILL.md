@@ -15,6 +15,10 @@ description: >
   written ("is this ticket still valid", "is this bug worth fixing", "how bad is this security
   issue really", "does this ticket still reproduce"). Do not use it for a ticket the user only
   wants read or summarized, and do not use it to fix an existing PR (that is fix-pr).
+  Accepts two modifier flags. `--lite` skips the validation phase and `--fast` skips that plus
+  review-and-fix. Every staleness and worth-fixing use above needs the full run, because neither
+  flag validates anything, so route such a request to the unflagged pipeline even when the user
+  asks for speed.
 ---
 
 # Work On
@@ -26,25 +30,36 @@ against a tree that has since moved, by someone who may have been guessing. Ever
 Step 5 exists to find out what is still true. Everything after Step 5 is ordinary development on
 a premise that has been checked.
 
+**Both flags in "Argument" below cut into that first half, so on a flag run the premise is not
+checked.** The second half proceeds anyway, on the ticket exactly as filed. That is the trade the
+flags exist to make, and every sentence in this file that justifies a later step by pointing at the
+validation phase is qualified by it.
+
 ## Pipeline
 
-| Step | What happens | Writes anything? |
-|---|---|---|
-| 0 | Preflight. Ticket key, branch, tooling. | no |
-| 1 | Gather ground truth once, in the main thread. | no |
-| 2 | Validate. Inline when the surface is small, seven parallel lenses plus the telemetry probes and the triage agents when it is not. | no |
-| 3 | Ask only what investigation could not settle. | no |
-| 4 | Verdict gate. Valid, invalid, superseded, or partial. | only if the user picks option (a) |
-| 5 | Rewrite the ticket. Status to In Progress, description in place, plus a validation comment. | **Jira** |
-| 6 | Do the work via brainstorming or systematic-debugging. | local files |
-| 7 | Commit everything, push. No PR yet. | **remote** |
-| 8 | `review-and-fix`, every iteration, no early stop. | local commits |
-| 9 | Push, then `open-pr --draft`. Always a draft, never a question. No PR opens at all when Step 8 could not run. | **remote** |
-| end | "Final report". PR URL, write verification, one line per shipped `TODO(user):`. | no |
+| Step | What happens | Writes anything? | Cut by |
+|---|---|---|---|
+| 0 | Preflight. Ticket key, branch, tooling. | no | never |
+| 1 | Gather ground truth once, in the main thread. | no | reduced by `--lite` |
+| 2 | Validate. Inline when the surface is small, seven parallel lenses plus the telemetry probes and the triage agents when it is not. | no | `--lite` |
+| 3 | Ask only what investigation could not settle. | no | `--lite` |
+| 4 | Verdict gate. Valid, invalid, superseded, or partial. | only if the user picks option (a) | `--lite` |
+| 5 | Rewrite the ticket. Status to In Progress, description in place, plus a validation comment. | **Jira** | reduced by `--lite` |
+| 6 | Do the work via brainstorming or systematic-debugging. | local files | never |
+| 7 | Commit everything, push. No PR yet. | **remote** | never |
+| 8 | `review-and-fix`, every iteration, no early stop. | local commits | `--fast` |
+| 9 | Push, then `open-pr --draft`. Always a draft, never a question. No PR opens at all when Step 8 could not run, which is a Step 8 that broke and never a Step 8 the user skipped. | **remote** | never |
+| end | "Final report". PR URL, write verification, one line per shipped `TODO(user):`. | no | never |
+
+**`--fast` cuts everything `--lite` cuts, and Step 8 as well.** The column names the narrower flag
+where both apply, so a row reading `--lite` is cut by both. This column is the per-step map, and it
+is what wins if anything else in the file describes a step differently. What each flag means, why,
+and what it costs is "Argument" below.
 
 **Nothing writes anything a human reads before Step 5.** No Jira edit, no commit, no push, no PR. That is
 what lets the validation phase be paranoid, and Step 4's option (a) is the single exception, a comment the
-user explicitly asks for after seeing the evidence.
+user explicitly asks for after seeing the evidence. On a flag run the property holds trivially, since
+the phase it protects does not run and option (a) can never be offered.
 
 **From Step 5 on, writes do not stop to ask.** The ticket, the commits, and the PR all go out without a
 preview, because the validation phase in front of them is what earns that. The rule is that this skill
@@ -52,16 +67,191 @@ preview, because the validation phase in front of them is what earns that. The r
 decisions and both stay. A rendered description, a comment, a commit message, and a PR body are
 wording, and each is written, verified after the fact, and accounted for in "Final report".
 
+**On a flag run the thing that earns those ungated writes is the flag itself, and nothing else.** The
+paragraph above points at the validation phase, and a `--lite` run does not have one, so the
+authorization has to come from somewhere. It comes from the user having asked for this mode on this
+ticket, which is a narrower warrant than a validation phase and covers exactly the same writes.
+Two consequences follow and neither is optional. Every one of those writes still happens without a
+preview, because a flag that skipped the checking does not get to also start asking. And "Final
+report" becomes the run's only account of what went out, so the reporting rules there tighten rather
+than relax. A `--lite` run also asks the user nothing at all between Step 0 and Step 6, because both
+surviving decisions named above live in steps it skips.
+
 The "no" column above is about those artifacts, not about every remote call. Step 2 reads Datadog and
 Amplitude when the ticket claims something about production, which is a read against live telemetry.
 The warehouse depends on what is installed. This skill has no connection of its own, so it looks for a
 skill that runs SQL and asks the user when there is none. See [DB-QUERIES.md](DB-QUERIES.md). A query
-that does run is a read, and it is bounded and `SELECT`-only either way.
+that does run is a read, and it is bounded and `SELECT`-only either way. All of that belongs to Step 2
+and Step 3, so a flag run makes no telemetry read and no warehouse request of any kind.
+
+## Argument
+
+One positional argument, the ticket key, plus optional modifier flags in any order.
+
+**Strip the flags before resolving the key.** Step 0 validates what is left against
+`^[A-Z][A-Z0-9]+-[0-9]+$` and stops when it does not match, so a flag still sitting in the argument
+either fails that check or gets mistaken for a missing key. Order does not matter once they are
+stripped, and `work-on --lite WMP-837` is the same invocation as `work-on WMP-837 --lite`.
+
+**The run never picks a flag on its own.** Both flags remove controls, and which controls a ticket
+can afford to lose is the user's judgement rather than this skill's. A long validation phase is not
+a reason to reach for one. Neither is a ticket that looks obviously true, because looking obviously
+true is exactly what a stale ticket does.
+
+### Modifier flags
+
+- **`--lite` skips the validation phase.** Steps 2, 3, and 4 do not run at all. Step 1 reduces to
+  the ticket read and the repo conventions. Step 5 reduces to the status move. Steps 6 through 9 run,
+  `review-and-fix` included, with the two carve-outs named under "What still runs" below.
+- **`--fast` skips everything `--lite` skips, and Step 8 as well.** `review-and-fix` does not run.
+  Step 9 still pushes and still opens the draft PR.
+
+`--fast` implies `--lite`. Passing both is not an error and gets no warning, because `--fast` is a
+superset of it and the wider skip wins.
+
+**This section is the single copy of what the flags mean, and the Pipeline table's `Cut by` column is
+the per-step map.** The two bullets above summarize that map in prose, and where the summary and the
+table ever disagree the table wins, since it is the one that goes step by step. Every step below
+carries a one-line guard pointing back here rather than restating its own skip condition, since a
+second copy is what this file says gets half-overridden. The one thing a guard may add is a carve-out
+belonging to that step alone, and there are exactly two, both in "What still runs".
+
+**Announce the mode before Step 0 does anything.** Name the flag, the steps it cuts, and the two
+costs under "What the flags cost" below. Keep it short, but do not compress it into one line at the
+expense of the costs, since those are the whole point of announcing. The user is about to watch a run
+that asks nothing and writes to Jira anyway, and this is what tells them that is the flag working
+rather than the validation phase failing silently.
+
+**The duplicate-link note under "What Step 1 keeps" is a second, later disclosure, not part of this
+one.** Its input does not exist yet here. Step 1 has not read the ticket when the announcement goes
+out, so that note goes out when the read lands.
+
+#### Step 0 is never reduced
+
+Nothing in Step 0 is validation. The branch check, the dirty-tree stash, the stash ownership rule,
+`git fetch`, and the Jira and GitHub access checks are damage control, and a flag run needs them more
+rather than less. `--fast` commits, pushes, and opens a PR with nothing having reviewed the code, so
+the checks that stop it doing that on the default branch or over somebody else's uncommitted work are
+the last ones standing.
+
+Two things inside Step 0 differ on a flag run, and both are marked at their own line. Item 1 strips
+the flags, per the rule above. And the GitHub-access fallback question is not asked at all, because
+everything it offers to trade away is Step 2 evidence a flag run was never going to gather. That is
+the one question Step 0 drops. Every check in it still runs.
+
+#### What Step 1 keeps, and why those two
+
+Two things survive, and each has a consumer that still runs.
+
+- **The markdown ticket read**, description and comments both. It is the specification for Step 6.
+  Read the comment thread even here, because a ticket narrowed or abandoned in its comments while the
+  description still says the original thing is a difference Step 6 has to build against.
+- **The repo conventions**, the root and nearest sub-project `AGENTS.md` and `CLAUDE.md`. Step 6
+  writes code against them, and under `--lite` Step 8 reviews it against them too.
+
+Everything else in Step 1 exists to feed a step that no longer runs, so it is dropped rather than
+gathered and discarded:
+
+| Dropped | Its only consumer |
+|---|---|
+| the `adf` read and the `-original.adf.json` rollback save | Step 5's description rewrite, which no longer happens |
+| the branch-commit list | Step 2 |
+| the missing-commit list, the stat, the commit-to-PR mapping | Step 2 |
+| the open-PR sweep | Step 2, and Step 4's superseded path |
+| the related tickets, both the linked half and the JQL half | Step 2, and Step 4's duplicate path |
+| `{ kind, kind_because }` | Step 2's triage agents |
+| `{ datadog, amplitude }` | Step 2's telemetry probes |
+
+The rollback artifact is the one worth naming out loud. It exists so a botched description rewrite on
+someone else's ticket can be put back, and under both flags there is no description rewrite to botch.
+The status move needs no rollback, since the transition either took or it did not and the transition
+list says which.
+
+**The dropped rows are dropped as work, not as facts.** Nothing here licenses claiming that no open
+PR overlaps or that no ticket duplicates this one. Nobody looked.
+
+**One exception, because it costs nothing.** The surviving ticket read already uses
+`fields: ["*all"]`, so `issuelinks` arrives in the payload whether or not anything asks for it. If a
+link of type `duplicates` or `is duplicated by` is sitting in it, **say so in one line the moment that
+read lands**, naming the key. Not in the mode announcement, which has already gone out by then and
+could not have known this. That is a disclosure and not a gate. It does not stop the run, it does not
+become a question, and nothing downstream reads it. It exists because working a ticket somebody has
+already marked a duplicate is the worst thing a `--lite` run can do, and the evidence for it is
+already in hand.
+
+#### What still runs, with two carve-outs
+
+Steps 6, 7, and 9 run unchanged. Step 8 runs unchanged under `--lite` and not at all under `--fast`.
+Two things that normally happen inside a surviving step do not, and each one is a control that lost
+its producer rather than work the flag meant to skip.
+
+**Step 8 does not file follow-up tickets under `--lite`.** Its "Follow-ups from what review-and-fix
+left" subsection classifies a leftover against the scope agreed at Step 4, and under `--lite` no scope
+was ever agreed, so the predicate that decides what is out of scope has no value at all. Its filing
+path is also a by-name reuse of a subsection that lives inside Step 4, which carries the points gate
+and the approval. A Jira create has no rollback, so an undefined predicate reaching it would produce
+an unapproved write rather than merely stale prose. That is one of two places these flags could make
+a run less safe instead of less thorough. The other is the `TODO(user):` list under "The flags skip
+work, never disclosure" below.
+Report every leftover in "Final report" instead, unfiled, with the reason. Do not substitute your own
+scope judgement for the agreement that never happened.
+
+**Nothing under `--fast` may claim the code was reviewed.** Step 8 is the only reviewer in this
+pipeline and it did not run. Per an explicit decision the PR body carries no disclosure of that, so
+the `Mode` and `Iterations` lines in "Final report" are the entire disclosure the run produces. That
+makes those two lines a control and not a formatting nicety, which is why the reporting rules name
+them as mandatory on every ending.
+
+#### What the flags cost
+
+Say this in the announcement, and do not soften it later.
+
+- **`--lite` takes every claim in the ticket on trust.** Nothing checked whether the bug still
+  reproduces, whether a merged commit already fixed it, whether an open PR is already doing the work,
+  or whether another ticket has carved the scope out from under it. Those are the four ways a ticket
+  is dead and a `--lite` run detects none of them. It will work a dead ticket all the way to a PR.
+- **`--fast` also ships code that nothing reviewed.** Not `review-and-fix`, not a human.
+
+**Never describe a flag run's output as validated.** No verdict was reached, so there is nothing to
+report as `valid`, and `invalid` and `superseded` are equally unavailable. The `Validation` line in
+"Final report" says the phase was skipped and names the flag, which is the only honest value it can
+carry.
+
+#### The flags skip work, never disclosure
+
+Every step a flag cut is named in "Final report", and its `Mode` line names the flag. A run that
+quietly did less has to look different on the way out from a run that did everything, because the
+Jira ticket and the PR carry no record of which mode wrote them and the conversation is the only
+place that record exists.
+
+**Keep the running `TODO(user):` list from Step 0, in every mode.** Step 5 is where the full run
+establishes it, and a flag run skips the write that paragraph sits in, so start it empty here
+instead. A flag run can still ship such a line from Step 6, from a `--lite` Step 8's leftovers, or
+into the PR body at Step 9, and Step 9 suspends four of `open-pr`'s human gates with this report
+named as the only thing standing in their place. Dropping the list would remove that control while
+leaving the four suspensions in force. That is the second of the two places these flags could make a
+run less safe instead of less thorough, the first being the Jira create named under "What still
+runs" above.
+
+```
+/work-on WMP-837                  # full pipeline
+/work-on WMP-837 --lite           # no validation phase, review-and-fix still runs
+/work-on WMP-837 --fast           # no validation phase and no review-and-fix
+/work-on --lite WMP-837           # flags in any position
+/work-on WMP-837 --lite --fast    # --fast wins, no error
+```
 
 ## Assume nothing
 
 This is the rule the rest of the skill serves. A validation phase that accepts the ticket's
 framing has done nothing, because the framing is the thing most likely to be stale.
+
+**This whole section governs Steps 1 through 4, so a `--lite` run has nothing for it to govern.**
+The three rules below are not relaxed on that path, they are unreachable, and the difference matters
+for how the run talks afterwards. A `--lite` run accepts the ticket's framing wholesale, which is the
+thing the paragraph above calls doing nothing. So it may never report a claim as checked, may never
+say a bug reproduces, and may never say one does not. Every claim in the ticket is unverified for the
+whole run, and "Argument" requires the announcement to say so.
 
 - Every factual claim in the ticket gets checked one at a time against the tree at HEAD. A
   claim you cannot land on a `file:line` is unverified, and unverified is reported as
@@ -91,6 +281,16 @@ the questions you do ask are worth their attention.
 | How many rows, accounts, or records are affected | A query skill if one works, else the user, per [DB-QUERIES.md](DB-QUERIES.md) |
 | Is this bug or security issue worth fixing at all | The triage agents in Step 2, then a priority call to the user |
 
+**On a flag run the last four rows have no producer, and the ban below still holds.** The Datadog
+probe, the Amplitude probe, the warehouse handoff, and the triage agents all live in Steps 2 and 3.
+That does not promote their questions to askable. It means the question does not get asked and does
+not get answered either, so whatever it would have settled stays unsettled for the whole run and gets
+reported that way. The first five rows are unaffected, since `rg`, `git`, the ticket's own comment
+thread, and the config are all still right there, and Step 6 leans on them harder than usual because
+nothing else looked at the code first. Row 4 is the mixed one. Its Step 1 half is gone, so
+"has someone already done this" falls back to running `gh pr list --search` yourself, and that keeps
+the question off the user where the ban below already puts it.
+
 **These are never questions for the user.** Each one is a search you skipped:
 
 - "Where is the tax calculation?" / "Does `applyTax` still exist?" / "Is this function used?"
@@ -116,6 +316,13 @@ file format, and the follow-up protocol that keeps the request from getting lost
 
 **Never query either one from the main thread, and never from a code lens.** Dispatch a probe per
 source and run them concurrently, in one message.
+
+**A flag run dispatches neither probe, and the prohibition outlives them.** The dispatch instruction
+belongs to Step 2 and the flags that gate it belong to Step 1, so under `--lite` there is nothing to
+launch. The first sentence above is not conditional on that. It bans querying Datadog or Amplitude
+from the main thread, and a run with no probes must read that as "no telemetry read happens" rather
+than as "the main thread may do it itself now". A production claim in the ticket therefore stays
+unmeasured for the whole run.
 
 Three reasons this is not optional:
 
@@ -169,10 +376,18 @@ fixed. The Datadog brief asks for that correlation explicitly.
 
 ## Step 0: Preflight
 
-**1. Resolve the ticket key.** Accept a bare key (`WMP-837`), a Jira URL
+**1. Resolve the ticket key.** **Strip the modifier flags first**, per "Argument", and record the
+mode. `--lite` and `--fast` are the only two, they may sit anywhere in the argument, and what is
+left after removing them is the key. A flag left in place either fails the regex below or reads as
+a missing key, and both failures look like a malformed invocation rather than a stripping bug.
+
+Then accept a bare key (`WMP-837`), a Jira URL
 (`.../browse/WMP-837`), or the key embedded in the current branch name (`wmp-837-invoice-tax`).
 Uppercase it. If the invocation carries no key and the branch name has none, ask for it and
 stop until you have it. Never invent a key and never guess the project prefix.
+
+**Announce the mode once, here, before anything else runs.** "Argument" says what the announcement
+carries.
 
 **Then validate it against `^[A-Z][A-Z0-9]+-[0-9]+$` and stop if it does not match.** This is the
 same pattern `in-depth-review`'s ticket reviewer uses. It matters beyond catching a typo, because the
@@ -250,6 +465,13 @@ to stop for any reason, restore it first, or say plainly that it is still stashe
 back. Handing someone a dead-ticket verdict while their own changes sit invisible in the stash stack
 is exactly the failure this paragraph exists to prevent.
 
+**A flag run loses that most common early exit and keeps the rule.** Step 4 does not run, so the
+dead-ticket ending cannot happen, and Step 4's own settlement block is unreachable. The endings that
+remain are a Step 0 abort, a Step 6 that stops or hands back, a `--lite` run whose Step 8 aborts
+twice, and an `open-pr` failure. Every one of them is a turn that ends, so every one of them settles
+the stash and says so. Read "no turn ends with work stashed and unmentioned" as the whole rule and
+the Step 4 sentence above as one example of it.
+
 Step 8 (`review-and-fix`) will ask the same question again if it finds a dirty tree, so resolving it
 now avoids that interruption later. Step 7 commits everything anyway, so by Step 8 the tree is
 normally clean regardless.
@@ -280,6 +502,12 @@ evidence. You can still diff `HEAD...origin/<default>` (three dots, as in Step 1
 analysis survives, but you lose PR numbers, PR discussion, and every open PR. That is a real gap in
 the validation and the user should get to weigh it, not find out afterward.
 
+**On a flag run, do not ask that question.** Everything it offers to trade away is Step 2 evidence a
+`--lite` run was never going to gather, so putting it to the user asks them to weigh a loss the flag
+already took. State that GitHub is unavailable in one line and carry on. Step 9 still needs `gh` to
+open the PR, so say that too, since that consequence is real on this path and the validation gap is
+not.
+
 **7. Warehouse access. Nothing to do here, deliberately.** This skill has no database connection of
 its own. When a warehouse number is actually wanted, Step 3 checks whether a skill that runs SQL is
 installed and falls back to asking the user. That check is deferred rather than done here because most
@@ -295,7 +523,15 @@ Collect this once here, not inside the workflow. Seven agents each re-fetching t
 six chances to read a different version of it, and the workflow's job is to reason, not to
 gather.
 
-**The ticket.** Read it twice, in two formats, for two different reasons.
+**On a flag run this step reduces to two things**, the markdown ticket read and the repo
+conventions. "Argument" has the full list of what is dropped and which step was its only consumer.
+Read that before reading on, because most of this step is addressed to a Step 2 that will not run,
+including the reason above. The command-shape note at the end of the step is the exception and
+applies to every run.
+
+**The ticket.** Read it twice, in two formats, for two different reasons. **On a flag run read it
+once, in markdown only.** The `adf` half exists solely to make the rollback artifact for a
+description rewrite that no longer happens.
 
 - `responseContentFormat: "markdown"` with `fields: ["*all"]` plus `"comment"`. This is what
   you reason over. Comments matter as much as the description. A ticket is often corrected,
@@ -435,7 +671,17 @@ Note on command shape, because this repo's hooks enforce it: `git` and `gh` run 
 sandbox and must run **alone**, with no pipe and no chaining. Redirect to a file under
 `/tmp/claude/`, then read the file in a separate call. Do not write `git log ... | head`.
 
+**This note is a hook rule, not a Step 1 rule, and it survives every reduction.** It happens to sit
+at the end of the step a flag guts, and the commands it governs are spread across the run: Step 0's
+`git fetch`, `git status`, and `git rev-parse`, Step 7's commit, push, and three stash commands, and
+Step 9's `gh`. A flag run runs all of those, so read this note even when you skip everything above
+it.
+
 ## Step 2: Validate
+
+**Skipped entirely by `--lite` and `--fast`.** Not reduced, not run inline, not collapsed to a single
+reader. Nothing in this step happens and nothing downstream receives its output. Go to Step 5. See
+"Argument".
 
 The one thing a workflow buys here is resistance to anchoring. A single reader reads the ticket,
 absorbs the ticket's view of the problem, and then goes looking for support, and it finds some,
@@ -518,6 +764,11 @@ block, with whatever the path could not establish named as a coverage gap.
 
 ## Step 3: Ask what investigation could not settle
 
+**Skipped entirely by `--lite` and `--fast`.** No investigation ran, so there is nothing this step
+could be asking about, and its questions are not reassigned to Step 6. See "Argument". A genuine
+product decision that surfaces later in Step 6 still goes to the user, through whichever process
+skill Step 6 picked and under that skill's own rules, never as a revival of this step.
+
 Read "Earn every question" above before asking anything. Every question here has already survived
 a search of the codebase, the git history, the ticket comments, the PRs, and Datadog or Amplitude
 where the claim was about production.
@@ -565,6 +816,16 @@ still open but not blocking rides to Step 5 as a `TODO(user):` line in the ticke
 running list that "Final report" reads out.
 
 ## Step 4: Verdict gate
+
+**Skipped entirely by `--lite` and `--fast`.** No verdict value exists on that path, so none of the
+four below is available and neither is the a/b/c option list. The run cannot conclude the ticket is
+dead, and it cannot conclude the ticket is valid either. It proceeds on the ticket as filed. See
+"Argument".
+
+**Two things inside this step are needed elsewhere, so find them before skipping it.** The stash
+settlement rule under "Valid" applies to every early exit the run can have, including ones a flag
+run reaches, and it is restated at its own line below. The "### Filing the follow-up" subsection is
+the machinery Step 8 reuses by name, and `--lite` disables that reuse rather than borrowing it.
 
 Validation returns one of four verdict values, `valid`, `invalid`, `superseded`, or `partial`, which
 fall into the three response paths below. Present the evidence for whichever it is, in chat, before
@@ -777,6 +1038,27 @@ follow-up is an addition to it, not a precondition for it.
 Three writes. The status moves to In Progress, the description gets replaced in place, and a comment
 gets appended. The status move goes first, because it is mechanical and the other two need drafting.
 
+**On a flag run there is one write, the status move.** The description rewrite and the validation
+comment are both dropped, because both exist to record what validation found and nothing found
+anything. There is no "other two" and no "rest of Step 5" on that path. See "Argument".
+
+**Four things in this step are declared for the whole run and are not dropped with those two
+writes.** Read them even on a flag run, because Step 7 and Step 9 both depend on them and neither
+step restates them:
+
+- **`writing-work-docs` authors every human-facing artifact**, which on a flag run means the commit
+  messages and the PR title and body.
+- **"### The publish override, declared once for the whole run"**, which is what permits this skill to
+  publish at all. Drop it and `writing-work-docs` refuses to publish, so Step 7 cannot author a commit
+  message and Step 9 cannot author a PR body. Its own heading says it is declared for the whole run.
+- **"No confirmation on wording, at any step"**, which governs the commits and the PR body too.
+- **The running `TODO(user):` list**, whose own paragraph says the list belongs to the run rather than
+  to this write.
+
+What a flag run does skip is the drafting spec for each dropped write, the rendered-description
+rules, the comment's Evidence trail, and the write-then-verify read-back, since there is no authored
+content to read back.
+
 ### Move the ticket to In Progress
 
 **Reaching this step means work is going to happen, and that is the whole condition.** No verdict
@@ -785,6 +1067,12 @@ only when the user chose Step 4's option (b) to narrow the ticket or option (c) 
 which are the user saying continue in plainer terms than a verdict can. Option (a) stops the run
 before this step, so a ticket this run concluded should be closed never gets parked on the active
 board.
+
+**A flag run reaches this step by a fourth route and the whole condition is the same one.** No
+verdict arrives, because Step 4 did not run, and the sentence above already says no verdict check
+happens. What makes the move correct is unchanged: the user invoked this skill on this key, so work
+is going to happen. The move is also the reason a flag run cannot skip Step 5 outright. A ticket
+somebody is building against belongs on the active board whether or not anything validated it.
 
 Fetch the ticket's available transitions rather than writing a status directly. Then:
 
@@ -808,6 +1096,11 @@ already the intent to work on that key. It also carries no authored prose, so th
 mangle in conversion and nothing to read back, which is why it skips the rollback artifact and the
 read-back the description write gets below. The transition either took or it did not, and the
 transition list you matched against says which.
+
+**On a flag run only the second half of that first sentence is available, and it is enough alone.**
+Step 4 did not run, so nothing rides on it. The invocation is the authorization, which is the same
+warrant "Argument" gives every other ungated write on that path. Everything else in the paragraph
+above holds unchanged, and the no-prose half of it is why this write needs no read-back in any mode.
 
 **Draft with `writing-work-docs`.** Invoke it for both pieces. It carries the voice rules, the
 banned words, the invent-nothing rule, and the no-hard-wrapping rule that keeps text from
@@ -910,6 +1203,13 @@ memory, because the ticket write and the report are four steps apart and a line 
 exactly the kind of thing that goes missing in between. With no preview in front of this write, the
 report is the only place a shipped `TODO(user):` line becomes visible to a human.
 
+**The list belongs to the run, not to this write.** A flag run drops this write and still keeps the
+list, because a `TODO(user):` line can be drafted later by Step 6, by a `--lite` Step 8's leftovers,
+or into the PR body at Step 9, and Step 9's override of `open-pr` names the report as the single
+compensating control for shipping one there unpreviewed. So a flag run starts the list empty at
+Step 0 and appends to it from wherever its first entry actually comes. What the flag removes is this
+step's contribution to the list, never the list.
+
 **Write, then verify.** Write it. Then read the ticket back and confirm the formatting actually
 landed, because a markdown-to-ADF conversion that half-worked leaves literal `##` and `**` sitting in
 the ticket where everyone can see them. [JIRA-FORMAT.md](JIRA-FORMAT.md) has the write paths,
@@ -963,6 +1263,13 @@ to correct and stalling to decide is not.
 Step 2 already produced the reproduction, the blast radius, and the constraints. Hand those to
 the process skill rather than making it rediscover them.
 
+**On a flag run none of those three exists, so the process skill does the discovering.** Hand it the
+ticket and the repo conventions, which is what Step 1 kept, and say plainly that no reproduction was
+established and no blast radius was measured. Do not synthesize either one to fill the handoff. This
+is also why the pick above matters more on this path than on the full one: `systematic-debugging`
+starts by establishing the behavior, and on a flag run nothing has, so a bug ticket that would have
+gone to `brainstorming` after Step 2 pinned the cause has no pinned cause to build on.
+
 ### Take Subagent-Driven execution without asking
 
 The brainstorming path runs on into `writing-plans`, and that skill ends with an "Execution Handoff"
@@ -986,6 +1293,14 @@ human can answer. Asking them to pick an execution mode they picked the same way
 that attention on nothing. And a fresh subagent per task keeps one task's context from bleeding into
 the next, which matters more than usual on this path, because Step 2 has already filled the main
 thread with validation findings, telemetry digests, and merged-PR diffs.
+
+**A flag run loses both of those reasons and keeps the default anyway, on a third one.** Step 3 does
+not run, so there are no validation questions the user's attention was being saved for, and Step 2
+does not run, so the main thread arrives here nearly empty. Neither reason survives. What replaces
+them is the flag itself: a user who asked for `--lite` or `--fast` asked for fewer interruptions, so
+an extra question about execution mode is the last thing that path should produce. Take
+Subagent-Driven, say so in one line, and keep going. The rule holds in every mode. Only its
+justification changes.
 
 If the user asks for inline execution, in the invocation or at any point during the run, take it. This
 is a default, not a policy. Anything else `writing-plans` asks for still goes to the user as normal.
@@ -1016,6 +1331,12 @@ the commit messages in range, so a commit trail with no key means that reviewer 
 nothing to check and reports no issues. The one reviewer positioned to catch a build that drifted
 from the ticket you just rewrote is the one you disable by forgetting this.
 
+**The rule holds in every mode, and its reason changes in both.** Under `--lite` Step 5 rewrote
+nothing, so that reviewer checks the build against the ticket as filed, which Step 8 says is worth
+more on that path rather than less. Under `--fast` the reviewer does not run at all, and the key
+still goes in, because the commit trail outlives this run. Whoever reviews this branch by hand, and
+`review-and-fix` if it is invoked on the branch later, both find the ticket the same way.
+
 Push the branch. **Do not open a PR.** Step 8 runs against the branch range, and Step 9 opens
 the PR once the review loop has stopped finding things. A PR opened here collects review noise
 on commits that are about to be rewritten.
@@ -1042,12 +1363,22 @@ them before starting the review loop rather than sweeping their work into a revi
 
 ## Step 8: review-and-fix, all the way
 
+**Skipped entirely by `--fast`. Runs in full under `--lite`, with one carve-out named below.** On
+`--fast` no reviewer runs, `Iterations` reports the flag rather than a count, and Step 9 still opens
+the PR. See "Argument".
+
 Invoke `review-and-fix`. Let it run every iteration it wants.
 
 That skill stops on its own terms, and it has no iteration cap by design. Its loop continues
 only while each pass commits at least one real fix, so a long run means it is still finding
 things. Do not interrupt it, do not summarize partway and call it finished, and do not pass any
 flag that shortens it.
+
+**"Any flag that shortens it" means a flag you pass down to `review-and-fix`, not `--fast` arriving
+from above.** The two are opposite directions. `--fast` is the user removing this step, decided
+before the run started and disclosed in the report. Shortening the review from inside is this run
+quietly getting less than it asked for. So `--fast` skips the step whole and never invokes the skill
+with something that truncates it, and there is no middle setting where the review runs briefly.
 
 Three things to get right when invoking it:
 
@@ -1056,6 +1387,10 @@ Three things to get right when invoking it:
   because Step 5 just rewrote that ticket and this is what catches a rewrite that drifted from
   what got built. There is no flag for passing the key. That reviewer reads it out of the commit
   messages, which is why Step 7 puts it there. Confirm it did before trusting a clean result.
+  **Under `--lite` the reason inverts and the instruction stands.** Step 5 rewrote nothing, so that
+  reviewer checks the build against the ticket exactly as somebody else filed it, unvalidated. That
+  is the only check in a `--lite` run comparing the code to the ticket's own words, which makes it
+  worth more on this path than on the full one rather than less.
 - **It runs in branch mode**, since no PR exists yet. That is expected. Discussion Context comes
   back empty and nothing is wrong.
 - **Step 8 runs in the main thread.** Never wrap `review-and-fix`, or any reviewer, in a `Workflow`.
@@ -1090,6 +1425,14 @@ is most likely to break, so check every item against it before proposing anythin
 **Belongs to a different ticket.** A finding about code that the scope agreed at Step 4 does not
 cover. Only items in this bucket get proposed.
 
+**Under `--lite` this bucket is empty and nothing here files anything.** Its membership test is
+"outside the scope agreed at Step 4", and on that path no scope was ever agreed, so the test has no
+value to evaluate rather than a value of false. "Argument" has the reasoning under "What still runs".
+Two things it does not say, which belong to this bucket alone. Do not substitute your own reading of
+the ticket for the agreement. And do not fall back to the ticket as filed either, since nothing
+validated it and the whole reason a scope gets agreed at Step 4 is that the filed one is
+untrustworthy. Every leftover goes to "Final report" unfiled and named, with the flag as the reason.
+
 Put an item you cannot confidently place into "Unfinished here." The cost of leaving real
 out-of-scope work unfiled is that somebody finds it later. The cost of filing unfinished work as a
 ticket is that the branch ships with a known gap wearing a ticket number.
@@ -1097,7 +1440,10 @@ ticket is that the branch ships with a known gap wearing a ticket number.
 **The batch approval.** Propose the second bucket as one batch with one yes, at the end of Step 8,
 once the loop has stopped. The Step 4 cut needs no separate approval, because the user's agreement
 to the reduced scope there already covers it. This bucket needs its own, because these findings
-did not exist when that agreement was made, so it cannot cover them. Present each candidate in the
+did not exist when that agreement was made, so it cannot cover them. **Under `--lite` there is no
+Step 4 agreement to reason from and no batch to approve**, since the bucket above is empty. Never
+read the sentence about the Step 4 cut as a standing approval on that path. No approval of any kind
+was taken before Step 6, so nothing here inherits one. Present each candidate in the
 same compact block Step 4 uses for its own proposal.
 
 ```
@@ -1173,6 +1519,14 @@ creates, so a failed create here blocks nothing downstream from running.
 
 ### When `review-and-fix` aborts with `REVIEW_UNAVAILABLE_NO_FANOUT`
 
+**This subsection is about a Step 8 that broke, never a Step 8 the user skipped.** `--fast` produces
+the same physical state, code that no reviewer looked at, and must not be routed through anything
+below. **An unavailable reviewer is a failure. A skipped reviewer is an instruction.** Only the
+failure stops the run, because only the failure means the run got less than the user asked for. On
+`--fast` the run has exactly what was asked for, so it continues to Step 9, opens the draft, and
+discloses the skip in "Final report". Nothing here applies to it, including the stop, the one
+re-invocation, and the sentinel.
+
 That sentinel means the `Agent` tool was absent where the skill was invoked, so not one reviewer
 could be launched. No review happened.
 
@@ -1200,6 +1554,12 @@ the sentinel where the `PR` URL would go, write `0` on the `Iterations` line, an
 name the branch so the user can invoke `review-and-fix` from a context that has the `Agent` tool and
 pick the pipeline back up at Step 9.
 
+**`0` on the `Iterations` line belongs to this ending and to no other.** It reads as "the review was
+supposed to run and could not", which is what the sentinel in the `PR` field beside it confirms. A
+`--fast` run also performed zero passes but has a real PR URL, so writing `0` there would describe
+this failure on a run that had none. `--fast` writes `skipped (--fast)` instead, and the two are
+never interchangeable. Two zero-pass runs that ended differently must not report the same number.
+
 ## Step 9: Push and open a draft PR
 
 Push the review-and-fix commits. Then invoke `open-pr` with `--draft`.
@@ -1209,10 +1569,23 @@ open it, do not ask whether draft is right, and do not offer ready-for-review as
 draft is the correct end state for this pipeline: the work is reviewed by Step 8 and unreviewed by a
 human, which is exactly what draft means.
 
+**Under `--fast` the draft means less and still opens.** Step 8 did not run, so the sentence above
+does not hold and a draft here means only that no human has reviewed it. That is a weaker claim, not
+a false one, and it is still the right end state. The PR is not a question on this path either. Do
+not ask whether to open it, and do not offer ready-for-review, since the code has had less review
+than usual rather than more.
+
+**Per an explicit decision the PR body carries no note that no review ran.** So do not add one, and
+do not let `open-pr` infer one. The disclosure lives on the `Mode` and `Iterations` lines of "Final
+report", which makes those two lines the entire record that this branch was never reviewed. A reader
+who sees only GitHub cannot tell a `--fast` PR from a fully reviewed one, and that is the accepted
+consequence of the decision rather than an oversight to correct here.
+
 **The one exception is a Step 8 that could not run at all.** That justification rests on Step 8
 having reviewed the work, so a `REVIEW_UNAVAILABLE_NO_FANOUT` abort that survives its one
 re-invocation leaves nothing for a draft to mean. The run stops in Step 8 on that path. Its abort
-section has the detail.
+section has the detail. **"Could not run at all" means broke, not skipped.** `--fast` also produces a
+Step 8 that did not run, and it is not this exception. The abort section's opening draws the line.
 
 `open-pr` carries the title rules, the template detection, and the `writing-work-docs` routing.
 It owns all of that. What it does not get to own here is its own gates.
@@ -1222,6 +1595,16 @@ It owns all of that. What it does not get to own here is its own gates.
 `open-pr` was written to be invoked by a human, so it asks a human several things. Four of those are
 suspended for this run. Name all four, because it states each rule in more than one place and a run
 that overrides one copy obeys the copy still standing:
+
+**All four stay suspended on a flag run, and the report they lean on is what makes that safe.** This
+is the densest set of suspended human gates in the file and it sits on a remote write, so it is worth
+being explicit that a flag does not touch it. What holds it up is unchanged: the invocation is the
+authorization, exactly as "Argument" says for every other ungated write on that path. What does
+change is that "Final report" is now the only control left anywhere in the run, since the validation
+phase that normally sits in front of all of this did not happen. That is why the running
+`TODO(user):` list is kept from Step 0 in every mode, and why the roll-call below is not optional on
+a flag run. Suspending four gates while dropping the one thing that stands in their place is the
+failure this paragraph exists to prevent.
 
 - **Its Step 5 "Preview and confirm" gate.** No `Ready to open this PR?`. The invocation is the
   authorization.
@@ -1244,6 +1627,12 @@ not ask about them. Stripping would delete a known gap, which contradicts this s
 unverified stays unverified. The compensating control is that every shipped line is named in "Final
 report", so the gap is disclosed rather than hidden.
 
+**That control is fed by the running list Step 5 normally starts, and a flag run starts it at Step 0
+instead.** Step 5's drafting block is where the full run establishes the list, and both flags drop
+that block, so a run reading only the surviving steps would ship these lines with nothing recording
+them. "Argument" moves the list's start to Step 0 for exactly this reason. Under `--lite` and
+`--fast` the entries come from Step 6, from a `--lite` Step 8's leftovers, and from this body.
+
 One wording trap in `open-pr` to not lean on. Where it says such lines are "correct in a draft and
 wrong in a live PR", "draft" there means a draft of the prose, not a GitHub draft PR. It does not
 already permit this. It has to be overridden.
@@ -1258,7 +1647,11 @@ Two additions from this run:
 
 - Give it the ticket key and URL so `Goal` can link the ticket instead of paraphrasing it.
 - Give it the validated framing from Step 4. The ticket as originally filed may no longer
-  describe what got built, and the PR should describe what got built.
+  describe what got built, and the PR should describe what got built. **On a flag run there is no
+  validated framing, so give it the diff and the commit messages instead.** Those describe what got
+  built and they are the only things on that path that do. Do not pass the ticket's own framing as
+  though it had been validated, and do not synthesize a framing to fill the slot. The rule behind
+  this bullet still holds and is what decides the substitute: the PR describes what got built.
 
 After it returns the URL, fetch the created PR body back and read it. Confirm the template
 sections came through, the ticket link resolves, and no section is sitting empty. GitHub renders
@@ -1286,26 +1679,56 @@ a next-steps offer, and not an outstanding SQL request, which gets its own separ
 everything it wrote while nobody was looking, so it is the one output that must not be skimmable
 past.
 
+**The `Mode` line is part of the report, not something else in it.** "Nothing else in it" bans a
+preamble and an unrelated request. It does not ban a field. On a flag run the `Mode` line is the only
+place the run discloses that it did less, and under `--fast` it is the only place in the world that
+records that nothing reviewed the code, since the PR body carries no such note. Read the rule as
+protecting the report from padding rather than as fixing its field list.
+
 ```
+Mode          full | --lite | --fast   (steps cut: <list>)
 PR            <url>  (draft)
-Ticket        <url>  (description: rewritten | write failed; comment: posted | not posted)
+Ticket        <url>  (description: rewritten | write failed | skipped (<flag>); comment: posted | not posted | skipped (<flag>))
 Status        moved to <name> | already <name> | no matching transition | write failed
 Follow-ups (<n>)
   - <key>  filed from the Step 4 scope cut  <one-line summary>
   - <key>  filed from a Step 8 leftover  <one-line summary>
   - could not file  <Step 4 scope cut | Step 8 leftover>  <why>
+  - not filed  Step 8 leftover  no Step 4 scope was agreed (--lite)  <one-line summary>
 Branch        <name>
-Jira write    verified | could not read it back to verify | failed
+Jira write    verified | could not read it back to verify | failed | nothing to verify (<flag>)
 TODOs (<n>)
   - <artifact> <locator>  <the line's text>  -> <what would resolve it>
-Validation    <one line on what it changed about the ticket>
-Iterations    <n> review-and-fix passes
+Validation    <one line on what it changed about the ticket> | skipped (<flag>), every claim in the ticket is unverified
+Iterations    <n> review-and-fix passes | 0 | skipped (--fast)
 Stash         restored | still stashed at <sha> | none
 ```
 
+**`Mode` goes first, because it governs how every line under it reads.** A `Validation` line saying
+`skipped` is a flag working as asked when `Mode` says `--lite`, and a bug when `Mode` says `full`.
+Name the steps cut explicitly rather than leaving the reader to look up what the flag does: `2, 3, 4`
+for `--lite` and `2, 3, 4, 8` for `--fast`. Write `Mode full` on an unflagged run rather than omitting
+the line, for the same reason zero TODOs is stated below. A missing `Mode` line and a `full` one are
+not distinguishable to a reader, and the whole point of the field is that a reduced run looks
+different from a complete one.
+
+**`Iterations` distinguishes three states and never conflates them.** A count is a review that ran.
+`0` is the `REVIEW_UNAVAILABLE_NO_FANOUT` abort, where the review was supposed to run and could not,
+and it always appears with the sentinel in the `PR` field. `skipped (--fast)` is a review the user
+removed, and it appears with a real PR URL. The last two are both zero passes and they mean opposite
+things about whether the run did what was asked.
+
+**`Jira write` has four values and each is exact.** `nothing to verify (<flag>)` is the one for a flag
+run, where the status move is the only write and the transition list already confirmed it, so there is
+no authored content to read back. Do not print `verified` there. That word reports a read-back that
+did not happen, and the other three values all assert one did.
+
 **Every `TODO(user):` line that shipped gets its own line, wherever it landed.** The Jira
 description, the validation comment, the option (a) comment, the PR body. Read them off the running
-list Step 5 has been keeping. Never summarize them as a count, never fold two into one line, and
+list, which Step 5 starts on a full run and Step 0 starts on a flag run, so it exists either way. On
+a flag run only the PR body is among those four landing places, and the roll-call matters at least as
+much there, since it is the only control left on that write. Never summarize them as a count, never
+fold two into one line, and
 never write "some open questions remain". The whole point is that a human who never saw these
 artifacts before they went out can see, in one place, exactly what went out unverified and where to
 find it.
@@ -1331,6 +1754,13 @@ already includes it.
 `Follow-ups (0)  none` only when neither trigger produced any candidate at all, filed or failed. A
 missing section reads identically to a forgotten one here too.
 
+**On a flag run neither trigger exists, and that is a different state from producing nothing.** The
+Step 4 cut cannot happen because Step 4 did not run, and under `--lite` the Step 8 bucket is empty by
+rule rather than by outcome. Write `Follow-ups (0)  no trigger ran (<flag>)` rather than a bare
+`none`, so a reader can tell a run that looked and found nothing from a run that never looked. A
+`--lite` Step 8 that did produce leftovers reports each one on a `not filed` line, and those count
+toward `<n>` exactly as failed creates do.
+
 **`Jira write` uses those exact words.** `could not read it back to verify` is the phrase
 [JIRA-FORMAT.md](JIRA-FORMAT.md) requires for that outcome. Unverified is its own result. Do not fold
 it into either verified or failed, and do not soften it, because it is the outcome the reader most
@@ -1346,6 +1776,13 @@ comment text was handed over, since the validation trail then exists only in cha
 read-back on content that did land, so it can honestly read `verified` on a run whose comment never
 posted at all.
 
+**`skipped` and `not posted` are different values and a flag run uses the first.** `not posted` means
+the write was attempted or drafted and did not land, which is why it carries the extra duty of saying
+where the drafted text went. On a flag run nothing was drafted, so there is no handover to point at
+and nothing was attempted. Print `skipped (<flag>)` on both halves and add no handover note. Reading
+`not posted` there would send the user looking in the conversation for a comment that was never
+written.
+
 **No run ends with a published `TODO(user):` line unmentioned.** This holds on every ending, not just
 the one that reaches this step. The Step 4 option (a) exit, the Step 8 no-fanout abort, and the
 `open-pr` failure path all emit the roll-call too. Same rule as the stash disclosure, for the same
@@ -1358,8 +1795,27 @@ point, the same way each already names its `TODO(user):` lines. The Step 4 optio
 carry this risk. That exit belongs to a dead ticket and a Step 4 follow-up belongs to a partially
 valid one, so the two never happen in the same run.
 
+**No run ends with its mode unmentioned.** This is the same rule as the two above and the stash
+disclosure, applied to the thing the flags introduce, and it binds on every ending rather than only
+the one that reaches this step. A Step 0 abort, a Step 6 that hands back, a `--lite` Step 8 that
+aborts twice, and an `open-pr` failure all state the mode. The reason is sharper here than for the
+others. A `TODO(user):` line and a filed follow-up both leave a trace somebody can find later, on
+the ticket or the board. A skipped validation phase leaves no trace at all, and under `--fast`
+neither does a skipped review, since the PR body is silent by decision. So the report is not the
+best record of what the flags did. It is the only one, and a run that omits it has made the skip
+undetectable rather than merely undocumented.
+
 ## Constraints
 
+- **The two flags cut work and never cut disclosure.** What each one cuts is "Argument" and the
+  Pipeline table's `Cut by` column, and this bullet deliberately does not restate it. What belongs
+  here is the reading rule: every bullet below that names a validation product is qualified by those
+  two, and where a bullet justifies itself by pointing at the validation phase, a flag run keeps the
+  rule and loses the justification. The invocation is what authorizes the write instead. No flag adds
+  a gate back and none removes one beyond what "Argument" names.
+- **No run ends with its mode unmentioned.** On every ending, including the ones that never reach
+  "Final report" in full. The skip leaves no trace on the ticket, the board, or the PR, so the report
+  is the only place it is visible at all.
 - **Nothing writes before Step 5 unless the user asks for it.** Steps 0 through 4 are read-only
   against Jira, GitHub, and the working tree on their own initiative, which is what makes the
   validation phase safe to run aggressively. There are two exceptions and neither one moves without
@@ -1374,11 +1830,16 @@ valid one, so the two never happen in the same run.
   the commit messages, the PR body, and every follow-up's drafted prose are wording. None of them
   gets a preview, a confirmation, or an "does this look right?". Both follow-up decisions belong on
   this list because each one authorizes a Jira create, and a create nobody was asked about is the
-  one thing the wording rule must never be read to allow.
+  one thing the wording rule must never be read to allow. **On a flag run all four named decisions
+  are gone**, the first three with the steps that hold them and the fourth by rule, so a `--lite` run
+  asks the user nothing from Step 0 to Step 6. That does not promote wording to askable. It means the
+  run makes no decisions, which is what the flag traded for.
 - **Every write is verified after the fact, since none is approved before it.** Read the Jira ticket
   back, fetch the PR body back. Report the Jira read-back's outcome in "Final report" using its three
   exact words. Verification replaces the preview, so skipping it leaves a write with no control on it
-  at all.
+  at all. **A flag run has no authored Jira content to read back**, since the status move is its only
+  Jira write and the transition list already confirmed it, so `Jira write` takes its fourth value and
+  the PR body fetch still happens.
 - **Nothing that shipped unverified stays unmentioned.** Every `TODO(user):` line that reached Jira or
   a PR body gets its own line in "Final report", on every ending the run can have. These artifacts
   outlive the conversation and the user did not read them before they went out, so the report is their
@@ -1386,7 +1847,11 @@ valid one, so the two never happen in the same run.
 - **An invalid or superseded ticket stops the run.** Step 4 writes nothing on its own initiative. It
   never closes the ticket, and it does not comment or start a branch until the user picks one of
   Step 4's three options. Executing option (a) afterwards is the user's decision being carried out,
-  not this rule being broken.
+  not this rule being broken. **A flag run cannot reach this rule and does not get to claim its
+  protection.** Nothing produced a verdict, so no ticket is found invalid or superseded and none
+  stops the run. This is the flags' central cost rather than a gap to patch: a `--lite` run works a
+  dead ticket through to a PR and never notices. Say so in the announcement, and never report a flag
+  run's ticket as valid on the grounds that nothing stopped it.
 - **Every claim carries a locator.** `file:line`, a commit sha, a PR number, a Jira key, or a Datadog
   or Amplitude query with its result. A claim without one is reported as unverified.
 - **A related ticket found by text search is not a duplicate until somebody reads it.** A Jira link
@@ -1411,7 +1876,9 @@ valid one, so the two never happen in the same run.
   looked up and guessing what you could only have asked. Investigation separates them.
 - **The workflow is optional.** Small surface, investigate inline. Wide surface, fan out. It
   runs once either way, never in a loop, and it is for Step 2's validation lenses only, never for
-  Step 8's reviewers.
+  Step 8's reviewers. **A flag run takes neither path.** "Optional" here is a choice between two ways
+  of validating, and a flag run does not validate, so it is not the inline path with the ceremony
+  removed. The inline path is a real pass over the code that reports what it found.
 - **Never invent** a ticket key, a PR number, a dashboard link, a date, a metric, or a test
   result. Unknown becomes a `TODO(user):` line, and every one of those reaches "Final report".
 - **A triage recommendation never gets published.** The facts go into the Jira comment with their
@@ -1420,17 +1887,28 @@ valid one, so the two never happen in the same run.
   `file:line`, or a precondition chain read out of the code. An unmeasured impact is `unclear`, never
   `no`. "No telemetry covers this path" and "nobody is affected" are opposite conclusions and only one
   of them stops work.
-- **Verify the Jira formatting by reading it back.** Do not trust that the markdown converted.
+- **A flag run produces no triage at all, so the two bullets above have no subject.** No `kind` was
+  recorded, no triage agent ran, and no `worth_fixing` value exists in any state, including `unclear`.
+  A flag run therefore never reports whether the work was worth doing, in the conversation or on the
+  ticket. It is not that the impact came back unmeasured. Nobody asked.
+- **Verify the Jira formatting by reading it back.** Do not trust that the markdown converted. A
+  flag run writes no markdown to Jira, so there is nothing to convert and nothing to distrust.
 - **Execution mode is not a question.** When `writing-plans` offers its Execution Handoff choice,
   take Subagent-Driven (`superpowers:subagent-driven-development`) and say so in one line. Every other
   question that skill asks still goes to the user. Honor an explicit request for inline execution.
 - **The PR is not a question either.** It always opens, always as a draft, unless Step 8 could not
-  run at all. Step 9 suspends four of `open-pr`'s gates by name and lets its `TODO(user):` lines
-  ship. Every other question `open-pr` asks, including which template to use, still goes to the
-  user.
+  run at all. **"Could not run at all" means Step 8 broke, never `--fast`.** A `--fast` run has no
+  Step 8 by instruction and still opens the draft, so this exception does not reach it. That
+  distinction has to be here rather than only in Step 9, because a short absolute in Constraints is
+  the copy most likely to win a conflict, and a run that read only this bullet would refuse to open
+  the PR the flag requires. Step 9 suspends four of `open-pr`'s gates by name, on every mode, and lets
+  its `TODO(user):` lines ship. Every other question `open-pr` asks, including which template to use,
+  still goes to the user.
 - **`writing-work-docs` writes every human-facing artifact here.** Ticket description, validation
   comment, option (a) comment, commit messages, PR title and body. Its three refusals to publish are
-  overridden for this whole run, and nothing else it says is.
+  overridden for this whole run, and nothing else it says is. **A flag run has two of those five**,
+  the commit messages and the PR title and body, and it routes both through that skill exactly as
+  usual. The other three belong to writes the flag dropped.
 - **One ticket per invocation.** A run that discovers the work spans two tickets stops and says
   so.
 - **Never force-push and never rewrite pushed history.** Step 8 adds commits on top.

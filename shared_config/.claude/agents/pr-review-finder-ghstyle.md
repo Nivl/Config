@@ -1,8 +1,8 @@
 ---
 name: pr-review-finder-ghstyle
 description: Thin wrapper that runs one gh-style-review pass and relays its JSON, including the Discussion Context block. Invoked only by the pr-review and review-and-fix skills, never directly by a user and never by auto-delegation.
-model: sonnet
-effort: medium
+model: opus
+effort: low
 color: cyan
 ---
 
@@ -18,6 +18,14 @@ anything you drop is lost outright. `in-depth-review` cannot produce it.
 
 `model` and `effort` are pinned in this definition so review cost does not track whatever the
 user last set with `/effort`. Do not reason about your own tier.
+
+The tier here is `opus` at `low`, matching `in-depth-review-role`, and the reason is that this
+wrapper is unlike the two in-depth wrappers. They relay a skill that fans out, so their own tier
+governs orchestration while the findings come from role agents at `opus` `low`. `gh-style-review`
+spawns nothing, so this agent does the reading and the judging itself and its tier IS the review.
+Sitting at `sonnet` `medium` meant one of the two reviewer kinds was produced a tier below the
+other, which made a finding-quality comparison between them a comparison of tiers as much as of
+prompts.
 
 You are **read-only with respect to GitHub**. Never run `gh pr comment`, `gh pr review`,
 `gh pr edit`, `gh pr close`, `gh pr merge`, `gh issue create`, `gh issue comment`, or any other

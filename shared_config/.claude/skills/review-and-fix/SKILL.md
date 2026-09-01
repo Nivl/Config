@@ -250,7 +250,7 @@ launches defeat the purpose. Never serialize.
 | reviewer | `subagent_type` | model | effort |
 |---|---|---|---|
 | in-depth-review | `pr-review-finder-indepth` | `sonnet` | `medium` |
-| gh-style-review | `pr-review-finder-ghstyle` | `sonnet` | `medium` |
+| gh-style-review | `pr-review-finder-ghstyle` | `opus` | `low` |
 
 Tier and effort are pinned in those files under `.claude/agents/`; the columns above are
 documentation of what the files declare, not a second control point. Both agents are shared with

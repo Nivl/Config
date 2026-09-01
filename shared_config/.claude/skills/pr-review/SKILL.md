@@ -186,7 +186,7 @@ both. The split is:
 | 1 | `pr-review-finder-indepth` | `in-depth-review` | `sonnet` | `medium` |
 | 2 | `pr-review-finder-indepth` | `in-depth-review` | `sonnet` | `medium` |
 | 3 | `pr-review-finder-indepth-deep` | `in-depth-review` | **`opus`** | `medium` |
-| 4 | `pr-review-finder-ghstyle` | `gh-style-review` | `sonnet` | `medium` |
+| 4 | `pr-review-finder-ghstyle` | `gh-style-review` | `opus` | `low` |
 
 The model and effort columns are **documentation of what those files declare**, not a second
 control point. Change the agent file, not this table.

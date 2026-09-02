@@ -1,9 +1,18 @@
-# Collecting async agent results
+# Collecting scorer results
 
-Shared by Step 1 (collecting reviewer roles) and Step 2.1 (collecting scorers). Wherever this
-file says "agent," substitute the caller's term: a launched reviewer role in Step 1, a launched
-scorer in Step 2.1. Wherever it says "missing bookkeeping," Step 1 records the agent in
-`roles_missing`; Step 2.1 marks the finding `unscored: true` / `confidence: null`.
+Used by Step 2 to collect the batched scoring agents. Wherever this file says "agent," read it as a
+launched scorer. Wherever it says "missing bookkeeping," read it as marking every finding in that
+scorer's batch that came back without a score `unscored: true` with `confidence: null`.
+
+The reviewer roles are not collected this way any more. They run inside the `review-roles`
+workflow, whose `parallel()` is a barrier in code that resolves every role to output or `null`
+before the call returns, and nothing in this file applies to them. Scorers are still Agent-tool
+spawns from this skill's own context, and the protocol below is how their results arrive.
+
+This works for scorers because the skill runs standalone, in the session root, which is where an
+agent's completion notification is delivered. It stopped working for roles the moment the skill was
+nested inside another agent, because the notifications kept going to the root while the skill sat one
+level down waiting for them. That is why the roles moved and the scorers did not.
 
 **An agent's output reaches the parent through the text it returns, and nowhere else.** Every
 agent prompt must instruct it to put its COMPLETE output in its FINAL TEXT OUTPUT.

@@ -39,13 +39,9 @@ fallback `main`).
 
 - `--raw` — skip the internal `< 70` confidence filter. Return ALL scored findings (0–100).
   A caller that wants to apply its own threshold to scores this skill produced passes this flag.
-- `--defer-scoring` — score nothing. Return every finding with `confidence: null` and emit
-  `scoring: { "deferred": true }`. For a caller running several instances, which merges them and
-  then scores each unique finding once. Scoring before that merge scores every duplicate twice,
-  which is what this flag exists to stop. A standalone run must not pass it, because nothing
-  downstream would ever score. Distinct from `--raw`, which still scores and only skips the filter.
-  `pr-review` and `review-and-fix` pass this one, and each applies its own threshold afterwards,
-  60 and 50 respectively.
+  The multi-instance orchestrators no longer invoke this skill at all. They drive the same
+  `review-roles` workflow directly and score after their own merge, so this flag is for a user or
+  a tool that wants this skill's scores without its filter.
 - `--skip-ticket` — disable Reviewer Role #10 (ticket intent compliance). By default that
   role runs: it reads the Jira tickets referenced by the change and checks the code against
   them. Pass this to skip all ticket reading (no `acli` / Datadog calls, no related prompts).
@@ -145,9 +141,6 @@ to the argument.
 1. Parse the argument. First split it on whitespace into tokens; classify each token, then apply mode detection to the lone non-flag token:
    - Matches `^#?[0-9]+$` or a GitHub PR URL -> **PR mode**; `<PR>` = the number.
    - Matches `^--raw$` -> flag (defer until Step 4).
-   - Matches `^--defer-scoring$` -> flag; read in Step 2, which then spawns no scorer. It conflicts
-     with nothing. `--raw` alongside it is redundant rather than an error, since a deferred run has
-     no scores for a filter to skip.
    - Matches `^--skip-ticket$` -> flag; when set, Role #10 is omitted in Step 1.
    - Matches `^--roles$` (followed by its value) or `^--roles=...$` -> flag; parse the
      comma-separated value into `<ROLE_SET>` (role numbers 1..12 and/or category names via
@@ -193,27 +186,60 @@ to the argument.
    - `<FILES_COMMAND>` — `gh pr diff <PR> --name-only` or
      `git --no-pager diff --name-only <BASE>...<HEAD>` (branch)
 
-## Step 1: Launch the specialized reviewers in parallel
+## Step 1: Run the specialized reviewers behind one barrier
 
-Spawn the reviewer sub-agents in a single message (concurrent tool-use blocks). Launch
-exactly the roles in `<ROLE_SET>` (Step 0). Sequential launches defeat the purpose of this
-design. Never serialize.
+The roles run as leaf agents inside the saved `review-roles` workflow, not as Agent-tool spawns from
+here. The reason is a measured routing defect. A nested agent's completion notification is
+delivered to the session root, not to the agent that spawned it, so any orchestrator that is not
+itself the root loses results. In one run two wrapper agents launched 24 roles between them, every
+role finished, and the wrappers received 5 and 7 of their 12 results while one of them ran
+`bash true` 111 times waiting. This skill standalone IS the root, so the old dispatch worked here
+and failed everywhere the skill was nested. One dispatch for every caller is what keeps that from
+recurring, and `parallel()` inside the workflow is a barrier in code that resolves every role to
+output or to `null` before the call returns. Nothing is polled for, and no turn has to be kept alive.
 
-**Record the `agentId` of every role you launch.** That set is what you collect against, and it is
-the accounting baseline for Step 2.0. The launch result does NOT contain a role's findings. Read
-"How a role's findings reach the parent" below before you decide what to do after launching, because the
-obvious next action is the one that loses roles.
+Evaluate the gates below first, so `<ROLE_SET>` is final. Then:
 
-**No fan-out, no review.** Two triggers, and either one aborts the run. Before launching, if the
-`Agent` tool is not among your available tools, abort and do not attempt the launch at all. If you do
-attempt it and every launch call fails because the tool is unavailable, so that zero roles launched,
-abort as well. On either trigger, emit the output below and STOP. Do not continue to Step 2, and do
-not read the diff yourself.
+1. Read `roles/_common-fragment.md` and, for every role in `<ROLE_SET>`, its `roles/NN-<name>.md`
+   per the table below. A workflow script cannot read files, so the prompts travel in `args`.
+2. Invoke the workflow:
+
+   ```
+   Workflow({
+     name: 'review-roles',
+     args: {
+       target: '<PR number or commit range>',
+       mode: '<pr | branch>',
+       instances: 1,
+       active_roles: <ROLE_SET as an array of numbers>,
+       role_prompts: { '1': '<contents of roles/01-agents-md.md>', ... },
+       common_fragment: '<contents of roles/_common-fragment.md>',
+       skip_ticket: <true when --skip-ticket was passed>,
+     },
+   })
+   ```
+
+   Pass no `model` and no `effort`. The `in-depth-review-role` agent file pins `opus` at `low`, and
+   the workflow spawns by that `agentType`.
+3. The call returns `{ results, instances, active_roles }`. Each entry of `results` is
+   `{ instance, role, findings, tickets_examined }`. `findings` is an array when the role ran and
+   `null` when it returned nothing twice. An empty array is a role that ran and found nothing. The
+   two are different and the accounting below reads them differently.
+4. `roles_launched` is `active_roles` from the return. `roles_missing` is every result whose
+   `findings` is `null`, each as `{ role, reason: "returned nothing after one retry" }`.
+   `coverage` is `partial` when `roles_missing` is non-empty and `complete` otherwise.
+5. Pool every non-null `findings` array into one list, each finding tagged with its `role`, and
+   continue to Step 2.
+
+**No fan-out, no review.** If the `Workflow` tool is not among your available tools, you cannot run
+the roles at all. Do not fall back to Agent-tool spawns, because that is the dispatch the measured
+defect lives in. Emit the output below and STOP. Do not continue to Step 2, and do not read the diff
+yourself.
 
 Invoked directly by the user, the entire output is this one line:
 
 ```
-REVIEW_UNAVAILABLE_NO_FANOUT: this skill launches its reviewer roles as sub-agents, and this context has no Agent tool, so no role could run. Re-run it from the main thread. A workflow agent is the usual cause.
+REVIEW_UNAVAILABLE_NO_FANOUT: this skill runs its reviewer roles inside a workflow, and this context has no Workflow tool, so no role could run. Re-run it from the main thread. A sub-agent context is the usual cause.
 ```
 
 Invoked as a sub-agent, return the no-fanout payload in [OUTPUT-JSON.md](OUTPUT-JSON.md), which
@@ -316,11 +342,13 @@ costing anything on the many diffs with no TypeScript in them.
 
 ### How a role's findings reach the parent
 
-Follow the collection protocol in [COLLECTING.md](COLLECTING.md) exactly: here, the "agent" is
-the reviewer role you just launched, and the missing-bookkeeping structure is `roles_missing`
-(Step 2.0).
+As the `review-roles` workflow's return value, and by no other route. There is no collection
+protocol for roles. The barrier resolves every one before the call returns, and a role that
+returned nothing twice arrives as `findings: null` rather than as silence you have to time out on.
+[COLLECTING.md](COLLECTING.md) is for Step 2's scorers, which are still Agent-tool spawns from this
+context, and it no longer describes roles.
 
-When a caller passed `--roles`, launch only that subset (e.g. two sub-agents for `--roles 1,5`).
+When a caller passed `--roles`, `<ROLE_SET>` is that subset (e.g. two roles for `--roles 1,5`).
 **A gate still wins over explicit selection.** `--roles 6` on a diff with no data-layer code skips
 Role #6, and if that empties `<ROLE_SET>` the run aborts per Step 0. Naming a role does not
 override its gate, because a gated-off role has nothing to review.
@@ -344,20 +372,21 @@ column below holds the role's prompt text (the fenced block):
 | 11 | Headline-benefit / motivation | `motivation` | `roles/11-motivation.md` |
 | 12 | TypeScript type safety (conditional) | `types` | `roles/12-types.md` |
 
-**Model and effort: spawn every reviewer by `subagent_type: in-depth-review-role`, and pass no
-`model` override.** That file under `.claude/agents/` pins Opus at effort `low`. Never let a
-reviewer inherit the session model or the session effort.
+**Model and effort: the workflow spawns every role by `agentType: 'in-depth-review-role'`, and this
+skill passes no `model` and no `effort` in `args`.** That file under `.claude/agents/` pins Opus at
+effort `low`. Never let a reviewer inherit the session model or the session effort.
 
-The Agent tool has no `effort` parameter, so an unset effort silently tracks whatever the user
-last set with `/effort`. Pinning the tier in the agent definition is the only way to fix both
-knobs together, which is why the role is addressed by `subagent_type` rather than by a `model`
-argument here.
+The pin lives in the agent file rather than in the workflow script so it has one owner. The script
+could set `model` and `effort` on each `agent()` call, and if `agentType` turns out not to apply
+the agent file's pins that is the fix, made in the script and noted in the agent file. Until that
+is measured, the agent file is the single source of truth and the script names it.
 
-**If `subagent_type: in-depth-review-role` does not resolve** (the agent files have not been
-synced to `~/.claude/agents/` yet, or were renamed), do not abort the run. Fall back to a plain
-Agent call with `model: opus`, and say in the report that effort could not be pinned and therefore
-inherited the session value. An absent `Agent` tool is a different failure. That one aborts under the
-no-fanout rule above rather than falling back.
+**If the `in-depth-review-role` agent type does not resolve** (the agent files have not been
+synced to `~/.claude/agents/` yet, or were renamed), the workflow's `agent()` calls fail and every
+role comes back `null`. That is a run with `roles_missing` equal to `roles_launched` and coverage
+`partial`, and the report has to say the agent type did not resolve rather than that twelve roles
+independently died. An absent `Workflow` tool is a different failure. That one aborts under the
+no-fanout rule above rather than reporting partial coverage.
 
 Why this tier. A replicated A/B measured Opus at `low` against Sonnet at `xhigh` over ten roles
 and three passes per arm, on a diff about Postgres transaction semantics. Opus at `low` found four
@@ -381,19 +410,20 @@ table above) before sending.
 
 ### Step 2.0: Account for every launched role BEFORE pooling anything
 
-Build `roles_launched` = the role numbers you actually spawned in Step 1 (after the gates and any
-`--roles` subset). Then, for each one, classify its response:
+Build `roles_launched` = `active_roles` from the workflow's return (after the gates and any
+`--roles` subset). Then, for each entry of `results`, classify it:
 
-- **Reported** — returned a parseable findings list, `NO_ISSUES_FOUND`, or one of the documented
-  `TICKET_REVIEW_*` sentinels.
-- **Missing** — returned nothing, errored, was skipped by the harness, returned output you
-  cannot parse as any of the above, or never reported before Step 1's give-up bound.
+- **Reported** — `findings` is an array. An empty array is a role that ran and found nothing, and
+  it is reported, not missing.
+- **Missing** — `findings` is `null`. The workflow already retried that role once, so `null` means it
+  returned nothing twice.
 
-Record every missing one in `roles_missing` (role number + why, e.g. `4=empty response`). When a role
-was launched but no `<task-notification>` for it arrived before Step 1's give-up bound, the reason is
-`no notification received`. That is a distinct cause from an empty or unparseable response, because
-the role may still be running. `roles_missing` also holds every role whose launch call failed. Such
-a role never spawned, so it stays out of `roles_launched`, and its reason is `launch failed`.
+Record every missing one in `roles_missing` as `{ role, reason: "returned nothing after one retry" }`.
+There is no "no notification received" cause any more, and no "launch failed" cause either. The
+barrier resolves every role before the call returns, so nothing is still running when you read the
+result, and a role that could not be dispatched at all is the no-fanout abort in Step 1 rather than a
+`roles_missing` entry. If every role is `null` at once, say in the report that the agent type likely
+did not resolve, because twelve independent deaths is not the plausible reading of that pattern.
 
 **NEVER FABRICATE A MISSING ROLE'S OUTPUT.** This is the sharpest rule in this step. When a role
 does not report, the correct output is a hole, explicitly labelled. Do not:
@@ -431,7 +461,7 @@ could not launch in `roles_missing` with the launch failure as its reason, which
 
 ### Step 2.1: Pool and score
 
-Once collection has ended, whether every role reported or the Step 1 give-up bound was reached:
+Once the workflow has returned, with every role classified in Step 2.0:
 
 1. Before pooling, scan every reviewer response: if a response begins with
    `TICKET_REVIEW_UNAVAILABLE:` or `TICKET_REVIEW_SKIPPED:`, set it aside to populate
@@ -447,19 +477,7 @@ Once collection has ended, whether every role reported or the Step 1 give-up bou
    The pessimistic direction is the only safe one here, because callers exclude
    `citation_verified: false` outright and an upward merge would silently smuggle an unverified
    citation past that exclusion.
-3. **When `--defer-scoring` is in effect, skip this whole stage.** Spawn no scorer, leave every
-   finding's `confidence` at `null`, emit `scoring: { "deferred": true }`, and go to Step 3. The
-   caller merges your findings with the other instances' and scores each unique one once.
-
-   **Do not set `unscored` on those findings.** That field means a scorer was owed and did not
-   deliver, and a caller excludes on it before its merge, so setting it here would make the caller
-   discard every finding of a healthy deferred run. That is the entire review. A deferred run is not
-   a degraded run, and the two have to stay distinguishable at the field level rather than by
-   inference.
-
-   Everything below this point in Step 2 is for a run WITHOUT the flag.
-
-4. **Launch the scoring sub-agents in parallel, in BATCHES of about ten findings each**, all in
+3. **Launch the scoring sub-agents in parallel, in BATCHES of about ten findings each**, all in
    a single message. **Spawn each scorer on Haiku** (Agent-tool `model: haiku`). Do not let it
    inherit the session model either.
 
@@ -499,14 +517,9 @@ with `confidence: null` (see below) instead of any `roles_missing`-style list.
    is evidence the scorer erred. Say so in the prompt, and require one score per finding with the
    finding's own identifier beside it rather than a ranked list.
 
-   **Absent `--defer-scoring`, the scoring stage is MANDATORY and is not yours to perform.**
-   Confidence is a second-stage judgment by a different model than the one that proposed the
-   finding. That two-stage split is the whole reason a confidence number means anything here.
-
-   The flag does not weaken that. It moves the second stage to the caller, which merges several
-   instances first and then scores each unique finding once with its own scorer agent. What stays
-   banned in every case is THIS skill assigning a confidence value itself, with or without the flag.
-   Deferring means emitting `null` and letting the caller score. It never means scoring here.
+   **The scoring stage is MANDATORY and is not yours to perform.** Confidence is a second-stage
+   judgment by a different model than the one that proposed the finding. That two-stage split is
+   the whole reason a confidence number means anything here.
 
    - **Never self-assign a confidence value.** If you find yourself writing a score without
      having spawned a scorer for that finding, you have collapsed the two stages into one model

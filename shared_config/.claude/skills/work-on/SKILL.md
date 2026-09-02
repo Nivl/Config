@@ -1,24 +1,19 @@
 ---
 name: work-on
 description: >
-  Takes a Jira ticket key and drives it end to end. Validates the ticket is still real against
-  the code at HEAD, the merged PRs the branch does not contain, the open PRs that overlap, and the
-  related Jira tickets that may already duplicate it or have carved scope out of it.
-  On a bug or a security ticket it also establishes the real impact and the effort to fix, so a
-  fix that is not worth doing gets caught before any code is written.
-  Rewrites the ticket from what it found. Then hands off to brainstorming or
-  systematic-debugging, commits, pushes, runs review-and-fix to completion, and opens a draft PR.
-  Use this skill when the user says "work on WMP-837", "/work-on ABC-123", "pick up this
-  ticket", "start on this ticket", "take this Jira ticket end to end", or hands over a Jira key
-  or Jira URL and expects the whole loop rather than one step of it. Also use it when the user
-  wants a ticket checked for staleness, or for whether it is worth doing, before any code gets
-  written ("is this ticket still valid", "is this bug worth fixing", "how bad is this security
-  issue really", "does this ticket still reproduce"). Do not use it for a ticket the user only
-  wants read or summarized, and do not use it to fix an existing PR (that is fix-pr).
-  Accepts two modifier flags. `--lite` skips the validation phase and `--fast` skips that plus
-  review-and-fix. Every staleness and worth-fixing use above needs the full run, because neither
-  flag validates anything, so route such a request to the unflagged pipeline even when the user
-  asks for speed.
+  Takes a Jira ticket key and drives it end to end. Validates the ticket against the code at HEAD
+  and against merged work, open PRs and related tickets that may have overtaken it, sizes impact
+  and fix on a bug or security ticket, rewrites the ticket from what it found, then builds,
+  commits, reviews and opens a draft PR.
+  Use it when the user says "work on WMP-837", "/work-on ABC-123", "pick up this ticket", "start
+  on this ticket", or hands over a Jira key expecting the whole loop.
+  Use it with `--assess` when they want the ticket judged and nothing built ("is this ticket still
+  valid", "is this bug worth fixing", "how bad is this security issue really", "does this ticket
+  still reproduce"), which validates, reports, comments on the ticket and stops.
+  `--lite` skips validation and `--fast` skips validation and the review, so never answer a
+  staleness or worth-fixing question with either one.
+  Do not use it for a ticket the user only wants read or summarized, and do not use it to fix an
+  existing PR (that is fix-pr).
 ---
 
 # Work On
@@ -44,22 +39,28 @@ validation phase is qualified by it.
 | 2 | Validate. Inline when the surface is small, seven parallel lenses plus the telemetry probes and the triage agents when it is not. | no | `--lite` |
 | 3 | Ask only what investigation could not settle. | no | `--lite` |
 | 4 | Verdict gate. Valid, invalid, superseded, or partial. | only if the user picks option (a) | `--lite` |
-| 5 | Rewrite the ticket. Status to In Progress, description in place, plus a validation comment. | **Jira** | reduced by `--lite` |
-| 6 | Do the work via brainstorming or systematic-debugging. | local files | never |
-| 7 | Commit everything, push. No PR yet. | **remote** | never |
-| 8 | `review-and-fix`, every iteration, no early stop. | local commits | `--fast` |
-| 9 | Push, then `open-pr --draft`. Always a draft, never a question. No PR opens at all when Step 8 could not run, which is a Step 8 that broke and never a Step 8 the user skipped. | **remote** | never |
+| 5 | Rewrite the ticket. Status to In Progress, description in place, plus a validation comment. | **Jira** | reduced, see "Argument" |
+| 6 | Do the work via brainstorming or systematic-debugging. | local files | `--assess` |
+| 7 | Commit everything, push. No PR yet. | **remote** | `--assess` |
+| 8 | `review-and-fix`, every iteration, no early stop. | local commits | `--fast`, `--assess` |
+| 9 | Push, then `open-pr --draft`. Always a draft, never a question. No PR opens at all when Step 8 could not run, which is a Step 8 that broke and never a Step 8 the user skipped. | **remote** | `--assess` |
 | end | "Final report". PR URL, write verification, one line per shipped `TODO(user):`. | no | never |
 
-**`--fast` cuts everything `--lite` cuts, and Step 8 as well.** The column names the narrower flag
-where both apply, so a row reading `--lite` is cut by both. This column is the per-step map, and it
-is what wins if anything else in the file describes a step differently. What each flag means, why,
-and what it costs is "Argument" below.
+**The two flag families cut from opposite ends.** `--lite` and `--fast` remove the front, so the run
+builds on an unchecked ticket. `--assess` removes the back, so the run judges the ticket and stops.
+`--fast` cuts everything `--lite` cuts plus Step 8, and where both apply the column names the
+narrower one, so a row reading `--lite` is cut by both. Step 5 is reduced by every flag and each
+reduction keeps a different write, which is why its cell points at "Argument" instead of naming one.
+
+This column is the per-step map, and it is what wins if anything else in the file describes a step
+differently. What each flag means, why, and what it costs is "Argument" below.
 
 **Nothing writes anything a human reads before Step 5.** No Jira edit, no commit, no push, no PR. That is
 what lets the validation phase be paranoid, and Step 4's option (a) is the single exception, a comment the
-user explicitly asks for after seeing the evidence. On a flag run the property holds trivially, since
-the phase it protects does not run and option (a) can never be offered.
+user explicitly asks for after seeing the evidence. Under `--lite` and `--fast` the property holds
+trivially, since the phase it protects does not run and option (a) can never be offered. Under
+`--assess` it holds the ordinary way, because that mode runs the phase in full and the property is
+what the phase was always protected by.
 
 **From Step 5 on, writes do not stop to ask.** The ticket, the commits, and the PR all go out without a
 preview, because the validation phase in front of them is what earns that. The rule is that this skill
@@ -105,9 +106,24 @@ true is exactly what a stale ticket does.
   `review-and-fix` included, with the two carve-outs named under "What still runs" below.
 - **`--fast` skips everything `--lite` skips, and Step 8 as well.** `review-and-fix` does not run.
   Step 9 still pushes and still opens the draft PR.
+- **`--assess` judges the ticket and builds nothing.** Steps 0 through 4 run in full. Step 5 posts
+  the validation comment and makes no other write. Steps 6 through 9 do not run, so no code is
+  written, nothing is committed or pushed, and no PR opens.
 
 `--fast` implies `--lite`. Passing both is not an error and gets no warning, because `--fast` is a
 superset of it and the wider skip wins.
+
+**"A flag run" in this file means `--lite` or `--fast`.** The phrase was coined for the two flags that
+cut the validation phase and it keeps that meaning everywhere it appears. `--assess` cuts the opposite
+end, so almost nothing true of those two is true of it, and it is always named explicitly rather than
+folded into the general phrase. Read an unqualified "flag run" as excluding `--assess`. Where
+`--assess` needs its own statement it has one at that line.
+
+**`--assess` with `--lite` or `--fast` is an error. Stop and say so.** The combination has no
+coherent reading. `--assess` exists to run the validation phase and report it, and the other two
+exist to delete that phase, so the pair asks for a report on an investigation that was skipped.
+Do not resolve it by picking a winner. A silent resolution of contradictory flags is how a run ends
+up doing something nobody asked for, and here both readings are wrong. Ask which one they meant.
 
 **This section is the single copy of what the flags mean, and the Pipeline table's `Cut by` column is
 the per-step map.** The two bullets above summarize that map in prose, and where the summary and the
@@ -116,11 +132,44 @@ carries a one-line guard pointing back here rather than restating its own skip c
 second copy is what this file says gets half-overridden. The one thing a guard may add is a carve-out
 belonging to that step alone, and there are exactly two, both in "What still runs".
 
+#### Step 5 is the only place this skill writes to Jira on its own initiative, in every mode
+
+Each mode keeps a different subset of Step 5's three writes. No flag moves a write out of this step or
+adds one outside it, which is what keeps "Nothing writes anything a human reads before Step 5" true
+under all three rather than approximately true.
+
+**Two Jira writes do sit earlier, and both predate the flags and need a human answer first.** Step 4's
+option (a) posts a comment, and "Filing the follow-up" creates an issue between Step 4 and Step 5.
+Neither is an exception to the sentence above, because neither happens on this skill's own initiative.
+Both are already listed as the two exceptions in Constraints. What the table below governs is the
+unprompted writes, which are the ones a flag changes.
+
+| mode | status move | description rewrite | validation comment |
+|---|---|---|---|
+| full | yes | yes | yes |
+| `--lite` and `--fast` | yes | no | no |
+| `--assess` | **no** | no | **yes** |
+
+**`--assess` makes no status move**, because Step 5's own condition for that write is that reaching
+the step means work is going to happen, and under `--assess` it is not going to happen. Parking a
+ticket on the active board because somebody asked whether it was still valid is the exact wrong
+answer to that question.
+
+**`--assess` keeps the comment because the comment is the deliverable.** A verdict that lives only in
+one terminal session is a verdict the next person pays for again. The comment is what makes the
+assessment outlive the conversation.
+
+**On a dead ticket this converges with Step 4's option (a), and that is one comment rather than two.**
+Option (a) already is "post the validation trail and stop". Under `--assess` that is what happens on
+every verdict, so when the verdict is dead the two describe the same write. Post it once. Do not offer
+option (a) as a choice on this path, since the choice it offers has already been made by the flag.
+
 **Announce the mode before Step 0 does anything.** Name the flag, the steps it cuts, and the two
 costs under "What the flags cost" below. Keep it short, but do not compress it into one line at the
-expense of the costs, since those are the whole point of announcing. The user is about to watch a run
-that asks nothing and writes to Jira anyway, and this is what tells them that is the flag working
-rather than the validation phase failing silently.
+expense of the costs, since those are the whole point of announcing. On `--lite` and `--fast` the user
+is about to watch a run that asks nothing and writes to Jira anyway, and this is what tells them that
+is the flag working rather than the validation phase failing silently. On `--assess` say that no code
+will be written, so nobody waits for a PR that is never coming.
 
 **The duplicate-link note under "What Step 1 keeps" is a second, later disclosure, not part of this
 one.** Its input does not exist yet here. Step 1 has not read the ticket when the announcement goes
@@ -141,7 +190,13 @@ the one question Step 0 drops. Every check in it still runs.
 
 #### What Step 1 keeps, and why those two
 
-Two things survive, and each has a consumer that still runs.
+**This subsection is about `--lite` and `--fast` only. `--assess` runs Step 1 in full**, because the
+validation phase is what it exists to run and Step 1 is that phase's entire input. The one artifact
+`--assess` gathers and never uses is the raw `adf` rollback save, which exists for a description
+rewrite it does not perform. Leave the read in place rather than carving an exception around it. It
+costs one call, and a Step 1 with no mode-specific branches is worth more than the call.
+
+Two things survive under `--lite`, and each has a consumer that still runs.
 
 - **The markdown ticket read**, description and comments both. It is the specification for Step 6.
   Read the comment thread even here, because a ticket narrowed or abandoned in its comments while the
@@ -179,11 +234,18 @@ become a question, and nothing downstream reads it. It exists because working a 
 already marked a duplicate is the worst thing a `--lite` run can do, and the evidence for it is
 already in hand.
 
-#### What still runs, with two carve-outs
+#### What still runs, with three carve-outs
 
-Steps 6, 7, and 9 run unchanged. Step 8 runs unchanged under `--lite` and not at all under `--fast`.
-Two things that normally happen inside a surviving step do not, and each one is a control that lost
-its producer rather than work the flag meant to skip.
+Under `--lite` and `--fast`, Steps 6, 7, and 9 run unchanged, and Step 8 runs unchanged under `--lite`
+and not at all under `--fast`. Under `--assess` none of those four runs. Three things that normally
+happen inside a surviving step do not, and each is a control that lost its producer rather than work
+a flag meant to skip.
+
+**`--assess` agrees no scope, so it files no follow-up either.** Step 4's "### Filing the follow-up"
+subsection runs on the agreement to a reduced scope, and a reduced scope is an agreement about what
+will get built. Nothing gets built here, so there is nothing to agree and no follow-up to file. A
+`partial` verdict under `--assess` reports which parts are still real and stops there. This is the
+same reasoning that turns Step 8's filing off under `--lite`, arriving from the other direction.
 
 **Step 8 does not file follow-up tickets under `--lite`.** Its "Follow-ups from what review-and-fix
 left" subsection classifies a leftover against the scope agreed at Step 4, and under `--lite` no scope
@@ -211,11 +273,19 @@ Say this in the announcement, and do not soften it later.
   or whether another ticket has carved the scope out from under it. Those are the four ways a ticket
   is dead and a `--lite` run detects none of them. It will work a dead ticket all the way to a PR.
 - **`--fast` also ships code that nothing reviewed.** Not `review-and-fix`, not a human.
+- **`--assess` costs the opposite thing. It answers and leaves the work undone.** The ticket is
+  judged, the comment is posted, and no branch, no commit and no PR exists at the end. Say that in
+  the announcement so nobody waits for a PR. Its other cost is that a `valid` verdict is the most
+  expensive way to learn the ticket was fine, since the full validation phase ran to produce it.
 
-**Never describe a flag run's output as validated.** No verdict was reached, so there is nothing to
-report as `valid`, and `invalid` and `superseded` are equally unavailable. The `Validation` line in
-"Final report" says the phase was skipped and names the flag, which is the only honest value it can
-carry.
+**Never describe a `--lite` or `--fast` run's output as validated.** No verdict was reached, so there
+is nothing to report as `valid`, and `invalid` and `superseded` are equally unavailable. The
+`Validation` line in "Final report" says the phase was skipped and names the flag, which is the only
+honest value it can carry.
+
+**`--assess` is the one flag whose `Validation` line carries a real verdict**, because it is the one
+flag that runs the phase. Report it exactly as an unflagged run would, with the evidence and the
+locators, and with whatever the phase could not establish named as a coverage gap.
 
 #### The flags skip work, never disclosure
 
@@ -225,20 +295,29 @@ Jira ticket and the PR carry no record of which mode wrote them and the conversa
 place that record exists.
 
 **Keep the running `TODO(user):` list from Step 0, in every mode.** Step 5 is where the full run
-establishes it, and a flag run skips the write that paragraph sits in, so start it empty here
-instead. A flag run can still ship such a line from Step 6, from a `--lite` Step 8's leftovers, or
-into the PR body at Step 9, and Step 9 suspends four of `open-pr`'s human gates with this report
-named as the only thing standing in their place. Dropping the list would remove that control while
-leaving the four suspensions in force. That is the second of the two places these flags could make a
-run less safe instead of less thorough, the first being the Jira create named under "What still
-runs" above.
+establishes it, and a flag run skips or reduces the write that paragraph sits in, so start it empty
+here instead. Under `--lite` and `--fast` a line can still ship from Step 6, from a `--lite` Step 8's
+leftovers, or into the PR body at Step 9, and Step 9 suspends four of `open-pr`'s human gates with
+this report named as the only thing standing in their place. Dropping the list would remove that
+control while leaving the four suspensions in force. That is the second of the two places these flags
+could make a run less safe instead of less thorough, the first being the Jira create named under
+"What still runs" above.
+
+**Under `--assess` the list has exactly one landing place, and it is a Jira comment.** Steps 6
+through 9 do not run, so no PR body and no commit can carry a line. The validation comment can, and
+it goes onto a public ticket with no preview in front of it, so the roll-call is the only thing
+disclosing what went out unverified. An `--assess` run with an unresolved SQL handoff is the case to
+watch, since a number nobody ran becomes a `TODO(user):` line in the very comment that is this run's
+whole product.
 
 ```
 /work-on WMP-837                  # full pipeline
 /work-on WMP-837 --lite           # no validation phase, review-and-fix still runs
 /work-on WMP-837 --fast           # no validation phase and no review-and-fix
-/work-on --lite WMP-837           # flags in any position
+/work-on WMP-837 --assess         # validate, report, comment, stop. No code, no PR
+/work-on --assess WMP-837         # flags in any position
 /work-on WMP-837 --lite --fast    # --fast wins, no error
+/work-on WMP-837 --assess --lite  # contradictory, stop and ask which one
 ```
 
 ## Assume nothing
@@ -465,12 +544,19 @@ to stop for any reason, restore it first, or say plainly that it is still stashe
 back. Handing someone a dead-ticket verdict while their own changes sit invisible in the stash stack
 is exactly the failure this paragraph exists to prevent.
 
-**A flag run loses that most common early exit and keeps the rule.** Step 4 does not run, so the
-dead-ticket ending cannot happen, and Step 4's own settlement block is unreachable. The endings that
-remain are a Step 0 abort, a Step 6 that stops or hands back, a `--lite` run whose Step 8 aborts
+**`--lite` and `--fast` lose that most common early exit and keep the rule.** Step 4 does not run, so
+the dead-ticket ending cannot happen, and Step 4's own settlement block is unreachable. The endings
+that remain are a Step 0 abort, a Step 6 that stops or hands back, a `--lite` run whose Step 8 aborts
 twice, and an `open-pr` failure. Every one of them is a turn that ends, so every one of them settles
 the stash and says so. Read "no turn ends with work stashed and unmentioned" as the whole rule and
 the Step 4 sentence above as one example of it.
+
+**`--assess` always ends early, so it always settles the stash.** It stops after Step 5 by design,
+which means Step 7's pop never runs on that path. It still needs the stash, because Step 2's lenses
+are pinned to the tree at HEAD exactly as they are on a full run, so a dirty tree still has to be
+resolved at Step 0. The settlement happens at the `--assess` ending itself, alongside the report.
+This is the one mode where the early exit is the normal outcome rather than a failure, and it is the
+easiest place in the file to leave somebody's work stashed and never mention it.
 
 Step 8 (`review-and-fix`) will ask the same question again if it finds a dirty tree, so resolving it
 now avoids that interruption later. Step 7 commits everything anyway, so by Step 8 the tree is
@@ -508,6 +594,11 @@ already took. State that GitHub is unavailable in one line and carry on. Step 9 
 open the PR, so say that too, since that consequence is real on this path and the validation gap is
 not.
 
+**Under `--assess`, ask it, and weight the answer higher than an unflagged run would.** That mode is
+the one that wants this evidence most. The open PRs and the PR discussion are two of the four ways it
+establishes a ticket is dead, and losing them bounds the verdict it can reach. Step 9 never runs here,
+so the PR consequence named above does not apply and the validation gap is the whole of it.
+
 **7. Warehouse access. Nothing to do here, deliberately.** This skill has no database connection of
 its own. When a warehouse number is actually wanted, Step 3 checks whether a skill that runs SQL is
 installed and falls back to asking the user. That check is deferred rather than done here because most
@@ -528,6 +619,11 @@ conventions. "Argument" has the full list of what is dropped and which step was 
 Read that before reading on, because most of this step is addressed to a Step 2 that will not run,
 including the reason above. The command-shape note at the end of the step is the exception and
 applies to every run.
+
+**`--assess` runs this step in full**, since the validation phase it exists to run takes this step as
+its whole input. Read the whole step on that path, including the reason above. The one artifact it
+gathers and never uses is the raw `adf` rollback save, which belongs to a description rewrite
+`--assess` does not perform.
 
 **The ticket.** Read it twice, in two formats, for two different reasons. **On a flag run read it
 once, in markdown only.** The `adf` half exists solely to make the rollback artifact for a
@@ -822,6 +918,19 @@ four below is available and neither is the a/b/c option list. The run cannot con
 dead, and it cannot conclude the ticket is valid either. It proceeds on the ticket as filed. See
 "Argument".
 
+**`--assess` runs this step in full and then ends the run, on every verdict.** This is the step it
+exists to reach. Two things about it change on that path.
+
+The a/b/c list on a dead ticket collapses to (a). Options (b) and (c) both continue into Step 5 and
+onward to a build, and `--assess` has no build to continue into, so neither is offerable. Do not
+present a choice the flag has already removed. And (a) itself is not a question here either, because
+`--assess` posts the validation comment on every verdict, which is what (a) asks permission to do.
+Post it and say so.
+
+A `valid` verdict ends the run too. That is the whole point of the flag and it is the one ending the
+unflagged pipeline does not have, because "then go to Step 5" below means something different when
+Steps 6 through 9 are not going to run. Report where it reproduces, post the comment, and stop.
+
 **Two things inside this step are needed elsewhere, so find them before skipping it.** The stash
 settlement rule under "Valid" applies to every early exit the run can have, including ones a flag
 run reaches, and it is restated at its own line below. The "### Filing the follow-up" subsection is
@@ -834,7 +943,8 @@ same message, ahead of any option list.
 
 **Valid.** The problem reproduces at HEAD, no merged commit fixed it, no open PR covers it. State
 where it reproduces, present the triage block below alongside that evidence on a bug or security
-ticket, then go to Step 5.
+ticket, then go to Step 5. **Under `--assess`, Step 5 is where the run ends**, so this path posts the
+comment and stops rather than continuing into the work.
 
 **The triage block, on a bug or security ticket.** It rides with the verdict evidence, in the same
 message, whatever the verdict is, and always ahead of the (a)/(b)/(c) list that follows Invalid and
@@ -1038,9 +1148,14 @@ follow-up is an addition to it, not a precondition for it.
 Three writes. The status moves to In Progress, the description gets replaced in place, and a comment
 gets appended. The status move goes first, because it is mechanical and the other two need drafting.
 
-**On a flag run there is one write, the status move.** The description rewrite and the validation
-comment are both dropped, because both exist to record what validation found and nothing found
-anything. There is no "other two" and no "rest of Step 5" on that path. See "Argument".
+**Under `--lite` and `--fast` there is one write, the status move.** The description rewrite and the
+validation comment are both dropped, because both exist to record what validation found and nothing
+found anything. There is no "other two" and no "rest of Step 5" on that path. See "Argument".
+
+**Under `--assess` there is also one write, and it is the other one.** The validation comment gets
+posted and nothing else does. No status move and no description rewrite. The comment is drafted
+exactly as it is on a full run, because the phase that produces its content ran in full. Then the run
+ends here. "Argument" has the per-mode table of which of the three writes each mode keeps.
 
 **Four things in this step are declared for the whole run and are not dropped with those two
 writes.** Read them even on a flag run, because Step 7 and Step 9 both depend on them and neither
@@ -1067,6 +1182,12 @@ only when the user chose Step 4's option (b) to narrow the ticket or option (c) 
 which are the user saying continue in plainer terms than a verdict can. Option (a) stops the run
 before this step, so a ticket this run concluded should be closed never gets parked on the active
 board.
+
+**`--assess` fails that condition, so it makes no status move.** Work is not going to happen. The
+flag is the user asking whether it should, and answering a question is not starting the work. Moving
+the ticket to In Progress here would put a ticket on the active board because somebody asked about
+it, which is the same defect as parking a dead ticket and arrives from a different direction. Skip
+the move, do not report it as a no-op, and say `not moved (--assess)` in the report.
 
 **A flag run reaches this step by a fourth route and the whole condition is the same one.** No
 verdict arrives, because Step 4 did not run, and the sentence above already says no verdict check
@@ -1245,6 +1366,9 @@ description is not.
 
 ## Step 6: Do the work
 
+**Skipped entirely by `--assess`, along with Steps 7, 8, and 9.** The run ended at Step 5 on that
+path. Nothing here runs, no process skill is picked, and no code is written. See "Argument".
+
 Pick one process skill and announce which and why.
 
 **`superpowers:systematic-debugging`** when behavior is already wrong and the cause is not yet
@@ -1308,6 +1432,10 @@ This overrides only the execution-mode question.
 
 ## Step 7: Commit and push
 
+**Skipped entirely by `--assess`.** No work was produced, so there is nothing to commit and nothing
+to push. The stash pop below is the one thing that still has to happen on that path, and it happens
+at the `--assess` ending instead. See "Argument" and Step 0's stash rule.
+
 Commit everything the work produced.
 
 **`writing-work-docs` writes the commit messages too, and it gets handed the repo's convention.** A
@@ -1363,9 +1491,10 @@ them before starting the review loop rather than sweeping their work into a revi
 
 ## Step 8: review-and-fix, all the way
 
-**Skipped entirely by `--fast`. Runs in full under `--lite`, with one carve-out named below.** On
-`--fast` no reviewer runs, `Iterations` reports the flag rather than a count, and Step 9 still opens
-the PR. See "Argument".
+**Skipped entirely by `--fast` and by `--assess`. Runs in full under `--lite`, with one carve-out
+named below.** On `--fast` no reviewer runs, `Iterations` reports the flag rather than a count, and
+Step 9 still opens the PR. On `--assess` there is no diff to review, since Step 6 wrote nothing, and
+Step 9 does not run either. See "Argument".
 
 Invoke `review-and-fix`. Let it run every iteration it wants.
 
@@ -1564,10 +1693,18 @@ never interchangeable. Two zero-pass runs that ended differently must not report
 
 Push the review-and-fix commits. Then invoke `open-pr` with `--draft`.
 
+**Skipped entirely by `--assess`.** No PR opens on that path, because no branch, no commit and no diff
+exists to open one against. The run ended at Step 5. See "Argument".
+
 **The PR is not a question.** It always opens, and it always opens as a draft. Do not ask whether to
 open it, do not ask whether draft is right, and do not offer ready-for-review as an alternative. A
 draft is the correct end state for this pipeline: the work is reviewed by Step 8 and unreviewed by a
 human, which is exactly what draft means.
+
+**"Always opens" means always on a path that reaches this step.** `--assess` never reaches it, so the
+rule is not violated by a run that opens no PR. That is the one reading of this sentence that the
+flags require, and it is different in kind from the Step 8 exception below. The exception below is
+about a run that got here and should not open a PR. `--assess` is about a run that is not here.
 
 **Under `--fast` the draft means less and still opens.** Step 8 did not run, so the sentence above
 does not hold and a draft here means only that no human has reviewed it. That is a weaker claim, not
@@ -1686,31 +1823,38 @@ records that nothing reviewed the code, since the PR body carries no such note. 
 protecting the report from padding rather than as fixing its field list.
 
 ```
-Mode          full | --lite | --fast   (steps cut: <list>)
-PR            <url>  (draft)
+Mode          full | --lite | --fast | --assess   (steps cut: <list>)
+PR            <url>  (draft) | not opened (--assess: nothing was built)
 Ticket        <url>  (description: rewritten | write failed | skipped (<flag>); comment: posted | not posted | skipped (<flag>))
-Status        moved to <name> | already <name> | no matching transition | write failed
+Status        moved to <name> | already <name> | no matching transition | write failed | not moved (--assess)
 Follow-ups (<n>)
   - <key>  filed from the Step 4 scope cut  <one-line summary>
   - <key>  filed from a Step 8 leftover  <one-line summary>
   - could not file  <Step 4 scope cut | Step 8 leftover>  <why>
   - not filed  Step 8 leftover  no Step 4 scope was agreed (--lite)  <one-line summary>
-Branch        <name>
+Branch        <name> | none created (--assess)
 Jira write    verified | could not read it back to verify | failed | nothing to verify (<flag>)
 TODOs (<n>)
   - <artifact> <locator>  <the line's text>  -> <what would resolve it>
-Validation    <one line on what it changed about the ticket> | skipped (<flag>), every claim in the ticket is unverified
-Iterations    <n> review-and-fix passes | 0 | skipped (--fast)
+Validation    <what it changed about the ticket> | <the verdict, on --assess> | skipped (<flag>)
+Iterations    <n> review-and-fix passes | 0 | skipped (--fast) | not reached (--assess)
 Stash         restored | still stashed at <sha> | none
 ```
 
 **`Mode` goes first, because it governs how every line under it reads.** A `Validation` line saying
-`skipped` is a flag working as asked when `Mode` says `--lite`, and a bug when `Mode` says `full`.
-Name the steps cut explicitly rather than leaving the reader to look up what the flag does: `2, 3, 4`
-for `--lite` and `2, 3, 4, 8` for `--fast`. Write `Mode full` on an unflagged run rather than omitting
-the line, for the same reason zero TODOs is stated below. A missing `Mode` line and a `full` one are
-not distinguishable to a reader, and the whole point of the field is that a reduced run looks
-different from a complete one.
+`skipped` is a flag working as asked when `Mode` says `--lite`, and a bug when `Mode` says `full`. A
+`PR not opened` line is correct under `--assess` and a failure under every other mode. Name the steps
+cut explicitly rather than leaving the reader to look up what the flag does: `2, 3, 4` for `--lite`,
+`2, 3, 4, 8` for `--fast`, and `6, 7, 8, 9` for `--assess`. Write `Mode full` on an unflagged run
+rather than omitting the line, for the same reason zero TODOs is stated below. A missing `Mode` line
+and a `full` one are not distinguishable to a reader, and the whole point of the field is that a
+reduced run looks different from a complete one.
+
+**An `--assess` report is the run's entire product, so it carries the verdict rather than pointing at
+it.** Every other mode reports on writes and hands the reader a PR to go read. This one has no PR and
+no branch, so the `Validation` line is the deliverable and gets the verdict, the evidence with its
+locators, the triage block on a bug or security ticket, and whatever the phase could not establish.
+One line is the skeleton's shape and not a length limit here.
 
 **`Iterations` distinguishes three states and never conflates them.** A count is a review that ran.
 `0` is the `REVIEW_UNAVAILABLE_NO_FANOUT` abort, where the review was supposed to run and could not,
@@ -1783,6 +1927,12 @@ and nothing was attempted. Print `skipped (<flag>)` on both halves and add no ha
 `not posted` there would send the user looking in the conversation for a comment that was never
 written.
 
+**`--assess` splits the two halves.** Its description half is `skipped (--assess)`, since no rewrite
+was drafted. Its comment half takes the ordinary values, `posted` or `not posted`, because the comment
+really was drafted and really was attempted. A `not posted` there carries the full handover duty and
+matters more than usual, since that comment is the whole product of the run and the conversation is
+then the only place it exists.
+
 **No run ends with a published `TODO(user):` line unmentioned.** This holds on every ending, not just
 the one that reaches this step. The Step 4 option (a) exit, the Step 8 no-fanout abort, and the
 `open-pr` failure path all emit the roll-call too. Same rule as the stash disclosure, for the same
@@ -1807,12 +1957,17 @@ undetectable rather than merely undocumented.
 
 ## Constraints
 
-- **The two flags cut work and never cut disclosure.** What each one cuts is "Argument" and the
+- **The three flags cut work and never cut disclosure.** What each one cuts is "Argument" and the
   Pipeline table's `Cut by` column, and this bullet deliberately does not restate it. What belongs
-  here is the reading rule: every bullet below that names a validation product is qualified by those
-  two, and where a bullet justifies itself by pointing at the validation phase, a flag run keeps the
-  rule and loses the justification. The invocation is what authorizes the write instead. No flag adds
-  a gate back and none removes one beyond what "Argument" names.
+  here is the reading rule. `--lite` and `--fast` cut the front, so every bullet below that names a
+  validation product is qualified by them, and where a bullet justifies itself by pointing at the
+  validation phase, such a run keeps the rule and loses the justification. `--assess` cuts the back,
+  so every bullet naming a commit, a branch, a review or a PR is qualified by it instead, and every
+  bullet about validation applies to it in full. No flag adds a gate back and none removes one beyond
+  what "Argument" names.
+- **`--assess` and the two skip flags are mutually exclusive.** One runs the validation phase and the
+  others delete it. Passing `--assess` with either stops the run and asks which was meant. Never
+  resolve it by picking a winner.
 - **No run ends with its mode unmentioned.** On every ending, including the ones that never reach
   "Final report" in full. The skip leaves no trace on the ticket, the board, or the PR, so the report
   is the only place it is visible at all.
@@ -1833,13 +1988,18 @@ undetectable rather than merely undocumented.
   one thing the wording rule must never be read to allow. **On a flag run all four named decisions
   are gone**, the first three with the steps that hold them and the fourth by rule, so a `--lite` run
   asks the user nothing from Step 0 to Step 6. That does not promote wording to askable. It means the
-  run makes no decisions, which is what the flag traded for.
+  run makes no decisions, which is what the flag traded for. **`--assess` keeps the first two and
+  drops the last two.** Step 3's questions and Step 4's pick both run, since the phase they belong to
+  runs. The two follow-up decisions are gone because nothing gets built and so no scope is agreed.
 - **Every write is verified after the fact, since none is approved before it.** Read the Jira ticket
   back, fetch the PR body back. Report the Jira read-back's outcome in "Final report" using its three
   exact words. Verification replaces the preview, so skipping it leaves a write with no control on it
   at all. **A flag run has no authored Jira content to read back**, since the status move is its only
   Jira write and the transition list already confirmed it, so `Jira write` takes its fourth value and
-  the PR body fetch still happens.
+  the PR body fetch still happens. **`--assess` is the opposite case and gets the full read-back.**
+  Its comment is authored prose going onto a public ticket with no preview, and it is the run's only
+  artifact, so the read-back is the only control on the only thing the run produced. Report one of the
+  three exact words. Never `nothing to verify` there.
 - **Nothing that shipped unverified stays unmentioned.** Every `TODO(user):` line that reached Jira or
   a PR body gets its own line in "Final report", on every ending the run can have. These artifacts
   outlive the conversation and the user did not read them before they went out, so the report is their
@@ -1847,11 +2007,13 @@ undetectable rather than merely undocumented.
 - **An invalid or superseded ticket stops the run.** Step 4 writes nothing on its own initiative. It
   never closes the ticket, and it does not comment or start a branch until the user picks one of
   Step 4's three options. Executing option (a) afterwards is the user's decision being carried out,
-  not this rule being broken. **A flag run cannot reach this rule and does not get to claim its
-  protection.** Nothing produced a verdict, so no ticket is found invalid or superseded and none
-  stops the run. This is the flags' central cost rather than a gap to patch: a `--lite` run works a
-  dead ticket through to a PR and never notices. Say so in the announcement, and never report a flag
-  run's ticket as valid on the grounds that nothing stopped it.
+  not this rule being broken. **A `--lite` or `--fast` run cannot reach this rule and does not get to
+  claim its protection.** Nothing produced a verdict, so no ticket is found invalid or superseded and
+  none stops the run. This is those two flags' central cost rather than a gap to patch. A `--lite` run
+  works a dead ticket through to a PR and never notices. Say so in the announcement, and never report
+  such a run's ticket as valid on the grounds that nothing stopped it. **Under `--assess` every
+  verdict stops the run, `valid` included**, so this bullet names the rule too narrowly there. What
+  stops an `--assess` run is the flag and not the verdict.
 - **Every claim carries a locator.** `file:line`, a commit sha, a PR number, a Jira key, or a Datadog
   or Amplitude query with its result. A claim without one is reported as unverified.
 - **A related ticket found by text search is not a duplicate until somebody reads it.** A Jira link
@@ -1878,11 +2040,17 @@ undetectable rather than merely undocumented.
   runs once either way, never in a loop, and it is for Step 2's validation lenses only, never for
   Step 8's reviewers. **A flag run takes neither path.** "Optional" here is a choice between two ways
   of validating, and a flag run does not validate, so it is not the inline path with the ceremony
-  removed. The inline path is a real pass over the code that reports what it found.
+  removed. The inline path is a real pass over the code that reports what it found. **`--assess` takes
+  one of the two paths normally**, chosen by surface size exactly as an unflagged run chooses.
 - **Never invent** a ticket key, a PR number, a dashboard link, a date, a metric, or a test
   result. Unknown becomes a `TODO(user):` line, and every one of those reaches "Final report".
 - **A triage recommendation never gets published.** The facts go into the Jira comment with their
-  locators. The recommendation stays in the conversation at Step 4. Step 5 explains why.
+  locators. The recommendation stays in the conversation at Step 4. Step 5 explains why. **This bites
+  hardest under `--assess`**, because "is this bug worth fixing" is the question that flag exists to
+  answer and the recommendation is the answer. It still does not go in the comment. The comment
+  carries the impact, the reachability and the fix cost with their locators, and the recommendation
+  goes to the user in the report. A recommendation on a public ticket reads as a decision somebody
+  made, and under `--assess` nobody has made one yet.
 - **`worth_fixing: 'no'` requires evidence that reaches.** A query with a result, a flag state at a
   `file:line`, or a precondition chain read out of the code. An unmeasured impact is `unclear`, never
   `no`. "No telemetry covers this path" and "nobody is affected" are opposite conclusions and only one
@@ -1890,25 +2058,31 @@ undetectable rather than merely undocumented.
 - **A flag run produces no triage at all, so the two bullets above have no subject.** No `kind` was
   recorded, no triage agent ran, and no `worth_fixing` value exists in any state, including `unclear`.
   A flag run therefore never reports whether the work was worth doing, in the conversation or on the
-  ticket. It is not that the impact came back unmeasured. Nobody asked.
+  ticket. It is not that the impact came back unmeasured. Nobody asked. **`--assess` produces the
+  triage in full and both bullets above bind it**, which matters more there than anywhere else, since
+  "is this bug worth fixing" is a request that routes straight to that flag.
 - **Verify the Jira formatting by reading it back.** Do not trust that the markdown converted. A
   flag run writes no markdown to Jira, so there is nothing to convert and nothing to distrust.
 - **Execution mode is not a question.** When `writing-plans` offers its Execution Handoff choice,
   take Subagent-Driven (`superpowers:subagent-driven-development`) and say so in one line. Every other
   question that skill asks still goes to the user. Honor an explicit request for inline execution.
-- **The PR is not a question either.** It always opens, always as a draft, unless Step 8 could not
-  run at all. **"Could not run at all" means Step 8 broke, never `--fast`.** A `--fast` run has no
-  Step 8 by instruction and still opens the draft, so this exception does not reach it. That
-  distinction has to be here rather than only in Step 9, because a short absolute in Constraints is
-  the copy most likely to win a conflict, and a run that read only this bullet would refuse to open
-  the PR the flag requires. Step 9 suspends four of `open-pr`'s gates by name, on every mode, and lets
+- **The PR is not a question either.** On any run that reaches Step 9 it always opens, always as a
+  draft, unless Step 8 could not run at all. **`--assess` never reaches Step 9 and opens no PR**, and
+  that is the rule working rather than an exception to it. **"Could not run at all" means Step 8
+  broke, never `--fast`.** A `--fast` run has no Step 8 by instruction and still opens the draft, so
+  that exception does not reach it. Both distinctions have to be here rather than only in Step 9,
+  because a short absolute in Constraints is the copy most likely to win a conflict, and a run that
+  read only this bullet would either refuse the PR `--fast` requires or invent one `--assess` has
+  nothing to build from. Step 9 suspends four of `open-pr`'s gates by name, on every mode, and lets
   its `TODO(user):` lines ship. Every other question `open-pr` asks, including which template to use,
   still goes to the user.
 - **`writing-work-docs` writes every human-facing artifact here.** Ticket description, validation
   comment, option (a) comment, commit messages, PR title and body. Its three refusals to publish are
-  overridden for this whole run, and nothing else it says is. **A flag run has two of those five**,
-  the commit messages and the PR title and body, and it routes both through that skill exactly as
-  usual. The other three belong to writes the flag dropped.
+  overridden for this whole run, and nothing else it says is. **A `--lite` or `--fast` run has two of
+  those five**, the commit messages and the PR title and body, and routes both through that skill
+  exactly as usual. The other three belong to writes those flags dropped. **An `--assess` run has
+  exactly one**, the validation comment, and it is the whole product of the run, so it is the one
+  artifact in this skill where that routing carries the most weight.
 - **One ticket per invocation.** A run that discovers the work spans two tickets stops and says
   so.
 - **Never force-push and never rewrite pushed history.** Step 8 adds commits on top.

@@ -1,28 +1,34 @@
 # Aggregating reviewer results
 
 ## Contents
-- Collecting sub-agent results (the async protocol, and reviewer-kind bookkeeping)
+- Collecting the reviewer results (the workflow return for in-depth, the async protocol for gh-style)
 - A missing reviewer is not a clean reviewer (retry / unavailable rules)
-- Excluding unscored and unverified findings
+- Excluding unverified and unscored findings
 - Pooling, deduplication, and merge (the `>=50` filter)
 - The attribution ledger, and why `unique_actionable` is the counterfactual
 - Aggregating `tickets_examined`
 
-## Collecting sub-agent results
+## Collecting the reviewer results
 
-**First, account for every sub-agent this iteration launched.** Classify each as *reported* or
-*missing* (nothing returned, errored, unparseable output that is not the no-fanout sentinel, or
-never notified before the give-up bound). Then roll the per-instance verdict up
-to the reviewer kind, since that is what the bookkeeping below is keyed on. Record every kind that
-fell short in `reviewers_missing`, keep the per-instance detail for the per-iteration summary, and
-union the `roles_missing` arrays the in-depth-review instances report. Never reason that running several
-in-depth instances means every lens ran at least once. Measured: in one run two roles were silent in BOTH
-instances, so the union of what the instances DID return covered neither. A lens that no instance reported on
-is a hole, not a covered lens, and the union of findings can never be used to claim `complete`.
-Results arrive in each sub-agent's own final text, on a later turn than the launch, never in the
-Agent tool's launch result. Record every sub-agent's `agentId` at launch, then take turns and
-harvest each `<task-notification>`, matching its `<task-id>` to a recorded `agentId`. Keep taking
-turns until every sub-agent this iteration launched is accounted for, OR until THREE CONSECUTIVE
+**The in-depth roles arrive as the `review-roles` workflow's return value and need no collecting.**
+`roles_missing` for instance N is `results.filter(r => r.instance === N && r.findings === null)`,
+computed from that return rather than inferred from which notifications happened to arrive. Union
+the two instances' `roles_missing` for the coverage rule below. Never reason that running two
+instances means every lens ran at least once. A role that came back `null` in BOTH instances is a
+hole, and the union of what the instances DID return covered neither. Measured before the workflow
+existed: two roles were silent in both instances of one run. The barrier makes that visible as two
+nulls rather than as silence, and the rule is the same.
+
+**The gh-style instance is the one Agent-tool sub-agent left, and it is what the async protocol
+below is for.** Classify it as *reported* or *missing* (nothing returned, errored, unparseable output
+that is not the no-fanout sentinel, or never notified before the give-up bound), and record a miss
+in `reviewers_missing` under the gh-style kind. The in-depth kind never appears in
+`reviewers_missing`, because the barrier cannot fail to return. It reports its holes per role instead.
+
+The gh-style result arrives in the sub-agent's own final text, on a later turn than the launch,
+never in the Agent tool's launch result. Record its `agentId` at launch, then take turns and harvest
+each `<task-notification>`, matching its `<task-id>` to that `agentId`. Keep taking turns until it
+is accounted for, OR until THREE CONSECUTIVE
 COLLECTING TURNS have brought zero new arrivals. A collecting turn is ONE substantive tool call
 naming the sub-agent it checked on, so re-read the diff for a sub-agent you are still waiting on.
 Three repeats of the same no-op are not three turns.
@@ -45,24 +51,25 @@ write what a missing reviewer would have found, do not run its lens in the paren
 and do not reuse a previous iteration's output for it. This skill commits code, so an invented
 finding becomes an invented commit.
 
-**Unavailability is keyed by reviewer KIND, not by instance.** Two kinds exist, the
-`in-depth-review` unit and the `gh-style-review` unit. A kind **fell short** in an iteration when
-fewer of its instances reported than were launched. A shortfall is retried by relaunching the kind
-at FULL multiplicity, once per run. On a second shortfall the kind is marked `unavailable` for the
-rest of the run. `unavailable` affects only future launches. It never discards a report already
-received. `reviewers_missing`, `reviewer_unavailable`, and `reviewer_retries` are all keyed by kind.
+**Unavailability is keyed by reviewer KIND, and only the gh-style kind can become unavailable.**
+Two kinds exist, the in-depth unit and the `gh-style-review` unit. The gh-style kind **fell short**
+in an iteration when its instance did not report. A shortfall is retried by relaunching it once per
+run. On a second shortfall the kind is marked `unavailable` for the rest of the run. `unavailable`
+affects only future launches. It never discards a report already received. `reviewers_missing`,
+`reviewer_unavailable`, and `reviewer_retries` are keyed by kind, and in practice hold only gh-style.
 
-**Why kind and not instance.** A deterministic `skipped_reason` about the invocation is derived
-from the invocation arguments, and both in-depth instances receive identical arguments, so both
-refuse identically. The no-fanout `skipped_reason` is about the context instead, and it aborts
-rather than marking anything `unavailable`. Deterministic unavailability is inherently per-kind.
-The 2x in-depth multiplicity exists for
-triangulation, not to supply two different lenses, so a shortfall is a coverage question about the
-kind rather than the loss of a distinct lens. Keying by kind also keeps `<ACTIVE_ROLES>` plus
-`<ACTIVE_GH_STYLE>` sufficient to express every launch decision. Keying by instance would need a
-new launch variable and an exception to the multiplicity rule in the Constraints. The cost is that
-one flaky instance triggers a full 2x relaunch of its kind. That is mildly wasteful and it is the
-accepted tradeoff, and the path is rare. Do not add reduced-multiplicity support.
+**The in-depth kind has no retry here, because it cannot fall short as a kind any more.** The
+`review-roles` workflow returns for every role, with `null` where a role returned nothing after its
+own one retry inside the barrier. A null role is a missing ROLE, recorded in that instance's
+`roles_missing`, and it is not a kind that failed to report. Relaunching the whole workflow for one
+null role would rerun 23 roles that already answered, and the barrier already spent the retry that
+was worth spending. The old kind-level retry existed because a wrapper sub-agent could go silent as
+a unit, and the roles inside it went with it. There is no wrapper now.
+
+The 2x in-depth multiplicity is still triangulation, not two different lenses, and `<ACTIVE_ROLES>`
+plus `<ACTIVE_GH_STYLE>` still express every launch decision. Do not add reduced-multiplicity
+support. The two instances are two runs of each role inside one workflow call, and the call takes
+`instances: 2` or it takes nothing.
 
 ## A missing reviewer is not a clean reviewer
 
@@ -114,49 +121,52 @@ just posting them:
   unreviewed. A run that fixed everything the reviewers that *did* report found is not a run that
   fixed everything.
 
-## Excluding unscored and unverified findings
+## Excluding unverified and unscored findings
 
-**Check `scoring.complete` on every in-depth-review result.** An instance reporting `false` did not
-run its two-stage confidence filter, so its numbers are self-assessments by the same model that
-proposed the findings, not scores.
+**In-depth findings arrive unscored by design, and that is not an exclusion.** The `review-roles`
+workflow returns raw per-role findings with `confidence: null` and no `scoring` block, because this
+orchestrator scores the merged set itself in the step below. There is no `scoring.complete` to check
+on an in-depth result and no `unscored` flag on its findings. A null confidence from the workflow
+means "not yet scored", never "a scorer was owed and did not deliver".
 
-- **Do not run them through the >=50 filter, and do not fix on them.** Report them in the
-  per-iteration summary as unfiltered leads, name the instance, and leave them unfixed.
-- **An instance reporting `deferred: true` is a THIRD case and nothing in this section excludes
-  it.** This skill passes `--defer-scoring`, so a healthy instance returns every finding with
-  `confidence: null` and no scores at all. That is the flag working, not an instance failing.
-  Treating it as the `unscored` case below would discard every finding of every instance, which is
-  the entire review, and it would do so silently because the pool would simply come out empty.
-  Carry a deferred instance's findings into the pool unchanged and let the scoring step below give
-  them numbers. `citation_verified: false` still excludes on a deferred instance exactly as on any
-  other, because verification happens at role emit time and has nothing to do with scoring.
-- Findings carrying `unscored: true`, and any finding with `citation_verified: false`, are treated
-  the same way. **This applies to any such finding from any instance**, not only to instances whose
-  `scoring.complete` came back `false`. Exclude them per instance, BEFORE the cross-instance pool
-  and merge below. Excluding first is what keeps this skill's merge safe without needing a
+- **`citation_verified: false` excludes, per finding, BEFORE the pool.** Verification happens at
+  role emit time and has nothing to do with scoring, so this applies to every in-depth finding
+  exactly as it did before. Excluding first is what keeps this skill's merge safe without needing a
   downward-merge rule for the field. `pr-review` merges first and so needs one.
-- The `unscored: true` exclusion is for an instance that was owed scores and came up short. It never
-  fires on a deferred instance, which does not set the field, per in-depth-review's output contract
-  in its own `OUTPUT-JSON.md`. Those two states look alike from a `confidence: null` alone, which is
-  why the field rather than the null is what this reads.
+- **The gh-style instance still scores its own findings**, so its result carries the old shape.
+  Check `scoring.complete` on it. A `false` means its numbers are self-assessments by the model that
+  proposed them, so report its findings as unfiltered leads in the per-iteration summary, name the
+  instance, and leave them unfixed. Any gh-style finding carrying `unscored: true` is treated the
+  same way.
 - **Fixing on an unscored finding is how a fabricated finding becomes a commit.** This skill edits
   and commits code, so the cost of acting on a self-graded finding is a commit that encodes an
-  invented problem. When in doubt, leave it and report it.
+  invented problem. When in doubt, leave it and report it. The in-depth findings avoid this by
+  construction, because the only scores they ever carry come from the `review-scorer` step below.
 
 ## Pooling, deduplication, and merge
 
 Once collection has ended, whether every active sub-agent reported or the give-up bound above was
 reached (up to 3 active; fewer when the iteration is pruned):
 
-1. **Pool every finding** from the active result sets into one flat pool. Each finding carries
-   its raw `confidence` (0–100), `file`, `line_range`, `category`, originating `sub_agent`,
-   and `source` (`"in-depth-review"` or `"gh-style-review"`). Don't pre-segregate
-   by source. Cross-prompt triangulation is the point.
+1. **Pool every finding** from every non-null `results[*].findings` array and from the gh-style
+   result into one flat pool. Each in-depth finding carries the `instance` and `role` of the result
+   it came from, plus `file`, `line_range`, `category`, and `confidence: null`. Each gh-style
+   finding carries `source: "gh-style-review"`, its own scored `confidence`, and no instance. Don't
+   pre-segregate by source. Cross-prompt triangulation is the point.
 
-2. **Cross-instance dedup.** Two findings are duplicates if they refer to the **same file**
-   and have **overlapping line ranges** AND describe substantially the same problem
-   (paraphrases count). Cross-source duplicates (one from in-depth, one from gh-style)
-   count as duplicates, so merge them.
+2. **One dedup pass, across roles and instances together.** Two findings are duplicates if they
+   refer to the **same file**, have **overlapping line ranges**, AND describe substantially the same
+   problem (paraphrases count). Cross-source duplicates (one from in-depth, one from gh-style) count
+   as duplicates, so merge them.
+
+   This used to be two layers. Each in-depth instance deduped across its own roles before returning,
+   and this step deduped across instances. The workflow returns raw per-role findings, so the layers
+   collapse into this one pass, and both agreement counts fall out of the tags rather than being
+   carried in from an upstream merge:
+   - `role_agreement`: the number of distinct `role` values among the group's members from any one
+     instance, taking the larger instance's count when they differ.
+   - `raised_by`: the SET of distinct `instance` values among the group's members.
+   - `cross_instance_agreement`: the size of `raised_by`.
 
 3. **For each duplicate group, produce one merged finding:**
    - `confidence`: not set here. It stays `null` until the scoring step below, which assigns one
@@ -166,14 +176,13 @@ reached (up to 3 active; fewer when the iteration is pruned):
      Corroboration then counted twice, once through that max and once deliberately through
      `cross_instance_agreement` below, and only the second was anybody's intent. There is no group
      of scores left to reduce.
-   - `raised_by`: the SET of distinct active instances that raised this finding, by their
-     `sub_agent` numbers. Keep the set, not just its size. A one-member set is a finding only
-     that instance found, and per-instance marginal value cannot be computed from a count.
-   - `cross_instance_agreement`: the SIZE of `raised_by`. Derived rather than counted separately,
-     so the two cannot disagree.
-   - `roles`: union of the in-depth roles that produced the group's members, kept per contributing
-     instance so a one-member `raised_by` can still say which role found it. gh-style has no
-     roles, so its contribution is recorded as `gh-style` rather than a number.
+   - `raised_by`, `cross_instance_agreement`, `role_agreement`: as computed in step 2 from the
+     `instance` and `role` tags. Keep `raised_by` as the set, not just its size. A one-member set is
+     a finding only that instance found, and per-instance marginal value cannot be computed from a
+     count. `cross_instance_agreement` is derived from the set so the two cannot disagree.
+   - `roles`: the set of `role` values among the group's members, kept per contributing instance so
+     a one-member `raised_by` can still say which role found it. gh-style has no roles, so its
+     contribution is recorded as `gh-style` rather than a number.
    - `sources`: set of distinct source skills (one of `{in-depth-review}`, `{gh-style-review}`,
      or both). Used as a tiebreaker. A both-source finding is stronger signal.
    - `title`, `description`, `suggested_fix`: pick the clearest from the group; if suggested
@@ -182,8 +191,8 @@ reached (up to 3 active; fewer when the iteration is pruned):
    - `ticket_id`: preserved from `ticket`-category findings (the Jira ID the gap traces to);
      `null` for all other findings. Never merge two findings with different `ticket_id`s.
 
-4. **Score the merged set, once.** Every finding in the pool carries `confidence: null` at this
-   point, because the instances were run with `--defer-scoring`. This is the step that was worth
+4. **Score the merged set, once.** Every in-depth finding in the pool carries `confidence: null` at
+   this point, because the `review-roles` workflow returns them unscored. This is the step that was worth
    moving here. Scoring inside each instance meant a finding two instances found was scored twice
    by two different agents and one number was discarded. Measured on iteration 3 of
    `20260829-004744-api-ml-stripe-webhooks-GRO-18050`, the instances returned 38 and 42 findings, so

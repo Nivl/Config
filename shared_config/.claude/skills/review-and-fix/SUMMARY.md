@@ -93,9 +93,10 @@ Cover these in this order, one line each, and drop any line that has nothing to 
   test was possible, or moot because an earlier commit this iteration already fixed it.
   Committed findings are the table below instead.
 - Unfiltered leads, naming the instance and which rule excluded them (`scoring.complete` false,
-  `unscored`, or `citation_verified` false). An instance reporting `deferred: true` is never an
-  unfiltered lead. It was asked not to score and the orchestrator scored its findings after the
-  merge, so it belongs in the line below rather than here.
+  `unscored`, or `citation_verified` false). Only the gh-style instance can produce these, because
+  it is the one reviewer that still scores its own findings. The in-depth roles come back from the
+  workflow unscored by design and are scored after the merge, so they belong in the line below
+  rather than here.
 - Scoring provenance for the iteration, as the `scored_by` spread across `scorer`, `scorer-retry`
   and `inline-fallback`, plus `inline_fallback_count`. One line. A nonzero `inline-fallback` means
   the scorer failed and its relaunch failed too, so this orchestrator scored the remainder itself.

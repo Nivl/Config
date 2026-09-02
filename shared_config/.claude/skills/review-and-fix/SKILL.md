@@ -142,16 +142,22 @@ Iteration N:
    When the repo under review IS `~/.melvin/config`, its `.gitignore` entry for `logs/` is what
    keeps a log out of a fix commit, so do not write the log anywhere else in that repo.
 
-## Step 1: Review, with the active parallel sub-agents (up to 2 in-depth-review + 1 gh-style-review)
+## Step 1: Review, with the in-depth roles behind a barrier and gh-style as a sub-agent
 
 Launch the iteration's **active** reviewers only:
-- If `<ACTIVE_ROLES>` is non-empty, launch **2 in-depth-review** instances, each passed
-  `--roles <ACTIVE_ROLES>` (comma-separated role numbers). When `<ACTIVE_ROLES>` is the full
-  default set, you may omit the flag (identical result). Passing it is fine either way.
-- If `<ACTIVE_GH_STYLE>` is true, launch **1 gh-style-review** instance.
-- Keep the 2x multiplicity for in-depth-review whenever it is active (triangulation on the
-  active set). gh-style-review is **1x by design**, per the asymmetry note directly below. The
-  count of live sub-agents is `2 x (in-depth active?) + 1 x (gh-style active?)`.
+- If `<ACTIVE_ROLES>` is non-empty, invoke the `review-roles` workflow with `instances: 2` and
+  `active_roles: <ACTIVE_ROLES>`. The two instances are the triangulation on the active set. They
+  are two runs of each role inside one barrier, not two sub-agents.
+- If `<ACTIVE_GH_STYLE>` is true, launch **1 gh-style-review** instance as an Agent-tool sub-agent.
+- gh-style-review is **1x by design**, per the asymmetry note directly below.
+
+**Why the two kinds are dispatched differently.** Nesting the in-depth roles inside a wrapper
+sub-agent lost their results. A nested agent's completion notification is delivered to the session
+root, not to the wrapper that spawned it. Measured on one run: two wrappers launched 24 roles between
+them, every role finished, and the wrappers received 5 and 7 of their 12 results while one ran
+`bash true` 111 times waiting. The workflow's `parallel()` is a barrier in code and has no
+notification to route. gh-style spawns nothing, so it never had the problem, and this thread is the
+session root, so its one notification arrives here.
 - **Branch mode is not a reason to drop gh-style from a full set.** It still contributes findings
   with empty Discussion Context arrays. This does not override `<ACTIVE_GH_STYLE>`: a pruned
   iteration that computed false still launches nothing.
@@ -184,37 +190,56 @@ Two numbers, same line. Commits measure how deep the run went and files measure 
 reviewers had to read, which is what tells you whether a rerun was expensive because the diff grew
 or because it spread.
 
-Spawn the active sub-agents **in a single message** (concurrent tool-use blocks). Sequential
-launches defeat the purpose. Never serialize.
+Issue the workflow call and the gh-style launch **in a single message** (concurrent tool-use
+blocks). Sequential launches defeat the purpose. Never serialize.
 
-**Spawn each one by `subagent_type`. Pass no `model`, and pass no effort.**
+### The in-depth roles
 
-| reviewer | `subagent_type` | model | effort |
-|---|---|---|---|
-| in-depth-review | `pr-review-finder-indepth` | `sonnet` | `medium` |
-| gh-style-review | `pr-review-finder-ghstyle` | `opus` | `low` |
+Invoked only when `<ACTIVE_ROLES>` is non-empty. Read `in-depth-review/roles/_common-fragment.md`
+and every `in-depth-review/roles/NN-<name>.md` in `<ACTIVE_ROLES>`, then:
 
-Tier and effort are pinned in those files under `.claude/agents/`, and the columns above document
-what the files declare rather than being a second control point. Both agents are shared with the
-`pr-review` skill. The Agent tool has no `effort` parameter, so unset effort inherits the session
-effort and nothing caps this loop. The study behind `medium`:
-`~/.melvin/config/docs/research/pr-review-cost-efficiency/EFFORT.md`.
+```
+Workflow({
+  name: 'review-roles',
+  args: {
+    target: '<TARGET_ARG>',
+    mode: '<pr | branch>',
+    instances: 2,
+    active_roles: <ACTIVE_ROLES>,
+    role_prompts: { '<n>': '<contents of that role file>', ... },
+    common_fragment: '<contents of _common-fragment.md>',
+    skip_ticket: <SKIP_TICKET>,
+  },
+})
+```
 
-**If a `subagent_type` above does not resolve** (the agent files have not been synced to
-`~/.claude/agents/` yet, or were renamed), do not abort the iteration. Fall back to a plain Agent
-call passing that row's own `model` from the table, so the fallback does not silently downgrade
-gh-style from `opus`. Note in the per-iteration summary that effort could not be pinned and
+Pass no `model` and no `effort`. The workflow spawns every role by
+`agentType: 'in-depth-review-role'`, and that agent file pins `opus` at `low`.
+
+The call returns `{ results, instances, active_roles }`. Each `results` entry is
+`{ instance, role, findings, tickets_examined }`, with `findings: null` for a role that returned
+nothing twice. That return IS the in-depth kind's report. It cannot fall short as a kind, because the
+barrier resolves every role before the call returns. A null role is a missing role, recorded in that
+instance's `roles_missing`, and it is not a kind that failed to report.
+
+**If the `Workflow` tool is absent from your tool list**, the in-depth kind cannot run at all. Do not
+fall back to Agent-tool spawns of `in-depth-review`, because that is the nesting the defect lives in.
+Treat it as row 0's no-fan-out abort.
+
+### The gh-style sub-agent
+
+Launched only when `<ACTIVE_GH_STYLE>` is true, by `subagent_type: pr-review-finder-ghstyle`, which
+pins `opus` at `low`. Pass no `model` and no `effort`. gh-style-review has no roles, so it is rerun
+as a whole unit or skipped entirely. See [PROMPT-GH-STYLE.md](PROMPT-GH-STYLE.md) for the exact
+prompt.
+
+**If that `subagent_type` does not resolve** (the agent file has not been synced to
+`~/.claude/agents/` yet, or was renamed), do not abort the iteration. Fall back to a plain Agent
+call with `model: opus`, and note in the per-iteration summary that effort could not be pinned and
 therefore inherited the session value.
 
-`in-depth-review` pins its own internal tiers, its inner reviewers to Opus at `low` and its scorers
-to Haiku. `gh-style-review` spawns nothing, so it has no internal tier and its wrapper above is the
-only control. The fix step (Step 2) stays on the **session model**, since applying and committing
-code is where the strong model earns its cost.
-
-### In-depth-review sub-agent prompt
-
-Launched only when `<ACTIVE_ROLES>` is non-empty. See [PROMPT-IN-DEPTH.md](PROMPT-IN-DEPTH.md)
-for the exact prompt each of the (up to) two in-depth-review sub-agents receives.
+The fix step (Step 2) stays on the **session model**, since applying and committing code is where
+the strong model earns its cost.
 
 ### gh-style-review sub-agent prompt
 
@@ -775,10 +800,12 @@ holds only its header.
 - **Multiplicity is fixed while a kind is active.** in-depth-review at 2x, gh-style-review at 1x.
   An `unavailable` kind is not launched at all, so the rule binds only while the kind is active.
   There is no reduced-multiplicity path. A kind either relaunches in full or does not relaunch.
-- **The two sub-skills take different flags, and the asymmetry is the point.** `in-depth-review`
-  gets `--defer-scoring` because two instances run and scoring before the merge would score every
-  duplicate twice. `gh-style-review` gets `--raw` and scores its own findings, because exactly one
-  instance runs. Do not unify these onto one flag. The flag follows the multiplicity.
+- **The two reviewer kinds are dispatched differently, and the asymmetry is the point.** The
+  in-depth roles run inside the `review-roles` workflow, two instances behind one barrier, and come
+  back unscored so this orchestrator scores each unique finding once after the merge.
+  `gh-style-review` runs as one Agent-tool sub-agent with `--raw` and scores its own findings,
+  because exactly one instance runs and it spawns nothing. Do not unify these. The dispatch follows
+  the multiplicity, and the nesting that the workflow replaced is the one that lost role results.
 - **Confidence threshold is 50.** Do not raise or lower it on the fly.
 - **Comment-punctuation findings are in scope but low priority.** The shape is a ` - ` or a
   clause-splitting `:` in a comment the diff adds or edits, per AGENTS.md. They are `suggestion`

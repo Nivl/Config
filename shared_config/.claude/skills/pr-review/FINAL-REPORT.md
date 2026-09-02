@@ -61,16 +61,16 @@ the user's request, then still give the tallies below.
 ## If no review was posted (clean PR)
 
 - **Only when coverage is complete AND the approach stage ran**, lead with a clear "all clear"
-  line, e.g. ✅ `PR #<PR> looks good — four independent reviewers
-(2 x in-depth on Sonnet, 1 x in-depth on Opus, 1 x gh-style) raised no findings at confidence >= 60, the approach pair
+  line, e.g. ✅ `PR #<PR> looks good — three independent reviewers
+(2 x in-depth, 1 x gh-style) raised no findings at confidence >= 60, the approach pair
 converged on nothing, and there are no unaddressed discussion items. Nothing posted to GitHub.`
   That line asserts the pair converged on nothing, which is a claim about a stage that ran and
   agreed. It is false when the stage never ran, so `approach_stage_missing` blocks this line the
   same way a missing finder does.
 - **When coverage is partial, do NOT emit that line.** It asserts a clean result from N reviewers,
   which is false if fewer than N reported. Lead instead with what actually happened, e.g.
-  ⚠️ `PR #<PR>: no findings from the 3 of 4 reviewers that reported. Sub-agent 3 (in-depth, Opus)
-  returned nothing, so the subtle-bug pass did not run. Roles missing across instances: #7
+  ⚠️ `PR #<PR>: no findings from the 2 of 3 reviewers that reported. Sub-agent 3 (gh-style)
+  returned nothing, so there is no Discussion Context pass. Roles missing across instances: #7
   security. This is NOT an all-clear. The diff has not been reviewed for security. Nothing posted
   to GitHub.` Name every missing reviewer and every missing role, and state plainly which lenses
   the PR therefore has NOT been checked against.

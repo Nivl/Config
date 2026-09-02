@@ -96,17 +96,13 @@ assert_eq "deny_saved_resolved" "deny" "$(decision_of "$(jq -nc \
 assert_eq "silent_args_brief" "silent" "$(decision_of "$(jq -nc \
   '{tool_input: {script: "export const meta = {};", args: {brief: "hand this to work-on"}}}')")"
 
-# ---- Deny: the two wrappers that run in-depth-review, so they fan out too ----
+# ---- Deny: the wrapper that runs in-depth-review, so it fans out too ----
 assert_eq "deny_finder_indepth" "deny" \
   "$(decision script "await agent({ agentType: 'pr-review-finder-indepth' })")"
-assert_eq "deny_finder_indepth_deep" "deny" \
-  "$(decision script "await agent({ agentType: 'pr-review-finder-indepth-deep' })")"
 
 # ---- Reason must name the wrapper that matched, not the bare skill ----
 assert_contains "reason_names_wrapper" 'run `pr-review-finder-indepth` inside' \
   "$(reason script "await agent({ agentType: 'pr-review-finder-indepth' })")"
-assert_contains "reason_names_deep_wrapper" 'run `pr-review-finder-indepth-deep` inside' \
-  "$(reason script "await agent({ agentType: 'pr-review-finder-indepth-deep' })")"
 
 # ---- Reason must name the matched skill and steer to the main thread ----
 assert_contains "reason_names_skill" "in-depth-review" \

@@ -66,15 +66,16 @@ import sys
 # top-of-file paragraph for the full reason.
 DENIED_SKILLS = ("in-depth-review", "review-and-fix", "pr-review", "work-on", "open-ticket")
 
-# Agent types rather than skills. Both wrappers run in-depth-review, so they fan
-# out exactly as the skill does and a workflow agent breaks them the same way.
-# Under the word-boundary match neither one reads as `pr-review`, so each needs
-# its own entry, and the longer name does not cover the shorter one either. The
+# An agent type rather than a skill. This wrapper runs in-depth-review, so it
+# fans out exactly as the skill does and a workflow agent breaks it the same way.
+# Under the word-boundary match it does not read as `pr-review`, so it needs its
+# own entry. A future pr-review-* fan-out wrapper needs one too, because the
+# boundary after a name excludes a hyphen and this entry will not cover it. The
 # other agent types under .claude/agents are absent on purpose. Each of those is
 # a leaf that reads and reports, and a workflow script's own agent() calls run at
 # the orchestrator level, so launching a leaf from a script is the way to
 # hand-roll a fan-out inside a workflow.
-DENIED_AGENT_TYPES = ("pr-review-finder-indepth", "pr-review-finder-indepth-deep")
+DENIED_AGENT_TYPES = ("pr-review-finder-indepth",)
 
 # A name counts only on a word boundary, so an identifier that merely contains
 # one is left alone. The two boundaries are deliberately asymmetric. The one

@@ -12,7 +12,7 @@
 A single **approach reviewer** and a single **more-nuanced counterpart agent** debate the
 issues the approach reviewer raises. This stage judges one thing only: **is this the right way
 to build it?** The approach reviewer does not hunt for bugs, edge cases, races, security, or
-error-handling gaps. The four reviewers already cover those. It weighs the design instead. Is
+error-handling gaps. The three reviewers already cover those. It weighs the design instead. Is
 the approach and the implementation the best available? Is the code over- or under-engineered?
 Is it in the right place (a DD count stat emitted in the wrong layer, say)? Is the architecture
 solid or duct-taped? Does a pattern or utility for this already exist in the repo that the
@@ -51,11 +51,11 @@ filter, and that is genuine judgment rather than recall. Note this specific spli
 quality, so if agreed-but-wrong findings start appearing, promote the proposer back to Opus and
 say so here.
 
-It is cheap either way: one pair, run once (not 3x), <=3 rounds.
+It is cheap either way: one pair, run once (not once per finder), <=3 rounds.
 
 This stage runs **after** the merge because the dedup in Step 2.7b below compares against
-`merged_all`, which only exists once Step 2 has merged the four reviewers. The pair runs **once**
-(not 3x). The internal debate is the filter, so cross-instance triangulation is not needed. A run
+`merged_all`, which only exists once Step 2 has merged the three reviewers. The pair runs **once**
+(not once per finder). The internal debate is the filter, so cross-instance triangulation is not needed. A run
 that aborted in Step 2 for no fan-out never reaches this stage. There is no `merged_all` to dedup
 against, and an approach pair debating alone is not a review.
 
@@ -133,7 +133,7 @@ in `merged_all` over 50 is kept.
 
 Each kept approach finding becomes a normal finding for Step 3 with:
 
-- `source = "approach"`, `cross_instance_agreement = null` (it is not one of the four reviewers).
+- `source = "approach"`, `cross_instance_agreement = null` (it is not one of the three reviewers).
 - `confidence` = the approach reviewer's own round-1 score — used **only** for
   ordering/display. The rebut rounds do not re-emit `confidence`, so carry the round-1 value
   forward.

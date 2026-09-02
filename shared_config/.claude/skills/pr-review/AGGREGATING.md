@@ -9,7 +9,7 @@
 
 ## Collecting sub-agent results
 
-**First, account for every sub-agent you launched.** Classify each of the four as *reported*
+**First, account for every sub-agent you launched.** Classify each of the three as *reported*
 (returned parseable JSON) or *missing* (returned nothing, errored, returned output you cannot
 parse, or never notified before the give-up bound). Record the missing ones in
 `reviewers_missing`. Then union the `roles_missing` arrays that the in-depth-review instances
@@ -25,10 +25,10 @@ of findings can never be used to claim `complete`.
 
 **Reviewer results arrive in each sub-agent's own final text, on a later turn than the launch.** The
 Agent tool launches asynchronously. Its result carries launch metadata and an `agentId`, and never the
-sub-agent's findings, so there is nothing to read at launch. Record the `agentId` of all four
+sub-agent's findings, so there is nothing to read at launch. Record the `agentId` of all three
 sub-agents when you launch them. Then take a turn, harvest every `<task-notification>` in front of
 you, match each `<task-id>` to a recorded `agentId`, and keep its `<result>` body. Keep taking turns
-until all four are accounted for, OR until THREE CONSECUTIVE COLLECTING TURNS have brought zero new
+until all three are accounted for, OR until THREE CONSECUTIVE COLLECTING TURNS have brought zero new
 arrivals. A collecting turn is ONE substantive tool call that names the sub-agent it checked on, so
 re-read the diff for a sub-agent you are still waiting on. Three repeats of the same no-op are not
 three turns.
@@ -68,8 +68,8 @@ lens yourself and attribute it, and do not carry a result forward from elsewhere
   relaunching it, and impossible sits on the other side of that reasoning. A retry is futile
   rather than merely expensive. The Agent tool that was absent on the first attempt is absent on
   the second.
-- **An impossible instance never counts toward the 3x in-depth multiplicity.** It contributed no
-  roles, so it is not one of the three finders that came back quiet. A run where two instances
+- **An impossible instance never counts toward the 2x in-depth multiplicity.** It contributed no
+  roles, so it is not one of the finders that came back quiet. A run where one instance
   worked and one came back impossible still aborts. A context either has the Agent tool or it does
   not, so a finder that could not fan out means its siblings in that context did not either. A
   mixed result is a sign something stranger is wrong. It still must not be posted.
@@ -98,7 +98,7 @@ lens yourself and attribute it, and do not carry a result forward from elsewhere
 **An instance reporting `deferred: true` is a THIRD case, and nothing in this section excludes it.**
 This skill passes `--defer-scoring`, so a healthy instance returns every finding with
 `confidence: null` and no scores at all. Reading that as `complete: false` would exclude every
-finding from every in-depth instance, which is three quarters of the reviewer pool and effectively
+finding from every in-depth instance, which is two thirds of the reviewer pool and effectively
 the whole review, and it would fail silently because the pool would just come out small. Carry those
 findings into the pool unchanged and let the scoring step below give them numbers. The
 `citation_verified` and `unscored` rules below still apply to them, unchanged.
@@ -123,10 +123,10 @@ self-graded output into a PR review, which is how a fabricated finding gets publ
 
 ## Pooling, deduplication, and merge
 
-Once collection has ended, whether all four reported or the give-up bound above was reached:
+Once collection has ended, whether all three reported or the give-up bound above was reached:
 
-1. **Pool every finding** across the four result sets into one flat pool. Each finding carries
-   its `confidence`, `file`, `line_range`, originating `sub_agent` (1..4), and `source`
+1. **Pool every finding** across the three result sets into one flat pool. Each finding carries
+   its `confidence`, `file`, `line_range`, originating `sub_agent` (1..3), and `source`
    (`"in-depth-review"` or `"gh-style-review"`). Don't pre-segregate by source. The cross-
    prompt triangulation is the point.
 
@@ -138,15 +138,15 @@ Once collection has ended, whether all four reported or the give-up bound above 
 3. **For each group, produce one merged finding:**
    - `confidence`: not set here. It stays `null` until the scoring step below, which assigns one
      score per unique finding after this merge. The rule was the `max` of the group's scores,
-     described as intentionally non-conservative, and with four instances scoring independently it
-     kept the largest of up to four noisy draws. That is a bias rather than a tie-break, and
+     described as intentionally non-conservative, and with three instances scoring independently it
+     kept the largest of up to three noisy draws. That is a bias rather than a tie-break, and
      corroboration was already counted on purpose by `cross_instance_agreement` below. There is no
      group of scores left to reduce.
-   - `cross_instance_agreement`: count of distinct sub-agents (1..4) that raised this finding.
+   - `cross_instance_agreement`: count of distinct sub-agents (1..3) that raised this finding.
      This is the name `review-and-fix` already uses. Do not invent a third.
      **Compute it yourself. Never reuse the `role_agreement` value on an incoming finding as this
      count.** The denominators differ. `role_agreement` is how many of ONE instance's
-     8-12 role lenses raised the finding, and this is how many of the four independent instances
+     8-12 role lenses raised the finding, and this is how many of the three independent instances
      did. Roles share a model and a context window and are prompted to look at different things,
      so several converging is correlated evidence. Separate instances converging is the
      independent signal, and it is the one that should drive ordering.
@@ -179,7 +179,7 @@ Once collection has ended, whether all four reported or the give-up bound above 
 4. **Score the merged set, once.** Every finding in the pool carries `confidence: null` at this
    point, because the in-depth instances were run with `--defer-scoring`. Scoring used to happen
    inside each instance, before anything had merged, so a finding several instances raised was
-   scored once per instance and all but one number was discarded. With four instances the waste and
+   scored once per instance and all but one number was discarded. With three instances the waste and
    the max bias were both larger here than in `review-and-fix`.
 
    This step comes BEFORE the `merged_all` snapshot below, and the order is load-bearing. Step 2.7
@@ -257,7 +257,7 @@ Once collection has ended, whether all four reported or the give-up bound above 
 
 7. **Order the surviving findings:**
    1. `confidence` descending
-   2. `cross_instance_agreement` descending (4/4 > 2/4 > 1/4 when scores tie)
+   2. `cross_instance_agreement` descending (3/3 > 2/3 > 1/3 when scores tie)
    3. Both-sources first (a finding raised by both in-depth-review and gh-style-review beats
       a same-confidence-and-agreement finding from a single source)
    4. `role_agreement` descending. A finding several role lenses independently raised beats one
@@ -267,8 +267,8 @@ Once collection has ended, whether all four reported or the give-up bound above 
       covers every category the finding schema allows, so two tied findings always have a defined
       order. Any category not named here ranks last, immediately above nothing.
 
-   **Do not deprioritize a solo finding from sub-agent 3 (the Opus finder) on agreement alone.**
-   Catching what the Sonnet reviewers miss is precisely its job, so `cross_instance_agreement: 1` from that
-   instance is expected rather than weak evidence. When an Opus-only finding ties on
-   `confidence` with a multi-reviewer Sonnet finding, rank the Opus-only one first. This
-   overrides tiebreaker 2 for that case and nothing else.
+   **The finder wrappers are all on the same tier, so no instance gets an ordering exemption.**
+   An earlier rule promoted a solo finding from a third in-depth instance whose wrapper ran on
+   Opus, on the grounds that catching what the others miss was its job. That instance is gone and
+   the exemption went with it. Tiebreaker 2 applies to every finding now. Do not reintroduce a
+   per-instance override without a tier difference to justify it.

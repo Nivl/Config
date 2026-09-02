@@ -1,7 +1,7 @@
-# Sub-agent 4 prompt (gh-style-review)
+# Sub-agent 3 prompt (gh-style-review)
 
 ```
-You are sub-agent 4 of 4 in a pr-review orchestration. Your job:
+You are sub-agent 3 of 3 in a pr-review orchestration. Your job:
 perform one independent gh-style review of PR #<PR> by invoking the `gh-style-review`
 skill, then return its result to me unchanged.
 

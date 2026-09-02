@@ -1,12 +1,11 @@
-# Sub-agents 1-3 prompt (in-depth-review)
+# Sub-agents 1-2 prompt (in-depth-review)
 
-Identical prompt for all three; only the `subagent_type` differs (1 and 2 use
-`pr-review-finder-indepth`, 3 uses `pr-review-finder-indepth-deep`). Do not tell the sub-agent
-which tier it is on. It should review the same way either way, and the orchestrator attributes
-findings by `sub_agent` number.
+Identical prompt for both, and both use `subagent_type: pr-review-finder-indepth`. Only the
+`sub_agent` number differs. Do not tell the sub-agent which tier it is on. It should review the
+same way either way, and the orchestrator attributes findings by `sub_agent` number.
 
 ```
-You are sub-agent N of 4 in a pr-review orchestration (N is 1, 2, or 3). Your job:
+You are sub-agent N of 3 in a pr-review orchestration (N is 1 or 2). Your job:
 perform one independent in-depth review of PR #<PR> by invoking the `in-depth-review`
 skill, then return its result to me unchanged.
 
@@ -18,19 +17,19 @@ Concretely:
    `<PR> --defer-scoring` unchanged so Role #10 runs.
    - The `<PR>` arg puts it in PR mode against this PR.
    - The `--defer-scoring` flag tells in-depth-review to score nothing and return every finding
-     with `confidence: null`. The orchestrator merges all four reviewers first, then scores each
+     with `confidence: null`. The orchestrator merges all three reviewers first, then scores each
      unique finding once, then applies its own >=60 threshold.
    - **`--raw` is deliberately NOT passed, and swapping it back in is a regression.** `--raw` asks
      for scores and only skips the internal filter, so each instance would score its own findings
      before the orchestrator had merged them. A finding several instances raised would be scored
-     once per instance and all but one number discarded. With four reviewers that waste is larger
+     once per instance and all but one number discarded. With three reviewers that waste is larger
      here than anywhere else in this repo.
    - Expect `confidence: null` on every finding and `scoring: { "deferred": true }` rather than a
      `complete` field. That is the flag working. Do not add scores, do not mark anything
      `unscored`, and do not report the nulls as a defect.
 2. Wait for `in-depth-review` to finish and return its structured JSON output.
 3. Return that JSON verbatim, with two additions at the top level:
-   - `"sub_agent": N` (which of the 4 instances you are)
+   - `"sub_agent": N` (which of the 3 instances you are)
    - `"source": "in-depth-review"` (so the orchestrator can attribute findings)
 
 Forbidden:

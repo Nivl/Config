@@ -1,8 +1,8 @@
 ---
 name: pr-review
 description: >
-  Reviews a pull request with four parallel reviewer sub-agents — two `in-depth-review` on
-  Sonnet, one `in-depth-review` on Opus (the subtle-bug catcher), and one `gh-style-review` —
+  Reviews a pull request with three parallel reviewer sub-agents — two `in-depth-review` and
+  one `gh-style-review`, the same roster `review-and-fix` uses —
   merges and deduplicates their findings, and posts a SINGLE PR review combining global
   findings, a names-only list of inline findings (also left as inline diff comments), and any
   prior discussion the diff still leaves unaddressed. A separate approach-vs-nuanced reviewer
@@ -13,17 +13,15 @@ description: >
   higher-confidence PR feedback than a single `/in-depth-review` run would produce.
 ---
 
-# PR Review (4x-reviewed, mixed-tier)
+# PR Review (3x-reviewed)
 
-This skill orchestrates **four** parallel reviewer sub-agents against a single PR: **two
-instances of `in-depth-review` on Sonnet** (each runs nine to twelve roles depending on what the diff contains, one fewer with `--skip-ticket`; all raw scored findings),
-**one instance of `in-depth-review` on Opus** (the subtle-bug catcher — see Mixed-tier finders
-below), and
+This skill orchestrates **three** parallel reviewer sub-agents against a single PR: **two
+instances of `in-depth-review`** (each runs nine to twelve roles depending on what the diff contains, one fewer with `--skip-ticket`; all raw scored findings), and
 **one instance of `gh-style-review`** (the `@claude review` GitHub Action prompt
 replicated locally, which adds Discussion Context — prior-human-comment cross-referencing
-— on top of standard findings). The three in-depth instances are invoked with `--defer-scoring` and
+— on top of standard findings). The two in-depth instances are invoked with `--defer-scoring` and
 the gh-style instance with `--raw`, per "Why the sub-agents get different flags" below; the
-orchestrator merges and deduplicates the four result sets into one flat pool, scores each unique
+orchestrator merges and deduplicates the three result sets into one flat pool, scores each unique
 finding once, applies a final **score >= 60** filter,
 classifies each surviving finding as INLINE (local) or GLOBAL, aggregates the still-unaddressed
 `discussion_context` from the gh-style instance, and posts a single PR review whose body
@@ -31,36 +29,36 @@ carries the global findings in full, a names-only list of the local findings, an
 still-unaddressed prior concerns. Inline comments are attached to the diff lines they refer to.
 Sections with no content are never emitted.
 
-On top of the four reviewers, a single **approach reviewer** debates a single
+On top of the three reviewers, a single **approach reviewer** debates a single
 **more-nuanced counterpart agent** over the issues it raises (Step 2.7). This reviewer judges
 one thing only — is this the right way to build it (design, architecture, code placement,
 over/under-engineering) — not bugs. Only the findings the pair *converges* on as genuinely
 needing a code change survive, and only if no other reviewer already proposed the same thing
 with confidence > 50. Survivors join the same posting pipeline, tagged `approach`. This pair
-runs once (not 3x), and its findings post on agreement alone.
+runs once (not once per finder), and its findings post on agreement alone.
 They do not have to clear the >= 60 confidence bar the other findings do.
 
-The point: four independent passes from two different prompt structures (specialized-role
-vs. GitHub-Action mirror) and two model tiers catch different issues, AND converge on the real
-ones. One review entry, four reviewers' worth of recall, plus an explicit "what humans already
+The point: three independent passes from two different prompt structures (specialized-role
+vs. GitHub-Action mirror) catch different issues, AND converge on the real
+ones. One review entry, three reviewers' worth of recall, plus an explicit "what humans already
 raised that the diff still hasn't addressed" section.
 
-**Mixed-tier finders (2 Sonnet + 1 Opus in-depth).** Reviewer cost-efficiency turned out to be
-**difficulty-dependent**, which is why the finder pool is deliberately not uniform:
+**Where the tiers actually sit, and why the finder pool is uniform.** The pins are layered, not
+flat. The in-depth wrappers run Sonnet at effort `medium`, but a wrapper never reads code. It
+resolves scope, invokes the skill, and pools and dedups what comes back. The agents that read the
+diff are `in-depth-review`'s own roles, and that skill pins them to Opus at effort `low` and
+forbids a caller from overriding it. So the reviewing is Opus on every instance, and only the
+orchestration around it is Sonnet.
 
-- On easy or routine diffs, 1–2 Sonnet reviewers already saturate recall. Opus adds nothing
-  there, so most of the pool stays on Sonnet.
-- On hard diffs with subtle bugs, **one Opus reviewer beat three Sonnet reviewers** on recall
-  (93.8% vs 87.5%), at lower cost, with roughly a fifth of the false positives. Opus was the
-  only configuration to catch the subtlest planted bugs at all.
+That layering is why both in-depth instances sit on the same tier. An earlier third instance ran an Opus
+*wrapper* over the same Opus roles, which bought a stronger pooling layer rather than extra
+recall, so it was dropped. The measured "1x Opus beat 3x Sonnet on hard diffs" result in
+`~/.melvin/config/docs/research/pr-review-cost-efficiency/RESULTS.md` is about the tier of the
+agents doing the reading, and those are already on Opus here. Do not read it as an argument for a
+mixed wrapper pool. That study's own recommendation table names 2x Sonnet for the easy case and
+the hard case both, which is what this is, and it is the roster `review-and-fix` runs.
 
-A fixed all-Sonnet pool is provisioned for the easy case and quietly loses recall on the hard
-one. Adding a single Opus in-depth instance covers the hard case without paying Opus rates on
-every finder. Keep it at exactly one. The point is coverage of the subtle tail, not tier parity.
-Do NOT promote the Sonnet finders to Opus, and do NOT drop the Opus one to save cost. It is the
-cheapest recall in the pool on the diffs that matter most.
-
-**Why the source split is asymmetric (3 in-depth, 1 gh-style).** Measured on fixtures with planted
+**Why the source split is asymmetric (2 in-depth, 1 gh-style).** Measured on fixtures with planted
 issues, `gh-style-review`'s findings were a strict SUBSET of `in-depth-review`'s on every
 fixture. It surfaced nothing in-depth missed, and skipped test-coverage findings entirely.
 So a second gh-style instance buys no incremental finding recall. It stays at **one** instance
@@ -79,7 +77,7 @@ pass. Do not drop gh-style to zero, and do not raise it back to parity.
 - A GitHub MCP server must be connected and authenticated — OR `gh` must be installed and
   authenticated, which the skill falls back to when no GitHub MCP is available (see **GitHub access**).
 
-**Flag:** pass `--skip-ticket` to disable ticket intent compliance (Role #10) across all three
+**Flag:** pass `--skip-ticket` to disable ticket intent compliance (Role #10) across both
 `in-depth-review` instances and skip the Jira-tooling preflight.
 
 **Flag:** `--announce` / `--no-announce` control the optional "review in progress" comment
@@ -127,7 +125,7 @@ need no `gh`.
    and tell the user which one to install.
 
    **Confirm the `Agent` tool is available too, and abort here if it is not.** Check your own tool
-   list. The four finders are sub-agents and Step 2.7's pair is two more, so without that tool
+   list. The three finders are sub-agents and Step 2.7's pair is two more, so without that tool
    none of them can launch and there is nothing to merge or post. A workflow agent is the usual
    context that lacks it. Tell the user to re-run from the main thread. This abort belongs on the
    same side of the line as the two above it, since item 7 posts the optional in-progress comment
@@ -135,7 +133,7 @@ need no `gh`.
    "review in progress" comment on the PR that no review will ever follow.
 5. If the invocation included `--skip-ticket`, set `<SKIP_TICKET> = true` (default `false`).
    When `true`, every in-depth-review sub-agent is invoked with `--skip-ticket`, so Role #10
-   never runs. When `false`, all three in-depth-review instances run Role #10 (three ticket
+   never runs. When `false`, both in-depth-review instances run Role #10 (two ticket
    reviewers). `gh-style-review` is unaffected either way. It has no ticket role.
 6. **Jira-tooling preflight** (skip this step entirely if `<SKIP_TICKET>` is true). Before
    launching any reviewers, confirm a Jira reader is available AND authenticated:
@@ -173,9 +171,9 @@ need no `gh`.
      `<ANNOUNCE_COMMENT_ID>` empty, and run the review anyway. The review is the deliverable and
      the comment is best-effort.
 
-## Step 1: Launch four reviewer sub-agents in parallel
+## Step 1: Launch three reviewer sub-agents in parallel
 
-Spawn **four sub-agents in a single message** (four concurrent Agent tool calls). Sequential
+Spawn **three sub-agents in a single message** (three concurrent Agent tool calls). Sequential
 launches defeat the purpose. Never serialize. Each is a thin wrapper that invokes a recall-pass
 skill and relays its JSON.
 
@@ -187,8 +185,7 @@ both. The split is:
 |---|---|---|---|---|
 | 1 | `pr-review-finder-indepth` | `in-depth-review` | `sonnet` | `medium` |
 | 2 | `pr-review-finder-indepth` | `in-depth-review` | `sonnet` | `medium` |
-| 3 | `pr-review-finder-indepth-deep` | `in-depth-review` | **`opus`** | `medium` |
-| 4 | `pr-review-finder-ghstyle` | `gh-style-review` | `opus` | `low` |
+| 3 | `pr-review-finder-ghstyle` | `gh-style-review` | `opus` | `low` |
 
 The model and effort columns are **documentation of what those files declare**, not a second
 control point. Change the agent file, not this table.
@@ -208,37 +205,37 @@ the level the whole cost-efficiency study was run at, so it is the only level wh
 are actually evidenced here. Measured recall was flat from `low` through `xhigh` while latency
 scaled ~3.9x, so `low` is a plausible further saving. Trial it before adopting it.
 
-Sub-agent 3 is the mixed-tier finder described in the overview. It is the only finder whose
-*wrapper* runs on Opus. Note that `in-depth-review` and `gh-style-review` also pin their own
-*internal* tiers (in-depth-review's inner reviewers -> Opus at `low`, its scorers -> Haiku); the
-agent definition governs the wrapper sub-agent, not the roles underneath it. So every in-depth
-instance now runs Opus finders, and sub-agent 3's Opus wrapper buys a stronger orchestration and
-pooling layer rather than stronger recall. Re-measure whether the mixed wrapper tier still earns
-its cost.
+This table is the whole roster. The agent types and their tiers are the ones `review-and-fix`
+launches too, so a change to either agent file moves both skills. Note that
+`in-depth-review` and `gh-style-review` also pin their own *internal* tiers (in-depth-review's
+inner reviewers -> Opus at `low`, its scorers -> Haiku); the agent definition governs the wrapper
+sub-agent, not the roles underneath it. So the code is read on Opus in both in-depth instances,
+and the Sonnet in the table buys the orchestration layer only. See "Where the tiers actually sit"
+in the overview for why that makes an Opus wrapper not worth paying for.
 
-### Sub-agents 1-3 prompt (in-depth-review)
+### Sub-agents 1-2 prompt (in-depth-review)
 
-Identical prompt for all three; only the `subagent_type` differs. See
+Identical prompt for both; only the sub-agent number differs. See
 [PROMPT-FINDER.md](PROMPT-FINDER.md) for the exact prompt each receives.
 
-### Sub-agent 4 prompt (gh-style-review)
+### Sub-agent 3 prompt (gh-style-review)
 
 See [PROMPT-GH-STYLE.md](PROMPT-GH-STYLE.md) for the exact prompt this sub-agent receives.
 
 ### Why the sub-agents get different flags
 
 Both `in-depth-review` and `gh-style-review` default to discarding anything `< 70`. This
-orchestrator's threshold is **60** (lower than each sub-skill's default because the 4x
-cross-instance triangulation — three from the specialized-role structure, one from the
+orchestrator's threshold is **60** (lower than each sub-skill's default because the 3x
+cross-instance triangulation — two from the specialized-role structure, one from the
 GitHub-Action mirror — raises confidence in 60-69 findings). Either way this skill applies the 60
 cutoff in Step 2 after merging.
 
 The flag follows the multiplicity, so the two kinds get different ones.
 
-- **The three `in-depth-review` instances get `--defer-scoring`** and return every finding with
-  `confidence: null`. Three instances scoring their own findings meant a finding two or three of
-  them raised was scored two or three times and all but one number was thrown away, and the merge's
-  old `max` rule then kept the largest of several noisy draws. Step 2 scores each unique finding
+- **The two `in-depth-review` instances get `--defer-scoring`** and return every finding with
+  `confidence: null`. Both instances scoring their own findings meant a finding both of
+  them raised was scored twice and one of the two numbers was thrown away, and the merge's
+  old `max` rule then kept the larger of two noisy draws. Step 2 scores each unique finding
   once instead.
 - **The one `gh-style-review` instance gets `--raw`** and still scores its own findings. One
   instance means its findings are already scored exactly once, so there is nothing to deduplicate
@@ -251,7 +248,7 @@ design exists to remove.
 
 ## Step 2: Merge and deduplicate (findings)
 
-Account for all four sub-agents, pool their findings, deduplicate across sources, merge each
+Account for all three sub-agents, pool their findings, deduplicate across sources, merge each
 duplicate group, filter to `confidence >= 60` (dropping any unverified-citation or unscored
 finding regardless of score), and order the survivors. Follow
 [AGGREGATING.md](AGGREGATING.md) exactly — four rules from it matter enough to repeat here:
@@ -293,7 +290,7 @@ grounded in a real comment URL, not as triangulated findings.
 
 A single **approach reviewer** and a single **more-nuanced counterpart agent** debate the
 issues the approach reviewer raises. This stage judges one thing only: is this the right way to
-build it — not bugs, edge cases, security, or error handling, which the four reviewers already
+build it — not bugs, edge cases, security, or error handling, which the three reviewers already
 cover. Only issues the two *converge* on (both say "needs a code change," within a 3-round cap)
 survive, and only if no other reviewer already raised the same thing in `merged_all` with
 confidence > 50. Survivors are tagged `source = "approach"` and folded into the Step 2 findings
@@ -312,7 +309,7 @@ for the full debate protocol (up to 3 rounds, a worked example), the dedup rule 
 **If the run aborted because a finder came back `coverage: "impossible"`, nothing is posted, and
 this is NOT the clean-PR path.** See [AGGREGATING.md](AGGREGATING.md) for that abort. The two paths
 share exactly one thing, which is that GitHub ends up with nothing on it. The clean-PR path also
-tells the user the PR looks clean, and four reviewers reading the diff and finding nothing is what
+tells the user the PR looks clean, and three reviewers reading the diff and finding nothing is what
 earns that sentence. After a no-fanout abort no reviewer read the diff at all, so the same sentence
 would be false. Do not use the clean-PR chat line, do not write a clean-PR Step 4 summary, and do
 not report coverage of any kind. Report the abort and the reason the finder carried instead. That
@@ -364,7 +361,7 @@ ergonomics. When in doubt, prefer INLINE if a single line range is identifiable.
 
 ### Step 3a.5: Identify ticket notes worth surfacing (no "all clear" roll-call)
 
-Build `tickets_examined` = union by `id` of the `tickets_examined` arrays returned by the three
+Build `tickets_examined` = union by `id` of the `tickets_examined` arrays returned by the two
 in-depth-review sub-agents (each entry has `id` and `status` ∈ {`ok`, `gaps`, `unread`}). For
 each `id`, `status` is `gaps` if any instance reported gaps, else `unread` if any reported
 unread, else `ok`.
@@ -474,12 +471,12 @@ Coverage line is absent because there is nothing it could honestly say. See
   `git status` is not enough to detect a violation. A revert-and-restore reads clean before and
   after, dirty only in the window between, so a status check that runs when the fan-out returns
   sees nothing. Probe content instead, for something the diff deleted.
-- **Four parallel sub-agents (2 x in-depth-review on Sonnet + 1 x in-depth-review on Opus +
-  1 x gh-style-review).** Launch all four in a single message with concurrent Agent tool calls.
+- **Three parallel sub-agents (2 x in-depth-review + 1 x gh-style-review).** Launch all three in
+  a single message with concurrent Agent tool calls.
   Do not fall back to fewer sub-agents for "speed"; the cross-source triangulation is the point.
   Do not use only one source. Both prompt structures contribute, and dropping gh-style also
-  drops Discussion Context. The pool is deliberately asymmetric in BOTH source and tier. Do not
-  "balance" the sources back to 2 + 2, and do not make the tiers uniform in either direction
+  drops Discussion Context. The pool is deliberately asymmetric in SOURCE, uniform in tier. Do
+  not "balance" the sources back to 2 + 2, and do not add a third in-depth instance on Opus
   (see the overview).
 - **Comment-punctuation findings are in scope but low priority.** The sub-skills flag comments
   the diff adds or edits that join clauses with ` - ` (space-hyphen-space) or a sentence-splitting
@@ -487,20 +484,22 @@ Coverage line is absent because there is nothing it could honestly say. See
   but never let them displace correctness findings in the posted review.
 - **Model and effort policy (cost): pinned in agent definitions, never inherited.** Every agent
   this skill spawns is addressed by `subagent_type`, and its tier and effort come from its file
-  in `.claude/agents/`. Pass no `model` override from this skill. The pool is **mixed-tier by
-  design**: sub-agents 1, 2, and 4 on Sonnet, sub-agent 3 on Opus as the subtle-bug catcher, the
-  approach proposer on Sonnet (its recall measured identical to Opus), the nuanced judge on Opus
+  in `.claude/agents/`. Pass no `model` override from this skill. The two in-depth wrappers are
+  **uniform**, both on Sonnet. Sub-agent 3 sits on Opus at `low` instead because gh-style spawns
+  nothing, so its wrapper IS its reviewer. The debate pair splits, the
+  approach proposer on Sonnet (its recall measured identical to Opus) and the nuanced judge on Opus
   at effort `high` (judging is judgment; proposing is recall). Finders sit at effort `medium`.
   Their inner reviewers/scorers self-tier (in-depth-review: Opus at `low` / Haiku) per those
-  skills. **Never let any of these inherit the session model or the session effort.** Inheritance is what let a `/effort
+  skills, which is where the code actually gets read. **Never let any of these inherit the session model or the session effort.** Inheritance is what let a `/effort
   xhigh` session silently run the whole fan-out at `xhigh`. What protects quality is the >=60
-  triangulation, the converge stage, and exactly one Opus finder, not a bigger model or more
+  triangulation and the converge stage, not a bigger model or more
   thinking on every agent.
-- **Threshold is 60.** Do not raise or lower it on the fly. This applies to the four reviewers'
+- **Threshold is 60.** Do not raise or lower it on the fly. This applies to the three reviewers'
   findings only. Approach findings (Step 2.7) do NOT use this threshold. They are gated on
   the two agents *converging* on "needs a code change," not on a confidence score.
 - **Approach stage: one pair, agreement is the gate, split tiers.** Run exactly one approach
-  reviewer (proposer, **Sonnet**) + one nuanced agent (judge, **Opus**), once (not 3x). The
+  reviewer (proposer, **Sonnet**) + one nuanced agent (judge, **Opus**), once (not once per
+  finder). The
   approach reviewer judges design, architecture, and
   code placement only, not bugs, and explores the wider codebase to do so. A finding posts
   only if (a) the pair converges to both "needs change" within the 3-round cap AND (b) it does

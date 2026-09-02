@@ -1,35 +1,39 @@
 # Merging and deduplicating findings (Step 2)
 
 ## Contents
-- Collecting sub-agent results (the async protocol)
+- Collecting the reviewer results (the workflow return for in-depth, the async protocol for gh-style)
 - A missing reviewer is not a clean reviewer
-- Excluding unscored and unverified findings
+- Excluding unverified and unscored findings
 - Pooling, deduplication, and merge
 - Ordering the surviving findings
 
-## Collecting sub-agent results
+## Collecting the reviewer results
 
-**First, account for every sub-agent you launched.** Classify each of the three as *reported*
-(returned parseable JSON) or *missing* (returned nothing, errored, returned output you cannot
-parse, or never notified before the give-up bound). Record the missing ones in
-`reviewers_missing`. Then union the `roles_missing` arrays that the in-depth-review instances
-report, and treat any instance whose `coverage` is `"partial"` as
-partial here too. An instance whose `coverage` is `"impossible"` is neither reported nor missing.
-It aborts the run per the next section, so stop accounting and stop there. An instance carrying the
-`REVIEW_UNAVAILABLE_NO_FANOUT` line instead of parseable JSON is that same instance. The
-unparseable-output clause above does not reach it, so it is neither reported nor missing either.
-Never reason that running several in-depth instances means every lens ran at least once.
-Measured: in one run two roles were silent in BOTH instances, so the union of what the instances DID return
-covered neither. A lens that no instance reported on is a hole, not a covered lens, and the union
-of findings can never be used to claim `complete`.
+**The in-depth roles arrive as the `review-roles` workflow's return value and need no collecting.**
+`roles_missing` for instance N is `results.filter(r => r.instance === N && r.findings === null)`,
+computed from that return rather than inferred from which notifications arrived. Union the two
+instances' `roles_missing`, and treat a non-empty union as partial coverage. Never reason that
+running two instances means every lens ran at least once. A role that came back `null` in BOTH
+instances is a hole, and the union of what the instances DID return covered neither. Measured before
+the workflow existed: two roles were silent in both instances of one run. The barrier makes that two
+nulls rather than silence, and the rule is the same. A lens that no instance reported on is a hole,
+not a covered lens, and the union of findings can never be used to claim `complete`.
 
-**Reviewer results arrive in each sub-agent's own final text, on a later turn than the launch.** The
-Agent tool launches asynchronously. Its result carries launch metadata and an `agentId`, and never the
-sub-agent's findings, so there is nothing to read at launch. Record the `agentId` of all three
-sub-agents when you launch them. Then take a turn, harvest every `<task-notification>` in front of
-you, match each `<task-id>` to a recorded `agentId`, and keep its `<result>` body. Keep taking turns
-until all three are accounted for, OR until THREE CONSECUTIVE COLLECTING TURNS have brought zero new
-arrivals. A collecting turn is ONE substantive tool call that names the sub-agent it checked on, so
+If the `Workflow` tool was absent so the roles could not be dispatched at all, that is the no-fan-out
+abort in the next section. It is neither reported nor missing. Stop accounting and stop there.
+
+**The gh-style instance is the one Agent-tool sub-agent, and it is what the async protocol below is
+for.** Classify it as *reported* (returned parseable JSON) or *missing* (returned nothing, errored,
+returned output you cannot parse, or never notified before the give-up bound), and record a miss in
+`reviewers_missing`. The in-depth kind never appears there, because the barrier cannot fail to
+return. It reports its holes per role instead.
+
+**The gh-style result arrives in the sub-agent's own final text, on a later turn than the launch.**
+The Agent tool launches asynchronously. Its result carries launch metadata and an `agentId`, and never
+the sub-agent's findings, so there is nothing to read at launch. Record its `agentId` when you launch
+it. Then take a turn, harvest every `<task-notification>` in front of you, match its `<task-id>` to
+that `agentId`, and keep its `<result>` body. Keep taking turns until it is accounted for, OR until
+THREE CONSECUTIVE COLLECTING TURNS have brought zero new arrivals. A collecting turn is ONE substantive tool call that names the sub-agent it checked on, so
 re-read the diff for a sub-agent you are still waiting on. Three repeats of the same no-op are not
 three turns.
 Do NOT start the zero-arrival counter until you have taken at least as many collecting turns as you
@@ -52,27 +56,23 @@ has reported nothing and belongs in `reviewers_missing`.
 on behalf of a reviewer that did not report, do not infer what it would have found, do not run its
 lens yourself and attribute it, and do not carry a result forward from elsewhere. Then:
 
-- **An in-depth-review instance whose `coverage` is `"impossible"` aborts the run.** That value
-  means the instance never reviewed anything. Its context had no Agent tool, so it could not
-  launch a single reviewer role, and its empty `findings` array says only that. Do not compute
-  coverage, do not post, and do not carry the run forward as a review of any kind. Name the
-  instances that reported it, quote the `skipped_reason` they carried, say the fan-out was
-  impossible, and stop. A result that carries the `REVIEW_UNAVAILABLE_NO_FANOUT` sentinel instead
-  of parseable JSON is this same condition, not a missing reviewer. Never record it in
-  `reviewers_missing`, and never let it reach the partial rule below. Name that instance by its
-  sub-agent number and quote the line itself, since a text-form return carries no `skipped_reason`
-  field.
-- **`"impossible"` is not `"partial"`, and it is not missing either.** A partial instance read the
-  diff with some roles silent, which is a real review with holes in it. An impossible instance is
-  not a review. The retry bullet below explains why this skill reports a miss rather than
-  relaunching it, and impossible sits on the other side of that reasoning. A retry is futile
-  rather than merely expensive. The Agent tool that was absent on the first attempt is absent on
-  the second.
-- **An impossible instance never counts toward the 2x in-depth multiplicity.** It contributed no
-  roles, so it is not one of the finders that came back quiet. A run where one instance
-  worked and one came back impossible still aborts. A context either has the Agent tool or it does
-  not, so a finder that could not fan out means its siblings in that context did not either. A
-  mixed result is a sign something stranger is wrong. It still must not be posted.
+- **No `Workflow` tool means no in-depth roles ran, and that aborts the run.** The roles are
+  dispatched from this thread through the `review-roles` workflow. If the tool is absent from your
+  tool list the dispatch never happened, no role read the diff, and there is no review to compute
+  coverage for. Do not post, do not carry the run forward as a review of any kind, and do not fall
+  back to Agent-tool spawns of `in-depth-review`, because that nesting is the defect the workflow
+  replaced. Say the fan-out was impossible and stop. This is the only way the in-depth kind can
+  fail as a whole now. It cannot come back `impossible` from inside a sub-agent, because it no longer
+  runs inside one.
+- **Impossible is not partial, and it is not missing either.** A partial run had the barrier return
+  with some roles `null`, which is a real review with holes in it. An impossible run had no barrier
+  at all. A retry is futile rather than merely expensive. The `Workflow` tool that was absent on the
+  first attempt is absent on the second.
+- **Every role `null` at once is not twelve independent deaths.** If the workflow returns and every
+  `findings` is `null`, the plausible reading is that `agentType: 'in-depth-review-role'` did not
+  resolve, because the agent files were not synced or were renamed. Say so in the Step 4 report
+  rather than listing twelve missing roles as though each failed on its own. Coverage is `partial`,
+  and the cause named is what lets someone fix it.
 - If `reviewers_missing` is non-empty, or any instance came back `"partial"`, this run's coverage
   is **partial**. Carry that flag through to Step 4 and to the clean-PR path.
 - **Coverage computed here is provisional.** The approach stage (Step 2.7) has not run yet, and it
@@ -93,65 +93,71 @@ lens yourself and attribute it, and do not carry a result forward from elsewhere
   impossible instance is not this case. That run aborted above and there is no review to proceed
   with.
 
-## Excluding unscored and unverified findings
+## Excluding unverified and unscored findings
 
-**An instance reporting `deferred: true` is a THIRD case, and nothing in this section excludes it.**
-This skill passes `--defer-scoring`, so a healthy instance returns every finding with
-`confidence: null` and no scores at all. Reading that as `complete: false` would exclude every
-finding from every in-depth instance, which is two thirds of the reviewer pool and effectively
-the whole review, and it would fail silently because the pool would just come out small. Carry those
-findings into the pool unchanged and let the scoring step below give them numbers. The
-`citation_verified` and `unscored` rules below still apply to them, unchanged.
+**In-depth findings arrive unscored by design, and that is not an exclusion.** The `review-roles`
+workflow returns raw per-role findings with `confidence: null` and no `scoring` block, because this
+orchestrator scores the merged set itself in the step below. There is no `scoring.complete` to check
+on an in-depth result and no `unscored` flag on its findings. A null confidence from the workflow
+means "not yet scored", never "a scorer was owed and did not deliver". Carry those findings into the
+pool unchanged and let the scoring step give them numbers.
 
-**Check `scoring.complete` on every in-depth-review result.** An instance reporting `false` did not
-run its two-stage confidence filter, so its numbers are self-assessments by the same model that
-proposed the findings, not scores. This is a different state from `deferred: true` above, and
-`unscored: true` rather than a null confidence is what tells them apart.
+**The gh-style instance still scores its own findings**, so its result carries the old shape. Check
+`scoring.complete` on it. A `false` means its numbers are self-assessments by the model that
+proposed them, not scores.
 
-- **Do not feed its findings into the >=60 filter as though they were scored.** Treat them as
-  unscored leads: exclude them from the posted review, list them separately in the Step 4 report as
-  unfiltered, and name the instance that produced them.
-- Any finding carrying `unscored: true` is likewise never posted.
-- A finding arriving with `citation_verified: false` is **never posted**, whatever its score. It is
-  capped at 60 upstream, but do not rely on that cap to keep it out. This skill's filter is
-  `confidence >= 60`, which a capped finding satisfies exactly, so the cap alone would post it.
-  Exclude it the same way `review-and-fix` excludes it from fixing. List it in the Step 4 report as
-  an unverified-citation lead instead.
+- **Do not feed gh-style's findings into the >=60 filter as though they were scored** when its
+  `scoring.complete` is `false`. Treat them as unscored leads: exclude them from the posted review,
+  list them separately in the Step 4 report as unfiltered, and name the instance.
+- Any gh-style finding carrying `unscored: true` is likewise never posted.
+- A finding arriving with `citation_verified: false`, from either kind, is **never posted**,
+  whatever its score. The rubric caps it at 60, but do not rely on that cap to keep it out. This
+  skill's filter is `confidence >= 60`, which a capped finding satisfies exactly, so the cap alone
+  would post it. Exclude it the same way `review-and-fix` excludes it from fixing. List it in the
+  Step 4 report as an unverified-citation lead instead.
 
 An unfiltered instance is not a free extra reviewer. Posting its findings puts a single model's
-self-graded output into a PR review, which is how a fabricated finding gets published.
+self-graded output into a PR review, which is how a fabricated finding gets published. The in-depth
+findings avoid this by construction, because the only scores they ever carry come from the
+`review-scorer` step below.
 
 ## Pooling, deduplication, and merge
 
-Once collection has ended, whether all three reported or the give-up bound above was reached:
+Once the workflow has returned and the gh-style instance has reported or hit the give-up bound:
 
-1. **Pool every finding** across the three result sets into one flat pool. Each finding carries
-   its `confidence`, `file`, `line_range`, originating `sub_agent` (1..3), and `source`
-   (`"in-depth-review"` or `"gh-style-review"`). Don't pre-segregate by source. The cross-
-   prompt triangulation is the point.
+1. **Pool every finding** from every non-null `results[*].findings` array and from the gh-style
+   result into one flat pool. Each in-depth finding carries the `instance` and `role` of the result
+   it came from, plus `file`, `line_range`, `category`, and `confidence: null`. Each gh-style
+   finding carries `source: "gh-style-review"`, its own scored `confidence`, and no instance. Don't
+   pre-segregate by source. The cross-prompt triangulation is the point.
 
-2. **Group duplicates.** Two findings are duplicates if they refer to the **same file** and have
-   **overlapping line ranges** AND describe substantially the same problem (paraphrases count).
-   Findings from different sources (one from in-depth-review, one from gh-style-review) that
+2. **One dedup pass, across roles and instances together.** Two findings are duplicates if they
+   refer to the **same file**, have **overlapping line ranges**, AND describe substantially the same
+   problem (paraphrases count). Findings from different sources (one in-depth, one gh-style) that
    describe the same problem are duplicates, so merge them.
+
+   This used to be two layers. Each in-depth instance deduped across its own roles before returning,
+   and this step deduped across instances. The workflow returns raw per-role findings, so the layers
+   collapse into this one pass, and both agreement counts fall out of the tags:
+   - `role_agreement`: the number of distinct `role` values among the group's members from any one
+     instance, taking the larger instance's count when they differ.
+   - `raised_by`: the SET of distinct `instance` values among the group's members.
+   - `cross_instance_agreement`: the size of `raised_by`.
 
 3. **For each group, produce one merged finding:**
    - `confidence`: not set here. It stays `null` until the scoring step below, which assigns one
      score per unique finding after this merge. The rule was the `max` of the group's scores,
-     described as intentionally non-conservative, and with three instances scoring independently it
-     kept the largest of up to three noisy draws. That is a bias rather than a tie-break, and
+     described as intentionally non-conservative, and with each instance scoring independently it
+     kept the largest of several noisy draws. That is a bias rather than a tie-break, and
      corroboration was already counted on purpose by `cross_instance_agreement` below. There is no
      group of scores left to reduce.
-   - `cross_instance_agreement`: count of distinct sub-agents (1..3) that raised this finding.
-     This is the name `review-and-fix` already uses. Do not invent a third.
-     **Compute it yourself. Never reuse the `role_agreement` value on an incoming finding as this
-     count.** The denominators differ. `role_agreement` is how many of ONE instance's
-     8-12 role lenses raised the finding, and this is how many of the three independent instances
-     did. Roles share a model and a context window and are prompted to look at different things,
-     so several converging is correlated evidence. Separate instances converging is the
-     independent signal, and it is the one that should drive ordering.
-   - `role_agreement`: carry through the MAX across the group, for use as a lower tiebreaker.
-     Keeping it preserves the role-level signal rather than discarding it.
+   - `cross_instance_agreement`, `raised_by`, `role_agreement`: as computed in step 2 from the
+     `instance` and `role` tags. `cross_instance_agreement` is the name `review-and-fix` already
+     uses. Do not invent a third. The denominators differ and that is the point. `role_agreement` is
+     how many of ONE instance's 8-12 role lenses raised the finding, and `cross_instance_agreement`
+     is how many independent instances did. Roles share a model and a context window and are prompted
+     to look at different things, so several converging is correlated evidence. Separate instances
+     converging is the independent signal, and it is the one that should drive ordering.
    - `sources`: set of distinct sources (`{"in-depth-review"}`, `{"gh-style-review"}`, or both).
      A finding raised by both sources is stronger signal than a finding raised by only one;
      used as a tiebreaker in step 6.
@@ -177,7 +183,7 @@ Once collection has ended, whether all three reported or the give-up bound above
      Pass the merged value to the scorer, never a member's own.
 
 4. **Score the merged set, once.** Every finding in the pool carries `confidence: null` at this
-   point, because the in-depth instances were run with `--defer-scoring`. Scoring used to happen
+   point, because the `review-roles` workflow returns them unscored. Scoring used to happen
    inside each instance, before anything had merged, so a finding several instances raised was
    scored once per instance and all but one number was discarded. With three instances the waste and
    the max bias were both larger here than in `review-and-fix`.

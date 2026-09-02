@@ -1,8 +1,8 @@
 ---
 name: pr-review
 description: >
-  Reviews a pull request with three parallel reviewer sub-agents — two `in-depth-review` and
-  one `gh-style-review`, the same roster `review-and-fix` uses —
+  Reviews a pull request with the twelve in-depth reviewer roles run twice each behind a
+  workflow barrier plus one `gh-style-review` sub-agent, the same roster `review-and-fix` uses,
   merges and deduplicates their findings, and posts a SINGLE PR review combining global
   findings, a names-only list of inline findings (also left as inline diff comments), and any
   prior discussion the diff still leaves unaddressed. A separate approach-vs-nuanced reviewer
@@ -13,23 +13,22 @@ description: >
   higher-confidence PR feedback than a single `/in-depth-review` run would produce.
 ---
 
-# PR Review (3x-reviewed)
+# PR Review (2x roles + gh-style)
 
-This skill orchestrates **three** parallel reviewer sub-agents against a single PR: **two
-instances of `in-depth-review`** (each runs nine to twelve roles depending on what the diff contains, one fewer with `--skip-ticket`; all raw scored findings), and
-**one instance of `gh-style-review`** (the `@claude review` GitHub Action prompt
-replicated locally, which adds Discussion Context — prior-human-comment cross-referencing
-— on top of standard findings). The two in-depth instances are invoked with `--defer-scoring` and
-the gh-style instance with `--raw`, per "Why the sub-agents get different flags" below; the
-orchestrator merges and deduplicates the three result sets into one flat pool, scores each unique
-finding once, applies a final **score >= 60** filter,
+This skill runs two kinds of reviewer against a single PR. **The in-depth roles**, nine to twelve
+depending on what the diff contains and one fewer with `--skip-ticket`, run **twice each** as leaf
+agents inside the `review-roles` workflow, behind one barrier, and come back unscored. **One
+`gh-style-review` sub-agent** (the `@claude review` GitHub Action prompt replicated locally, which
+adds Discussion Context — prior-human-comment cross-referencing — on top of standard findings) runs
+with `--raw` and scores itself. The orchestrator merges and deduplicates everything into one flat
+pool, scores each unique finding once, applies a final **score >= 60** filter,
 classifies each surviving finding as INLINE (local) or GLOBAL, aggregates the still-unaddressed
 `discussion_context` from the gh-style instance, and posts a single PR review whose body
 carries the global findings in full, a names-only list of the local findings, and the
 still-unaddressed prior concerns. Inline comments are attached to the diff lines they refer to.
 Sections with no content are never emitted.
 
-On top of the three reviewers, a single **approach reviewer** debates a single
+On top of those reviewers, a single **approach reviewer** debates a single
 **more-nuanced counterpart agent** over the issues it raises (Step 2.7). This reviewer judges
 one thing only — is this the right way to build it (design, architecture, code placement,
 over/under-engineering) — not bugs. Only the findings the pair *converges* on as genuinely
@@ -38,25 +37,20 @@ with confidence > 50. Survivors join the same posting pipeline, tagged `approach
 runs once (not once per finder), and its findings post on agreement alone.
 They do not have to clear the >= 60 confidence bar the other findings do.
 
-The point: three independent passes from two different prompt structures (specialized-role
-vs. GitHub-Action mirror) catch different issues, AND converge on the real
-ones. One review entry, three reviewers' worth of recall, plus an explicit "what humans already
-raised that the diff still hasn't addressed" section.
+The point: independent passes from two different prompt structures (specialized-role vs.
+GitHub-Action mirror), with every role run twice, catch different issues AND converge on the real
+ones. One review entry, plus an explicit "what humans already raised that the diff still hasn't
+addressed" section.
 
-**Where the tiers actually sit, and why the finder pool is uniform.** The pins are layered, not
-flat. The in-depth wrappers run Sonnet at effort `medium`, but a wrapper never reads code. It
-resolves scope, invokes the skill, and pools and dedups what comes back. The agents that read the
-diff are `in-depth-review`'s own roles, and that skill pins them to Opus at effort `low` and
-forbids a caller from overriding it. So the reviewing is Opus on every instance, and only the
-orchestration around it is Sonnet.
-
-That layering is why both in-depth instances sit on the same tier. An earlier third instance ran an Opus
-*wrapper* over the same Opus roles, which bought a stronger pooling layer rather than extra
-recall, so it was dropped. The measured "1x Opus beat 3x Sonnet on hard diffs" result in
+**Where the tiers sit.** There is one layer now. The agents that read the diff are the
+`in-depth-review-role` leaves inside the workflow, pinned to Opus at effort `low` by their agent
+file, and the gh-style sub-agent, pinned to the same by its own. The Sonnet wrapper tier that used
+to sit between this orchestrator and the roles is gone with the wrappers. The measured "1x Opus beat
+3x Sonnet on hard diffs" result in
 `~/.melvin/config/docs/research/pr-review-cost-efficiency/RESULTS.md` is about the tier of the
-agents doing the reading, and those are already on Opus here. Do not read it as an argument for a
-mixed wrapper pool. That study's own recommendation table names 2x Sonnet for the easy case and
-the hard case both, which is what this is, and it is the roster `review-and-fix` runs.
+agents doing the reading, and those are on Opus here. Two runs of each role is the triangulation
+that study's recommendation table names for the easy case and the hard case both, and it is the
+roster `review-and-fix` runs.
 
 **Why the source split is asymmetric (2 in-depth, 1 gh-style).** Measured on fixtures with planted
 issues, `gh-style-review`'s findings were a strict SUBSET of `in-depth-review`'s on every
@@ -171,84 +165,84 @@ need no `gh`.
      `<ANNOUNCE_COMMENT_ID>` empty, and run the review anyway. The review is the deliverable and
      the comment is best-effort.
 
-## Step 1: Launch three reviewer sub-agents in parallel
+## Step 1: Run the in-depth roles behind a barrier, and gh-style as a sub-agent
 
-Spawn **three sub-agents in a single message** (three concurrent Agent tool calls). Sequential
-launches defeat the purpose. Never serialize. Each is a thin wrapper that invokes a recall-pass
-skill and relays its JSON.
+Issue the workflow call and the gh-style launch **in a single message** (concurrent tool-use
+blocks). Sequential launches defeat the purpose. Never serialize.
 
-**Spawn each one by `subagent_type`, and do NOT pass a `model` override.** Tier and effort are
-pinned in the agent definitions under `.claude/agents/`, which is the single source of truth for
-both. The split is:
+**Why the two kinds are dispatched differently.** Nesting the in-depth roles inside wrapper
+sub-agents lost their results. A nested agent's completion notification is delivered to the session
+root, not to the wrapper that spawned it. Measured in session `0304256d` on PR #15892: two wrappers
+launched 24 roles between them, every role finished, and the wrappers received 5 and 7 of their 12
+results while one ran `bash true` 111 times waiting for a mailbox that was not receiving its mail.
+The `review-roles` workflow's `parallel()` is a barrier in code and has no notification to route.
+gh-style spawns nothing, so it never had the problem, and this thread is the session root, so its
+one notification arrives here.
 
-| sub-agent | `subagent_type` | skill it invokes | model | effort |
-|---|---|---|---|---|
-| 1 | `pr-review-finder-indepth` | `in-depth-review` | `sonnet` | `medium` |
-| 2 | `pr-review-finder-indepth` | `in-depth-review` | `sonnet` | `medium` |
-| 3 | `pr-review-finder-ghstyle` | `gh-style-review` | `opus` | `low` |
+### The in-depth roles
 
-The model and effort columns are **documentation of what those files declare**, not a second
-control point. Change the agent file, not this table.
+Read `in-depth-review/roles/_common-fragment.md` and every `in-depth-review/roles/NN-<name>.md`,
+then invoke:
 
-**If a `subagent_type` above does not resolve** (the agent files have not been synced to
-`~/.claude/agents/` yet, or were renamed), do not abort the review. Fall back to a plain Agent
-call with the matching `model:` from the table, and state plainly in the Step 4 report that
-effort could not be pinned and therefore inherited the session value. A review that runs at the
-wrong effort is recoverable; a review that fails to launch is not.
+```
+Workflow({
+  name: 'review-roles',
+  args: {
+    target: '<PR>',
+    mode: 'pr',
+    instances: 2,
+    active_roles: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    role_prompts: { '1': '<contents of roles/01-agents-md.md>', ... },
+    common_fragment: '<contents of roles/_common-fragment.md>',
+    skip_ticket: <SKIP_TICKET>,
+  },
+})
+```
 
-**Why `subagent_type` rather than an inline `model:`.** The Agent tool has no `effort` parameter,
-so effort cannot be pinned at the call site the way `model` can. Left unset it **inherits the
-session effort**, which means review cost silently tracks whatever the user last typed into
-`/effort`. A session at `xhigh` ran this entire fan-out at `xhigh`. Agent definitions are the
-only place both knobs can be fixed together. Effort is `medium` on the finders because that is
-the level the whole cost-efficiency study was run at, so it is the only level whose recall numbers
-are actually evidenced here. Measured recall was flat from `low` through `xhigh` while latency
-scaled ~3.9x, so `low` is a plausible further saving. Trial it before adopting it.
+Pass no `model` and no `effort`. The workflow spawns every role by
+`agentType: 'in-depth-review-role'`, and that agent file pins `opus` at `low`. That is where the
+reviewing happens, and it is the tier the cost-efficiency study measured for the agents that read
+the diff. There is no wrapper tier any more, because there is no wrapper.
 
-This table is the whole roster. The agent types and their tiers are the ones `review-and-fix`
-launches too, so a change to either agent file moves both skills. Note that
-`in-depth-review` and `gh-style-review` also pin their own *internal* tiers (in-depth-review's
-inner reviewers -> Opus at `low`, its scorers -> Haiku); the agent definition governs the wrapper
-sub-agent, not the roles underneath it. So the code is read on Opus in both in-depth instances,
-and the Sonnet in the table buys the orchestration layer only. See "Where the tiers actually sit"
-in the overview for why that makes an Opus wrapper not worth paying for.
+The call returns `{ results, instances, active_roles }`. Each `results` entry is
+`{ instance, role, findings, tickets_examined }`, with `findings: null` for a role that returned
+nothing twice. The workflow already applied the conditional gates' inputs you passed via
+`active_roles`, and it already retried each dead role once. `roles_missing` for instance N is every
+entry with that instance and a null `findings`.
 
-### Sub-agents 1-2 prompt (in-depth-review)
+**If the `Workflow` tool is absent from your tool list**, the in-depth roles cannot run at all. Do
+not fall back to Agent-tool spawns of `in-depth-review`, because that nesting is where the defect
+lives. Treat it as the no-fan-out abort in Step 2 and stop.
 
-Identical prompt for both; only the sub-agent number differs. See
-[PROMPT-FINDER.md](PROMPT-FINDER.md) for the exact prompt each receives.
+### The gh-style sub-agent
 
-### Sub-agent 3 prompt (gh-style-review)
+Spawn one, by `subagent_type: pr-review-finder-ghstyle`, which pins `opus` at `low`. Pass no
+`model` and no `effort`. See [PROMPT-GH-STYLE.md](PROMPT-GH-STYLE.md) for the exact prompt.
 
-See [PROMPT-GH-STYLE.md](PROMPT-GH-STYLE.md) for the exact prompt this sub-agent receives.
+**If that `subagent_type` does not resolve** (the agent file has not been synced to
+`~/.claude/agents/` yet, or was renamed), do not abort the review. Fall back to a plain Agent call
+with `model: opus`, and state plainly in the Step 4 report that effort could not be pinned and
+therefore inherited the session value. A review that runs at the wrong effort is recoverable; a
+review that fails to launch is not.
 
-### Why the sub-agents get different flags
+### Why gh-style takes `--raw` and the roles take nothing
 
-Both `in-depth-review` and `gh-style-review` default to discarding anything `< 70`. This
-orchestrator's threshold is **60** (lower than each sub-skill's default because the 3x
-cross-instance triangulation — two from the specialized-role structure, one from the
-GitHub-Action mirror — raises confidence in 60-69 findings). Either way this skill applies the 60
-cutoff in Step 2 after merging.
+Both `in-depth-review` and `gh-style-review` default to discarding anything `< 70` when run
+standalone. This orchestrator's threshold is **60** (lower because the cross-instance triangulation,
+two runs of each role plus the GitHub-Action mirror, raises confidence in 60-69 findings), applied in
+Step 2 after merging.
 
-The flag follows the multiplicity, so the two kinds get different ones.
-
-- **The two `in-depth-review` instances get `--defer-scoring`** and return every finding with
-  `confidence: null`. Both instances scoring their own findings meant a finding both of
-  them raised was scored twice and one of the two numbers was thrown away, and the merge's
-  old `max` rule then kept the larger of two noisy draws. Step 2 scores each unique finding
-  once instead.
+- **The in-depth roles come back from the workflow unscored.** The workflow has no filter and no
+  scorer. Both instances scoring their own findings, which is what the old wrapper design did, meant
+  a finding both raised was scored twice and one number was thrown away, and the merge's old `max`
+  rule then kept the larger of two noisy draws. Step 2 scores each unique finding once instead.
 - **The one `gh-style-review` instance gets `--raw`** and still scores its own findings. One
-  instance means its findings are already scored exactly once, so there is nothing to deduplicate
-  and no reason to move the work. It also spawns no roles of its own, so there is no second layer to
-  coordinate.
-
-Do not unify these onto one flag in either direction. Giving gh-style `--defer-scoring` would move
-work for no gain, and giving the in-depth instances `--raw` would restore the double scoring this
-design exists to remove.
+  instance means its findings are already scored exactly once, so there is nothing to deduplicate and
+  no reason to move the work. It also spawns no roles of its own, so there is no second layer.
 
 ## Step 2: Merge and deduplicate (findings)
 
-Account for all three sub-agents, pool their findings, deduplicate across sources, merge each
+Account for the workflow return and the gh-style sub-agent, pool their findings, deduplicate across roles, instances and sources in one pass, merge each
 duplicate group, filter to `confidence >= 60` (dropping any unverified-citation or unscored
 finding regardless of score), and order the survivors. Follow
 [AGGREGATING.md](AGGREGATING.md) exactly — four rules from it matter enough to repeat here:
@@ -471,9 +465,11 @@ Coverage line is absent because there is nothing it could honestly say. See
   `git status` is not enough to detect a violation. A revert-and-restore reads clean before and
   after, dirty only in the window between, so a status check that runs when the fan-out returns
   sees nothing. Probe content instead, for something the diff deleted.
-- **Three parallel sub-agents (2 x in-depth-review + 1 x gh-style-review).** Launch all three in
-  a single message with concurrent Agent tool calls.
-  Do not fall back to fewer sub-agents for "speed"; the cross-source triangulation is the point.
+- **The roles run twice each inside the `review-roles` workflow, plus one gh-style sub-agent.**
+  Issue the workflow call and the gh-style launch in a single message. Do not drop to one instance
+  for "speed"; the cross-instance triangulation is the point. Do not nest the roles inside an
+  Agent-tool sub-agent again, because a nested agent's results go to the session root and the wrapper
+  never sees them, which is the measured defect the workflow exists to fix.
   Do not use only one source. Both prompt structures contribute, and dropping gh-style also
   drops Discussion Context. The pool is deliberately asymmetric in SOURCE, uniform in tier. Do
   not "balance" the sources back to 2 + 2, and do not add a third in-depth instance on Opus

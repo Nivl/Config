@@ -194,7 +194,10 @@ Once the workflow has returned and the gh-style instance has reported or hit the
    every approach finding would read as novel.
 
    Spawn `subagent_type: review-scorer` and pass no `model` override, so its agent file stays the
-   source of truth for its tier. Give it, per finding: the identifier, `title`, `description`,
+   source of truth for its tier. Begin its prompt with the stamp
+   `<!-- review-scorer batch=<B> tag=pr<PR> target=<PR> -->`, one line, so the usage accounting in
+   [USAGE.md](../review-and-fix/USAGE.md) can find its transcript. Then give it, per finding: the
+   identifier, `title`, `description`,
    `suggested_fix`, `severity`, `role_agreement`, `cross_instance_agreement`, the merged
    **`citation_verified`** from step 3, the diff for its lines, and the paths of any AGENTS.md or
    CLAUDE.md a reviewer cited for it. Name the rubric's path in the prompt.

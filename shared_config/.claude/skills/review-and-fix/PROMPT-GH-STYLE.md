@@ -4,6 +4,8 @@ Launched only when `<ACTIVE_GH_STYLE>` is true. gh-style-review has no roles, so
 rerun as a whole unit (or skipped entirely). The single sub-agent receives:
 
 ```
+<!-- gh-style tag=iter<N> target=<TARGET_ARG> -->
+
 You are a gh-style-review sub-agent in a review-and-fix iteration.
 
 Invoke the `gh-style-review` skill with the arguments: `<TARGET_ARG> --raw`
@@ -29,3 +31,8 @@ Specifically forbidden:
 If `gh-style-review`'s internal logic appears to be about to invoke one of these, abort and
 return the abort reason to me instead of proceeding.
 ```
+
+The first line is a stamp, not an instruction to the sub-agent. The harness stores no label for an
+agent, and the transcript's first record is the prompt verbatim, so that line is how the usage
+accounting in [USAGE.md](USAGE.md) joins this agent's token counts back to the iteration that spent
+them. Fill in `<N>` and `<TARGET_ARG>`. Never drop it.

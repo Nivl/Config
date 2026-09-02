@@ -199,7 +199,10 @@ reached (up to 3 active; fewer when the iteration is pruned):
    80 were scored to produce about 46 unique ones.
 
    Spawn `subagent_type: review-scorer` and pass no `model` override, so its agent file stays the
-   source of truth for its tier. Give it, per finding: the finding's identifier, `title`,
+   source of truth for its tier. Begin its prompt with the stamp
+   `<!-- review-scorer batch=<B> tag=iter<N> target=<TARGET_ARG> -->`, one line, so the usage
+   accounting in [USAGE.md](USAGE.md) can find its transcript. Then give it, per finding: the
+   finding's identifier, `title`,
    `description`, `suggested_fix`, `severity`, `role_agreement`, `cross_instance_agreement`,
    **`citation_verified`**, the diff for its lines, and the paths of any AGENTS.md or CLAUDE.md a
    reviewer cited for it. Name the rubric's path in the prompt, which is

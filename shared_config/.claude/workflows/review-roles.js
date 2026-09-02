@@ -68,9 +68,22 @@ for (let inst = 1; inst <= args.instances; inst++) {
 }
 log(`dispatching ${jobs.length} role agents: ${args.instances} instance(s) x ${roles.length} role(s)`)
 
-const run = (j) =>
+// The first line of every prompt is a machine-readable stamp, because the
+// harness stores no label for a workflow agent. Its transcript's first record is
+// the prompt verbatim, and that is the only place inst and role survive the run.
+// The caller's usage accounting greps this line to join a transcript's token
+// counts back to the role that spent them. attempt distinguishes a retry from the
+// launch it replaced, so a role that died once shows both costs. args.tag is
+// whatever the caller needs to tell this invocation apart from the last one on
+// the same target, such as an iteration number.
+const stamp = (j, attempt) =>
+  `<!-- review-roles inst=${j.inst} role=${j.role} attempt=${attempt} tag=${args.tag ?? 'none'} target=${args.target} -->`
+
+const run = (j, attempt) =>
   agent(
-    `${args.common_fragment}
+    `${stamp(j, attempt)}
+
+${args.common_fragment}
 
 ${args.role_prompts[String(j.role)]}
 
@@ -89,10 +102,10 @@ different model, and a number you invent would collapse that separation.`,
 // the same bug with extra bookkeeping.
 const results = await parallel(
   jobs.map((j) => async () => {
-    let out = await run(j)
+    let out = await run(j, 1)
     if (!out) {
       log(`inst${j.inst} role${j.role} returned nothing, retrying once`)
-      out = await run(j)
+      out = await run(j, 2)
     }
     if (!out) log(`inst${j.inst} role${j.role} returned nothing twice, recorded as missing`)
     return {

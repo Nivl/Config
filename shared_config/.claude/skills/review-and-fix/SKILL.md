@@ -209,12 +209,16 @@ Workflow({
     role_prompts: { '<n>': '<contents of that role file>', ... },
     common_fragment: '<contents of _common-fragment.md>',
     skip_ticket: <SKIP_TICKET>,
+    tag: 'iter<N>',
   },
 })
 ```
 
 Pass no `model` and no `effort`. The workflow spawns every role by
-`agentType: 'in-depth-review-role'`, and that agent file pins `opus` at `low`.
+`agentType: 'in-depth-review-role'`, and that agent file pins `opus` at `low`. `tag` is the
+iteration number, and the workflow writes it into the first line of every role's prompt so the
+usage accounting below can tell this iteration's transcripts from the last iteration's on the same
+target. See [USAGE.md](USAGE.md).
 
 The call returns `{ results, instances, active_roles }`. Each `results` entry is
 `{ instance, role, findings, tickets_examined }`, with `findings: null` for a role that returned
@@ -252,6 +256,17 @@ prompt the sub-agent receives.
 **Stamp each instance's arrival as you read its result**, with `date -u +%FT%TZ`, appending one
 line per instance that names the instance. `t1` is the last of them. `t1` minus `t0` is the
 iteration's waiting time, and on a pruned iteration that number is most of the wall clock.
+
+**Then append the usage lines, before anything else in this iteration.** Run the recipe in
+[USAGE.md](USAGE.md) over the session's transcripts, keep the lines whose stamp carries this
+iteration's `tag`, and append them to `run_log_path` as they come out. One line per agent, each
+naming its kind, instance, role, attempt, model, turn count, token sums, and a priced estimate. This
+is a record of what the fan-out just cost, taken at the moment the cost is knowable and before the
+fix phase spends anything, so an interrupted run still has it. The per-iteration summary rolls these
+lines up and never replaces them.
+
+Note in the same breath if any line came back `kind=unstamped`. That is an agent this iteration did
+not launch, or a prompt that lost its stamp, and either is worth a sentence.
 
 **Do not try to stamp the moment collection ended**, because there is no such moment to observe.
 Results arrive asynchronously on later turns, and you learn collection is over minutes after the

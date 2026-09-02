@@ -195,6 +195,7 @@ Workflow({
     role_prompts: { '1': '<contents of roles/01-agents-md.md>', ... },
     common_fragment: '<contents of roles/_common-fragment.md>',
     skip_ticket: <SKIP_TICKET>,
+    tag: 'pr<PR>',
   },
 })
 ```
@@ -202,7 +203,9 @@ Workflow({
 Pass no `model` and no `effort`. The workflow spawns every role by
 `agentType: 'in-depth-review-role'`, and that agent file pins `opus` at `low`. That is where the
 reviewing happens, and it is the tier the cost-efficiency study measured for the agents that read
-the diff. There is no wrapper tier any more, because there is no wrapper.
+the diff. There is no wrapper tier any more, because there is no wrapper. `tag` goes into the first
+line of every role's prompt so the usage accounting can find this run's transcripts, per
+[USAGE.md](../review-and-fix/USAGE.md).
 
 The call returns `{ results, instances, active_roles }`. Each `results` entry is
 `{ instance, role, findings, tickets_examined }`, with `findings: null` for a role that returned
@@ -431,6 +434,15 @@ line, which must never be omitted. Neither path covers a no-fanout abort. That r
 coverage to report, so it emits the abort and its reason in place of the whole report, and the
 Coverage line is absent because there is nothing it could honestly say. See
 [FINAL-REPORT.md](FINAL-REPORT.md)'s no-fanout section for what that abort report covers.
+
+**Add a Spend block, on both paths.** Run the recipe in
+[USAGE.md](../review-and-fix/USAGE.md) over the session's transcripts, keep the lines whose stamp
+carries `tag=pr<PR>`, and sum them by kind and by model. Report agent count, turn count and the
+priced estimate per kind, the run total, and the single most expensive agent by its stamp. Say that
+`$` is the estimate at the rates and date USAGE.md records, and that the orchestrator's own spend is
+not included. A run whose transcripts carry no stamp reports `spend: not recorded` rather than a
+guess. The block is what turns a question about whether the second instance of a role earns its cost
+into a number beside the attribution ledger rather than an argument about it.
 
 ## Constraints
 

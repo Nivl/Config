@@ -155,9 +155,19 @@ nothing and the rest of the run is unchanged.
 
 ## Sub-agent prompts
 
+Every prompt below begins with a one-line stamp, `<!-- approach-proposer round=<R> ... -->` or
+`<!-- nuanced-judge round=<R> ... -->`. It is not an instruction to the agent. The harness stores no
+label for an agent, and the transcript's first record is the prompt verbatim, so the stamp is how the
+usage accounting in [USAGE.md](../review-and-fix/USAGE.md) joins each agent's token counts back to
+this run and this round. Fill in `<R>` with the round number, 1 for the propose pass and 2 or 3 for
+a rebut, so the debate's cost per round is visible. Never drop the stamp, including on the rebut
+re-spawns that otherwise reuse the round-1 prompt.
+
 **Approach reviewer (round 1 — propose):**
 
 ```
+<!-- approach-proposer round=<R> tag=pr<PR> target=<PR> -->
+
 You are the APPROACH reviewer in a pr-review orchestration reviewing PR #<PR>. You judge ONE
 thing: is this the right way to build it? You do NOT hunt for bugs, edge cases, race
 conditions, security holes, or missing error handling. Other reviewers cover those, and a
@@ -197,6 +207,8 @@ Forbidden (you are read-only w.r.t. GitHub): `gh pr comment`, `gh pr review`, `g
 **Nuanced agent (each round — judge):**
 
 ```
+<!-- nuanced-judge round=<R> tag=pr<PR> target=<PR> -->
+
 You are the NUANCED reviewer in a pr-review orchestration, the pragmatic counterweight to an
 approach reviewer on PR #<PR>. The approach reviewer critiques design and structure, meaning whether
 the code is over- or under-engineered, in the wrong place, duct-taped, or reinvents something

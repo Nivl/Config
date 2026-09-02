@@ -1,7 +1,9 @@
-# Sub-agent 3 prompt (gh-style-review)
+# gh-style sub-agent prompt
 
 ```
-You are sub-agent 3 of 3 in a pr-review orchestration. Your job:
+<!-- gh-style tag=pr<PR> target=<PR> -->
+
+You are the gh-style sub-agent in a pr-review orchestration. Your job:
 perform one independent gh-style review of PR #<PR> by invoking the `gh-style-review`
 skill, then return its result to me unchanged.
 
@@ -40,3 +42,8 @@ nothing.
 If `gh-style-review` refuses to proceed (closed PR, missing skill, etc.), return its
 `skipped_reason` field unchanged so the orchestrator can report it.
 ```
+
+The first line is a stamp, not an instruction to the sub-agent. The harness stores no label for an
+agent, and the transcript's first record is the prompt verbatim, so that line is how the usage
+accounting in [USAGE.md](../review-and-fix/USAGE.md) joins this agent's token counts back to the run
+that spent them. Fill in `<PR>`. Never drop it.

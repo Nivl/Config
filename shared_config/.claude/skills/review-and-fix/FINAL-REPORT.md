@@ -69,6 +69,25 @@ branch was NOT reviewed against. Never omit this section; its absence reads as c
 A run that aborted on row 0 never reaches this report. Coverage has no value to report, because
 nothing was reviewed.
 
+### Spend
+The run total, summed from every `usage` line in the run log, by kind and by model, with the agent
+count and the turn count beside the dollar figure, and the most expensive single agent named. One
+short block:
+
+```
+roles      48 agents  1,990 turns  $236.80  (opus-5)
+gh-style    6 agents    318 turns   $41.70  (opus-5)
+scorer      6 agents     54 turns    $2.52  (sonnet-5)
+total      60 agents  2,362 turns  $281.02  over 6 iterations
+most expensive: inst1:role7 iter2, 89 turns, $10.10
+```
+
+`$` is the estimate [USAGE.md](USAGE.md) defines, at the rates and date recorded there, and this
+section says so in one clause. The orchestrator's own spend is not in it and the block says that
+too, because a reader adding this up against a bill needs to know what is missing. Omit the section
+only for a row 0 abort, where no agent ran. A run whose `usage` lines are missing reports
+`spend: not recorded` rather than a guess, so the gap is visible.
+
 ### Outcome
 ✅ Clean batch — the loop stopped on row 1, so `batch_clean` was true. The final iteration's active
 reviewers ALL reported, they found nothing actionable, and Coverage is `complete`. Done.

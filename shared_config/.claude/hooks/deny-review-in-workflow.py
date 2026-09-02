@@ -66,16 +66,19 @@ import sys
 # top-of-file paragraph for the full reason.
 DENIED_SKILLS = ("in-depth-review", "review-and-fix", "pr-review", "work-on", "open-ticket")
 
-# An agent type rather than a skill. This wrapper runs in-depth-review, so it
-# fans out exactly as the skill does and a workflow agent breaks it the same way.
-# Under the word-boundary match it does not read as `pr-review`, so it needs its
-# own entry. A future pr-review-* fan-out wrapper needs one too, because the
-# boundary after a name excludes a hyphen and this entry will not cover it. The
-# other agent types under .claude/agents are absent on purpose. Each of those is
-# a leaf that reads and reports, and a workflow script's own agent() calls run at
-# the orchestrator level, so launching a leaf from a script is the way to
-# hand-roll a fan-out inside a workflow.
-DENIED_AGENT_TYPES = ("pr-review-finder-indepth",)
+# Agent types rather than skills. Empty on purpose. This held
+# `pr-review-finder-indepth` while that wrapper existed, because it ran
+# in-depth-review and so fanned out exactly as the skill does, and under the
+# word-boundary match its name does not read as `pr-review`. The wrapper is gone.
+# The review skills now drive their roles through the `review-roles` workflow
+# from the main thread, and no agent type under .claude/agents fans out any more.
+# Each remaining one is a leaf that reads and reports, and a workflow script's
+# own agent() calls run at the orchestrator level, so launching a leaf from a
+# script is the way to hand-roll a fan-out inside a workflow. The tuple stays so
+# a future wrapper that does fan out has somewhere to go, and because the
+# boundary after a name excludes a hyphen, a `pr-review-*` wrapper would need its
+# own entry here rather than inheriting the skill's.
+DENIED_AGENT_TYPES: tuple[str, ...] = ()
 
 # A name counts only on a word boundary, so an identifier that merely contains
 # one is left alone. The two boundaries are deliberately asymmetric. The one

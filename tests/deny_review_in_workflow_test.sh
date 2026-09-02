@@ -96,13 +96,13 @@ assert_eq "deny_saved_resolved" "deny" "$(decision_of "$(jq -nc \
 assert_eq "silent_args_brief" "silent" "$(decision_of "$(jq -nc \
   '{tool_input: {script: "export const meta = {};", args: {brief: "hand this to work-on"}}}')")"
 
-# ---- Deny: the wrapper that runs in-depth-review, so it fans out too ----
-assert_eq "deny_finder_indepth" "deny" \
-  "$(decision script "await agent({ agentType: 'pr-review-finder-indepth' })")"
-
-# ---- Reason must name the wrapper that matched, not the bare skill ----
-assert_contains "reason_names_wrapper" 'run `pr-review-finder-indepth` inside' \
-  "$(reason script "await agent({ agentType: 'pr-review-finder-indepth' })")"
+# ---- Silent: DENIED_AGENT_TYPES is empty and the hook still runs ----
+# The tuple held pr-review-finder-indepth while that wrapper existed. It is
+# deleted, so the tuple is empty on purpose, and this case pins that an empty
+# agent-type list does not break pattern compilation or turn every script into a
+# deny. A leaf agent type is the thing that must stay allowed.
+assert_eq "silent_empty_agent_types_leaf" "silent" \
+  "$(decision script "await agent({ agentType: 'in-depth-review-role', prompt: role })")"
 
 # ---- Reason must name the matched skill and steer to the main thread ----
 assert_contains "reason_names_skill" "in-depth-review" \

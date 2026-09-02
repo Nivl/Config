@@ -337,3 +337,38 @@ func TestLinkDirEntries_DryRunWritesNothing(t *testing.T) {
 	}
 	assert.True(t, reported, "the collision must be reported")
 }
+
+// TestLinkDirEntries_WorkflowsDirLinksEachFile - the workflows dir is
+// linked per entry exactly as skills is, so ~/.claude/workflows/ is a
+// real directory holding one symlink per repo file, never a symlink
+// itself. A workflow entry is a single .js file rather than a
+// directory, and the linker does not care which.
+func TestLinkDirEntries_WorkflowsDirLinksEachFile(t *testing.T) {
+	tmp := t.TempDir()
+	p := state.NewPaths(filepath.Join(tmp, "config"), filepath.Join(tmp, "home"))
+	repoWorkflows := filepath.Join(p.RepoDir, "workflows")
+	require.NoError(t, os.MkdirAll(repoWorkflows, 0o755))
+	require.NoError(t, os.MkdirAll(p.HomeDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(repoWorkflows, "review-roles.js"),
+		[]byte("export const meta = { name: 'review-roles' }\n"), 0o644))
+
+	require.NoError(t, LinkDirEntries(p, "workflows", &bytes.Buffer{}, liveOpts()))
+
+	homeWorkflows := filepath.Join(p.HomeDir, "workflows")
+	info, err := os.Lstat(homeWorkflows)
+	require.NoError(t, err)
+	assert.True(t, info.IsDir(), "~/.claude/workflows must be a real directory")
+	assert.Zero(t, info.Mode()&os.ModeSymlink, "~/.claude/workflows must not itself be a symlink")
+
+	link, err := os.Readlink(filepath.Join(homeWorkflows, "review-roles.js"))
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(repoWorkflows, "review-roles.js"), link)
+}
+
+// TestLinkedDirs_IncludesWorkflows - the constant Sync iterates names
+// both per-entry directories. Without this, LinkDirEntries works when
+// called directly and Sync never calls it for workflows.
+func TestLinkedDirs_IncludesWorkflows(t *testing.T) {
+	assert.Contains(t, linkedDirs, "skills")
+	assert.Contains(t, linkedDirs, "workflows")
+}

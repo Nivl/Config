@@ -16,7 +16,7 @@ import (
 	"github.com/Nivl/config/internal/symlinkfs"
 )
 
-// newSymlinkEnv builds a Paths with the repo populated for the 6 items
+// newSymlinkEnv builds a Paths with the repo populated for every curated item
 // and an empty home dir.
 func newSymlinkEnv(t *testing.T) state.Paths {
 	t.Helper()
@@ -26,7 +26,8 @@ func newSymlinkEnv(t *testing.T) state.Paths {
 	p := state.NewPaths(configDir, homeDir)
 	require.NoError(t, os.MkdirAll(p.RepoDir, 0o755))
 	require.NoError(t, os.MkdirAll(p.HomeDir, 0o755))
-	// Populate repo with the 6 items.
+	// Populate repo with every curated item. Mirror curatedItems(): a dir added to
+	// linkedDirs or mergedDirs needs a source here or InstallSymlinks skips it.
 	require.NoError(t, os.WriteFile(filepath.Join(p.RepoDir, "settings.json"),
 		[]byte(`{}`), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(p.RepoDir, "CLAUDE.md"),
@@ -34,20 +35,22 @@ func newSymlinkEnv(t *testing.T) state.Paths {
 	require.NoError(t, os.WriteFile(filepath.Join(p.RepoDir, "AGENTS.md"),
 		[]byte("r\n"), 0o644))
 	require.NoError(t, os.MkdirAll(filepath.Join(p.RepoDir, "skills"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(p.RepoDir, "workflows"), 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(p.RepoDir, "agents"), 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(p.RepoDir, "commands"), 0o755))
 	return p
 }
 
-// TestInstallSymlinks_FreshAllItemsCreated — on a fresh home dir, all
-// 6 symlinks land in order with absolute targets.
+// TestInstallSymlinks_FreshAllItemsCreated — on a fresh home dir, every
+// curated item lands as a symlink with an absolute target. Iterates the
+// constant rather than a copied list, so adding a dir to linkedDirs or
+// mergedDirs is covered here without anyone remembering to extend it.
 func TestInstallSymlinks_FreshAllItemsCreated(t *testing.T) {
 	p := newSymlinkEnv(t)
 
 	require.NoError(t, InstallSymlinks(context.Background(), p, &bytes.Buffer{}, symlinkfs.InstallOpts{Reporter: dryrun.NewNullReporter()}))
 
-	for _, item := range []string{"settings.json", "CLAUDE.md", "AGENTS.md",
-		"skills", "agents", "commands"} {
+	for _, item := range curatedItems() {
 		target := filepath.Join(p.HomeDir, item)
 		link, err := os.Readlink(target)
 		require.NoError(t, err, "symlink missing for %s", item)

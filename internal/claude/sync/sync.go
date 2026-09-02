@@ -41,7 +41,7 @@ const (
 	ModeCopy Mode = iota
 	// ModeSymlink is the symlink-each-curated-item path
 	// (PERSONAL_COMPUTER == "true"). Installs absolute-target symlinks
-	// for the six curated items into ~/.claude/.
+	// for every curated item into ~/.claude/.
 	ModeSymlink
 )
 
@@ -238,8 +238,8 @@ var (
 	// copy mode links each entry instead of merging its files. A skill
 	// is edited in the repo and read from ~/.claude; a 3-way merge of
 	// its individual files only ever recreated repo content locally.
-	linkedDirs = []string{"skills"}             //nolint:gochecknoglobals // ordered constant
-	mergedDirs = []string{"agents", "commands"} //nolint:gochecknoglobals // ordered constant
+	linkedDirs = []string{"skills", "workflows"} //nolint:gochecknoglobals // ordered constant
+	mergedDirs = []string{"agents", "commands"}  //nolint:gochecknoglobals // ordered constant
 )
 
 // curatedItems returns every synced member in canonical order:

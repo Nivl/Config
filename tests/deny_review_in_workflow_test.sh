@@ -193,5 +193,18 @@ assert_eq "silent_past_read_cap" "silent" "$(decision scriptPath "$FIXTURES/huge
 assert_eq "deny_within_read_cap" "deny" \
   "$(decision scriptPath "$FIXTURES/persisted.js")"
 
+# ---- Allow: the real saved role-dispatch script, fed by scriptPath ----
+# This is the one workflow the review skills drive from the main thread. Its
+# body names in-depth-review-role, which the trailing word boundary allows, and
+# must name none of the five denied skills anywhere, comments included. Feeding
+# the real file rather than a quote is what makes a later edit that adds a
+# denied name fail here instead of at run time.
+REAL_SCRIPT="$(cd "$(dirname "$0")/.." && pwd)/shared_config/.claude/workflows/review-roles.js"
+[[ -f "$REAL_SCRIPT" ]] || { echo "FAIL: real script missing at $REAL_SCRIPT"; exit 1; }
+assert_eq "silent_real_review_roles_script" "silent" \
+  "$(decision scriptPath "$REAL_SCRIPT")"
+assert_eq "silent_real_review_roles_by_name" "silent" \
+  "$(decision name "review-roles")"
+
 rm -rf "$FIXTURES"
 echo "deny-review-in-workflow.py: all tests passed"

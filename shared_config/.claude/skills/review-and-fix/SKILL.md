@@ -658,13 +658,29 @@ distinction from an interrupt. [FINAL-REPORT.md](FINAL-REPORT.md) carries its Ou
 that rather than bending row 1c or row 2 to fit, and rather than naming a stop of your own. The
 nine logged runs behind this rule are in the run-log notes.
 
-**Ask, do not decide.** When the absorbing lane's signal is showing, meaning
-`self_inflicted_count` in the majority with `any_logic_change` and `any_test_change` both false
-across three consecutive iterations, on a run whose logic commits have stopped changing, put that
-in front of the user and let them choose. Presenting a signal is not one of the four forbidden
-things. It counts no iterations, fires on no schedule, and stops nothing by itself, and the
-paragraph above already makes the user the exit for this case. What is forbidden is ending the run
-on that signal yourself. A plausible stop nobody authorized is harder to argue with than a bad one.
+**Ask, do not decide.** When `self_inflicted_count` has been the majority of the kept findings for
+three consecutive iterations, put that in front of the user before launching the next one, with the
+per-iteration counts and the spend so far, and let them choose. That is the whole trigger. It does
+not also wait for `any_logic_change` and `any_test_change` to go false.
+
+It used to. The first version of this rule required the majority AND both booleans false, and one
+measured run then went fourteen iterations at about $57 each with self-inflicted findings at 70 to
+95 percent from iteration 2 onward, and the ask never fired. Every iteration committed one small
+change the classifier correctly called `logic`, a moved statement, a helper extraction, a
+`deleted_at` clause, a counter tag's position, so `any_logic_change` was true every time and the
+gate stayed shut while the orchestrator wrote "self-inflicted findings were the majority from
+iteration 3 onward" into its own Final Report. The passage below already says `self_inflicted_count`
+is the direct signal and the booleans only corroborate it. Requiring the corroboration inverted that,
+and it cost roughly $500 of the run.
+
+If the user says continue, the signal keeps showing, and the ask fires again after three more
+consecutive majority iterations. That is gated on the signal and not on a schedule, so it is not the
+periodic check-in the paragraph above forbids.
+
+Presenting a signal is not one of the four forbidden things. It counts no iterations, fires on no
+schedule, and stops nothing by itself, and the paragraph above already makes the user the exit for
+this case. What is forbidden is ending the run on that signal yourself. A plausible stop nobody
+authorized is harder to argue with than a bad one.
 
 The finding count is not the signal, because it falls monotonically the whole time this lane runs,
 so a run can look like it is converging while it eats its own output. The lane's only exits are
@@ -759,6 +775,15 @@ and they see the accumulated test code then. Cost trade: [PRUNING.md](PRUNING.md
 own output. Row 4 needs a `logic` commit and a prose-only iteration has none, so no rerun row can
 end this lane. Its exits are the three the signal above already names. Full analysis:
 [PRUNING.md](PRUNING.md).
+
+**There is a second absorbing lane, and it runs at full cost.** An iteration that commits one small
+`logic` change to the run's own earlier fix, a moved statement, an extracted helper, a reordered
+guard arm, fires row 4 and reruns every role, and the roles then review that change and find the
+next small thing. The classifier is right to call those `logic`. The lane is wrong to keep running.
+One measured run did this for twelve iterations at about $57 each with self-inflicted findings at 70
+to 95 percent throughout, and it never reached the prose lane because it never had a prose-only
+iteration. `self_inflicted_count` is the signal for both lanes, which is why the ask above reads it
+alone.
 
 **Never call a commit or an iteration `prose`, `test`, or `logic` unless that word is the
 classifier's verdict for it.** Those three are classes derived from a diff in sub-step 7. A

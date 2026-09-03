@@ -12,6 +12,7 @@ to change them.
 - What a pruned `test` iteration gives up
 - What a pruned `prose` iteration gives up, and why that lane is absorbing
 - Role 11 is the seam
+- The second absorbing lane runs at full cost
 
 ## The retry union, and the coverage hole without it
 
@@ -111,3 +112,42 @@ frequently the right one.
 So an iteration whose findings came from roles 1, 5 and 11 can legitimately commit `logic` and sit
 on row 4, and it is not in this lane at all. The measured run where that was misreported is in
 `~/.melvin/config/docs/research/review-and-fix-run-log/NOTES.md`.
+
+## The second absorbing lane runs at full cost
+
+The prose lane above is absorbing because no rerun row can reach it. This lane is absorbing for the
+opposite reason. Row 4 reaches it every single time.
+
+An iteration fixes a finding against the run's own earlier commit with one small `logic` change. A
+statement moves. A helper is extracted. A `deleted_at` clause is added to a write the run wrote two
+iterations ago. A guard's arms are reordered. The classifier calls each of those `logic`, and it is
+right to, because each changes executable code. `any_logic_change` goes true, row 4 fires, every
+role reruns at full strength, and the roles review the change and find the next small thing about it.
+
+Measured, in the run logged at `logs/review-and-fix/20260902-215619-api-ml-GRO-17925.md`. Fourteen
+iterations. Self-inflicted findings were 19 of 27 in iteration 2, 30 of 34 in iteration 3, and
+between 70 and 95 percent of every iteration after, through iteration 13. `any_logic_change` was
+true on all thirteen committing iterations. The run never had a prose-only iteration, so it never
+entered the lane above, and row 5 never pruned anything. Each iteration reran 24 roles plus gh-style
+plus a scorer at roughly $57, and the run came to about $800.
+
+Two things follow.
+
+**`self_inflicted_count` is the signal for both lanes, on its own.** The two booleans distinguish the
+lanes from each other and are useless for detecting either, because this lane has `any_logic_change`
+true throughout and the prose lane has it false throughout. An ask gated on the booleans fires in
+one lane and never in the other. Step 3's ask now reads the count alone, three consecutive majority
+iterations, and that rule was the fix here. On this run it would have fired before iteration 5, at
+roughly $230 spent, and the user would have chosen whether iterations 5 through 13 were worth the
+other $570.
+
+**The orchestrator's own defense of the run is worth reading skeptically.** Its Final Report argued
+that five defects found after iteration 6 justified the cost. One of the five was "the batched
+counter's tags were dropped by ScopedStats (12, introduced in 10)", which is the loop fixing what
+the loop broke and counting it as a find. That is not a reason to distrust the orchestrator. It is
+a reason the decision belongs to the user, who can see the bill.
+
+The same report also said the loop "stopped on row 1." It stopped on row 2. Row 1 is an empty
+findings list with clean coverage, and iteration 14 kept seven findings and committed nothing.
+`any_commit == false` is row 2 whatever the finding count, and the Outcome line has to say
+"Converged" rather than "Clean batch" for it.

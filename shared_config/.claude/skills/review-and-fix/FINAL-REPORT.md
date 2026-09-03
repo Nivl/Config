@@ -100,7 +100,10 @@ uses this outcome too whenever Coverage is `partial`.
 — OR —
 ✅ Converged — the last iteration committed no changes and Coverage is `complete`. Every finding it
 surfaced was deferred, dismissed, or left unfixed, and Remaining Issues (or Tickets examined, for
-ticket gaps) lists them. Done.
+ticket gaps) lists them. Done. This is row 2, and it is row 2 however many findings the last
+iteration kept. A report that says "row 1" here is wrong, because row 1 is an empty findings list.
+One measured run kept seven findings, committed nothing, and wrote "stopped on row 1" in its report.
+`any_commit == false` with findings in hand is this line, never the one above.
 — OR —
 ⚠️ Stopped at the severity floor — row 2b fired. Findings survive and every one is `suggestion`
 severity in a non-shipping category. Not a clean result and not converged, because the loop stopped

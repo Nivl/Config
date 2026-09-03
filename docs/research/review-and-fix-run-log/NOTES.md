@@ -350,3 +350,78 @@ line-oriented search for the literal phrase returns zero hits.
 Zero hits reads exactly like a clean sweep. That is how the miss this rule exists to prevent
 actually happened. Anyone tempted to simplify the rule back to a plain `grep` for the phrase should
 note that the simplification is silent in the direction of passing.
+
+## Two questions the logs of 2026-09-01 and 09-02 answered
+
+Both had been asked repeatedly and argued from finding counts. The run logs now carry the fields to
+answer them, and three runs did.
+
+### The role-delivery defect, and its fix, measured on one PR
+
+`20260902-185305-api-ml-GRO-18112-2.md` crossed the dispatch change mid-run. Iterations 1 and 2
+ran the old shape, two `in-depth-review` wrapper sub-agents each spawning 12 roles through the
+Agent tool. Iteration 3 onward ran the new shape, the `review-roles` workflow launched from the main
+thread, after the wrappers aborted with `REVIEW_UNAVAILABLE_NO_FANOUT` because the skill had been
+updated under them.
+
+| iteration | dispatch | roles silent |
+|---|---|---|
+| 1 | wrappers | 3 of 24 |
+| 2 | wrappers | 7 of 24, four "recovered from finished transcripts" by hand |
+| 3 | workflow | 0 of 24 |
+| 4 | workflow | 0 of 24 |
+| 5 | workflow, pruned to roles 1, 5, 9 | 0 of 6 |
+
+Same PR, same session, same roles, same day. The mechanism is in the spec at
+`docs/superpowers/specs/2026-09-02-flatten-review-fanout-design.md`. A nested agent's completion
+notification is delivered to the session root rather than to the agent that spawned it, so the
+wrappers were polling a mailbox that was not receiving their mail. `parallel()` inside the workflow
+is a barrier in code and has nothing to route. `20260901-200153-api-ml-GRO-17924.md`, one day
+earlier and still on wrappers, stopped on row 1c with partial coverage because role 7 went silent in
+one instance. That was the last run to lose a role that way.
+
+The iteration-2 line "four recovered from finished transcripts" is worth keeping. It records that the
+orchestrator, given roles it could not hear from, went and read their transcripts off disk. That was
+the right call and it is exactly the workaround the fix makes unnecessary.
+
+### Does the second in-depth instance earn its cost
+
+The attribution ledger records, per instance, how many kept findings only that instance raised.
+From `20260902-215619-api-ml-GRO-17925.md`, iterations 1 to 5, both instances complete:
+
+| iteration | instance 1 unique kept | instance 2 unique kept | shared |
+|---|---|---|---|
+| 1 | 3 | 1 | 17 |
+| 2 | 5 | 4 | 15 |
+| 3 | 6 | 9 | 17 |
+| 4 | 4 | 3 | 17 |
+| 5 | 5 | 3 | 13 |
+
+Each instance contributes 3 to 9 kept findings per iteration that the other did not raise, and
+neither instance dominates. Across the three runs of 09-02, 13 commits carry `actionable_unique`,
+meaning the fix came from a finding only one instance raised. So the second instance is buying
+recall and not only insurance against a dead sibling, and the recall is symmetric.
+
+The answer is to keep two instances. The earlier reading of the same question, from finding counts
+alone, could not separate "the second instance finds different things" from "the second instance
+finds the same things and the merge dedups them," and the ledger can.
+
+One caveat that bounds how far to trust the specific numbers. That run was in the second absorbing
+lane for iterations 2 through 13, with self-inflicted findings at 70 to 95 percent, so many of the
+uniques above are polish on the run's own earlier fixes. The symmetry between instances is the
+robust part. The absolute counts are inflated by the churn.
+
+### What the same logs showed was broken
+
+Eleven attribution lines across the three runs say `unique=pending shared=pending` and were never
+completed. The orchestrator wrote them at arrival, before the merge that computes those fields, and
+did not return. The rule said to write "the moment you have them" and arrival is not that moment.
+The rule now names the moment, after merge and threshold, and bans `pending` as a value.
+
+A commit that rewrote comments in two production files and added twenty executable lines to a test
+file was classified `logic` and forced a full rerun, because the `test` class checked purity per
+file and a production file is not on the never-logic list. The user caught it. `test` now accepts a
+non-test file whose hunks are all comment-only, which is the same hunk principle `prose` already
+uses.
+
+The 800-dollar run, `20260902-215619-api-ml-GRO-17925.md`, is analysed in the skill itself, under "The second absorbing lane runs at full cost" in `shared_config/.claude/skills/review-and-fix/PRUNING.md`, because the fix it forced lives there. In one line: fourteen iterations, self-inflicted findings at 70 to 95 percent from iteration 2, `any_logic_change` true every time, and the ask rule that should have fired at iteration 4 was gated on a boolean that never went false.

@@ -561,9 +561,17 @@ either. Both are carried to the Final Report.
        test rather than a file test. A commit that rewrites only the comments inside a live
        source file is `prose`, because nothing executable changed.
      - **`test`** if at least one changed file is a test file, and every other changed file is
-       either a test file or on the never-logic list. One shape does not qualify. A file under a
-       test path that is not itself a test, such as a shared helper or fixture module, is NOT a
-       test file and IS `logic`, because non-test code may import it.
+       either a test file, on the never-logic list, or changed only in hunks that `prose` would
+       accept, meaning comments, docstrings, and whitespace. That last clause is the hunk principle
+       `prose` already uses, applied to the files a `test` commit carries alongside its tests. A
+       production file whose only change is a rewritten comment leaves production behaviour
+       byte-identical, which is the whole reason `test` is safe to prune on, so it cannot be the
+       thing that disqualifies the class. Measured: one commit added 20 executable lines to a test
+       file and rewrote comments in two production files, was classified `logic` on the file-level
+       reading, and forced a full rerun of 24 roles for a commit that changed no behaviour. The user
+       caught it. One shape still does not qualify. A file under a test path that is not itself a
+       test, such as a shared helper or fixture module, is NOT a test file and IS `logic`, because
+       non-test code may import it.
      - **`logic`** otherwise. Any change to executable code lands here, including a
        string/number literal that logic reads, a moved statement, an import, application
        configuration, and a code path behind a flag that is currently off. `tsconfig*.json` and

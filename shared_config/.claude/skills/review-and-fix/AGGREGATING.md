@@ -282,12 +282,21 @@ active instance, keyed by `sub_agent`:
 - `state`: reported, partial, or failed, naming what was lost. An instance that returned nothing
   still gets this field, and it is the one that separates a quiet instance from a dead one.
 
-**Append these to the run log the moment you have them, one line per instance, before Step 2
-starts.** Not later as an assembled table. This file's own record is that a shape specified for
-later assembly does not get written: the duration summary was specified three ways and produced
+**Append these to the run log at ONE moment, after the merge and the threshold have both run and
+before Step 2 starts.** That is the first moment every field except `unique_actionable` is a number.
+Not at arrival, when `unique` and `shared` do not exist yet, and not later as an assembled table.
+
+The arrival mistake is the one that happened. Three runs wrote their attribution lines when the
+fan-out came back, with `unique=pending shared=pending roles=pending`, and never returned to fill
+them in. Eleven such lines exist and every one of them is a measurement lost. `pending` is not a
+value this line may carry. If a field is not yet known, the line is not yet ready to write, and the
+moment to write it is after the merge.
+
+The assembled-table mistake is the other one, and this file's own record is that a shape specified
+for later assembly does not get written: the duration summary was specified three ways and produced
 zero rows across seven runs, and the commit table was emitted for iteration 1 only of a measured
-six-iteration run. A rule stated at the moment of the act gets followed. So the line goes down
-here, where the numbers exist, in whatever form is legible:
+six-iteration run. A rule stated at the moment of the act gets followed. So the line goes down at
+the moment named above, where the numbers exist, in whatever form is legible:
 
     attribution iter=3 sub_agent=1 kind=in-depth raw=38 pooled=38 unique=9 unique_kept=7 shared=29 roles=2,6,9 state=reported
     attribution iter=3 sub_agent=2 kind=in-depth raw=42 pooled=42 unique=13 unique_kept=11 shared=29 roles=1,5,8,11 state=reported

@@ -17,11 +17,11 @@ the user's request, then still give the tallies below.
 ## If at least one finding or unaddressed prior concern was posted (review issued)
 
 - The PR URL.
-- How many findings each sub-agent originally returned (pre-merge counts), broken down by
-  source and tier: `2 x in-depth-review (sonnet): [N1, N2]`,
-  `1 x in-depth-review (opus): [N3]`, `1 x gh-style-review: [N4]`. Call out separately how many
-  findings the Opus finder contributed that NO Sonnet finder raised. That number is the direct
-  measure of whether the mixed tier is earning its cost on this PR.
+- How many findings each reviewer originally returned (pre-merge counts), by instance and source:
+  `in-depth instance 1 (roles <list>): [N1]`, `in-depth instance 2 (roles 11, 9, 2): [N2]`,
+  `gh-style-review: [N3]`. Call out separately how many kept findings only instance 2 raised. That
+  number is the direct measure of whether the second read of those three roles earns its cost on
+  this PR.
 - How many unique findings survived the >= 60 filter (post-merge count), broken down as
   GLOBAL vs INLINE, and how many were both-source vs single-source.
 - How many unaddressed prior concerns surfaced: `unaddressed: K`.
@@ -32,8 +32,8 @@ the user's request, then still give the tallies below.
 - Sub-agents that returned `skipped_reason` (if any) and why. Distinguish these from sub-agents
   that returned nothing. A `skipped_reason` is a deliberate refusal the run cannot recover from,
   whereas an empty response may just have flaked. Say which kind each one was.
-- **Coverage:** `complete` or `partial`. Partial when `reviewers_missing` is non-empty, when the
-  unioned `roles_missing` is non-empty, or when `approach_stage_missing` is set. When partial, name
+- **Coverage:** `complete` or `partial`. Partial when `reviewers_missing` is non-empty, when any
+  role is a hole per AGGREGATING.md's coverage rule, or when `approach_stage_missing` is set. When partial, name
   every missing reviewer, every missing role, and the approach role if it was the one missing, and
   state which lenses the diff was therefore NOT reviewed against. Never omit this line. Its
   absence reads as complete coverage.
@@ -89,8 +89,8 @@ converged on nothing, and there are no unaddressed discussion items. Nothing pos
 - Sub-agents that returned `skipped_reason` (if any) and why. Distinguish these from sub-agents
   that returned nothing. A `skipped_reason` is a deliberate refusal the run cannot recover from,
   whereas an empty response may just have flaked. Say which kind each one was.
-- **Coverage:** `complete` or `partial`. Partial when `reviewers_missing` is non-empty, when the
-  unioned `roles_missing` is non-empty, or when `approach_stage_missing` is set. When partial, name
+- **Coverage:** `complete` or `partial`. Partial when `reviewers_missing` is non-empty, when any
+  role is a hole per AGGREGATING.md's coverage rule, or when `approach_stage_missing` is set. When partial, name
   every missing reviewer, every missing role, and the approach role if it was the one missing, and
   state which lenses the diff was therefore NOT reviewed against. Never omit this line. Its
   absence reads as complete coverage.

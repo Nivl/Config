@@ -50,9 +50,8 @@ file, and the gh-style sub-agent, pinned to the same by its own. The Sonnet wrap
 to sit between this orchestrator and the roles is gone with the wrappers. The measured "1x Opus beat
 3x Sonnet on hard diffs" result in
 `~/.melvin/config/docs/research/pr-review-cost-efficiency/RESULTS.md` is about the tier of the
-agents doing the reading, and those are on Opus here. Two runs of each role is the triangulation
-that study's recommendation table names for the easy case and the hard case both, and it is the
-roster `review-and-fix` runs.
+agents doing the reading, and those are on Opus here. One run of each role plus a second run of
+roles 11, 9 and 2 is the roster `review-and-fix` runs, for the reason Step 1 gives.
 
 **Why the source split is asymmetric (2 in-depth, 1 gh-style).** Measured on fixtures with planted
 issues, `gh-style-review`'s findings were a strict SUBSET of `in-depth-review`'s on every
@@ -504,13 +503,12 @@ into a number beside the attribution ledger rather than an argument about it.
   but never let them displace correctness findings in the posted review.
 - **Model and effort policy (cost): pinned in agent definitions, never inherited.** Every agent
   this skill spawns is addressed by `subagent_type`, and its tier and effort come from its file
-  in `.claude/agents/`. Pass no `model` override from this skill. The two in-depth wrappers are
-  **uniform**, both on Sonnet. Sub-agent 3 sits on Opus at `low` instead because gh-style spawns
-  nothing, so its wrapper IS its reviewer. The debate pair splits, the
-  approach proposer on Sonnet (its recall measured identical to Opus) and the nuanced judge on Opus
-  at effort `high` (judging is judgment; proposing is recall). Finders sit at effort `medium`.
-  Their inner reviewers/scorers self-tier (in-depth-review: Opus at `low` / Haiku) per those
-  skills, which is where the code actually gets read. **Never let any of these inherit the session model or the session effort.** Inheritance is what let a `/effort
+  in `.claude/agents/`. Pass no `model` or `effort` to the workflow or to any launch from this
+  skill. The roles run as `in-depth-review-role` on Opus at `low`, the gh-style sub-agent on Opus
+  at `low`, the scorer per `review-scorer`, and the debate pair splits, the approach proposer on
+  Sonnet (its recall measured identical to Opus) and the nuanced judge on Opus at effort `high`
+  (judging is judgment; proposing is recall). **Never let any of these inherit the session model
+  or the session effort.** Inheritance is what let a `/effort
   xhigh` session silently run the whole fan-out at `xhigh`. What protects quality is the >=60
   triangulation and the converge stage, not a bigger model or more
   thinking on every agent.

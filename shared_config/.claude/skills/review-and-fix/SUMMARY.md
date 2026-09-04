@@ -103,6 +103,15 @@ Cover these in this order, one line each, and drop any line that has nothing to 
   Those numbers come from the model that then fixed the findings, which is a weaker guarantee than
   the rest, and this line is where that becomes visible instead of being inferable only from a
   per-finding field nobody reads.
+- Severity counts for the iteration, one line, in this exact shape so a reader can grep it across
+  runs:
+  `severity iter=<N> kept: critical=<a> major=<b> minor=<c> suggestion=<d> | dropped: critical=<a> major=<b> minor=<c> suggestion=<d> | fixed: critical=<a> major=<b> minor=<c> suggestion=<d>`.
+  `kept` is the merged set at or above the threshold, `dropped` is the merged set below it, and
+  `fixed` is the subset of `kept` that a commit this iteration closed. Every finding already carries
+  a `severity`, so this is a count and not a judgment. The line exists to answer whether the loop's
+  later iterations surface the same grade of finding as its first ones, which is the question the
+  Final Report's Severity block reads it for. Write every bucket, zeros included, or the grep
+  produces a ragged table.
 - `any_logic_change` and `any_test_change` for the iteration, which are what row 4 and row 5
   read. Both false means every commit was `prose`.
 - Waiting time and fixing time, as `t_fix` minus `t0` and `t2` minus `t_fix`. Two numbers, one line.

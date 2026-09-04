@@ -12,12 +12,14 @@
 
 **The in-depth roles arrive as the `review-roles` workflow's return value and need no collecting.**
 `roles_missing` for instance N is `results.filter(r => r.instance === N && r.findings === null)`,
-computed from that return rather than inferred from which notifications happened to arrive. Union
-the two instances' `roles_missing` for the coverage rule below. Never reason that running two
-instances means every lens ran at least once. A role that came back `null` in BOTH instances is a
-hole, and the union of what the instances DID return covered neither. Measured before the workflow
-existed: two roles were silent in both instances of one run. The barrier makes that visible as two
-nulls rather than as silence, and the rule is the same.
+computed from that return rather than inferred from which notifications happened to arrive, and
+compared against `roles_by_instance[N]` so instance 2 is judged on the roles it ran. A lens is
+covered when at least one instance that was asked to run it returned findings. So a `null` on
+instance 1 for a role instance 2 did not run is a hole on its own, and a `null` for a role both
+instances ran is a hole only when both returned it. The set of holes is what the coverage rule below
+and Step 3's rows call the "unioned `roles_missing`". Measured before the workflow existed: two roles
+were silent in both instances of one run. The barrier makes that visible as two nulls rather than as
+silence, and the rule is the same.
 
 **The gh-style instance is the one Agent-tool sub-agent left, and it is what the async protocol
 below is for.** Classify it as *reported* or *missing* (nothing returned, errored, unparseable output

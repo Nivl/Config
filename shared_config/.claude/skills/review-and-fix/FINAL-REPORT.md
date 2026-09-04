@@ -88,6 +88,22 @@ too, because a reader adding this up against a bill needs to know what is missin
 only for a row 0 abort, where no agent ran. A run whose `usage` lines are missing reports
 `spend: not recorded` rather than a guess, so the gap is visible.
 
+### Severity
+The `kept` counts from every iteration's `severity` line, one row per iteration, so the grade of
+what the loop found is readable across the run at a glance:
+
+```
+iter  critical  major  minor  suggestion   fixed(crit/maj/min/sug)
+1        1        6      9       4            1/6/7/2
+2        0        2      5       1            0/2/4/0
+3        0        0      2       3            0/0/1/0
+```
+
+The table is the run's own answer to whether later iterations are still finding what the first one
+found, or are down to `minor` and `suggestion` on the run's own commits. Read it beside
+`self_inflicted_count` in the iteration summaries. A run whose iterations all lack the `severity`
+line reports `severity: not recorded` instead. Omit the section only for a row 0 abort.
+
 ### Outcome
 ✅ Clean batch — the loop stopped on row 1, so `batch_clean` was true. The final iteration's active
 reviewers ALL reported, they found nothing actionable, and Coverage is `complete`. Done.

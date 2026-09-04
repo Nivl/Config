@@ -271,7 +271,7 @@ Once the workflow has returned and the gh-style instance has reported or hit the
       a same-confidence-and-agreement finding from a single source)
    4. `role_agreement` descending. A finding several role lenses independently raised beats one
       a single lens raised, once the stronger cross-instance signal has already tied
-   5. `category` priority: bug > types > security > db > error-handling > AGENTS.md > history >
+   5. `category` priority: bug > security > db > error-handling > AGENTS.md > history >
       prior PR > test coverage > motivation > comment guidance > ticket > approach. This chain
       covers every category the finding schema allows, so two tied findings always have a defined
       order. Any category not named here ranks last, immediately above nothing.

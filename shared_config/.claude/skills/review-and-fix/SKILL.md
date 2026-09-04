@@ -668,7 +668,7 @@ The first that matches wins:
 | 1b | Findings list empty BUT a reviewer launched this iteration is missing and still has retry budget | **Not clean.** Relaunch it next iteration; go to Step 1 |
 | 1c | Every reviewer launched this iteration either reported or is `unavailable`, **and EITHER `reviewer_unavailable` is non-empty OR the unioned `roles_missing` is non-empty**. The findings list may be empty or not | **Stop.** Coverage is `partial`, not clean. Use the incomplete-coverage outcome, and list any surviving findings under Remaining Issues |
 | 2 | `any_commit == false` (findings existed but nothing was committed)         | **Stop.** Proceed to Final Report                            |
-| 2b | Every surviving finding is `suggestion` severity, AND none is in category `bug`, `db`, `security`, `error-handling`, or `types` | **Stop.** Severity floor reached. Proceed to Final Report and list them under Remaining Issues |
+| 2b | Every surviving finding is `suggestion` severity, AND none is in category `bug`, `db`, `security`, or `error-handling` | **Stop.** Severity floor reached. Proceed to Final Report and list them under Remaining Issues |
 | 4 | `any_logic_change == true`                                                 | **Full rerun**: set active set to ALL reviewers; go to Step 1 |
 | 5 | Otherwise (committed, but no logic change)                                 | **Pruned rerun**: set active set to `productive_reviewers`, plus role 9 when `any_test_change`; go to Step 1 |
 
@@ -745,7 +745,7 @@ and here is what it touches. A per-class count for the iteration satisfies this,
 `~/.melvin/config/docs/research/review-and-fix-run-log/NOTES.md`.
 
 The floor is deliberately narrow. `suggestion` severity only, and it never fires while a `bug`,
-`db`, `security`, `error-handling`, or `types` finding survives at any severity, because those are
+`db`, `security`, or `error-handling` finding survives at any severity, because those are
 the categories where a miss ships rather than costing a pass. A run that reaches row 2b is not a
 clean result. See [FINAL-REPORT.md](FINAL-REPORT.md) for how it reports.
 
@@ -773,7 +773,10 @@ Computing the next active set, for every row that goes back to Step 1 (1b, 4, an
   `reviewer_unavailable` subtraction below can still remove role 9 along with the rest of an
   unavailable `in-depth-review` kind.
 
-- **Role 10, from iteration 3 on.** Drop it from `<ACTIVE_ROLES>` whichever row fired, with one
+- **Role 10, from iteration 3 on.** Drop it from `<ACTIVE_ROLES>` whichever row fired, BEFORE
+  the row-5 floor and before the retry union are applied, so a set of `{10}` alone empties and the
+  floor still puts `{2}` in its place, and a kind added back at full multiplicity comes back without
+  role 10. One
   re-entry: when this iteration committed a `ticket`-category fix, meaning the user chose to
   implement a gap role 10 surfaced, keep role 10 in the next iteration's set so it verifies the
   implementation against the ticket, then drop it again. Measured across three runs, seven of nine

@@ -903,7 +903,8 @@ holds only its header.
 - **Later iterations use the adaptive active set (Step 3), never an arbitrary reduction.** Step 3
   has exactly three reasons to run fewer reviewers: the pruned-rerun rule, the row-1b retry, and
   the `reviewer_unavailable` subtraction. Never drop a reviewer for speed outside those three.
-- **Multiplicity is fixed while a kind is active.** in-depth-review at 2x, gh-style-review at 1x.
+- **Multiplicity is fixed while a kind is active.** in-depth-review at two instances, the second
+  narrow per Step 0, and gh-style-review at one pass in iteration 1.
   An `unavailable` kind is not launched at all, so the rule binds only while the kind is active.
   There is no reduced-multiplicity path. A kind either relaunches in full or does not relaunch.
 - **The two reviewer kinds are dispatched differently, and the asymmetry is the point.** The

@@ -1,7 +1,7 @@
 ---
 name: pr-review
 description: >
-  Reviews a pull request with the eleven in-depth reviewer roles run twice each behind a
+  Reviews a pull request with the eleven in-depth reviewer roles, plus a second read of roles 11, 9 and 2, behind a
   workflow barrier plus one `gh-style-review` sub-agent, the same roster `review-and-fix` uses,
   merges and deduplicates their findings, and posts a SINGLE PR review combining global
   findings, a names-only list of inline findings (also left as inline diff comments), and any
@@ -13,11 +13,13 @@ description: >
   higher-confidence PR feedback than a single `/in-depth-review` run would produce.
 ---
 
-# PR Review (2x roles + gh-style)
+# PR Review (roles + a narrow second instance + gh-style)
 
 This skill runs two kinds of reviewer against a single PR. **The in-depth roles**, nine to eleven
-depending on what the diff contains and one fewer with `--skip-ticket`, run **twice each** as leaf
-agents inside the `review-roles` workflow, behind one barrier, and come back unscored. **One
+depending on what the diff contains and one fewer with `--skip-ticket`, run once as leaf agents
+inside the `review-roles` workflow, behind one barrier, and come back unscored. A **second
+instance** runs roles 11, 9 and 2 only (motivation, test coverage, bug scan) inside the same
+barrier. **One
 `gh-style-review` sub-agent** (the `@claude review` GitHub Action prompt replicated locally, which
 adds Discussion Context — prior-human-comment cross-referencing — on top of standard findings) runs
 with `--raw` and scores itself. The orchestrator merges and deduplicates everything into one flat
@@ -38,7 +40,7 @@ runs once (not once per finder), and its findings post on agreement alone.
 They do not have to clear the >= 60 confidence bar the other findings do.
 
 The point: independent passes from two different prompt structures (specialized-role vs.
-GitHub-Action mirror), with every role run twice, catch different issues AND converge on the real
+GitHub-Action mirror), with the three highest-yield roles run twice, catch different issues AND converge on the real
 ones. One review entry, plus an explicit "what humans already raised that the diff still hasn't
 addressed" section.
 
@@ -127,8 +129,7 @@ need no `gh`.
    "review in progress" comment on the PR that no review will ever follow.
 5. If the invocation included `--skip-ticket`, set `<SKIP_TICKET> = true` (default `false`).
    When `true`, every in-depth-review sub-agent is invoked with `--skip-ticket`, so Role #10
-   never runs. When `false`, both in-depth-review instances run Role #10 (two ticket
-   reviewers). `gh-style-review` is unaffected either way. It has no ticket role.
+   never runs. When `false`, instance 1 runs Role #10 (one ticket reviewer). `gh-style-review` is unaffected either way. It has no ticket role.
 6. **Jira-tooling preflight** (skip this step entirely if `<SKIP_TICKET>` is true). Before
    launching any reviewers, confirm a Jira reader is available AND authenticated:
    - acli: installed (`command -v acli`) and able to read Jira. Run a lightweight
@@ -192,6 +193,7 @@ Workflow({
     mode: 'pr',
     instances: 2,
     active_roles: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    instance_roles: { '2': [11, 9, 2] },
     role_prompts: { '1': '<contents of roles/01-agents-md.md>', ... },
     common_fragment: '<contents of roles/_common-fragment.md>',
     skip_ticket: <SKIP_TICKET>,
@@ -211,7 +213,16 @@ The call returns `{ results, instances, roles_by_instance }`. Each `results` ent
 `{ instance, role, findings, tickets_examined }`, with `findings: null` for a role that returned
 nothing twice. The workflow already applied the conditional gates' inputs you passed via
 `active_roles`, and it already retried each dead role once. `roles_missing` for instance N is every
-entry with that instance and a null `findings`.
+entry with that instance and a null `findings`, compared against `roles_by_instance[N]` and not
+against `active_roles`, or instance 2 reads as having lost eight roles it was never asked to run.
+
+**Why instance 2 is narrow.** Measured across 45 attributed fixes in three `review-and-fix` runs,
+41 were raised by two or more roles, so a second full instance mostly re-finds what the first found
+and costs half the fan-out. Role 9 had the most sole-raiser fixes of any role, role 11 is the
+highest-contributing role, and role 2 is the bug scan, which is what a second opinion is for. Every
+other role's findings are single-instance by construction, so a `cross_instance_agreement` of 1 on
+them is expected and says nothing about the finding. Measured basis:
+`~/.melvin/config/docs/research/review-and-fix-run-log/NOTES.md`.
 
 **If the `Workflow` tool is absent from your tool list**, the in-depth roles cannot run at all. Do
 not fall back to Agent-tool spawns of `in-depth-review`, because that nesting is where the defect
@@ -441,7 +452,7 @@ carries `tag=pr<PR>`, and sum them by kind and by model. Report agent count, tur
 priced estimate per kind, the run total, and the single most expensive agent by its stamp. Say that
 `$` is the estimate at the rates and date USAGE.md records, and that the orchestrator's own spend is
 not included. A run whose transcripts carry no stamp reports `spend: not recorded` rather than a
-guess. The block is what turns a question about whether the second instance of a role earns its cost
+guess. The block is what turns a question about whether instance 2's three roles earn their cost
 into a number beside the attribution ledger rather than an argument about it.
 
 ## Constraints
@@ -477,15 +488,16 @@ into a number beside the attribution ledger rather than an argument about it.
   `git status` is not enough to detect a violation. A revert-and-restore reads clean before and
   after, dirty only in the window between, so a status check that runs when the fan-out returns
   sees nothing. Probe content instead, for something the diff deleted.
-- **The roles run twice each inside the `review-roles` workflow, plus one gh-style sub-agent.**
-  Issue the workflow call and the gh-style launch in a single message. Do not drop to one instance
-  for "speed"; the cross-instance triangulation is the point. Do not nest the roles inside an
+- **The roles run once, with roles 11, 9 and 2 run a second time, inside the `review-roles`
+  workflow, plus one gh-style sub-agent.** Issue the workflow call and the gh-style launch in a
+  single message. Do not drop instance 2 for "speed", and do not widen it back to the full set. The
+  set is the measured one, per Step 1. Do not nest the roles inside an
   Agent-tool sub-agent again, because a nested agent's results go to the session root and the wrapper
   never sees them, which is the measured defect the workflow exists to fix.
   Do not use only one source. Both prompt structures contribute, and dropping gh-style also
   drops Discussion Context. The pool is deliberately asymmetric in SOURCE, uniform in tier. Do
-  not "balance" the sources back to 2 + 2, and do not add a third in-depth instance on Opus
-  (see the overview).
+  not "balance" the sources back to 2 + 2, and do not add a third in-depth instance (see the
+  overview).
 - **Comment-punctuation findings are in scope but low priority.** The sub-skills flag comments
   the diff adds or edits that join clauses with ` - ` (space-hyphen-space) or a sentence-splitting
   `:`, per AGENTS.md. These are `suggestion`-severity: keep them if they survive the threshold,

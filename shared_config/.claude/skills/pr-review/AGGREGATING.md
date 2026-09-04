@@ -11,13 +11,14 @@
 
 **The in-depth roles arrive as the `review-roles` workflow's return value and need no collecting.**
 `roles_missing` for instance N is `results.filter(r => r.instance === N && r.findings === null)`,
-computed from that return rather than inferred from which notifications arrived. Union the two
-instances' `roles_missing`, and treat a non-empty union as partial coverage. Never reason that
-running two instances means every lens ran at least once. A role that came back `null` in BOTH
-instances is a hole, and the union of what the instances DID return covered neither. Measured before
-the workflow existed: two roles were silent in both instances of one run. The barrier makes that two
-nulls rather than silence, and the rule is the same. A lens that no instance reported on is a hole,
-not a covered lens, and the union of findings can never be used to claim `complete`.
+computed from that return, and compared against `roles_by_instance[N]` so instance 2 is judged on
+the three roles it ran. A lens is covered when at least one instance that was asked to run it
+returned findings. So a `null` on instance 1 for a role instance 2 does not run (every role but 11, 9
+and 2) is a hole on its own, and a `null` for role 11, 9 or 2 is a hole only when both instances
+returned it. Treat any hole as partial coverage. Measured before the workflow existed: two roles were
+silent in both instances of one run. The barrier makes that two nulls rather than silence, and the
+rule is the same. A lens that no instance reported on is a hole, not a covered lens, and the union of
+findings can never be used to claim `complete`.
 
 If the `Workflow` tool was absent so the roles could not be dispatched at all, that is the no-fan-out
 abort in the next section. It is neither reported nor missing. Stop accounting and stop there.
@@ -157,7 +158,10 @@ Once the workflow has returned and the gh-style instance has reported or hit the
      how many of ONE instance's 8-11 role lenses raised the finding, and `cross_instance_agreement`
      is how many independent instances did. Roles share a model and a context window and are prompted
      to look at different things, so several converging is correlated evidence. Separate instances
-     converging is the independent signal, and it is the one that should drive ordering.
+     converging is the independent signal, and it is the one that should drive ordering. Instance 2
+     runs roles 11, 9 and 2 only, so the value can reach 2 for a finding one of those roles raised and
+     is 1 by construction for every other role. A 1 on a role-6 finding is not a weak finding. It is
+     a finding no second instance was asked about.
    - `sources`: set of distinct sources (`{"in-depth-review"}`, `{"gh-style-review"}`, or both).
      A finding raised by both sources is stronger signal than a finding raised by only one;
      used as a tiebreaker in step 6.
@@ -266,7 +270,8 @@ Once the workflow has returned and the gh-style instance has reported or hit the
 
 7. **Order the surviving findings:**
    1. `confidence` descending
-   2. `cross_instance_agreement` descending (3/3 > 2/3 > 1/3 when scores tie)
+   2. `cross_instance_agreement` descending (2 beats 1 when scores tie, and only roles 11, 9 and 2
+      can reach 2)
    3. Both-sources first (a finding raised by both in-depth-review and gh-style-review beats
       a same-confidence-and-agreement finding from a single source)
    4. `role_agreement` descending. A finding several role lenses independently raised beats one

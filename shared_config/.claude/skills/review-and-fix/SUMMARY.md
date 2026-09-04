@@ -106,9 +106,12 @@ Cover these in this order, one line each, and drop any line that has nothing to 
 - Severity counts for the iteration, one line, in this exact shape so a reader can grep it across
   runs:
   `severity iter=<N> kept: critical=<a> major=<b> minor=<c> suggestion=<d> | dropped: critical=<a> major=<b> minor=<c> suggestion=<d> | fixed: critical=<a> major=<b> minor=<c> suggestion=<d>`.
-  `kept` is the merged set at or above the threshold, `dropped` is the merged set below it, and
-  `fixed` is the subset of `kept` that a commit this iteration closed. Every finding already carries
-  a `severity`, so this is a count and not a judgment. The line exists to answer whether the loop's
+  `kept` is the same set as the kept count two bullets up, the merged findings at or above the
+  threshold minus those already in `skipped_findings`, so the two lines agree. `dropped` is the
+  merged set below the threshold, and `fixed` is the subset of `kept` that a commit this iteration
+  closed. Every role and gh-style finding arrives with a `severity` (the role output shape in
+  `in-depth-review/roles/_common-fragment.md` requires one), so this is a count and not a
+  judgment. The line exists to answer whether the loop's
   later iterations surface the same grade of finding as its first ones, which is the question the
   Final Report's Severity block reads it for. Write every bucket, zeros included, or the grep
   produces a ragged table.

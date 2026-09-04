@@ -19,6 +19,7 @@ this skill's full output machine-readable rather than as the chat report.
       "title": "<one-line description>",
       "file": "<path>",
       "line_range": "<L<start>-L<end>>",
+      "severity": "critical | major | minor | suggestion",
       "category": "<bug | AGENTS.md | history | prior PR | comment guidance | db | security | error-handling | test coverage | motivation | ticket>",
       "ticket_id": "<JIRA-ID this gap traces to, or null for non-ticket findings>",
       "description": "<full text>",

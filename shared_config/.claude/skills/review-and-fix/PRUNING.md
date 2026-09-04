@@ -70,14 +70,13 @@ unions role 9 in rather than trusting the productive set alone.
 
 ## What a pruned `test` iteration gives up
 
-Roles 1, 5 and 12 are not unioned in, so a pruned rerun judges the new test code through role 9
+Roles 1 and 5 are not unioned in, so a pruned rerun judges the new test code through role 9
 alone.
 
 Sub-step 5's staged-diff scan is the partial backstop. It runs before the commit exists and catches
-the mechanical subset. It is NOT a substitute for role 1's full AGENTS.md read or role 12's type
-analysis.
+the mechanical subset. It is NOT a substitute for role 1's full AGENTS.md read.
 
-This is a deliberate cost trade, since the loop is uncapped and those three roles would be paid on
+This is a deliberate cost trade, since the loop is uncapped and those two roles would be paid on
 every test iteration. The next `logic` commit forces a full rerun (row 4), and they see the
 accumulated test code then.
 

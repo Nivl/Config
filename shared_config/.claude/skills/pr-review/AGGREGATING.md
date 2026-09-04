@@ -68,10 +68,10 @@ lens yourself and attribute it, and do not carry a result forward from elsewhere
   with some roles `null`, which is a real review with holes in it. An impossible run had no barrier
   at all. A retry is futile rather than merely expensive. The `Workflow` tool that was absent on the
   first attempt is absent on the second.
-- **Every role `null` at once is not twelve independent deaths.** If the workflow returns and every
+- **Every role `null` at once is not eleven independent deaths.** If the workflow returns and every
   `findings` is `null`, the plausible reading is that `agentType: 'in-depth-review-role'` did not
   resolve, because the agent files were not synced or were renamed. Say so in the Step 4 report
-  rather than listing twelve missing roles as though each failed on its own. Coverage is `partial`,
+  rather than listing eleven missing roles as though each failed on its own. Coverage is `partial`,
   and the cause named is what lets someone fix it.
 - If `reviewers_missing` is non-empty, or any instance came back `"partial"`, this run's coverage
   is **partial**. Carry that flag through to Step 4 and to the clean-PR path.
@@ -154,7 +154,7 @@ Once the workflow has returned and the gh-style instance has reported or hit the
    - `cross_instance_agreement`, `raised_by`, `role_agreement`: as computed in step 2 from the
      `instance` and `role` tags. `cross_instance_agreement` is the name `review-and-fix` already
      uses. Do not invent a third. The denominators differ and that is the point. `role_agreement` is
-     how many of ONE instance's 8-12 role lenses raised the finding, and `cross_instance_agreement`
+     how many of ONE instance's 8-11 role lenses raised the finding, and `cross_instance_agreement`
      is how many independent instances did. Roles share a model and a context window and are prompted
      to look at different things, so several converging is correlated evidence. Separate instances
      converging is the independent signal, and it is the one that should drive ordering.

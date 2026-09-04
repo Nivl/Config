@@ -25,7 +25,7 @@ Traces the `test` commit class and role 9's union into the pruned set.
   skipped. Role 9 was already productive here, so the union changes nothing yet.
 - **Iter 2** (pruned: 2 x in-depth-review `--roles 5,9`). Clean batch -> **Stop** (row 1). The
   logic reviewers last ran in Iter 1 on production behavior identical to the final tree, since
-  nothing imports `parse.test.ts`. Role 1 and role 12 never read the added test case, which is
+  nothing imports `parse.test.ts`. Role 1 never read the added test case, which is
   the cost trade Step 3's "What a pruned `test` iteration gives up" names.
 
 Two variants on Iter 1, neither continuing the run above:

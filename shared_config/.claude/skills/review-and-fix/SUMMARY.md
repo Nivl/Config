@@ -146,7 +146,12 @@ One row per **active instance**, including any that failed. Eight cells:
   instance. Reported as `1`, it reads as a weak one, and those two have opposite implications for
   whether a second instance is worth running.
 - **unique**, merged findings only this instance raised.
-- **shared**, merged findings it raised alongside another. `unique` is not readable without this.
+- **shared**, merged findings it raised alongside another. `unique` is not readable without this,
+  and since instance 2 runs only `{11, 9, 2}` by default, neither is readable without knowing the
+  role. A role-6 finding is `unique` to instance 1 because instance 2 never ran role 6, and that says
+  nothing about whether a second reader would have agreed. Compare `unique` and `shared` only within
+  the roles both instances ran. For the rest, `unique` is the whole count and it means "found", not
+  "found by one of two".
 - **actionable**, its `unique` findings that cleared the threshold AND became a commit. Name them,
   do not only count them. There will be few and they are the entire argument.
 - **top confidence** among its `actionable` findings. Volume misleads on its own. Five unique

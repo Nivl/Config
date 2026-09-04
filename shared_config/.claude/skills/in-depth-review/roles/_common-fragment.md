@@ -30,7 +30,7 @@ Return a structured list of findings. For each finding include:
 
 If you find NO issues, respond with exactly: "NO_ISSUES_FOUND"
 
-You are one of the reviewers running concurrently (up to 12; fewer when the caller
+You are one of the reviewers running concurrently (up to 11; fewer when the caller
 restricted the set via `--roles`). Do NOT coordinate with the others.
 
 IMPORTANT: Do not run `gh pr comment`, `gh pr review`, `gh pr edit`, or any command that

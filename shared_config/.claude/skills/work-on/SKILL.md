@@ -1525,7 +1525,7 @@ Three things to get right when invoking it:
 - **Step 8 runs in the main thread.** Never wrap `review-and-fix`, or any reviewer, in a `Workflow`.
   A workflow agent has no `Agent` tool, so a skill that fans out into sub-agents has nothing to fan
   out with inside one. `review-and-fix` cannot launch its reviewers, and `in-depth-review` cannot
-  launch its eight to twelve roles. What comes back is an abort with no coverage, not a review.
+  launch its eight to eleven roles. What comes back is an abort with no coverage, not a review.
   Step 2 is what makes reaching for a workflow here feel natural, and it is the contrast rather
   than the precedent. Its seven lenses, its telemetry probes, and its triage agents are all leaf
   readers that spawn nothing, so they lose nothing inside a workflow agent. A reviewer is itself

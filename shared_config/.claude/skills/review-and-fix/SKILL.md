@@ -63,9 +63,9 @@ Run setup, once:
 - [ ] Tree clean, or the user chose stash or include
 - [ ] <RANGE> set, commit count above zero
 - [ ] <HAS_PR>, <PR>, <TARGET_ARG>, <SKIP_TICKET> set
-- [ ] Agent tool confirmed, else abort with REVIEW_UNAVAILABLE_NO_FANOUT
+- [ ] Workflow and Agent tools confirmed, else abort with REVIEW_UNAVAILABLE_NO_FANOUT
 - [ ] Jira reader ready, or the user chose (a), (b) or (c)
-- [ ] <ACTIVE_ROLES> and <ACTIVE_GH_STYLE> set to the full set
+- [ ] <ACTIVE_ROLES>, <INSTANCE_2_ROLES> and <ACTIVE_GH_STYLE> set for iteration 1
 - [ ] run_log_path opened, header written
 
 Iteration N:
@@ -97,17 +97,22 @@ Iteration N:
    git rev-list --count origin/<default-branch>..HEAD
    ```
    If 0, inform the user there are no new commits to review and stop.
-4. **Confirm the `Agent` tool is available, and abort here if it is not.** Check your own tool
-   list. Every reviewer this skill runs is a sub-agent, so without that tool not one of them
-   launches and there is nothing to merge or fix. A workflow agent is the usual context that
-   lacks it. If the tool is listed but every launch in Step 1 fails because the tool is
-   unavailable, so that no reviewer starts, abort the same way. A launch that failed for any other
-   reason is not this trigger, and neither is an iteration that deliberately launches nothing.
-   Abort with this line, and tell the user to re-run from the main thread:
+4. **Confirm both the `Workflow` and the `Agent` tool are available, and abort here if either is
+   not.** Check your own tool list. The in-depth roles run inside the `review-roles` workflow, so
+   without `Workflow` no role runs. gh-style and the scorer are Agent-tool sub-agents, so without
+   `Agent` nothing scores and there is no second reviewer kind. Either absence leaves nothing to
+   merge or fix. A sub-agent context is the usual cause of the first, a workflow agent of both. If a
+   tool is listed but every launch in Step 1 fails because it is unavailable, so that no reviewer
+   starts, abort the same way. A launch that failed for any other reason is not this trigger, and
+   neither is an iteration that deliberately launches nothing. Abort with this line, and tell the
+   user to re-run from the main thread:
 
    ```
-   REVIEW_UNAVAILABLE_NO_FANOUT: this skill launches every reviewer as a sub-agent, and this context has no Agent tool, so no reviewer could run. Re-run it from the main thread. A workflow agent is the usual cause.
+   REVIEW_UNAVAILABLE_NO_FANOUT: this skill runs its roles through a workflow and its other reviewers as sub-agents, and this context lacks the <Workflow | Agent> tool, so no review could run. Re-run it from the main thread. A sub-agent or workflow-agent context is the usual cause.
    ```
+
+   Do not fall back to spawning the roles as Agent-tool sub-agents when `Workflow` is absent. That
+   nesting lost role results, and it is the dispatch the workflow replaced.
 
    Emit no Final Report, and do not read the diff yourself. That line is the whole output. This
    abort runs before the Jira preflight below, and that order matters. Why: [RATIONALE.md](RATIONALE.md).
@@ -123,12 +128,36 @@ Iteration N:
    Do not start iteration 1 until this is resolved. If a re-check after choice (a) still
    fails, present the three choices again rather than proceeding.
 
-6. **Initialize the active reviewer set** used by Step 1:
-   - `<ACTIVE_ROLES>` = all in-depth-review roles `1..12` (drop `10` when `<SKIP_TICKET>` is
-     true). This is the set of roles the in-depth-review instances will run.
-   - `<ACTIVE_GH_STYLE>` = true.
-   Step 3 recomputes both before each subsequent iteration. Iteration 1 always runs the full
-   set.
+6. **Initialize the active reviewer set** used by Step 1. Three variables, and they are not
+   symmetric:
+   - `<ACTIVE_ROLES>` = the roles instance 1 runs. Iteration 1: all in-depth-review roles `1..11`,
+     dropping `10` when `<SKIP_TICKET>` is true.
+   - `<INSTANCE_2_ROLES>` = the roles instance 2 runs. Iteration 1: `{11, 9, 2}`, motivation, test
+     coverage and bug scan. Not the full set.
+   - `<ACTIVE_GH_STYLE>` = true. Iteration 1 only.
+   Step 3 recomputes all three before each subsequent iteration.
+
+   **Why instance 2 is narrow.** Measured across 45 attributed fixes in three runs, 41 were raised
+   by two or more roles, so a second full instance mostly re-finds what the first instance already
+   found, and it costs half the fan-out. The three roles it keeps are the ones the data singled
+   out. Role 9 had the most sole-raiser fixes of any role. Role 11 is the highest-contributing role
+   and the one whose findings can go either way, prose or logic, so a second read of it is worth
+   having. Role 2 is the bug scan, which is the lens a second opinion on a fix is for. The
+   cross-instance signal, `cross_instance_agreement` and the ledger's `shared` column, now exists
+   only for those three roles, and every other role's findings are single-instance by construction.
+   That is expected and [SUMMARY.md](SUMMARY.md) says how to read it.
+
+   **Why gh-style is iteration 1 only.** Across seven logged runs it has been the sole raiser of a
+   committed fix zero times. Its findings were corroborations every time. Its stated value is
+   Discussion Context, which is computed from the PR's existing comments and does not change during a
+   run, so one pass captures it. In branch mode there is no Discussion Context at all. One pass is
+   what it earns.
+
+   **Why role 10 is iterations 1 and 2.** Seven of nine role-10 contributions across three runs, and
+   every new ticket decision, came in the first two iterations. `resolved_ticket_findings` already
+   blocks re-prompting on decided gaps, so a later run can only surface a gap the run itself just
+   introduced, and role 11 covers that. Step 3 drops role 10 from iteration 3 on, with one re-entry
+   named there.
 
 7. **Open the run log.** Resolve `run_log_path` per [SETUP.md](SETUP.md), trying the preferred
    home before the fallback rather than assuming it is unavailable (why: [RATIONALE.md](RATIONALE.md)). **Write the header now**,
@@ -145,11 +174,13 @@ Iteration N:
 ## Step 1: Review, with the in-depth roles behind a barrier and gh-style as a sub-agent
 
 Launch the iteration's **active** reviewers only:
-- If `<ACTIVE_ROLES>` is non-empty, invoke the `review-roles` workflow with `instances: 2` and
-  `active_roles: <ACTIVE_ROLES>`. The two instances are the triangulation on the active set. They
-  are two runs of each role inside one barrier, not two sub-agents.
+- If `<ACTIVE_ROLES>` or `<INSTANCE_2_ROLES>` is non-empty, invoke the `review-roles` workflow
+  with `instances: 2`, `active_roles: <ACTIVE_ROLES>`, and
+  `instance_roles: { '2': <INSTANCE_2_ROLES> }`. Instance 1 runs the active set. Instance 2 runs its
+  own, narrower set, and when `<INSTANCE_2_ROLES>` is empty pass `instances: 1` instead so no agent
+  is dispatched for it. The two instances are asymmetric on purpose, per Step 0.
 - If `<ACTIVE_GH_STYLE>` is true, launch **1 gh-style-review** instance as an Agent-tool sub-agent.
-- gh-style-review is **1x by design**, per the asymmetry note directly below.
+  It is true in iteration 1 only.
 
 **Why the two kinds are dispatched differently.** Nesting the in-depth roles inside a wrapper
 sub-agent lost their results. A nested agent's completion notification is delivered to the session
@@ -158,27 +189,28 @@ them, every role finished, and the wrappers received 5 and 7 of their 12 results
 `bash true` 111 times waiting. The workflow's `parallel()` is a barrier in code and has no
 notification to route. gh-style spawns nothing, so it never had the problem, and this thread is the
 session root, so its one notification arrives here.
-- **Branch mode is not a reason to drop gh-style from a full set.** It still contributes findings
-  with empty Discussion Context arrays. This does not override `<ACTIVE_GH_STYLE>`: a pruned
-  iteration that computed false still launches nothing.
-
-**Why gh-style-review is 1x and in-depth is 2x.** Measured on fixtures with planted issues,
-gh-style's findings were a strict SUBSET of in-depth's, and it skipped test-coverage findings
-entirely. It stays at one rather than zero because its real contribution is Discussion Context,
-which in-depth cannot produce at all. This loop re-runs its fan-out every iteration with no cap,
-so a redundant instance is paid again on every pass. Measured basis:
-`~/.melvin/config/docs/research/pr-review-cost-efficiency/RESULTS.md`. Do not raise
-gh-style back to parity, and do not drop it to zero.
+**Why gh-style runs once, in iteration 1, and why it is still run at all.** Measured on fixtures
+with planted issues, gh-style's findings were a strict SUBSET of in-depth's. Measured since on seven
+real runs, it has been the sole raiser of a committed fix zero times. Every finding of its that became
+a commit was also raised by an in-depth role. Its distinct contribution is Discussion Context, the
+PR's prior human comments cross-referenced against the diff, which in-depth cannot produce and which
+does not change while a run is in flight, so one pass captures all of it. In branch mode there is no
+Discussion Context and the one pass is a corroborator. It keeps its one iteration for the PR-mode
+case, and it does not get a second because this loop reruns its fan-out with no cap and a
+corroborator paid every pass is the cost the measurements put a number on, about $5.50 an iteration.
+Measured basis: `~/.melvin/config/docs/research/pr-review-cost-efficiency/RESULTS.md` for the
+fixtures, `~/.melvin/config/docs/research/review-and-fix-run-log/NOTES.md` for the runs.
 
 Announce at iteration start, reflecting the ACTUAL active set, e.g.:
 
-> Iter N: launching 2 in-depth-review passes (roles: AGENTS.md, comment guidance); gh-style-review skipped.
+> Iter 1: roles 1-11 (instance 1) + roles 11,9,2 (instance 2) + gh-style.
 > Target: PR #<PR> [draft]  <-  or  Target: branch range <RANGE>
 
-or, for a full iteration:
+> Iter 4: roles 1-9,11 (instance 1, full, role 10 dropped) + roles 11,9,2 (instance 2); gh-style off.
 
-> Iter N: launching 3 reviewer passes in parallel (2 x in-depth-review [all roles], 1 x gh-style-review).
-> Target: PR #<PR> [draft]  <-  or  Target: branch range <RANGE>
+> Iter 5: roles 1,5,9 (instance 1, pruned) + none (instance 2: every kept finding was shared); gh-style off.
+
+Name both instances' sets every time, because they differ and the difference is the cost story.
 
 **Stamp `t0` before the launch**, with `date -u +%FT%TZ`, and append it to `run_log_path` on its
 own line the moment you take it. Every stamp in this skill goes to the file when taken, never held
@@ -206,6 +238,7 @@ Workflow({
     mode: '<pr | branch>',
     instances: 2,
     active_roles: <ACTIVE_ROLES>,
+    instance_roles: { '2': <INSTANCE_2_ROLES> },
     role_prompts: { '<n>': '<contents of that role file>', ... },
     common_fragment: '<contents of _common-fragment.md>',
     skip_ticket: <SKIP_TICKET>,
@@ -220,7 +253,7 @@ iteration number, and the workflow writes it into the first line of every role's
 usage accounting below can tell this iteration's transcripts from the last iteration's on the same
 target. See [USAGE.md](USAGE.md).
 
-The call returns `{ results, instances, active_roles }`. Each `results` entry is
+The call returns `{ results, instances, roles_by_instance }`. Each `results` entry is
 `{ instance, role, findings, tickets_examined }`, with `findings: null` for a role that returned
 nothing twice. That return IS the in-depth kind's report. It cannot fall short as a kind, because the
 barrier resolves every role before the call returns. A null role is a missing role, recorded in that
@@ -721,19 +754,41 @@ Computing the next active set, for every row that goes back to Step 1 (1b, 4, an
   iteration ran if the `in-depth-review` kind fell short, otherwise empty. `<ACTIVE_GH_STYLE>` =
   true iff the `gh-style-review` kind fell short. The short kind relaunches at full multiplicity,
   and why the reviewers that did report are not relaunched is in [RATIONALE.md](RATIONALE.md).
-- **Row 4 (full):** `<ACTIVE_ROLES>` = all roles `1..12` (drop `10` when `<SKIP_TICKET>`),
-  `<ACTIVE_GH_STYLE>` = true.
+- **Row 4 (full):** `<ACTIVE_ROLES>` = all roles `1..11`, minus `10` when `<SKIP_TICKET>`, and
+  minus `10` from iteration 3 on unless the role-10 re-entry below applies. `<INSTANCE_2_ROLES>` =
+  `{11, 9, 2}` by default, or the orchestrator's choice per the discretion rule below.
+  `<ACTIVE_GH_STYLE>` = **false**. A full rerun is a full run of instance 1. It is not a return to
+  the iteration-1 roster, and gh-style is not part of it.
 - **Row 5 (pruned):** `<ACTIVE_ROLES>` = the in-depth role numbers in `productive_reviewers`,
-  unioned with `{9}` when `any_test_change` is true. `<ACTIVE_GH_STYLE>` = **false**, with one
-  floor below. Being in `productive_reviewers` does not activate it, and `any_test_change` never
-  did.
+  unioned with `{9}` when `any_test_change` is true. `<INSTANCE_2_ROLES>` = the orchestrator's
+  choice per the discretion rule below, default `{11, 9, 2}`. `<ACTIVE_GH_STYLE>` = **false**.
 
-  **The floor: `<ACTIVE_GH_STYLE>` = true when `<ACTIVE_ROLES>` would otherwise be empty.** An
-  empty active set finds nothing, and an empty findings list with `reviewer_unavailable` and
-  `roles_missing` both empty is row 1, so the run would stop and report `complete` coverage with no
-  reviewer having read the final tree. **Compute the role-9 union HERE**, so the retry union below
-  can still add a short kind back and the `reviewer_unavailable` subtraction below can still remove
-  role 9 along with the rest of an unavailable `in-depth-review` kind.
+  **The floor: when `<ACTIVE_ROLES>` would otherwise be empty, set it to `{2}` and run instance 1
+  alone.** An empty active set finds nothing, and an empty findings list with `reviewer_unavailable`
+  and `roles_missing` both empty is row 1, so the run would stop and report `complete` coverage with
+  no reviewer having read the final tree. The bug scan is the cheapest lens that reads the whole diff
+  for behaviour, which is what a final-tree check is for. gh-style used to be the floor. It is not
+  any more, because it runs in iteration 1 only and a row-5 iteration is never iteration 1.
+  **Compute the role-9 union HERE**, so the retry union below can still add a short kind back and the
+  `reviewer_unavailable` subtraction below can still remove role 9 along with the rest of an
+  unavailable `in-depth-review` kind.
+
+- **Role 10, from iteration 3 on.** Drop it from `<ACTIVE_ROLES>` whichever row fired, with one
+  re-entry: when this iteration committed a `ticket`-category fix, meaning the user chose to
+  implement a gap role 10 surfaced, keep role 10 in the next iteration's set so it verifies the
+  implementation against the ticket, then drop it again. Measured across three runs, seven of nine
+  role-10 contributions and every new ticket decision came in iterations 1 and 2, and
+  `resolved_ticket_findings` already stops it re-asking about decided gaps. Never in
+  `<INSTANCE_2_ROLES>`.
+
+- **Instance 2's discretion rule, from iteration 2 on.** `<INSTANCE_2_ROLES>` defaults to
+  `{11, 9, 2}`. The orchestrator may replace that with any set, including a subset, additional
+  roles, or none, and the only constraint is that the set and a one-line reason go in the run log
+  before the launch, as `instance2 iter=<N> roles=[...] because <reason>`. A reason names something
+  observed this iteration, such as "every kept finding was shared, second read adds nothing" for
+  none, or "role 6 raised the only sole-instance fix, second read on it" for adding a role. The
+  discretion is real and the record is mandatory. An unrecorded choice is the same defect as an
+  unrecorded stop, and the ask rule above exists because of how that went.
 
 **First union in any kind still owed a retry, whichever row fired.** Before launching, add back every
 kind that fell short this iteration and still has retry budget, even when the row that fired computed
@@ -774,7 +829,7 @@ test-runner config, so production behavior is byte-identical to what the logic r
 What a `test` commit CAN introduce is a bad test, which is role 9's lens, and that is why row 5
 unions role 9 in rather than trusting the productive set alone. See [PRUNING.md](PRUNING.md).
 
-**What a pruned `test` iteration gives up.** Roles 1, 5 and 12 are not unioned in, so a pruned
+**What a pruned `test` iteration gives up.** Roles 1 and 5 are not unioned in, so a pruned
 rerun judges new test code through role 9 alone. Sub-step 5's staged-diff scan is the partial
 backstop for the mechanical subset and is not a substitute. The next `logic` commit forces row 4
 and they see the accumulated test code then. Cost trade: [PRUNING.md](PRUNING.md).

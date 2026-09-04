@@ -66,10 +66,12 @@ null role would rerun 23 roles that already answered, and the barrier already sp
 was worth spending. The old kind-level retry existed because a wrapper sub-agent could go silent as
 a unit, and the roles inside it went with it. There is no wrapper now.
 
-The 2x in-depth multiplicity is still triangulation, not two different lenses, and `<ACTIVE_ROLES>`
-plus `<ACTIVE_GH_STYLE>` still express every launch decision. Do not add reduced-multiplicity
-support. The two instances are two runs of each role inside one workflow call, and the call takes
-`instances: 2` or it takes nothing.
+The two instances are asymmetric. Instance 1 runs `<ACTIVE_ROLES>` and instance 2 runs
+`<INSTANCE_2_ROLES>`, which is `{11, 9, 2}` by default and may be anything the orchestrator records a
+reason for, including empty. So `cross_instance_agreement` can only be 2 for a finding one of those
+roles raised, and every other role's findings are single-instance by construction. Read a `raised_by`
+of one member on a role-6 finding as "instance 2 did not run role 6", never as "instance 2 disagreed".
+`<ACTIVE_ROLES>`, `<INSTANCE_2_ROLES>` and `<ACTIVE_GH_STYLE>` express every launch decision.
 
 ## A missing reviewer is not a clean reviewer
 

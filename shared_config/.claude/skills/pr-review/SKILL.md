@@ -1,7 +1,7 @@
 ---
 name: pr-review
 description: >
-  Reviews a pull request with the twelve in-depth reviewer roles run twice each behind a
+  Reviews a pull request with the eleven in-depth reviewer roles run twice each behind a
   workflow barrier plus one `gh-style-review` sub-agent, the same roster `review-and-fix` uses,
   merges and deduplicates their findings, and posts a SINGLE PR review combining global
   findings, a names-only list of inline findings (also left as inline diff comments), and any
@@ -15,7 +15,7 @@ description: >
 
 # PR Review (2x roles + gh-style)
 
-This skill runs two kinds of reviewer against a single PR. **The in-depth roles**, nine to twelve
+This skill runs two kinds of reviewer against a single PR. **The in-depth roles**, nine to eleven
 depending on what the diff contains and one fewer with `--skip-ticket`, run **twice each** as leaf
 agents inside the `review-roles` workflow, behind one barrier, and come back unscored. **One
 `gh-style-review` sub-agent** (the `@claude review` GitHub Action prompt replicated locally, which
@@ -191,7 +191,7 @@ Workflow({
     target: '<PR>',
     mode: 'pr',
     instances: 2,
-    active_roles: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    active_roles: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
     role_prompts: { '1': '<contents of roles/01-agents-md.md>', ... },
     common_fragment: '<contents of roles/_common-fragment.md>',
     skip_ticket: <SKIP_TICKET>,
@@ -207,7 +207,7 @@ the diff. There is no wrapper tier any more, because there is no wrapper. `tag` 
 line of every role's prompt so the usage accounting can find this run's transcripts, per
 [USAGE.md](../review-and-fix/USAGE.md).
 
-The call returns `{ results, instances, active_roles }`. Each `results` entry is
+The call returns `{ results, instances, roles_by_instance }`. Each `results` entry is
 `{ instance, role, findings, tickets_examined }`, with `findings: null` for a role that returned
 nothing twice. The workflow already applied the conditional gates' inputs you passed via
 `active_roles`, and it already retried each dead role once. `roles_missing` for instance N is every

@@ -60,13 +60,26 @@ const ROLE_OUTPUT = {
 
 // skip_ticket drops the ticket-intent role, matching the caller's flag of the
 // same name. Done here so every caller gets the same rule.
-const roles = args.skip_ticket ? args.active_roles.filter((r) => r !== 10) : args.active_roles
+const dropTicket = (rs) => (args.skip_ticket ? rs.filter((r) => r !== 10) : rs)
+
+// Each instance runs args.active_roles unless args.instance_roles names a set
+// for it. A caller that wants two identical instances passes no instance_roles
+// and nothing changes for it. A caller that wants a full first instance and a
+// narrow second one passes instance_roles: { '2': [11, 9, 2] }. Measured on
+// 45 attributed fixes, 41 were raised by two or more roles, so a second full
+// instance mostly re-finds what the first already found, and its cost is
+// half the fan-out. The narrow set keeps triangulation where sole-raiser
+// fixes actually came from.
+const rolesFor = (inst) => dropTicket((args.instance_roles ?? {})[String(inst)] ?? args.active_roles)
 
 const jobs = []
+const rolesByInstance = {}
 for (let inst = 1; inst <= args.instances; inst++) {
-  for (const role of roles) jobs.push({ inst, role })
+  const rs = rolesFor(inst)
+  rolesByInstance[String(inst)] = rs
+  for (const role of rs) jobs.push({ inst, role })
 }
-log(`dispatching ${jobs.length} role agents: ${args.instances} instance(s) x ${roles.length} role(s)`)
+log(`dispatching ${jobs.length} role agents: ${Object.entries(rolesByInstance).map(([i, rs]) => `inst${i}=[${rs.join(',')}]`).join(' ')}`)
 
 // The first line of every prompt is a machine-readable stamp, because the
 // harness stores no label for a workflow agent. Its transcript's first record is
@@ -120,4 +133,8 @@ const results = await parallel(
 const missing = results.filter((r) => r.findings === null)
 if (missing.length) log(`${missing.length} role(s) missing after retry: ${missing.map((r) => `inst${r.instance}:role${r.role}`).join(', ')}`)
 
-return { results, instances: args.instances, active_roles: roles }
+// roles_by_instance is what each instance actually ran, after skip_ticket and
+// any per-instance override. A caller computing roles_missing per instance
+// compares against this, not against active_roles, or a narrow second instance
+// reads as having lost every role it was never asked to run.
+return { results, instances: args.instances, roles_by_instance: rolesByInstance }

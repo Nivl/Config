@@ -2,9 +2,9 @@
 name: in-depth-review
 description: >
   Performs one in-depth, multi-perspective code review of a pull request or commit range using
-  up to twelve specialized parallel reviewer roles (AGENTS.md compliance, bug scan, git history,
+  up to eleven specialized parallel reviewer roles (AGENTS.md compliance, bug scan, git history,
   prior PR feedback, in-file comments, database, OWASP security, error handling, test coverage,
-  ticket-intent compliance, motivation delivery, TypeScript type safety). Scores findings for
+  ticket-intent compliance, motivation delivery). Scores findings for
   confidence, filters, and deduplicates. Never writes to GitHub. Use for "in-depth review", "deep
   review", "thorough review", or "code review without fixing" -- standalone or as a building
   block for `pr-review` and `review-and-fix`.
@@ -13,13 +13,14 @@ description: >
 # In-Depth Review
 
 This skill performs ONE complete review pass over a target scope (a PR or a commit range)
-using eight to twelve specialized reviewer roles, then scores, filters, and deduplicates findings. It
+using eight to eleven specialized reviewer roles, then scores, filters, and deduplicates findings. It
 returns the result. It does NOT post anywhere, fix anything, or loop.
 
 The multi-role specialization gives **cross-domain coverage** (style/standards, raw bugs, history,
 prior PR feedback, in-file guidance, DB, security, error handling, tests, ticket intent). Within-role
 triangulation (running the same role multiple times) is the **caller's** responsibility, not
-this skill's. `review-and-fix` runs 2 of these per iteration, and `pr-review` runs 3.
+this skill's. `pr-review` runs every role twice through the `review-roles` workflow, and
+`review-and-fix` runs a full instance plus a narrow second one, both through the same workflow.
 
 ## Argument
 
@@ -47,7 +48,7 @@ fallback `main`).
   them. Pass this to skip all ticket reading (no `acli` / Datadog calls, no related prompts).
   The orchestrators forward this flag from their own `--skip-ticket`.
 - `--roles <csv>` — run ONLY the listed roles instead of all of them. Accepts role numbers
-  (`1`..`12`) and/or their category names, comma-separated, e.g. `--roles 1,5` or
+  (`1`..`11`) and/or their category names, comma-separated, e.g. `--roles 1,5` or
   `--roles "AGENTS.md,comment guidance"`. The number/name mapping is the table in Step 1.
   When the flag is **absent, all roles run** (the normal, complete review), so this flag is
   purely additive and existing callers are unaffected. It exists for iterative callers
@@ -127,14 +128,17 @@ abort Step 0 with that reason. Local `git` calls (`git diff`, `git log`, `git bl
 
 ## Fan-out prerequisite
 
-**This skill requires the `Agent` tool.** Every reviewer role is a sub-agent, so a context without
-that tool cannot run a single one of them. Check for the tool before Step 1. When it is missing,
-launch nothing and emit Step 1's `REVIEW_UNAVAILABLE_NO_FANOUT` abort instead.
+**This skill requires two tools, and aborts without either.** The `Workflow` tool runs the reviewer
+roles, through the saved `review-roles` workflow in Step 1. The `Agent` tool runs the scorers in
+Step 2. Check for both before Step 1. When `Workflow` is missing, dispatch nothing and emit Step 1's
+`REVIEW_UNAVAILABLE_NO_FANOUT` abort. When `Agent` is missing, the roles could run but nothing could
+score them, so abort the same way rather than returning unscored findings as a review.
 
-A workflow agent (one spawned by the `Workflow` tool's `agent()` call) carries no `Agent` tool, and
-that is the usual cause. The fix is to re-run this skill from the main thread, where the tool is
-present. This is a fact about the context, not about the target scope, so the re-run needs no change
-to the argument.
+A sub-agent context is the usual cause. A sub-agent typically has no `Workflow` tool, and a workflow
+agent has neither. The fix is to re-run this skill from the main thread, where both are present.
+This is a fact about the context, not about the target scope, so the re-run needs no change to the
+argument. Do not fall back to spawning the roles through the `Agent` tool when `Workflow` is absent.
+That nesting is the dispatch that lost role results, and it is why the workflow exists.
 
 ## Step 0: Resolve scope
 
@@ -143,10 +147,10 @@ to the argument.
    - Matches `^--raw$` -> flag (defer until Step 4).
    - Matches `^--skip-ticket$` -> flag; when set, Role #10 is omitted in Step 1.
    - Matches `^--roles$` (followed by its value) or `^--roles=...$` -> flag; parse the
-     comma-separated value into `<ROLE_SET>` (role numbers 1..12 and/or category names via
+     comma-separated value into `<ROLE_SET>` (role numbers 1..11 and/or category names via
      the Step 1 table). When the flag is absent, `<ROLE_SET>` = all roles. `--skip-ticket`
      removes Role #10 from `<ROLE_SET>` here, since that needs no diff data.
-     **Do NOT evaluate the conditional gates (#6, #7, #12) in Step 0, and do not run the
+     **Do NOT evaluate the conditional gates (#6, #7) in Step 0, and do not run the
      empty-`<ROLE_SET>` abort check here.** Those gates read the changed-file list, which Step 0
      only records as `<FILES_COMMAND>` without running. Step 1 fetches the file list once,
      evaluates all three gates, narrows `<ROLE_SET>` further, and owns the abort. Step 0 records
@@ -221,11 +225,11 @@ Evaluate the gates below first, so `<ROLE_SET>` is final. Then:
 
    Pass no `model` and no `effort`. The `in-depth-review-role` agent file pins `opus` at `low`, and
    the workflow spawns by that `agentType`.
-3. The call returns `{ results, instances, active_roles }`. Each entry of `results` is
+3. The call returns `{ results, instances, roles_by_instance }`. Each entry of `results` is
    `{ instance, role, findings, tickets_examined }`. `findings` is an array when the role ran and
    `null` when it returned nothing twice. An empty array is a role that ran and found nothing. The
    two are different and the accounting below reads them differently.
-4. `roles_launched` is `active_roles` from the return. `roles_missing` is every result whose
+4. `roles_launched` is `roles_by_instance["1"]` from the return. `roles_missing` is every result whose
    `findings` is `null`, each as `{ role, reason: "returned nothing after one retry" }`.
    `coverage` is `partial` when `roles_missing` is non-empty and `complete` otherwise.
 5. Pool every non-null `findings` array into one list, each finding tagged with its `role`, and
@@ -252,17 +256,16 @@ one fires when the context cannot host the skill at all. Say which one happened.
 a no-fanout abort as a caller bug will go and fix the wrong thing.
 
 **Eight roles always run: #1, #2, #3, #4, #5, #8, #9, #11**, plus #10 unless `--skip-ticket`.
-Three more are **conditional.** Evaluate each gate against the diff before launching, and skip
+Two more are **conditional.** Evaluate each gate against the diff before launching, and skip
 the role entirely (not counted in the total) when its gate is false:
 
 | role | runs when | gate detail |
 |---|---|---|
 | #6 database / data-layer | the diff touches data-layer code | see below |
 | #7 OWASP security | almost always — skip only a provably no-surface diff | see below |
-| #12 TypeScript type safety | the diff touches `*.ts` / `*.tsx` / `*.mts` / `*.cts` | see below |
 
-So the launch count is **9 to 12** normally, and **8 to 11 with `--skip-ticket`**. Nine always run,
-plus up to three gated, minus #10 when `--skip-ticket` drops it. Do not try to memorize a single
+So the launch count is **9 to 11** normally, and **8 to 10 with `--skip-ticket`**. Nine always run,
+plus up to two gated, minus #10 when `--skip-ticket` drops it. Do not try to memorize a single
 number. Evaluate the gates.
 
 **This step owns gate evaluation and the abort.** Get the file list once
@@ -304,7 +307,7 @@ incident; a wasted agent is not. Prefer a false positive on the gate over a fals
 
 #### Reviewer Role #7 — OWASP Top 10 security scan (conditional, but bias hard toward running)
 
-**This gate is inverted relative to #6 and #12.** It is defined by what lets you SKIP, not by what
+**This gate is inverted relative to #6.** It is defined by what lets you SKIP, not by what
 makes it run.** Default to running this role. Skip it only when the diff is provably free of
 security surface, which means ALL of these hold:
 
@@ -328,17 +331,14 @@ wasted agent. Do not mistake one for the other and widen this gate.
 A false negative here is the most expensive miss in the whole role set. Asymmetric cost gets an
 asymmetric gate.
 
-#### Reviewer Role #12 — TypeScript type safety (conditional)
+#### There is no Role #12 any more
 
-**This role runs ONLY when the diff touches a TypeScript file** (`*.ts`, `*.tsx`, `*.mts`,
-`*.cts`). Check with `gh pr diff <PR> --name-only` (PR mode) or
-`git --no-pager diff --name-only <BASE>...<HEAD>` (branch mode, three dots) before launching it.
-If the diff has no TypeScript, skip this role entirely and do not count it against the role total.
-
-It exists because a narrow lens catches what a broad one misses. Role #1 reads AGENTS.md in full
-and nominally covers this ground, but casting violations are a specific, mechanical, easily-missed
-pattern in a large compliance sweep. The conditional launch is what keeps the extra recall from
-costing anything on the many diffs with no TypeScript in them.
+A TypeScript type-safety role ran here until 2026-09-03, gated on the diff touching a `.ts` file, on
+the theory that a narrow lens catches casting violations a broad AGENTS.md sweep misses. Measured
+across three runs and 45 attributed fixes, it contributed to two, both corroborated by other roles,
+both typing nits, and it was the sole raiser of none. Role #1 reads AGENTS.md's type-guard rule and
+was catching the same things. The lens was duplicated, not narrow. It is removed, and the rule it
+enforced is still enforced, by Role #1.
 
 ### How a role's findings reach the parent
 
@@ -354,7 +354,7 @@ Role #6, and if that empties `<ROLE_SET>` the run aborts per Step 0. Naming a ro
 override its gate, because a gated-off role has nothing to review.
 
 The role number ↔ category mapping used by `--roles` and by the `category` field of every
-finding. Gate criteria for #6, #7, and #12 are in Conditional role gates above; the `File`
+finding. Gate criteria for #6 and #7 are in Conditional role gates above; the `File`
 column below holds the role's prompt text (the fenced block):
 
 | # | Role | `category` | File |
@@ -370,7 +370,6 @@ column below holds the role's prompt text (the fenced block):
 | 9 | Test coverage | `test coverage` | `roles/09-test-coverage.md` |
 | 10 | Ticket intent compliance | `ticket` | `roles/10-ticket.md` |
 | 11 | Headline-benefit / motivation | `motivation` | `roles/11-motivation.md` |
-| 12 | TypeScript type safety (conditional) | `types` | `roles/12-types.md` |
 
 **Model and effort: the workflow spawns every role by `agentType: 'in-depth-review-role'`, and this
 skill passes no `model` and no `effort` in `args`.** That file under `.claude/agents/` pins Opus at
@@ -384,7 +383,7 @@ is measured, the agent file is the single source of truth and the script names i
 **If the `in-depth-review-role` agent type does not resolve** (the agent files have not been
 synced to `~/.claude/agents/` yet, or were renamed), the workflow's `agent()` calls fail and every
 role comes back `null`. That is a run with `roles_missing` equal to `roles_launched` and coverage
-`partial`, and the report has to say the agent type did not resolve rather than that twelve roles
+`partial`, and the report has to say the agent type did not resolve rather than that eleven roles
 independently died. An absent `Workflow` tool is a different failure. That one aborts under the
 no-fanout rule above rather than reporting partial coverage.
 
@@ -410,7 +409,7 @@ table above) before sending.
 
 ### Step 2.0: Account for every launched role BEFORE pooling anything
 
-Build `roles_launched` = `active_roles` from the workflow's return (after the gates and any
+Build `roles_launched` = `roles_by_instance["1"]` from the workflow's return (after the gates and any
 `--roles` subset). Then, for each entry of `results`, classify it:
 
 - **Reported** — `findings` is an array. An empty array is a role that ran and found nothing, and
@@ -423,7 +422,7 @@ There is no "no notification received" cause any more, and no "launch failed" ca
 barrier resolves every role before the call returns, so nothing is still running when you read the
 result, and a role that could not be dispatched at all is the no-fanout abort in Step 1 rather than a
 `roles_missing` entry. If every role is `null` at once, say in the report that the agent type likely
-did not resolve, because twelve independent deaths is not the plausible reading of that pattern.
+did not resolve, because eleven independent deaths is not the plausible reading of that pattern.
 
 **NEVER FABRICATE A MISSING ROLE'S OUTPUT.** This is the sharpest rule in this step. When a role
 does not report, the correct output is a hole, explicitly labelled. Do not:
@@ -446,7 +445,7 @@ describe coverage you did not get. Concretely:
   returned, the review has NOT cleared the diff on security. It is silent on security.
 - Report the partial result anyway. A review missing one role is still useful. A review that
   silently claims completeness it does not have is worse than no review. Three honest roles beat
-  twelve invented ones.
+  eleven invented ones.
 
 **There is a floor under partial.** Some roles missing is **partial**, a degraded review that is
 still a real one, and it belongs in the output exactly as above. Zero roles launchable because the

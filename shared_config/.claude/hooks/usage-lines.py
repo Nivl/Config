@@ -100,7 +100,15 @@ def main() -> None:
     if run_log and os.path.isfile(run_log):
         try:
             with open(run_log) as fh:
-                have = set(ID_RE.findall(fh.read()))
+                # Only ids on usage lines count, so a Jira id or a sha elsewhere
+                # in the log cannot make a fresh line look already present.
+                have = {
+                    m.group(1)
+                    for ln in fh.read().splitlines()
+                    if ln.startswith("usage ")
+                    for m in [ID_RE.search(ln)]
+                    if m
+                }
             fresh = [ln for ln in lines if not (ID_RE.search(ln) and ID_RE.search(ln).group(1) in have)]
             if fresh:
                 with open(run_log, "a") as fh:

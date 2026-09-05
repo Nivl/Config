@@ -50,7 +50,7 @@ assert_eq "ctx_excludes_other_tag" "0" "$(grep -c 'tag=iter2' <<<"$OUT" || true)
 MARKER_DIR="$HOME/.melvin/config/logs/review-and-fix"
 mkdir -p "$MARKER_DIR"
 LOG="$FIX/run.md"
-printf '# run log\n' > "$LOG"
+printf '# run log\ncomment id=aaaa1111 on the ticket, not a usage line\n' > "$LOG"
 printf '%s' "$LOG" > "$MARKER_DIR/.active-$SESSION"
 trap 'rm -f "$MARKER_DIR/.active-$SESSION"; rm -rf "$FIX"' EXIT
 

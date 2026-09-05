@@ -85,20 +85,36 @@ def _tokens(cmd):
         return []
 
 
-def _is_git_commit(tokens):
-    # Find `git ... commit` at a command position: start, or after ; && || |.
-    starts = [0] + [i + 1 for i, t in enumerate(tokens) if t in {";", "&&", "||", "|"}]
-    for s in starts:
-        if s >= len(tokens) or tokens[s] not in KNOWN_GIT_PATHS:
-            continue
-        i = s + 1
-        while i < len(tokens):
-            a = tokens[i]
-            if not a.startswith("-"):
-                if a == "commit":
-                    return True
-                break
-            i += 2 if a in VALUE_OPTS else 1
+ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+
+
+def _is_git_commit(cmd):
+    # Find `git ... commit` at a command position: start of a line, or after
+    # ; && || | on that line. Lines are checked one by one because a newline is
+    # a separator too, and the common shape is a heredoc or an echo on one line
+    # and the commit on the next. A heredoc body line that begins with `git
+    # commit` reads as a commit here, which asks rather than misses. Leading
+    # VAR=value assignments are skipped, since `GIT_AUTHOR_NAME=x git commit`
+    # is a commit.
+    for line in cmd.splitlines():
+        tokens = _tokens(line)
+        starts = [0] + [i + 1 for i, t in enumerate(tokens) if t in {";", "&&", "||", "|"}]
+        for s in starts:
+            while s < len(tokens) and ASSIGN.match(tokens[s]) and tokens[s] not in KNOWN_GIT_PATHS:
+                s += 1
+            if s >= len(tokens) or tokens[s] not in KNOWN_GIT_PATHS:
+                continue
+            if _subcommand_is_commit(tokens, s + 1):
+                return True
+    return False
+
+
+def _subcommand_is_commit(tokens, i):
+    while i < len(tokens):
+        a = tokens[i]
+        if not a.startswith("-"):
+            return a == "commit"
+        i += 2 if a in VALUE_OPTS else 1
     return False
 
 
@@ -188,6 +204,8 @@ def _pointer_hits(text, path, roots):
     # A pointer inside backticks is still a pointer. It has to resolve.
     hits = []
     stripped = re.sub(r"\S+://\S+", "", text)
+    # A scheme-less web path such as example.com/docs/guide.md is not a file.
+    stripped = re.sub(r"\b[\w-]+\.(?:com|org|net|io|dev|co|ai|app|edu|gov)/\S*", "", stripped)
     for m in POINTER.finditer(stripped):
         tok = m.group(0)
         target = re.sub(r":\d+$", "", m.group(1))
@@ -212,7 +230,7 @@ def main() -> None:
         return
     cmd = (data.get("tool_input") or {}).get("command") or ""
     tokens = _tokens(cmd)
-    if not tokens or not _is_git_commit(tokens):
+    if not tokens or not _is_git_commit(cmd):
         return
     cwd = data.get("cwd") or os.getcwd()
     top = _toplevel(cwd)

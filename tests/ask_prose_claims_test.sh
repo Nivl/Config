@@ -94,10 +94,20 @@ git add docs/notes.md
 assert_contains "reason_capped" "... and 2 more" "$(reason 'git commit -m x')"
 unstage_all
 
-# ---- Chained forms still seen; commit as a value is not ----
+# ---- Chained, multi-line and env-prefixed forms still seen; commit as a value is not ----
 stage docs/notes.md 'always'
 assert_eq "ask_chained" "ask" "$(decision 'git add -A && git commit -m x')"
+printf -v MULTI "echo hi\ngit commit -m x"
+assert_eq "ask_multiline" "ask" "$(decision "$MULTI")"
+assert_eq "ask_env_prefix" "ask" "$(decision 'GIT_AUTHOR_NAME=x git commit -m x')"
 assert_eq "silent_commit_as_value" "silent" "$(decision 'echo commit')"
+assert_eq "silent_stash" "silent" "$(decision 'git stash')"
+assert_eq "silent_gh" "silent" "$(decision 'gh pr create --title commit')"
+unstage_all
+
+# ---- Scheme-less web paths are not pointers ----
+stage docs/notes.md 'See example.com/docs/guide.md for details.'
+assert_eq "silent_bare_domain" "silent" "$(decision 'git commit -m x')"
 unstage_all
 
 cd /

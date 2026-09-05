@@ -69,8 +69,8 @@ was worth spending. The old kind-level retry existed because a wrapper sub-agent
 a unit, and the roles inside it went with it. There is no wrapper now.
 
 The two instances are asymmetric. Instance 1 runs `<ACTIVE_ROLES>` and instance 2 runs
-`<INSTANCE_2_ROLES>`, which is `{11, 9, 2}` by default and may be anything the orchestrator records a
-reason for, including empty. So `cross_instance_agreement` can only be 2 for a finding one of those
+`<INSTANCE_2_ROLES>`, which is `{11, 9, 2}` in iteration 1, empty by default after that, and may be
+anything the orchestrator records a reason for. So `cross_instance_agreement` can only be 2 for a finding one of those
 roles raised, and every other role's findings are single-instance by construction. Read a `raised_by`
 of one member on a role-6 finding as "instance 2 did not run role 6", never as "instance 2 disagreed".
 `<ACTIVE_ROLES>`, `<INSTANCE_2_ROLES>` and `<ACTIVE_GH_STYLE>` express every launch decision.

@@ -80,8 +80,12 @@ Iteration N:
 - [ ] Every launched reviewer reported or resolved, none still RUNNING
 - [ ] t_fix appended
 - [ ] Per finding: blame checked, fix applied, lint and tests green, staged-diff checks run, committed
-- [ ] Per commit, appended AS IT LANDED: sha, title, class, category and roles, raised_by
+- [ ] Per commit, appended AS IT LANDED as a `commit iter=` line: sha, title, class, category and roles, raised_by
+- [ ] Per commit, before it landed: `quantifier-scan iter=<N> finding=<id> hits=<n>` appended, each hit named or resolved
 - [ ] t2 appended, then the stamps: line
+- [ ] usage.jq run over the session transcripts, one `usage kind=` line per agent appended (the command is in Step 3, not only in USAGE.md)
+- [ ] One `attribution iter=` line per instance appended, after merge and threshold
+- [ ] One `severity iter=` line appended, every bucket present
 - [ ] Row picked, next active set computed (union, then subtract)
 - [ ] Summary emitted to chat and appended to the log
 ```
@@ -133,7 +137,7 @@ Iteration N:
    - `<ACTIVE_ROLES>` = the roles instance 1 runs. Iteration 1: all in-depth-review roles `1..11`,
      dropping `10` when `<SKIP_TICKET>` is true.
    - `<INSTANCE_2_ROLES>` = the roles instance 2 runs. Iteration 1: `{11, 9, 2}`, motivation, test
-     coverage and bug scan. Not the full set.
+     coverage and bug scan. Not the full set. From iteration 2 the default is `{}`, per Step 3.
    - `<ACTIVE_GH_STYLE>` = true. Iteration 1 only.
    Step 3 recomputes all three before each subsequent iteration.
 
@@ -146,6 +150,15 @@ Iteration N:
    cross-instance signal, `cross_instance_agreement` and the ledger's `shared` column, now exists
    only for those three roles, and every other role's findings are single-instance by construction.
    That is expected and [SUMMARY.md](SUMMARY.md) says how to read it.
+
+   **Why instance 2 runs in iteration 1 only by default.** Measured after the narrowing. In the one
+   run that wrote attribution lines, six iterations, instance 2's `unique_kept` was 1 in iteration 1
+   and 0 in iterations 2 through 6. In the other run, four iterations logged in prose, instance 2 at
+   `{11, 9, 2}` raised nothing unshared in iterations 1 through 3, and its one unshared finding in
+   iteration 4 came from role 5, a set the orchestrator chose with a reason. So on the nine
+   iterations after an iteration 1, the default set contributed no finding instance 1 lacked. It cost
+   three of fourteen agents, about $8 to $10 an iteration, and bought ordering signal. So from iteration 2 the default is no instance 2, and the discretion rule in Step
+   3 is how the orchestrator adds one back when the iteration gives it a reason.
 
    **Why gh-style is iteration 1 only.** Across seven logged runs it has been the sole raiser of a
    committed fix zero times. Its findings were corroborations every time. Its stated value is
@@ -206,9 +219,9 @@ Announce at iteration start, reflecting the ACTUAL active set, e.g.:
 > Iter 1: roles 1-11 (instance 1) + roles 11,9,2 (instance 2) + gh-style.
 > Target: PR #<PR> [draft]  <-  or  Target: branch range <RANGE>
 
-> Iter 4: roles 1-9,11 (instance 1, full, role 10 dropped) + roles 11,9,2 (instance 2); gh-style off.
+> Iter 4: roles 1-9,11 (instance 1, full, role 10 dropped) + roles 2,9 (instance 2: new SQL rewritten, per the log line); gh-style off.
 
-> Iter 5: roles 1,5,9 (instance 1, pruned) + none (instance 2: every kept finding was shared); gh-style off.
+> Iter 5: roles 1,5,9 (instance 1, pruned) + none (instance 2: default); gh-style off.
 
 Name both instances' sets every time, because they differ and the difference is the cost story.
 
@@ -290,9 +303,20 @@ prompt the sub-agent receives.
 line per instance that names the instance. `t1` is the last of them. `t1` minus `t0` is the
 iteration's waiting time, and on a pruned iteration that number is most of the wall clock.
 
-**Then append the usage lines, before anything else in this iteration.** Run the recipe in
-[USAGE.md](USAGE.md) over the session's transcripts, keep the lines whose stamp carries this
-iteration's `tag`, and append them to `run_log_path` as they come out. One line per agent, each
+**Then append the usage lines, before anything else in this iteration.** Run this over the
+session's transcripts, where `<session>` is the directory holding this session's `.jsonl`:
+
+```
+jq -r -n -f ~/.claude/skills/review-and-fix/usage.jq \
+  <session>/subagents/agent-*.jsonl \
+  <session>/subagents/workflows/*/agent-*.jsonl
+```
+
+Keep the lines whose stamp carries this iteration's `tag`, and append them to `run_log_path` as
+they come out. The rates and the filter's rules are in [USAGE.md](USAGE.md), and the command is
+here because two of three logged runs skipped it and wrote a token total from the Workflow tool's
+return instead, one of them saying it had no rates to price with. A token total is not this line.
+It carries no per-agent stamp and no price, so nothing downstream can read it. One line per agent, each
 naming its kind, instance, role, attempt, model, turn count, token sums, and a priced estimate. This
 is a record of what the fan-out just cost, taken at the moment the cost is knowable and before the
 fix phase spends anything, so an interrupted run still has it. The per-iteration summary rolls these
@@ -529,12 +553,23 @@ either. Both are carried to the Final Report.
      authored prose on an added line must resolve. Resolve each one before the commit lands, and
      correct or drop whatever does not. The judgement call is whether a token is a claim about
      this repo or an illustrative example, and only a claim has to resolve.
-   - **Quantifier scan.** In authored prose, no `nothing`, `never`, `always`, `every`, `only`,
-     `none`, `the one`, or `the only` ranging over a set the line does not name. Either the line
-     names the set, or the word goes. AGENTS.md's "Claims in authored prose" section carries the
-     rule and its carve-outs. Literal content is exempt here as it is in the pattern scan,
-     so one of these words inside a string, a fixture, or a list of the words themselves is not a
-     violation. The judgement call is whether a hit is a carve-out or a real claim.
+   - **Quantifier scan, run as a command and logged.** In authored prose, no `nothing`, `never`,
+     `always`, `every`, `only`, `none`, `the one`, or `the only` ranging over a set the line does
+     not name. Either the line names the set, or the word goes. Run it mechanically on the staged
+     diff rather than by reading:
+
+     ```
+     git diff --cached -U0 | grep -nE '^\+.*\b(nothing|never|always|every|only|none|the one)\b'
+     ```
+
+     Then append `quantifier-scan iter=<N> finding=<id> hits=<n>` to the run log before the commit,
+     where `<id>` is the merged finding this commit fixes, since the sha does not exist yet,
+     followed by one line per hit that names the set, is a carve-out, or was dropped. Zero hits is
+     a `hits=0` line, not silence. AGENTS.md's "Claims in authored prose" section carries the rule
+     and its carve-outs. Literal content is exempt here as it is in the pattern scan, so one of these
+     words inside a string, a fixture, or a list of the words themselves is not a violation. The
+     judgement call is whether a hit is a carve-out or a real claim, and the grep exists because
+     one run wrote four wrong `only` claims with this scan in place as a reading instruction.
 
 6. **Commit the fix:**
 
@@ -756,12 +791,12 @@ Computing the next active set, for every row that goes back to Step 1 (1b, 4, an
   and why the reviewers that did report are not relaunched is in [RATIONALE.md](RATIONALE.md).
 - **Row 4 (full):** `<ACTIVE_ROLES>` = all roles `1..11`, minus `10` when `<SKIP_TICKET>`, and
   minus `10` from iteration 3 on unless the role-10 re-entry below applies. `<INSTANCE_2_ROLES>` =
-  `{11, 9, 2}` by default, or the orchestrator's choice per the discretion rule below.
+  `{}` by default, or the orchestrator's choice per the discretion rule below.
   `<ACTIVE_GH_STYLE>` = **false**. A full rerun is a full run of instance 1. It is not a return to
   the iteration-1 roster, and gh-style is not part of it.
 - **Row 5 (pruned):** `<ACTIVE_ROLES>` = the in-depth role numbers in `productive_reviewers`,
   unioned with `{9}` when `any_test_change` is true. `<INSTANCE_2_ROLES>` = the orchestrator's
-  choice per the discretion rule below, default `{11, 9, 2}`. `<ACTIVE_GH_STYLE>` = **false**.
+  choice per the discretion rule below, default `{}`. `<ACTIVE_GH_STYLE>` = **false**.
 
   **The floor: when `<ACTIVE_ROLES>` would otherwise be empty, set it to `{2}` and run instance 1
   alone.** An empty active set finds nothing, and an empty findings list with `reviewer_unavailable`
@@ -784,12 +819,16 @@ Computing the next active set, for every row that goes back to Step 1 (1b, 4, an
   `resolved_ticket_findings` already stops it re-asking about decided gaps. Never in
   `<INSTANCE_2_ROLES>`.
 
-- **Instance 2's discretion rule, from iteration 2 on.** `<INSTANCE_2_ROLES>` defaults to
-  `{11, 9, 2}`. The orchestrator may replace that with any set, including a subset, additional
-  roles, or none, and the only constraint is that the set and a one-line reason go in the run log
-  before the launch, as `instance2 iter=<N> roles=[...] because <reason>`. A reason names something
-  observed this iteration, such as "every kept finding was shared, second read adds nothing" for
-  none, or "role 6 raised the only sole-instance fix, second read on it" for adding a role. The
+- **Instance 2's discretion rule, from iteration 2 on.** `<INSTANCE_2_ROLES>` defaults to `{}`,
+  so no second instance runs. The orchestrator may replace that with any set, and the only
+  constraint is that the set and a one-line reason go in the run log before the launch, as
+  `instance2 iter=<N> roles=[...] because <reason>`. A reason names something observed this
+  iteration, such as "role 2 raised the only sole-instance logic fix and the new commit rewrites
+  that SQL, second read on 2 and 9" for adding roles. Keeping the default needs no reason beyond
+  `default`, and the line is still written, so a reader can tell a considered `{}` from a forgotten
+  one. "Default" is not a reason for a non-empty set. On nine logged iterations after an
+  iteration 1, a `{11, 9, 2}` kept by default added nothing instance 1 had not raised, which is why
+  the default moved. The
   discretion is real and the record is mandatory. An unrecorded choice is the same defect as an
   unrecorded stop, and the ask rule above exists because of how that went.
 

@@ -87,6 +87,26 @@
             "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/deny-review-in-workflow.py"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/ask-prose-claims.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Workflow",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/usage-lines.py"
+          }
+        ]
       }
     ],
     "PermissionDenied": [

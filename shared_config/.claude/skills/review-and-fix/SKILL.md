@@ -66,7 +66,7 @@ Run setup, once:
 - [ ] Workflow and Agent tools confirmed, else abort with REVIEW_UNAVAILABLE_NO_FANOUT
 - [ ] Jira reader ready, or the user chose (a), (b) or (c)
 - [ ] <ACTIVE_ROLES>, <INSTANCE_2_ROLES> and <ACTIVE_GH_STYLE> set for iteration 1
-- [ ] run_log_path opened, header written
+- [ ] run_log_path opened, header written, active-run marker written
 
 Iteration N:
 - [ ] Tree re-checked immediately before the launch
@@ -83,7 +83,7 @@ Iteration N:
 - [ ] Per commit, appended AS IT LANDED as a `commit iter=` line: sha, title, class, category and roles, raised_by
 - [ ] Per commit, before it landed: `quantifier-scan iter=<N> finding=<id> hits=<n>` appended, each hit named or resolved
 - [ ] t2 appended, then the stamps: line
-- [ ] usage.jq run over the session transcripts, one `usage kind=` line per agent appended (the command is in Step 3, not only in USAGE.md)
+- [ ] One `usage kind=` line per role agent confirmed in the log (the hook appends them); usage.jq run by hand only if short
 - [ ] One `attribution iter=` line per instance appended, after merge and threshold
 - [ ] One `severity iter=` line appended, every bucket present
 - [ ] Row picked, next active set computed (union, then subtract)
@@ -180,6 +180,18 @@ Iteration N:
    **Append to this file as the run goes, never assemble it at the end.** Step 3 appends each
    per-iteration block as it emits it, and Step 4 appends the Final Report. Why live rather than at
    the end: [RATIONALE.md](RATIONALE.md).
+
+   **Then write the active-run marker**, so the `usage-lines` hook can find this log:
+
+   ```
+   printf '%s' <run_log_path> > ~/.melvin/config/logs/review-and-fix/.active-<session-id>
+   ```
+
+   `<session-id>` is the directory name in this session's scratchpad path, the same id
+   [USAGE.md](USAGE.md) uses to locate the transcripts. While the marker exists, every tagged
+   `review-roles` return appends its priced `usage` lines to the log through the hook, with no
+   turn spent here. Step 4 deletes it. A marker left behind by an interrupted run points at a
+   finished log, and the hook's id dedupe makes a stale append harmless, but delete it anyway.
 
    When the repo under review IS `~/.melvin/config`, its `.gitignore` entry for `logs/` is what
    keeps a log out of a fix commit, so do not write the log anywhere else in that repo.
@@ -303,7 +315,11 @@ prompt the sub-agent receives.
 line per instance that names the instance. `t1` is the last of them. `t1` minus `t0` is the
 iteration's waiting time, and on a pruned iteration that number is most of the wall clock.
 
-**Then append the usage lines, before anything else in this iteration.** Run this over the
+**Then check the usage lines landed, before anything else in this iteration.** The `usage-lines`
+hook runs on every `review-roles` return and appends the lines for this iteration's `tag` to
+`run_log_path` while the marker from Step 0 exists. Its `additionalContext` says how many it
+appended. Read the log's tail and confirm one `usage kind=review-roles` line per role agent
+dispatched. If the count is short, or the hook reported nothing, run the filter yourself over the
 session's transcripts, where `<session>` is the directory holding this session's `.jsonl`:
 
 ```
@@ -312,11 +328,14 @@ jq -r -n -f ~/.claude/skills/review-and-fix/usage.jq \
   <session>/subagents/workflows/*/agent-*.jsonl
 ```
 
-Keep the lines whose stamp carries this iteration's `tag`, and append them to `run_log_path` as
-they come out. The rates and the filter's rules are in [USAGE.md](USAGE.md), and the command is
-here because two of three logged runs skipped it and wrote a token total from the Workflow tool's
-return instead, one of them saying it had no rates to price with. A token total is not this line.
-It carries no per-agent stamp and no price, so nothing downstream can read it. One line per agent, each
+Keep the lines whose stamp carries this iteration's `tag` and whose `id=` the log does not already
+hold, and append them to `run_log_path`. The gh-style and scorer lines arrive this way too, because
+those agents finish after the workflow returns, so the hook catches them on the next iteration's
+return and the last iteration's on nothing. Run the filter once more at the Final Report for those.
+The rates and the filter's rules are in [USAGE.md](USAGE.md), and the command is here because two
+of three logged runs skipped it and wrote a token total from the Workflow tool's return instead, one
+of them saying it had no rates to price with. A token total is not this line. It carries no
+per-agent stamp and no price, so nothing downstream can read it. One line per agent, each
 naming its kind, instance, role, attempt, model, turn count, token sums, and a priced estimate. This
 is a record of what the fan-out just cost, taken at the moment the cost is knowable and before the
 fix phase spends anything, so an interrupted run still has it. The per-iteration summary rolls these
@@ -570,6 +589,12 @@ either. Both are carried to the Final Report.
      words inside a string, a fixture, or a list of the words themselves is not a violation. The
      judgement call is whether a hit is a carve-out or a real claim, and the grep exists because
      one run wrote four wrong `only` claims with this scan in place as a reading instruction.
+
+     The `ask-prose-claims` hook runs the same check on `git commit` itself, over added prose
+     lines and the commit message, plus a pointer check that every `dir/file.ext` or
+     `file.ext:123` in an added comment resolves. When it asks, every hit it lists is one this
+     scan should already have resolved. Treat its prompt as a failed scan: amend, do not approve
+     through it, unless each hit is a carve-out you can name in the `quantifier-scan` lines.
 
 6. **Commit the fix:**
 
@@ -921,10 +946,18 @@ Summarize the entire session in a report to the user. See [FINAL-REPORT.md](FINA
 for the exact template, how to select the Outcome line, and the per-section rules for Changes
 Made, Remaining Issues, and Tickets examined.
 
+Before the Spend block, run the usage filter from Step 3 one last time and append the lines the
+hook could not have seen, the final iteration's gh-style and scorer, skipping any `id=` already in
+the log. Then delete the marker:
+
+```
+rm -f ~/.melvin/config/logs/review-and-fix/.active-<session-id>
+```
+
 Append the report to `run_log_path` too, then tell the user where the log is. That path is the last
 line of the run, so it is there whether they want to read the run back or hand several logs to
 another agent. A run that aborted on row 0 gets neither, because nothing was reviewed and the log
-holds only its header.
+holds only its header. It still deletes the marker.
 
 ## Constraints
 

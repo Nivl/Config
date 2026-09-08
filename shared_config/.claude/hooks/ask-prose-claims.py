@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # PreToolUse hook (Bash): when the command is a `git commit`, scan the staged
 # diff's ADDED prose lines and the commit message for two shapes of claim that
-# AGENTS.md's "Claims in authored prose" bans, and ASK when any is found.
+# AGENTS.md's "Claims in authored prose" bans, and DENY when any is found.
 #
 #   1. An unnamed quantifier: nothing / never / always / every / only / none /
 #      the one. Each asserts a search result. Either the line names the set or
@@ -16,14 +16,24 @@
 # lines are not scanned. The commit message is scanned for quantifiers when it
 # is in the command (`-m` arguments or a `-F -` heredoc body).
 #
-# The decision is ASK, never deny. AGENTS.md names four carve-outs (an
-# instruction, a quantifier about the function in front of you, a rhetorical
-# aside about people, literal content), and only a reader can tell a carve-out
-# from a claim. The reason lists every hit as file:line so the model can amend
-# or approve each one on purpose. Zero hits emits nothing and the command falls
-# through to the normal permission flow. Any failure (no git, no repo, a diff
-# that will not parse) is silent, because this hook is a prompt for attention
-# and never a gate the work depends on.
+# The decision is DENY, with the hits as the reason. A hook's `ask` goes to the
+# human, and the model never sees the reason unless the human declines, so an
+# ask cannot make the model fix its own prose. A deny's reason is the tool
+# result, so the model reads the file:line list, rewrites, and commits again.
+#
+# AGENTS.md names four carve-outs (an instruction, a quantifier about the
+# function in front of you, a rhetorical aside about people, literal content),
+# and only a reader can tell a carve-out from a claim. The override for those is
+# a PROSE_CLAIMS_OK=1 prefix on the commit command. This hook lets that form
+# through untouched. Because git runs outside the sandbox and that variable is
+# not in bash-allow-trusted's safe_assignments, the prefixed command falls to
+# the normal permission prompt, so the override lands in front of the human
+# with the model's reason beside it. Claims go to the model, carve-outs go to
+# the human, and neither is silent.
+#
+# Zero hits emits nothing and the command falls through to the normal
+# permission flow. Any failure (no git, no repo, a diff that will not parse) is
+# silent, because a broken check must not block every commit.
 #
 # Measured basis: one review-and-fix run wrote four wrong `only` claims with the
 # same scan in place as a reading instruction, and another spent two iterations
@@ -93,7 +103,7 @@ def _is_git_commit(cmd):
     # ; && || | on that line. Lines are checked one by one because a newline is
     # a separator too, and the common shape is a heredoc or an echo on one line
     # and the commit on the next. A heredoc body line that begins with `git
-    # commit` reads as a commit here, which asks rather than misses. Leading
+    # commit` reads as a commit here, which denies rather than misses. Leading
     # VAR=value assignments are skipped, since `GIT_AUTHOR_NAME=x git commit`
     # is a commit.
     for line in cmd.splitlines():
@@ -232,6 +242,8 @@ def main() -> None:
     tokens = _tokens(cmd)
     if not tokens or not _is_git_commit(cmd):
         return
+    if any(t.startswith("PROSE_CLAIMS_OK=") for t in tokens):
+        return
     cwd = data.get("cwd") or os.getcwd()
     top = _toplevel(cwd)
     if not top:
@@ -263,15 +275,16 @@ def main() -> None:
         "(AGENTS.md, Claims in authored prose):\n  "
         + "\n  ".join(shown)
         + (f"\n  ... and {more} more" if more > 0 else "")
-        + "\nFor each: name the set or drop the word, fix the pointer, then re-stage and commit. "
-        "Approve only if every hit is a carve-out (an instruction, a claim about the function in "
-        "front of you, an aside about people, or literal content)."
+        + "\nFor each: name the set or drop the word, or fix the pointer, then re-stage and commit. "
+        "If every hit is a carve-out (an instruction, a claim about the function in front of you, "
+        "an aside about people, or literal content), say which carve-out each one is and rerun the "
+        "commit prefixed with PROSE_CLAIMS_OK=1, which puts the override in front of the user."
     )
     json.dump(
         {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
-                "permissionDecision": "ask",
+                "permissionDecision": "deny",
                 "permissionDecisionReason": reason,
             }
         },

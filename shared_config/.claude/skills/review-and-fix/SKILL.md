@@ -592,9 +592,11 @@ either. Both are carried to the Final Report.
 
      The `ask-prose-claims` hook runs the same check on `git commit` itself, over added prose
      lines and the commit message, plus a pointer check that every `dir/file.ext` or
-     `file.ext:123` in an added comment resolves. When it asks, every hit it lists is one this
-     scan should already have resolved. Treat its prompt as a failed scan: amend, do not approve
-     through it, unless each hit is a carve-out you can name in the `quantifier-scan` lines.
+     `file.ext:123` in an added comment resolves. When it denies, every hit it lists is one this
+     scan should already have resolved. Treat the deny as a failed scan. Rewrite the lines and
+     commit again. Use the `PROSE_CLAIMS_OK=1` prefix only when each hit is a carve-out you have
+     named in the `quantifier-scan` lines, because that prefix puts the commit in front of the
+     user.
 
 6. **Commit the fix:**
 

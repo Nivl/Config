@@ -109,9 +109,9 @@ Cover these in this order, one line each, and drop any line that has nothing to 
   `kept` is the same set as the kept count two bullets up, the merged findings at or above the
   threshold minus those already in `skipped_findings`, so the two lines agree. `dropped` is the
   merged set below the threshold, and `fixed` is the subset of `kept` that a commit this iteration
-  closed. Every role and gh-style finding arrives with a `severity` (the role output shape in
-  `in-depth-review/roles/_common-fragment.md` requires one), so this is a count and not a
-  judgment. The line exists to answer whether the loop's
+  closed. Every role finding arrives with a `severity`, because the `FINDING` schema in
+  `workflows/review-roles.js` requires one, and every gh-style finding carries one in its JSON, so
+  this is a count and not a judgment. The line exists to answer whether the loop's
   later iterations surface the same grade of finding as its first ones, which is the question the
   Final Report's Severity block reads it for. Write every bucket, zeros included, or the grep
   produces a ragged table.

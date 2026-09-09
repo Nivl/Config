@@ -80,7 +80,7 @@ Iteration N:
 - [ ] Every launched reviewer reported or resolved, none still RUNNING
 - [ ] t_fix appended
 - [ ] Per finding: blame checked, fix applied, lint and tests green, staged-diff checks run, committed
-- [ ] Per commit, appended AS IT LANDED as a `commit iter=` line: sha, title, class, category and roles, raised_by
+- [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field
 - [ ] Per commit, before it landed: `quantifier-scan iter=<N> finding=<id> hits=<n>` appended, each hit named or resolved
 - [ ] t2 appended, then the stamps: line
 - [ ] One `usage kind=` line per role agent confirmed in the log (the hook appends them); usage.jq run by hand only if short
@@ -685,8 +685,19 @@ either. Both are carried to the Final Report.
      the order, so a commit that cleanly matches an earlier class is not a tie. Why up is the safe
      direction: [RATIONALE.md](RATIONALE.md).
 
-     **Append the class to the run log beside the sha now, as the commit lands.** Not later in the
-     per-iteration summary, which is a rollup of what this step already wrote. A run that stops
+     **Append the commit line to the run log now, as the commit lands, in this exact shape:**
+
+     ```
+     commit iter=<N> sha=<short sha> class=<logic|test|prose> origin=<self-inflicted|branch> findings=<ids> category=<...> roles=<...> raised_by=<...> title="<title>"
+     ```
+
+     `class` takes one of the three values above and nothing else. It is what rows 4 and 5 read,
+     and one run wrote `class=self-inflicted` and `class=new-from-branch` on twelve commits, which
+     left the classifier's input unreadable for those. Whether the fix targets the run's own earlier
+     commit is `origin`, a separate field, `self-inflicted` when the finding counted toward
+     `self_inflicted_count` and `branch` otherwise. `findings` names the merged ids the commit
+     closed. Add `actionable_unique=<sub_agent> conf=<n>` when the rule above applies. Not later in
+     the per-iteration summary, which is a rollup of what this step already wrote. A run that stops
      emitting summaries mid-way still has to leave a derived class behind, because the next
      iteration's stop decision reads it. See [SUMMARY.md](SUMMARY.md)'s note under the commit table
      for the run where that failed.
@@ -762,9 +773,17 @@ that rather than bending row 1c or row 2 to fit, and rather than naming a stop o
 nine logged runs behind this rule are in the run-log notes.
 
 **Ask, do not decide.** When `self_inflicted_count` has been the majority of the kept findings for
-three consecutive iterations, put that in front of the user before launching the next one, with the
-per-iteration counts and the spend so far, and let them choose. That is the whole trigger. It does
-not also wait for `any_logic_change` and `any_test_change` to go false.
+three consecutive iterations, put that in front of the user before launching the next one, and let
+them choose. That is the whole trigger. It does not also wait for `any_logic_change` and
+`any_test_change` to go false.
+
+The ask carries four things, so the decision is made on yield rather than on a percentage alone:
+the per-iteration self-inflicted counts, the spend so far, the last three iterations' `severity`
+lines verbatim, and the number of `origin=branch` commits with `class=logic` since the previous ask
+(or since iteration 1 on the first ask), with their titles. That last number is what the run is
+still finding in the branch as opposed to in its own output. Measured on a twelve-iteration run, it
+was two per ask at about $75 per ask, both from role 11 naming call sites the fix's intent implied.
+That is a real yield, and it is the user's to price.
 
 It used to. The first version of this rule required the majority AND both booleans false, and one
 measured run then went fourteen iterations at about $57 each with self-inflicted findings at 70 to

@@ -25,12 +25,16 @@ export const meta = {
 // retry rather than a silent hole in the pool.
 const FINDING = {
   type: 'object',
-  required: ['id', 'title', 'file', 'line_range', 'category', 'description', 'suggested_fix', 'role_agreement'],
+  required: ['id', 'title', 'file', 'line_range', 'severity', 'category', 'description', 'suggested_fix', 'role_agreement'],
   properties: {
     id: { type: 'string' },
     title: { type: 'string' },
     file: { type: 'string' },
     line_range: { type: 'string' },
+    // The role prompt asks for a severity and the callers order, floor and
+    // count on it. A schema without the field silently drops it, which one
+    // run logged as "severity: not recorded".
+    severity: { type: 'string', enum: ['critical', 'major', 'minor', 'suggestion'] },
     category: { type: 'string' },
     ticket_id: { type: ['string', 'null'] },
     description: { type: 'string' },

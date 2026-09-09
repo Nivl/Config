@@ -613,7 +613,9 @@ either. Both are carried to the Final Report.
    `feat`, `refactor`, `docs`, etc.) and ensure the message is clear and concise. If the file
    is missing try to figure out what the correct type should be.
 
-7. **Record what this commit was**, for Step 3's next-active-set decision and its commit table:
+7. **Record what this commit was**, for Step 3's next-active-set decision and its commit table.
+   The bullets below collect the fields. The commit line at the end of this sub-step is the one
+   place they are written to the run log, as a single line per commit.
    - Set `any_commit = true`.
    - Append the commit's short sha plus the finding's `title` to `iteration_commits`. Take the
      title verbatim from the merged finding. It is the `Fix` cell in both tables.
@@ -628,14 +630,14 @@ either. Both are carried to the Final Report.
      [AGGREGATING.md](AGGREGATING.md)'s ledger entry for a `unique` finding into a
      `unique_actionable` one.
 
-     **When `raised_by` has exactly one member, append that to the run log on the commit's line**,
-     as `actionable_unique=<sub_agent> conf=<confidence>`. A commit here is the only evidence that
-     a finding one instance raised alone was worth having. Append it now rather than assembling it
-     later, for the reason [AGGREGATING.md](AGGREGATING.md) gives under the ledger.
+     **When `raised_by` has exactly one member, the commit line carries
+     `actionable_unique=<sub_agent> conf=<confidence>`.** A commit here is the only evidence that
+     a finding one instance raised alone was worth having. It goes on the commit line as the commit
+     lands rather than being assembled later, for the reason [AGGREGATING.md](AGGREGATING.md) gives
+     under the ledger.
 
-     **Append the category and the role numbers it mapped to, to the run log, on the same line as
-     the commit's sha.** You are holding both here and nowhere else, and the next pruned set is not
-     a usable proxy for per-role yield.
+     **The category and the role numbers it mapped to go on the same commit line.** You are holding
+     both here and nowhere else, and the next pruned set is not a usable proxy for per-role yield.
 
      **Three gh-style categories need an alias, because its vocabulary and in-depth's differ.**
      Without these a gh-style AGENTS-compliance finding attributes to no in-depth role, so the
@@ -694,9 +696,10 @@ either. Both are carried to the Final Report.
      `class` takes one of the three values above and nothing else. It is what rows 4 and 5 read,
      and one run wrote `class=self-inflicted` and `class=new-from-branch` on twelve commits, which
      left the classifier's input unreadable for those. Whether the fix targets the run's own earlier
-     commit is `origin`, a separate field, `self-inflicted` when the finding counted toward
-     `self_inflicted_count` and `branch` otherwise. `findings` names the merged ids the commit
-     closed. Add `actionable_unique=<sub_agent> conf=<n>` when the rule above applies. Not later in
+     commits is `origin`, a separate field. It is `branch` when any finding the commit closes did
+     not count toward `self_inflicted_count`, and `self-inflicted` when every one of them did. A
+     commit that touches the branch's own work at all is branch work, whatever else it tidies.
+     `findings` names the merged ids the commit closed. Add `actionable_unique=<sub_agent> conf=<n>` when the rule above applies. Not later in
      the per-iteration summary, which is a rollup of what this step already wrote. A run that stops
      emitting summaries mid-way still has to leave a derived class behind, because the next
      iteration's stop decision reads it. See [SUMMARY.md](SUMMARY.md)'s note under the commit table
@@ -781,9 +784,10 @@ The ask carries four things, so the decision is made on yield rather than on a p
 the per-iteration self-inflicted counts, the spend so far, the last three iterations' `severity`
 lines verbatim, and the number of `origin=branch` commits with `class=logic` since the previous ask
 (or since iteration 1 on the first ask), with their titles. That last number is what the run is
-still finding in the branch as opposed to in its own output. Measured on a twelve-iteration run, it
-was two per ask at about $75 per ask, both from role 11 naming call sites the fix's intent implied.
-That is a real yield, and it is the user's to price.
+still finding in the branch as opposed to in its own output. Measured on a twelve-iteration run
+that asked after iterations 4, 7, 9 and 12, the windows between asks held 2, 2 and 4 such commits
+at $73, $54 and $148 of spend, most of them role 11 naming call sites the fix's intent implied. The
+yield was real and its price varied threefold, and both numbers are the user's to weigh.
 
 It used to. The first version of this rule required the majority AND both booleans false, and one
 measured run then went fourteen iterations at about $57 each with self-inflicted findings at 70 to

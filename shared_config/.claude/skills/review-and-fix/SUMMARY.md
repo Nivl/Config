@@ -110,7 +110,7 @@ Cover these in this order, one line each, and drop any line that has nothing to 
   threshold minus those already in `skipped_findings`, so the two lines agree. `dropped` is the
   merged set below the threshold, and `fixed` is the subset of `kept` that a commit this iteration
   closed. Every role finding arrives with a `severity`, because the `FINDING` schema in
-  `workflows/review-roles.js` requires one, and every gh-style finding carries one in its JSON, so
+  `../../workflows/review-roles.js` requires one, and every gh-style finding carries one in its JSON, so
   this is a count and not a judgment. The line exists to answer whether the loop's
   later iterations surface the same grade of finding as its first ones, which is the question the
   Final Report's Severity block reads it for. Write every bucket, zeros included, or the grep
@@ -203,7 +203,7 @@ table wants than this template was.
 
 ## Where each commit's class is written
 
-**Write each commit's class to the run log beside its sha as the commit lands, not here.** This
+**Write each commit's class into its `commit iter=` line as the commit lands, not here.** This
 table is a rollup of values already on disk rather than the place they are first derived. Sub-step
 7 computes the class from the commit's own diff, so the moment to record it is the moment it is
 computed. One measured run emitted this block for iteration 1 and then never again, while

@@ -73,6 +73,8 @@ assert_eq "deny_message_heredoc" "deny" "$(decision "$HEREDOC")"
 assert_contains "reason_message_line" "commit message line 3" "$(reason "$HEREDOC")"
 printf -v CLEAN "git commit -q -F - <<'EOF'\nfix: thing\n\nRead by src/a.ts.\nEOF"
 assert_eq "silent_message_clean" "silent" "$(decision "$CLEAN")"
+printf -v OTHERDOC "python3 - <<'EOF'\nprint('only never always')\nEOF\ngit commit -q -F - <<'MSG'\nfix: thing\nMSG"
+assert_eq "silent_other_heredoc" "silent" "$(decision "$OTHERDOC")"
 
 # ---- Pointers ----
 stage src/a.ts '// see src/missing.ts:12 for the guard'

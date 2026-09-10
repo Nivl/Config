@@ -85,7 +85,7 @@ Iteration N:
 - [ ] t2 appended, then the stamps: line
 - [ ] One `usage kind=` line per role agent confirmed in the log (the hook appends them); usage.jq run by hand only if short
 - [ ] One `attribution iter=` line per instance appended, after merge and threshold
-- [ ] One `severity iter=` line appended, every bucket present
+- [ ] One line appended in exactly this shape, all twelve buckets present: `severity iter=<N> kept: critical=<a> major=<b> minor=<c> suggestion=<d> | dropped: critical=<a> major=<b> minor=<c> suggestion=<d> | fixed: critical=<a> major=<b> minor=<c> suggestion=<d>`
 - [ ] Row picked, next active set computed (union, then subtract)
 - [ ] Summary emitted to chat and appended to the log
 ```

@@ -111,7 +111,10 @@ Cover these in this order, one line each, and drop any line that has nothing to 
   merged set below the threshold, and `fixed` is the subset of `kept` that a commit this iteration
   closed. Every role finding arrives with a `severity`, because the `FINDING` schema in
   `../../workflows/review-roles.js` requires one, and every gh-style finding carries one in its JSON, so
-  this is a count and not a judgment. The line exists to answer whether the loop's
+  this is a count and not a judgment. The three groups, their colons, and the ` | ` separators are
+  part of the shape. One run wrote `kept critical=0 major=6 minor=2 suggestion=0 dropped=6`, which
+  reads fine on its own and breaks a grep across runs, since the stripe run beside it used the full
+  form. The line exists to answer whether the loop's
   later iterations surface the same grade of finding as its first ones, which is the question the
   Final Report's Severity block reads it for. Write every bucket, zeros included, or the grep
   produces a ragged table.

@@ -138,9 +138,12 @@ def _message_text(cmd, tokens):
             parts.append(t[2:])
         elif t.startswith("--message="):
             parts.append(t[len("--message="):])
-    m = re.search(r"<<-?\s*['\"]?(\w+)['\"]?[^\n]*\n(.*?)\n\1\s*$", cmd, re.S | re.M)
-    if m:
-        parts.append(m.group(2))
+    # Only a heredoc whose opening line is the commit command is the message. A
+    # command can carry other heredocs, such as a python edit before the commit,
+    # and those are code, not prose.
+    for m in re.finditer(r"^([^\n]*)<<-?\s*['\"]?(\w+)['\"]?[^\n]*\n(.*?)\n\2\s*$", cmd, re.S | re.M):
+        if _is_git_commit(m.group(1)):
+            parts.append(m.group(3))
     return "\n".join(parts)
 
 

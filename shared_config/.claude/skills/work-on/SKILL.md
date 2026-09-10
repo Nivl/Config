@@ -39,7 +39,7 @@ validation phase is qualified by it.
 | 2 | Validate. Inline when the surface is small, seven parallel lenses plus the telemetry probes and the triage agents when it is not. | no | `--lite` |
 | 3 | Ask only what investigation could not settle. | no | `--lite` |
 | 4 | Verdict gate. Valid, invalid, superseded, or partial. | only if the user picks option (a) | `--lite` |
-| 5 | Rewrite the ticket. Status to In Progress, description in place, plus a validation comment. | **Jira** | reduced, see "Argument" |
+| 5 | Rewrite the ticket. Status to In Progress, assignee to the user, sprint to the user's active one, description in place, plus a validation comment. | **Jira** | reduced, see "Argument" |
 | 6 | Do the work via brainstorming or systematic-debugging. | local files | `--assess` |
 | 7 | Commit everything, push. No PR yet. | **remote** | `--assess` |
 | 8 | `review-and-fix`, every iteration, no early stop. | local commits | `--fast`, `--assess` |
@@ -102,7 +102,7 @@ true is exactly what a stale ticket does.
 ### Modifier flags
 
 - **`--lite` skips the validation phase.** Steps 2, 3, and 4 do not run at all. Step 1 reduces to
-  the ticket read and the repo conventions. Step 5 reduces to the status move. Steps 6 through 9 run,
+  the ticket read and the repo conventions. Step 5 reduces to the three board writes. Steps 6 through 9 run,
   `review-and-fix` included, with the two carve-outs named under "What still runs" below.
 - **`--fast` skips everything `--lite` skips, and Step 8 as well.** `review-and-fix` does not run.
   Step 9 still pushes and still opens the draft PR.
@@ -134,7 +134,9 @@ belonging to that step alone, and there are exactly two, both in "What still run
 
 #### Step 5 is the only place this skill writes to Jira on its own initiative, in every mode
 
-Each mode keeps a different subset of Step 5's three writes. No flag moves a write out of this step or
+Each mode keeps a different subset of Step 5's five writes. Three of them are board writes, the status
+move, the assignee and the sprint, and they travel together in the table below because they share one
+condition, which "Move, assign, and schedule the ticket" states. No flag moves a write out of this step or
 adds one outside it, which is what keeps "Nothing writes anything a human reads before Step 5" true
 under all three rather than approximately true.
 
@@ -144,16 +146,16 @@ Neither is an exception to the sentence above, because neither happens on this s
 Both are already listed as the two exceptions in Constraints. What the table below governs is the
 unprompted writes, which are the ones a flag changes.
 
-| mode | status move | description rewrite | validation comment |
+| mode | board writes (status, assignee, sprint) | description rewrite | validation comment |
 |---|---|---|---|
 | full | yes | yes | yes |
 | `--lite` and `--fast` | yes | no | no |
 | `--assess` | **no** | no | **yes** |
 
-**`--assess` makes no status move**, because Step 5's own condition for that write is that reaching
+**`--assess` makes no board write**, because Step 5's own condition for those three is that reaching
 the step means work is going to happen, and under `--assess` it is not going to happen. Parking a
-ticket on the active board because somebody asked whether it was still valid is the exact wrong
-answer to that question.
+ticket on the active board, or on the user's name, because somebody asked whether it was still valid
+is the exact wrong answer to that question.
 
 **`--assess` keeps the comment because the comment is the deliverable.** A verdict that lives only in
 one terminal session is a verdict the next person pays for again. The comment is what makes the
@@ -219,8 +221,7 @@ gathered and discarded:
 
 The rollback artifact is the one worth naming out loud. It exists so a botched description rewrite on
 someone else's ticket can be put back, and under both flags there is no description rewrite to botch.
-The status move needs no rollback, since the transition either took or it did not and the transition
-list says which.
+The board writes need no rollback, since each either took or it did not and the read-back says which.
 
 **The dropped rows are dropped as work, not as facts.** Nothing here licenses claiming that no open
 PR overlaps or that no ticket duplicates this one. Nobody looked.
@@ -1145,17 +1146,18 @@ follow-up is an addition to it, not a precondition for it.
 
 ## Step 5: Rewrite the ticket
 
-Three writes. The status moves to In Progress, the description gets replaced in place, and a comment
-gets appended. The status move goes first, because it is mechanical and the other two need drafting.
+Five writes. Three board writes, which move the status to In Progress, assign the ticket to the user
+and put it in the user's active sprint. Then the description gets replaced in place, and a comment
+gets appended. The board writes go first, because they are mechanical and the other two need drafting.
 
-**Under `--lite` and `--fast` there is one write, the status move.** The description rewrite and the
-validation comment are both dropped, because both exist to record what validation found and nothing
-found anything. There is no "other two" and no "rest of Step 5" on that path. See "Argument".
+**Under `--lite` and `--fast` there are three writes, the board writes.** The description rewrite and
+the validation comment are both dropped, because both exist to record what validation found and
+nothing found anything. There is no "other two" and no "rest of Step 5" on that path. See "Argument".
 
-**Under `--assess` there is also one write, and it is the other one.** The validation comment gets
-posted and nothing else does. No status move and no description rewrite. The comment is drafted
-exactly as it is on a full run, because the phase that produces its content ran in full. Then the run
-ends here. "Argument" has the per-mode table of which of the three writes each mode keeps.
+**Under `--assess` there is one write, and it is the validation comment.** No board write and no
+description rewrite. The comment is drafted exactly as it is on a full run, because the phase that
+produces its content ran in full. Then the run ends here. "Argument" has the per-mode table of which
+of the five writes each mode keeps.
 
 **Four things in this step are declared for the whole run and are not dropped with those two
 writes.** Read them even on a flag run, because Step 7 and Step 9 both depend on them and neither
@@ -1174,7 +1176,11 @@ What a flag run does skip is the drafting spec for each dropped write, the rende
 rules, the comment's Evidence trail, and the write-then-verify read-back, since there is no authored
 content to read back.
 
-### Move the ticket to In Progress
+### Move, assign, and schedule the ticket
+
+Three board writes, in this order. Status, then assignee, then sprint. The sprint goes last because it
+is the one that can stop to ask a question, and a run that stops there has already claimed the ticket
+for the user, so skipping the question leaves nothing half done.
 
 **Reaching this step means work is going to happen, and that is the whole condition.** No verdict
 check. A `valid` or `partial` verdict arrives here directly, and a dead-ticket verdict arrives here
@@ -1183,11 +1189,12 @@ which are the user saying continue in plainer terms than a verdict can. Option (
 before this step, so a ticket this run concluded should be closed never gets parked on the active
 board.
 
-**`--assess` fails that condition, so it makes no status move.** Work is not going to happen. The
+**`--assess` fails that condition, so it makes no board write.** Work is not going to happen. The
 flag is the user asking whether it should, and answering a question is not starting the work. Moving
 the ticket to In Progress here would put a ticket on the active board because somebody asked about
-it, which is the same defect as parking a dead ticket and arrives from a different direction. Skip
-the move, do not report it as a no-op, and say `not moved (--assess)` in the report.
+it, which is the same defect as parking a dead ticket and arrives from a different direction.
+Assigning it or scheduling it has the same defect. Skip all three, do not report them as no-ops, and
+say `not moved (--assess)`, `not assigned (--assess)` and `not scheduled (--assess)` in the report.
 
 **A flag run reaches this step by a fourth route and the whole condition is the same one.** No
 verdict arrives, because Step 4 did not run, and the sentence above already says no verdict check
@@ -1222,6 +1229,49 @@ transition list you matched against says which.
 Step 4 did not run, so nothing rides on it. The invocation is the authorization, which is the same
 warrant "Argument" gives every other ungated write on that path. Everything else in the paragraph
 above holds unchanged, and the no-prose half of it is why this write needs no read-back in any mode.
+
+#### Assign the ticket to the user
+
+Get the user's `account_id` from `atlassianUserInfo`, once, and set `assignee` on the ticket with
+`editJiraIssue`. Do this whether or not someone else holds it. Invoking this skill on a key is the
+claim, and a ticket somebody is building against but that shows another name on the board sends the
+next question about it to the wrong person.
+
+- **Already assigned to the user.** No-op. Say so in one line.
+- **Assigned to someone else.** Overwrite, and report `assigned (was <display name>)`, so the
+  previous owner is visible to whoever reads the report and can be told.
+- **Unassigned.** Assign, and report `assigned`.
+
+Read the assignee back with `getJiraIssue` after the write. This write carries no authored prose, so
+that read-back is the whole verification, and a failed one reports `write failed` like the status
+move does. It never blocks the rest of Step 5 and never ends the run, for the reason the status move
+gives above.
+
+#### Put the ticket in the user's active sprint
+
+Only when the ticket is not already in an active sprint. The ticket's `customfield_10021` from the
+Step 1 read is the sprint history, and if any entry in it has `state == "active"` the ticket is
+scheduled already. Leave it and report `sprint kept: <name>`. A planner put it there and the run has
+no better information than they had.
+
+Skip this write for an `Epic` and for any subtask type, and report `not scheduled (<issue type>)`.
+Those issue types do not carry a sprint on the tested project. `open-ticket`'s CREATE-FIELDS.md is the
+record of which types do.
+
+Otherwise infer the sprint the way `open-ticket` Step 2 does, and reuse its findings rather than
+re-deriving them:
+
+- one `searchJiraIssuesUsingJql` over `assignee = currentUser() AND sprint in openSprints()`, asking
+  for `customfield_10021` by that id and not by the name `sprint`,
+- filter each issue's sprint array on `state == "active"` rather than taking a position in it,
+- **no active sprint found.** Ask the user which sprint, or whether to leave the ticket in the
+  backlog. Do not guess.
+- **two or more distinct active `boardId`s.** Ask which board. Picking silently puts the ticket on a
+  board its owner does not watch.
+
+Write `customfield_10021` through `editJiraIssue`, in the shape CREATE-FIELDS.md's sprint entry
+proves, and read it back the same way as the assignee. Report `scheduled: <sprint name>`. A failed
+write reports `write failed` and never blocks the rest of Step 5, same as the other two board writes.
 
 **Draft with `writing-work-docs`.** Invoke it for both pieces. It carries the voice rules, the
 banned words, the invent-nothing rule, and the no-hard-wrapping rule that keeps text from
@@ -1827,6 +1877,8 @@ Mode          full | --lite | --fast | --assess   (steps cut: <list>)
 PR            <url>  (draft) | not opened (--assess: nothing was built)
 Ticket        <url>  (description: rewritten | write failed | skipped (<flag>); comment: posted | not posted | skipped (<flag>))
 Status        moved to <name> | already <name> | no matching transition | write failed | not moved (--assess)
+Assignee      assigned | assigned (was <display name>) | already assigned | write failed | not assigned (--assess)
+Sprint        scheduled: <name> | sprint kept: <name> | not scheduled (<issue type>) | left in backlog (user's choice) | write failed | not scheduled (--assess)
 Follow-ups (<n>)
   - <key>  filed from the Step 4 scope cut  <one-line summary>
   - <key>  filed from a Step 8 leftover  <one-line summary>
@@ -1863,8 +1915,8 @@ removed, and it appears with a real PR URL. The last two are both zero passes an
 things about whether the run did what was asked.
 
 **`Jira write` has four values and each is exact.** `nothing to verify (<flag>)` is the one for a flag
-run, where the status move is the only write and the transition list already confirmed it, so there is
-no authored content to read back. Do not print `verified` there. That word reports a read-back that
+run, where the board writes are the only writes and each is confirmed by its own read-back in Step 5,
+so there is no authored content to read back. Do not print `verified` there. That word reports a read-back that
 did not happen, and the other three values all assert one did.
 
 **Every `TODO(user):` line that shipped gets its own line, wherever it landed.** The Jira
@@ -1994,8 +2046,8 @@ undetectable rather than merely undocumented.
 - **Every write is verified after the fact, since none is approved before it.** Read the Jira ticket
   back, fetch the PR body back. Report the Jira read-back's outcome in "Final report" using its three
   exact words. Verification replaces the preview, so skipping it leaves a write with no control on it
-  at all. **A flag run has no authored Jira content to read back**, since the status move is its only
-  Jira write and the transition list already confirmed it, so `Jira write` takes its fourth value and
+  at all. **A flag run has no authored Jira content to read back**, since the board writes are its only
+  Jira writes and Step 5 confirmed each on its own read-back, so `Jira write` takes its fourth value and
   the PR body fetch still happens. **`--assess` is the opposite case and gets the full read-back.**
   Its comment is authored prose going onto a public ticket with no preview, and it is the run's only
   artifact, so the read-back is the only control on the only thing the run produced. Report one of the

@@ -65,6 +65,9 @@ HOOKS = [
     ("gh-api-write-guard.py", _is_gh_api),
     ("cd-under-roots.py", _lead_in({"cd"})),
     ("git-deny-dash-c.py", _lead_in({"git", "/usr/bin/git"})),
+    # Unconditional: it has to see `mkdir x && git init`, where git is not the
+    # leading token, and it returns early on its own for a command with no git.
+    ("deny-git-init-in-repo.py", None),
     ("file-ops-under-roots.py", None),
     ("deny-json-tool.py", None),
     ("deny-awk.py", None),

@@ -17,6 +17,7 @@ HOOK_SPECS=(
   "gh-api-write-guard.py:gh"
   "cd-under-roots.py:cd"
   "git-deny-dash-c.py:git"
+  "deny-git-init-in-repo.py:none"
   "file-ops-under-roots.py:none"
   "deny-json-tool.py:none"
   "deny-awk.py:none"

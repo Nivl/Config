@@ -105,6 +105,26 @@ found, or are down to `minor` and `suggestion` on the run's own commits. Read it
 `self_inflicted_count` in the iteration summaries. A run whose iterations all lack the `severity`
 line reports `severity: not recorded` instead. Omit the section only for a row 0 abort.
 
+### Precommit check
+What the `fix-precommit-check` agent caught and what it let through, from the `precommit`,
+`self-inflicted` and `commit` lines plus its `usage` lines:
+
+```
+checks 31   hits 19   fixed 17   left 2   cost $14.30 (sonnet-5)
+misses 4 of 12 self-inflicted findings blamed to a checked commit:
+  iter3 Q5  bucket 2  blamed 8776aed7a8 (iter2, precommit hits=0)
+  iter4 R3  bucket 3  blamed c623f9d7a0 (iter3, precommit hits=1 fixed=1)
+  ...
+```
+
+A miss is a `self-inflicted` line whose `blamed=` sha is a commit the agent checked, joined through
+the `commit iter=` line that names that sha and the `precommit` line for the same finding. Count it
+whether that check said `hits=0` or reported hits the fix did not include, and say which. The
+bucket is the agent's own numbering (1 comments, 2 logging and locks, 3 tests, 4 scope), read from
+the finding's category. Findings blamed to iteration-1 commits made before the first check are not
+misses and are not counted in the denominator. Misses per bucket over three or four runs are the
+tier decision the agent file names. Omit the section when no check ran.
+
 ### Outcome
 ✅ Clean batch — the loop stopped on row 1, so `batch_clean` was true. The final iteration's active
 reviewers ALL reported, they found nothing actionable, and Coverage is `complete`. Done.

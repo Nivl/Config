@@ -79,7 +79,7 @@ Iteration N:
 - [ ] Content probed after the fan-out returned, not git status alone
 - [ ] Every launched reviewer reported or resolved, none still RUNNING
 - [ ] t_fix appended
-- [ ] Per finding: blame checked, fix applied, lint and tests green, staged-diff checks run, `negative-control` line for any added test, `fix-precommit-check` run and its `precommit iter=` line appended, committed
+- [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits), fix applied, lint and tests green, staged-diff checks run, `negative-control` line for any added test, `fix-precommit-check` run and its `precommit iter=` line appended, committed
 - [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field
 - [ ] Per commit, before it landed: `quantifier-scan iter=<N> finding=<id> hits=<n>` appended, each hit named or resolved
 - [ ] t2 appended, then the stamps: line
@@ -457,9 +457,12 @@ either. Both are carried to the Final Report.
    Then decide whether this finding is one the run created. Run
    `git blame -L <line_range> -- <file>` and check every sha it returns against `run_commits`. A
    hit means an earlier commit of this same run wrote the line now being reported, so increment
-   `self_inflicted_count` and note it on the finding. Do this BEFORE the fix, because afterwards
-   blame shows the fix instead. Skip it when `run_commits` is empty, which is every finding in
-   iteration 1.
+   `self_inflicted_count`, note it on the finding, and append
+   `self-inflicted iter=<N> finding=<id> blamed=<sha>` to the run log, one line per blamed run
+   commit. The sha is what joins this finding to the `precommit` line that passed that commit,
+   which is how the Final Report counts the pre-commit check's misses. Do this BEFORE the fix,
+   because afterwards blame shows the fix instead. Skip it when `run_commits` is empty, which is
+   every finding in iteration 1.
 
    **This changes nothing about how the finding is handled.** Fix it exactly as you would any
    other, and never dismiss or deprioritise a finding for carrying the mark. No stop rule reads

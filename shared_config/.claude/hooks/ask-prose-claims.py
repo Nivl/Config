@@ -10,6 +10,12 @@
 #      comment that names no file under the repo, the cwd, or the file's own
 #      directory. A pointer is only worth more than a paraphrase while it
 #      resolves.
+#   3. A comment in a code file naming an identifier (camelCase, snake_case,
+#      or dotted) that no code line in the staged file names. That is a claim
+#      about a collaborator, and thirteen of thirty self-inflicted fixes
+#      across five review-and-fix runs were that shape. Case and underscores
+#      are normalised so `payment_status` matches `paymentStatus`.
+#   4. An added comment block in a code file longer than eight lines.
 #
 # Prose means a line in a markdown or text file, or a line whose first
 # non-space characters are the comment marker for the file's extension. Code
@@ -236,6 +242,59 @@ def _pointer_hits(text, path, roots):
     return hits
 
 
+# camelCase with an inner capital, snake_case with two or more segments, or a
+# dotted member access. Plain words are not identifiers.
+IDENT = re.compile(r"\b([A-Za-z_]\w*\.[a-z_]\w*|[a-z][a-z0-9]*(?:[A-Z][a-zA-Z0-9]*)+|[a-z][a-z0-9]*(?:_[a-z0-9]+)+)\b")
+MAX_COMMENT_BLOCK = 8
+# Dotted abbreviations that the identifier regex would otherwise read as
+# member access.
+NOT_IDENTS = {"e.g", "i.e", "et.al", "a.k.a", "vs.", "cf."}
+
+
+def _norm(ident):
+    return re.sub(r"[_.]", "", ident).lower()
+
+
+def _staged_file(cwd, path):
+    try:
+        out = subprocess.run(["git", "show", f":{path}"], cwd=cwd, capture_output=True, text=True, timeout=10)
+    except Exception:
+        return None
+    return out.stdout if out.returncode == 0 else None
+
+
+def _code_idents(path, content):
+    # Identifiers named by the file's code lines, normalised, so a comment's
+    # `payment_status` matches the code's `paymentStatus`. Comment lines are
+    # excluded, or a comment could vouch for another comment.
+    out = set()
+    for line in content.splitlines():
+        if _is_prose(path, line):
+            continue
+        for m in IDENT.finditer(line):
+            out.add(_norm(m.group(1)))
+    return out
+
+
+def _ident_hits(text, code_idents):
+    # A comment naming a symbol the file's code never names is a claim about
+    # a collaborator, the shape 13 of 30 self-inflicted fixes had.
+    hits = []
+    scan = BACKTICKS.sub(lambda mm: " " + mm.group(0)[1:-1] + " ", text)
+    scan = re.sub(r"\S+://\S+", "", scan)
+    scan = re.sub(r"\b[\w-]+\.(?:com|org|net|io|dev|co|ai|app|edu|gov)\b\S*", "", scan)
+    for m in IDENT.finditer(scan):
+        ident = m.group(1)
+        if ident.lower() in NOT_IDENTS:
+            continue
+        # A file name is the pointer check's business, not this one's.
+        if re.search(r"\.(md|ts|tsx|js|py|json|yml|yaml|sh|sql)$", ident):
+            continue
+        if _norm(ident) not in code_idents:
+            hits.append(ident)
+    return hits
+
+
 def main() -> None:
     try:
         data = json.load(sys.stdin)
@@ -253,32 +312,62 @@ def main() -> None:
         return
     roots = [top, cwd]
 
-    quant, ptrs = [], []
+    quant, ptrs, idents, blocks = [], [], [], []
+    code_cache = {}
+    run_path, run_start, run_len = None, 0, 0
+
+    def close_block():
+        if run_len > MAX_COMMENT_BLOCK:
+            blocks.append(f"{run_path}:{run_start}: added comment block of {run_len} lines (limit {MAX_COMMENT_BLOCK})")
+
     for path, ln, text in _added_lines(_staged_diff(cwd)):
-        if not _is_prose(path, text):
+        prose = _is_prose(path, text)
+        is_code_file = os.path.splitext(path)[1].lower() not in PROSE_EXTS
+        # Comment block length, code files only. Consecutive added comment
+        # lines in one file form a block.
+        if prose and is_code_file and text.strip():
+            if path == run_path and ln == run_start + run_len:
+                run_len += 1
+            else:
+                close_block()
+                run_path, run_start, run_len = path, ln, 1
+        else:
+            close_block()
+            run_path, run_start, run_len = None, 0, 0
+        if not prose:
             continue
         for w in _quantifier_hits(text):
             quant.append(f"{path}:{ln}: `{w}` in: {text.strip()[:120]}")
         for p in _pointer_hits(text, path, roots):
             ptrs.append(f"{path}:{ln}: `{p}` does not resolve")
+        if is_code_file:
+            if path not in code_cache:
+                content = _staged_file(cwd, path)
+                code_cache[path] = _code_idents(path, content) if content is not None else None
+            if code_cache[path] is not None:
+                for ident in _ident_hits(text, code_cache[path]):
+                    idents.append(f"{path}:{ln}: `{ident}` is named by this comment and by no code line in the file")
+    close_block()
 
     for i, line in enumerate(_message_text(cmd, tokens).splitlines(), 1):
         for w in _quantifier_hits(line):
             quant.append(f"commit message line {i}: `{w}` in: {line.strip()[:120]}")
 
-    if not quant and not ptrs:
+    if not quant and not ptrs and not idents and not blocks:
         return
 
-    hits = quant + ptrs
+    hits = quant + ptrs + idents + blocks
     shown = hits[:MAX_HITS]
     more = len(hits) - len(shown)
     reason = (
         "Staged prose or the commit message carries "
-        f"{len(quant)} unnamed quantifier(s) and {len(ptrs)} unresolved pointer(s) "
-        "(AGENTS.md, Claims in authored prose):\n  "
+        f"{len(quant)} unnamed quantifier(s), {len(ptrs)} unresolved pointer(s), "
+        f"{len(idents)} comment symbol(s) the file's code does not name, and {len(blocks)} "
+        "over-long comment block(s) (AGENTS.md, Claims in authored prose and Code comments):\n  "
         + "\n  ".join(shown)
         + (f"\n  ... and {more} more" if more > 0 else "")
-        + "\nFor each: name the set or drop the word, or fix the pointer, then re-stage and commit. "
+        + "\nFor each: name the set or drop the word, fix the pointer, point at a symbol this file "
+        "names or delete the claim, or cut the block, then re-stage and commit. "
         "If every hit is a carve-out (an instruction, a claim about the function in front of you, "
         "an aside about people, or literal content), say which carve-out each one is and rerun the "
         "commit prefixed with PROSE_CLAIMS_OK=1, which puts the override in front of the user."

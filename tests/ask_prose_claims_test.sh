@@ -91,6 +91,38 @@ stage docs/notes.md 'Pointer with a version 1.2.3 and a bare package.json are no
 assert_eq "silent_not_pointers" "silent" "$(decision 'git commit -m x')"
 unstage_all
 
+# ---- Comment naming a symbol the file's code lacks -> deny; one the code names -> silent ----
+printf 'export const paymentStatus = 1\nfunction refreshCache() {}\n' > src/a.ts
+git add src/a.ts && git commit -qm base
+stage src/a.ts '// updateSubscriptionWithNewData would mail the subscriber here'
+assert_eq "deny_ident_missing" "deny" "$(decision 'git commit -m x')"
+assert_contains "reason_ident" "\`updateSubscriptionWithNewData\` is named by this comment and by no code line" "$(reason 'git commit -m x')"
+unstage_all
+stage src/a.ts '// payment_status is read after refreshCache runs, see calm_model.find_all'
+assert_eq "deny_ident_dotted_missing" "deny" "$(decision 'git commit -m x')"
+assert_contains "reason_ident_norm_ok" "calm_model.find_all" "$(reason 'git commit -m x')"
+unstage_all
+stage src/a.ts '// payment_status is read after refreshCache runs'
+assert_eq "silent_ident_normalised" "silent" "$(decision 'git commit -m x')"
+unstage_all
+stage src/a.ts '// e.g. a status from calm.com, i.e. the mirror row'
+assert_eq "silent_ident_abbrev" "silent" "$(decision 'git commit -m x')"
+unstage_all
+stage docs/notes.md 'Markdown may name updateSubscriptionWithNewData freely'
+assert_eq "silent_ident_markdown" "silent" "$(decision 'git commit -m x')"
+unstage_all
+
+# ---- Comment block length ----
+for i in 1 2 3 4 5 6 7 8 9; do printf '// line %s of a comment block\n' "$i" >> src/a.ts; done
+git add src/a.ts
+assert_eq "deny_long_block" "deny" "$(decision 'git commit -m x')"
+assert_contains "reason_long_block" "added comment block of 9 lines" "$(reason 'git commit -m x')"
+unstage_all
+for i in 1 2 3 4 5 6 7 8; do printf '// line %s of a comment block\n' "$i" >> src/a.ts; done
+git add src/a.ts
+assert_eq "silent_block_at_limit" "silent" "$(decision 'git commit -m x')"
+unstage_all
+
 # ---- Hit cap ----
 for i in 1 2 3 4 5 6 7 8 9 10 11 12; do printf 'only %s\n' "$i" >> docs/notes.md; done
 git add docs/notes.md

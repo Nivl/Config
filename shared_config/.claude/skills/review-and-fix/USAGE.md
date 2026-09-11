@@ -29,6 +29,7 @@ one line of the form:
 <!-- review-roles inst=1 role=7 attempt=1 tag=iter3 target=15892 -->
 <!-- gh-style tag=iter3 target=15892 -->
 <!-- review-scorer batch=1 tag=iter3 target=15892 -->
+<!-- fix-precommit tag=iter3 finding=B target=15892 -->
 <!-- approach-proposer round=1 tag=pr15892 -->
 <!-- nuanced-judge round=1 tag=pr15892 -->
 ```

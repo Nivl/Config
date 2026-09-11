@@ -79,7 +79,7 @@ Iteration N:
 - [ ] Content probed after the fan-out returned, not git status alone
 - [ ] Every launched reviewer reported or resolved, none still RUNNING
 - [ ] t_fix appended
-- [ ] Per finding: blame checked, fix applied, lint and tests green, staged-diff checks run, committed
+- [ ] Per finding: blame checked, fix applied, lint and tests green, staged-diff checks run, `negative-control` line for any added test, `fix-precommit-check` run and its `precommit iter=` line appended, committed
 - [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field
 - [ ] Per commit, before it landed: `quantifier-scan iter=<N> finding=<id> hits=<n>` appended, each hit named or resolved
 - [ ] t2 appended, then the stamps: line
@@ -551,9 +551,10 @@ either. Both are carried to the Final Report.
    - **Do not commit if lint or tests fail.** Fix the failures first or escalate to the user.
 
 5. **Stage the fix, then scan the staged diff.** Run `git add -A`, then `git diff --staged`, and
-   read the added lines only. Sub-step 6 stages again, which is then a harmless no-op. Six
-   checks. Each starts from a pattern match on the added lines, never from a review of the
-   design. Four of them need a judgement call, and each is named where it arises. Fix whatever
+   read the added lines only. Sub-step 6 stages again, which is then a harmless no-op. Seven
+   checks, then one sub-agent read. Each check starts from a pattern match on the added lines,
+   never from a review of the design. Four of them need a judgement call, and each is named where
+   it arises. Fix whatever
    a check catches, re-stage, and rerun the scan. Never commit with a note to fix it later. What a
    noted violation costs: [RATIONALE.md](RATIONALE.md).
    - **Pattern scan, authored prose and added lines only.** No `→ ← … ≥ ≤ × — –` and no curly
@@ -596,11 +597,52 @@ either. Both are carried to the Final Report.
 
      The `ask-prose-claims` hook runs the same check on `git commit` itself, over added prose
      lines and the commit message, plus a pointer check that every `dir/file.ext` or
-     `file.ext:123` in an added comment resolves. When it denies, every hit it lists is one this
-     scan should already have resolved. Treat the deny as a failed scan. Rewrite the lines and
-     commit again. Use the `PROSE_CLAIMS_OK=1` prefix only when each hit is a carve-out you have
-     named in the `quantifier-scan` lines, because that prefix puts the commit in front of the
-     user.
+     `file.ext:123` in an added comment resolves, an identifier check that a comment names no
+     symbol the file's code lacks, and a length check on added comment blocks. When it denies,
+     every hit it lists is one this scan should already have resolved. Treat the deny as a failed
+     scan. Rewrite the lines and commit again. Use the `PROSE_CLAIMS_OK=1` prefix only when each
+     hit is a carve-out you have named in the `quantifier-scan` lines, because that prefix puts
+     the commit in front of the user.
+   - **Negative control, run and logged, for every added or changed test.** Revert the one
+     production line the test exists to pin (the guard, the arm, the log field), run that test
+     alone, confirm it fails on its assertion, restore the line, and append
+     `negative-control iter=<N> finding=<id> test="<name>" reverted=<what> fails_without_fix=<yes|no>`
+     to the run log. A `no` means the test is vacuous and does not get committed as it stands.
+     A commit that adds no test writes no line. This was already the rule for behavior findings
+     through `Red:`. It now covers the test-coverage fixes too, because six of thirty
+     self-inflicted fixes across five runs were tests that could not fail, matched any string, or
+     passed unchanged on `origin/master`, and the runs that ran controls had none of those.
+
+   **Then hand the staged diff to `fix-precommit-check`, and fix what it reports before
+   committing.** Launch one Agent-tool sub-agent with `subagent_type: fix-precommit-check` and
+   this prompt, the stamp on its first line so the usage filter attributes it:
+
+   ```
+   <!-- fix-precommit tag=iter<N> finding=<id> target=<TARGET_ARG> -->
+
+   Finding being fixed: <id> <title>
+   Files staged: <git diff --staged --stat>
+
+   Run `git diff --staged` in this checkout and check it per your instructions. Return
+   PRECOMMIT_HITS as specified.
+   ```
+
+   Wait for its result as you do for gh-style, then append
+   `precommit iter=<N> finding=<id> model=<model from its usage line> hits=<n> fixed=<n> left=<n>`
+   to the run log. Fix each hit that is a defect, re-stage, rerun the seven checks above, and do
+   not relaunch the agent for the fix of a fix. A hit you judge not a defect is `left`, with its
+   reason on the next line. If the agent returns nothing or output that does not parse, write
+   `precommit iter=<N> finding=<id> model=none hits=? fixed=0 left=0 state=missing` and continue.
+   It is a check, not a gate, and a missing check is recorded rather than blocking.
+
+   Why this exists and what it costs: across five runs, thirty of sixty-nine fix commits were
+   fixes to the run's own earlier fixes, and every one of those had passed lint, tests and the
+   seven checks above. The agent's instructions are those thirty findings sorted into four
+   buckets. A 30-line diff costs it well under a dollar, about $2 to $5 an iteration, against the
+   $20 to $30 an iteration each self-inflicted round costs. Its tier is pinned in its agent file
+   and measured by the `precommit` line beside next iteration's `origin=self-inflicted` commits.
+   A self-inflicted finding that targets a commit whose `precommit` line said `hits=0` is a miss
+   at that tier, and three or four runs of those decide whether the tier moves.
 
 6. **Commit the fix:**
 

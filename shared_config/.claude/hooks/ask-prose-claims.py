@@ -77,6 +77,16 @@ COMMENT_MARKERS = {
 # `/* ... */` and the leading `*` of a continued block comment, for the `//`
 # family. `*` alone is also a markdown bullet, but markdown is scanned whole.
 BLOCK_MARKERS = ("/*", "*")
+# A line starting with `*` is a block-comment continuation when what follows
+# reads as prose, and a multiplication continuation when it reads as code.
+# `* 2` and `* scaleFactor;` are code. `* Returns the row.` and `*/` are not.
+STAR_CODE = re.compile(r"^\*\s*(?:[\d(\[{'\"`-]|[A-Za-z_$][\w$.]*\s*[;,)\]}]?\s*$)")
+# Runtime globals and hook-style names a comment may mention without the file
+# defining them. Names here are matched on the first segment.
+BUILTIN_HEADS = {"json", "promise", "console", "math", "object", "array", "number", "string",
+                 "date", "process", "window", "document", "react", "buffer", "symbol", "reflect",
+                 "error", "map", "set", "regexp", "intl", "globalthis", "sinon", "jest", "expect",
+                 "vi", "cy", "z", "t"}
 
 SOURCE_EXTS = (
     "ts|tsx|js|jsx|mjs|cjs|py|go|rb|java|kt|rs|swift|c|h|cpp|cs|php|sh|md|json|yml|yaml|"
@@ -206,7 +216,9 @@ def _is_prose(path, text):
         if ext in exts:
             if s.startswith(marker):
                 return True
-            if marker == "//" and s.startswith(BLOCK_MARKERS):
+            if marker == "//" and s.startswith("/*"):
+                return True
+            if marker == "//" and s.startswith("*") and not STAR_CODE.match(s):
                 return True
             return False
     return False
@@ -268,7 +280,16 @@ def _code_idents(path, content):
     # `payment_status` matches the code's `paymentStatus`. Comment lines are
     # excluded, or a comment could vouch for another comment.
     out = set()
+    in_block = False
     for line in content.splitlines():
+        s = line.strip()
+        if in_block:
+            if "*/" in s:
+                in_block = False
+            continue
+        if s.startswith("/*") and "*/" not in s:
+            in_block = True
+            continue
         if _is_prose(path, line):
             continue
         for m in IDENT.finditer(line):
@@ -286,6 +307,9 @@ def _ident_hits(text, code_idents):
     for m in IDENT.finditer(scan):
         ident = m.group(1)
         if ident.lower() in NOT_IDENTS:
+            continue
+        head = re.split(r"[._]", ident)[0].lower()
+        if head in BUILTIN_HEADS or re.match(r"^use[A-Z]", ident):
             continue
         # A file name is the pointer check's business, not this one's.
         if re.search(r"\.(md|ts|tsx|js|py|json|yml|yaml|sh|sql)$", ident):

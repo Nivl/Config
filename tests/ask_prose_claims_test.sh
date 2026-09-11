@@ -105,6 +105,17 @@ unstage_all
 stage src/a.ts '// payment_status is read after refreshCache runs'
 assert_eq "silent_ident_normalised" "silent" "$(decision 'git commit -m x')"
 unstage_all
+printf 'const total = base\n  * 2\n  * scaleFactor;\n// scaleFactor doubles the result\n' > src/star.ts
+git add src/star.ts
+assert_eq "silent_star_continuation" "silent" "$(decision 'git commit -m x')"
+unstage_all
+stage src/a.ts '// JSON.parse and Promise.all and console.log and useEffect are fine here'
+assert_eq "silent_builtins" "silent" "$(decision 'git commit -m x')"
+unstage_all
+printf '/**\n * Doc block naming onlyInComment.\n */\nexport const real = 1\n// onlyInComment is not code\n' > src/blk.ts
+git add src/blk.ts
+assert_eq "deny_block_comment_not_code" "deny" "$(decision 'git commit -m x')"
+unstage_all
 stage src/a.ts '// e.g. a status from calm.com, i.e. the mirror row'
 assert_eq "silent_ident_abbrev" "silent" "$(decision 'git commit -m x')"
 unstage_all

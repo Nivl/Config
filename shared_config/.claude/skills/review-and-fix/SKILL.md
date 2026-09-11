@@ -610,7 +610,13 @@ either. Both are carried to the Final Report.
      production line the test exists to pin (the guard, the arm, the log field), run that test
      alone, confirm it fails on its assertion, restore the line, and append
      `negative-control iter=<N> finding=<id> test="<name>" reverted=<what> fails_without_fix=<yes|no>`
-     to the run log. A `no` means the test is vacuous and does not get committed as it stands.
+     to the run log. Revert and restore with the Edit tool, the same one-line change applied and
+     then applied backwards. Never `git checkout --`, `git restore` or `git stash` for this, because
+     the file also holds the rest of the staged fix and those commands take all of it. After the
+     restore, `git diff -- <file>` must print nothing, since the worktree and the index should
+     agree again. If it prints anything, the restore was wrong and the fix has to be re-applied
+     before anything else. A `no` means the test is vacuous and does not get committed as it
+     stands.
      A commit that adds no test writes no line. This was already the rule for behavior findings
      through `Red:`. It now covers the test-coverage fixes too, because six of thirty
      self-inflicted fixes across five runs were tests that could not fail, matched any string, or
@@ -621,21 +627,25 @@ either. Both are carried to the Final Report.
    this prompt, the stamp on its first line so the usage filter attributes it:
 
    ```
-   <!-- fix-precommit tag=iter<N> finding=<id> target=<TARGET_ARG> -->
+   <!-- fix-precommit tag=iter<N> findings=<ids> target=<TARGET_ARG> -->
 
-   Finding being fixed: <id> <title>
+   Findings being fixed: <ids and titles, every finding this commit will close>
    Files staged: <git diff --staged --stat>
 
    Run `git diff --staged` in this checkout and check it per your instructions. Return
    PRECOMMIT_HITS as specified.
    ```
 
-   Wait for its result as you do for gh-style, then append
-   `precommit iter=<N> finding=<id> model=<model from its usage line> hits=<n> fixed=<n> left=<n>`
-   to the run log. Fix each hit that is a defect, re-stage, rerun the seven checks above, and do
+   It is one agent with nothing else in flight, so wait for its task notification and read the
+   result. Then append
+   `precommit iter=<N> findings=<ids> model=<model pinned in its agent file> hits=<n> fixed=<n> left=<n>`
+   to the run log. `findings` is the same list the `commit iter=` line will carry, which is what
+   joins the two lines. `model` is the agent file's pin, not a usage line, because the usage line
+   for an Agent-tool launch arrives on the next workflow return or at the Final Report, and the
+   Final Report reads the actual model from there. Fix each hit that is a defect, re-stage, rerun the seven checks above, and do
    not relaunch the agent for the fix of a fix. A hit you judge not a defect is `left`, with its
    reason on the next line. If the agent returns nothing or output that does not parse, write
-   `precommit iter=<N> finding=<id> model=none hits=? fixed=0 left=0 state=missing` and continue.
+   `precommit iter=<N> findings=<ids> model=none hits=? fixed=0 left=0 state=missing` and continue.
    It is a check, not a gate, and a missing check is recorded rather than blocking.
 
    Why this exists and what it costs: across five runs, thirty of sixty-nine fix commits were

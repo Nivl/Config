@@ -117,9 +117,13 @@ misses 4 of 12 self-inflicted findings blamed to a checked commit:
   ...
 ```
 
-A miss is a `self-inflicted` line whose `blamed=` sha is a commit the agent checked, joined through
-the `commit iter=` line that names that sha and the `precommit` line for the same finding. Count it
-whether that check said `hits=0` or reported hits the fix did not include, and say which. The
+A miss is a `self-inflicted` line whose `blamed=` sha is a commit the agent checked. The join is
+`blamed=<sha>` to the `commit iter=` line naming that sha, then that line's `findings=` list to the
+`precommit` line in the same iteration with the identical `findings=` list. One check runs per
+commit and both lines carry the commit's full list, so the match is exact rather than by a single
+id. Count a miss whether that check said `hits=0` or reported hits the fix did not include, and say
+which. The model in this block comes from the `usage kind=fix-precommit` lines, not from the
+`precommit` line's pin, so a pin that drifted from what ran is visible here. The
 bucket is the agent's own numbering (1 comments, 2 logging and locks, 3 tests, 4 scope), read from
 the finding's category. Findings blamed to iteration-1 commits made before the first check are not
 misses and are not counted in the denominator. Misses per bucket over three or four runs are the

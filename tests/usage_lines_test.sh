@@ -39,6 +39,10 @@ assert_eq "silent_not_workflow" "" "$(run Bash iter1)"
 assert_eq "silent_no_tag" "" "$(run Workflow '')"
 assert_eq "silent_unknown_tag" "" "$(run Workflow iter9)"
 
+# ---- args passed as a JSON string still yields the tag ----
+STR_OUT="$(jq -nc --arg tp "$FIX/$SESSION.jsonl" --arg sid "$SESSION" '{session_id:$sid, transcript_path:$tp, tool_name:"Workflow", tool_input:{args:"{\"tag\": \"iter1\"}"}}' | python3 "$HOOK" | ctx)"
+assert_contains "string_args_parsed" "usage kind=review-roles inst=1 role=2" "$STR_OUT"
+
 # ---- No marker: lines come back as context, filtered by tag ----
 OUT="$(run Workflow iter1 | ctx)"
 assert_contains "ctx_has_inst1" "usage kind=review-roles inst=1 role=2 attempt=1 tag=iter1 target=15 id=aaaa1111" "$OUT"

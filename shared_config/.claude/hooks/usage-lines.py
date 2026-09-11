@@ -77,6 +77,14 @@ def main() -> None:
     if data.get("tool_name") != "Workflow":
         return
     args = (data.get("tool_input") or {}).get("args") or {}
+    if isinstance(args, str):
+        # One run passed args as a JSON string and the workflow accepted it.
+        # The hook has to read the tag out of that shape too, or it goes
+        # silent for the whole run, which is what happened.
+        try:
+            args = json.loads(args)
+        except ValueError:
+            args = {}
     tag = args.get("tag") if isinstance(args, dict) else None
     if not tag:
         return

@@ -272,6 +272,10 @@ Workflow({
 })
 ```
 
+Pass `args` as a JSON object, not as a string holding JSON. The workflow reads either, so a string
+does not fail loudly, and one run passed a string for four iterations while the `usage-lines` hook,
+which reads `args.tag`, appended no lines the whole run.
+
 Pass no `model` and no `effort`. The workflow spawns every role by
 `agentType: 'in-depth-review-role'`, and that agent file pins `opus` at `low`. `tag` is the
 iteration number, and the workflow writes it into the first line of every role's prompt so the

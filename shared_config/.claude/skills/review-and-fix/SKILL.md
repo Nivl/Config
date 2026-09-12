@@ -79,8 +79,8 @@ Iteration N:
 - [ ] Content probed after the fan-out returned, not git status alone
 - [ ] Every launched reviewer reported or resolved, none still RUNNING
 - [ ] t_fix appended
-- [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits), fix applied, lint and tests green, staged-diff checks run, `negative-control` line for any added test, `fix-precommit-check` run and its `precommit iter=` line appended, committed
-- [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field
+- [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, fix applied, lint and tests green, staged-diff checks run, `negative-control` line for any added test, `fix-precommit-check` run and its `precommit iter=` line appended, committed
+- [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field, `findings=` lists one finding unless they share a locus
 - [ ] Per commit, before it landed: `quantifier-scan iter=<N> finding=<id> hits=<n>` appended, each hit named or resolved
 - [ ] t2 appended, then the stamps: line
 - [ ] One `usage kind=` line per role agent confirmed in the log (the hook appends them); usage.jq run by hand only if short
@@ -500,6 +500,23 @@ either. Both are carried to the Final Report.
 
    When you do reopen a choice, say which new fact reopened it, in one line, before writing code.
    If you cannot name the fact, that is the answer.
+
+   **The same rule holds across iterations, and it is logged.** When blame in sub-step 1 marked
+   this finding self-inflicted and the fix you are about to write changes the behaviour that
+   blamed commit introduced at the same locus, rather than a defect in how it was written, that is
+   a reopen. Append `reopened iter=<N> finding=<id> locus=<file:range> prior=<sha> fact=<the new
+   fact>` before editing. A behaviour change is one the blamed commit's own test would have to
+   change to pass. Fixing an unreleased lock, a wrong log level, or a stale comment in that commit
+   is not a reopen. Replacing its retry with a release, or its release with a report, is.
+
+   **The second reopen of the same locus goes to the user, not to the tree.** Grep the run log for
+   `reopened` lines with the same `locus`. If one exists, do not edit. Put both decisions, the
+   fact each claimed, and the finding in front of the user with `AskUserQuestion`, and record their
+   answer as `user-decision iter=<N> locus=<file:range> chose=<...>`. Measured on one ten-iteration
+   run, the fix phase changed its mind about one delivery's retry semantics three times, in
+   iterations 5, 7 and 10, each as a logic commit that drew 13 findings against the previous
+   decision, and that was about $240 of a $385 run. Two decisions on one locus is a design
+   question, and a design question is the user's.
 
 3. **Behavior findings get a red test before the edit.** A behavior finding is one where you
    can name an input and the wrong output the current code gives for it. Write that test
@@ -1074,7 +1091,13 @@ holds only its header. It still deletes the marker.
   clause-splitting `:` in a comment the diff adds or edits, per AGENTS.md. They are `suggestion`
   severity. Fix them when the iteration surfaces nothing more important, and never spend a fix
   iteration on punctuation while real bugs are outstanding.
-- **One commit per fix.** Never squash or amend.
+- **One commit per finding.** Never squash or amend. Two findings share a commit only when they
+  name the same locus, meaning the same function or the same block, so that one change closes
+  both, and the commit line's `findings=` lists both. A commit closing seven findings across
+  three concerns has one `class`, and one logic hunk among them makes the whole commit `logic`,
+  which fires row 4 and hides the prose and test work from row 5. One run bundled that way in
+  every iteration and row 5 never pruned once in ten. `git add -A` is for the one finding's files;
+  when the tree holds edits for a second finding, commit the first before touching the second.
 - **Never commit broken code.** Lint and tests must pass before committing.
 - **Never push.** Only local commits, and the user decides when to push.
 - **Ask before acting on ambiguous findings**, with `AskUserQuestion`.

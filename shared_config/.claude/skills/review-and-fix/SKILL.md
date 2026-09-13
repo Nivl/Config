@@ -545,6 +545,7 @@ either. Both are carried to the Final Report.
    Approach (settled in sub-step 2, do not reopen): <one paragraph>
    Behavior finding: <yes|no>   (yes means a red test first and a Red: line in the commit body)
    Files you may touch: <the finding's files plus what sub-step 2's reference search turned up>
+   Sweep set (claim corrections only): <git diff --name-only <RANGE>, the tracked files the branch already modified>
    Repo conventions: read AGENTS.md at the repo root and in <sub-project> before editing.
 
    Follow ~/.claude/skills/review-and-fix/IMPLEMENTER.md. Stop after staging and return
@@ -594,21 +595,28 @@ either. Both are carried to the Final Report.
    - `quantifier-scan iter=<N> findings=<ids> hits=<n>` and one line per hit from the
      `quantifier=` field.
    - `negative-control iter=<N> findings=<ids> test="<name>" reverted=<what> fails_without_fix=<yes|no>`
-     when the return carries one. A `no` here means the implementer committed a vacuous test
-     against its instructions. Treat the commit as blocked: do not record it in sub-step 7, tell
-     the user, and stop the iteration.
+     when the return carries one. Its instructions forbid a `no` in any return but `blocked`, so
+     a `no` beside a sha means it committed a vacuous test against them. The commit exists.
+     Record it in sub-step 7 as it is, tell the user in the iteration summary, and add the test
+     to the next iteration's findings as a `test-vacuity` finding so the loop fixes it.
    - The `precommit` line's `fixed=` and `left=`, with each left hit's reason on the next line.
 
    Confirm the sha exists (`git log -1 --format=%h`) and `git status --porcelain` is empty. Then
    sub-step 7 records it.
+
+   **A second `staged` return with `hook_hits:`** means the commit hook denied and the implementer
+   judged every hit a carve-out. Read the hits against AGENTS.md's carve-outs yourself. If you
+   agree, resume it with `override approved`, and it commits with `PROSE_CLAIMS_OK=1`, which puts
+   the commit in front of the user at that point. If you do not, resume it with the hits that are
+   claims and what to change. Do not edit the files yourself.
 
 6. **A `blocked` return.** The tree is clean again, and the reason is one of three kinds. An
    untestable finding (`untestable:`) goes to the user with `AskUserQuestion`, fix without a test
    or skip, and a skip lands in `skipped_findings` keyed by `file` plus `title`. A fact that
    defeats the approach (a failing test, a type error, a call site) is new information for
    sub-step 2, so choose again, once, and relaunch with the new approach paragraph. Anything else
-   (lint or tests that could not be made to pass, a file outside the packet, hits it judged all
-   carve-outs) goes to the user as it is. Never fix a blocked finding yourself in this context.
+   (lint or tests that could not be made to pass, a file outside the packet, a test that could
+   not be made to fail) goes to the user as it is. Never fix a blocked finding yourself in this context.
    That is the cost this sub-step exists to remove, and a fix made here has none of the checks the
    implementer runs. Record a blocked finding that was not relaunched under `skipped_findings`
    with the reason, so the next iteration does not re-prompt for it.

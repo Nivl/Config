@@ -25,6 +25,7 @@ sha=<short sha, committed only> class=<logic|test|prose> files=<comma-separated 
 checks: pattern=ok catch=ok red=<ok|n/a> scope=ok paths=ok quantifier=<n> (<per-hit: named|carve-out|dropped>)
 negative-control: test="<name>" reverted=<what> fails_without_fix=<yes|no>   (or `none`)
 precommit: fixed=<n> left=<n> (<reason per left hit>)   (committed only)
+hook_hits: <file:line hit, carve-out> ...   (second staged return only, when the commit hook denied on carve-outs)
 swept: <fragment> (<n> sites)   (claim corrections only)
 blocked_reason: <one line>   (blocked only)
 ```
@@ -65,7 +66,7 @@ Follow all project coding standards:
    rather than guessing at the intent.
 - Decide whether the fix changes a signature, a return value, what the code throws, or
    anything else a caller can observe. When it does, list the call sites first with a
-   reference search (`mcp__serena__find_referencing_symbols`, or `rg` on the symbol name),
+   reference search (`rg` on the symbol name, since you have no MCP tools),
    report the count in one line, and read every call site the change reaches. Any call site
    that needs a matching change goes in the same commit.
 - **A fix that corrects a factual claim gets the same treatment, in prose as much as in
@@ -74,7 +75,8 @@ Follow all project coding standards:
    `Swept: <fragment> (<n> sites)`. Search by a distinctive FRAGMENT rather than the whole
    phrase, with `rg -U` or `\s+` for every space, because prose wraps and a line-oriented
    search cannot match a phrase split across two lines. **Bound the search to tracked files the
-   branch has ALREADY modified. Report a hit outside that set in one line and do not edit it**,
+   branch has ALREADY modified, which the packet lists under `Files you may touch` as the
+   sweep set. Report a hit outside that set in one line and do not edit it**,
    because editing it pulls that file into the modified set where role 5 then reads all of its
    pre-existing comments. The judgement call is whether a hit is the same claim or a different
    one that shares wording. A fix confined to formatting or punctuation still skips both
@@ -140,9 +142,11 @@ noted violation costs: [RATIONALE.md](RATIONALE.md).
    `file.ext:123` in an added comment resolves, an identifier check that a comment names no
    symbol the file's code lacks, and a length check on added comment blocks. When it denies,
    every hit it lists is one this scan should already have resolved. Treat the deny as a failed
-   scan. Rewrite the lines and commit again. Never use the `PROSE_CLAIMS_OK=1` prefix. If every
-   hit is a carve-out you can name, return `blocked` with the hits and your reasons, and the
-   orchestrator decides whether to put the override in front of the user.
+   scan. Rewrite the lines and commit again. Do not use the `PROSE_CLAIMS_OK=1` prefix on your
+   own. If every remaining hit is a carve-out you can name, leave the fix staged and return
+   `FIX_RESULT: staged` a second time with a `hook_hits:` line listing each hit and its carve-out.
+   The orchestrator decides. If it resumes you with `override approved`, commit with the
+   `PROSE_CLAIMS_OK=1` prefix, which puts the commit in front of the user at that moment.
 - **Negative control, run and logged, for every added or changed test.** Revert the one
    production line the test exists to pin (the guard, the arm, the log field), run that test
    alone, confirm it fails on its assertion, restore the line, and report it in your return's
@@ -151,8 +155,10 @@ noted violation costs: [RATIONALE.md](RATIONALE.md).
    the file also holds the rest of the staged fix and those commands take all of it. After the
    restore, `git diff -- <file>` must print nothing, since the worktree and the index should
    agree again. If it prints anything, the restore was wrong and the fix has to be re-applied
-   before anything else. A `no` means the test is vacuous and does not get committed as it
-   stands.
+   before anything else. A `no` means the test is vacuous. Fix the test so that it fails without
+   the production line, and rerun the control. If you cannot make it fail, revert your edits and
+   return `blocked` with `blocked_reason: vacuous test: <name>`. A `staged` return never carries
+   `fails_without_fix=no`.
    A commit that adds no test writes no line. This was already the rule for behavior findings
    through `Red:`. It now covers the test-coverage fixes too, because six of thirty
    self-inflicted fixes across five runs were tests that could not fail, matched any string, or

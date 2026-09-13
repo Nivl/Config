@@ -73,7 +73,7 @@ unions role 9 in rather than trusting the productive set alone.
 Roles 1 and 5 are not unioned in, so a pruned rerun judges the new test code through role 9
 alone.
 
-Sub-step 5's staged-diff scan is the partial backstop. It runs before the commit exists and catches
+The implementer's staged-diff scan (IMPLEMENTER.md) is the partial backstop. It runs before the commit exists and catches
 the mechanical subset. It is NOT a substitute for role 1's full AGENTS.md read.
 
 This is a deliberate cost trade, since the loop is uncapped and those two roles would be paid on
@@ -95,7 +95,7 @@ wrote, row 2 once an iteration commits nothing, and the user, either by directio
 This lane is the case the user-directed stop exists for, and its signal is the one to put in front
 of them.
 
-Sub-step 4's claim sweep and sub-step 5's scan are what shorten the lane. They review the authored
+The implementer's claim sweep and staged-diff scan (IMPLEMENTER.md) are what shorten the lane. They review the authored
 prose before it lands rather than an iteration later, and they do not close the lane.
 
 `self_inflicted_count` is the direct signal, because it counts findings whose target line the run

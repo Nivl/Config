@@ -78,8 +78,9 @@ short block:
 roles      48 agents  1,990 turns  $236.80  (opus-5)
 gh-style    6 agents    318 turns   $41.70  (opus-5)
 scorer      6 agents     54 turns    $2.52  (sonnet-5)
+implementer 31 agents  466 turns   $38.60  (opus-5)
 precommit  31 agents    186 turns   $14.30  (sonnet-5)
-total      91 agents  2,548 turns  $295.32  over 6 iterations
+total     122 agents  3,014 turns  $333.92  over 6 iterations
 most expensive: inst1:role7 iter2, 89 turns, $10.10
 ```
 

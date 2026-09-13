@@ -33,13 +33,17 @@ as a constraint on editing this file. Later references to "the run-log notes" me
 
 ## Working-tree side-effect policy
 
-**Only this orchestrator touches the working tree. No reviewer sub-agent may.** Forbidden inside
-any of them: `git checkout -- <path>`, `git checkout .`, `git restore`, `git reset --hard`,
-`git clean`, `rm`, `git push`, and any edit, creation, or deletion of a file.
+**One writer at a time. Reviewers never touch the working tree, and in Step 2 the writer is
+`fix-implementer`, not this orchestrator.** Forbidden inside every reviewer and scorer sub-agent:
+`git checkout -- <path>`, `git checkout .`, `git restore`, `git reset --hard`, `git clean`, `rm`,
+`git push`, and any edit, creation, or deletion of a file. The implementer edits the packet's
+files and nothing else, one finding per launch, while this orchestrator does nothing to the tree
+and launches nothing else. The same git commands are forbidden to it, and it undoes its own edits
+with the Edit tool.
 
-A **negative control** is a good check that needs the tree, and it belongs to this orchestrator, in
-the fix phase, where it already happens. Two runs lost work to a reviewer that ran one itself,
-recorded in the run-log notes.
+A **negative control** is a good check that needs the tree, and it belongs to the implementer, in
+the fix phase, where the edit it controls for was just made. Two runs lost work to a reviewer that
+ran one itself, recorded in the run-log notes.
 
 **Re-check the tree before every reviewer launch, not only at Step 0.** A run can last hours and
 the user can edit files while it is in flight, which is how the uncommitted edits in that record
@@ -79,7 +83,8 @@ Iteration N:
 - [ ] Content probed after the fan-out returned, not git status alone
 - [ ] Every launched reviewer reported or resolved, none still RUNNING
 - [ ] t_fix appended
-- [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, fix applied, lint and tests green, staged-diff checks run, `negative-control` line for any added test, `fix-precommit-check` run and its `precommit iter=` line appended, committed
+- [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, tree clean, `fix-implementer` launched with the packet, `staged` collected, `fix-precommit-check` run, implementer resumed with the hits, `committed` collected, `quantifier-scan`, `negative-control` and `precommit` lines written from the return, sha and clean tree confirmed
+- [ ] No file edited by this orchestrator during Step 2
 - [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field, `findings=` lists one finding unless they share a locus
 - [ ] Per commit, before it landed: `quantifier-scan iter=<N> finding=<id> hits=<n>` appended, each hit named or resolved
 - [ ] t2 appended, then the stamps: line
@@ -447,7 +452,7 @@ Stopping discards whatever roles had already finished inside it.
 Process each finding from the ordered work list (Step 1) one at a time. Skip any
 `ticket`-category finding already recorded in `resolved_ticket_findings` (deferred or
 dismissed in a prior iteration), and any finding of any category recorded in
-`skipped_findings` (examined, but no test was possible, see sub-step 3). Do not re-prompt for
+`skipped_findings` (examined, but no test was possible, see sub-step 6). Do not re-prompt for
 either. Both are carried to the Final Report.
 
 ### For each finding:
@@ -495,7 +500,7 @@ either. Both are carried to the Final Report.
    New information reopens the choice and rereading the same information does not. New information
    is a test that fails, a type error, a call site that makes the chosen approach impossible, or an
    answer from the user. Your own second thoughts on the same facts are not. If the doubt is real,
-   finish the approach you chose, run sub-step 4, and let the result decide. The next iteration
+   finish the approach you chose, hand it to the implementer, and let the result decide. The next iteration
    reviews it anyway, so a genuinely worse approach gets caught by the loop rather than here.
 
    When you do reopen a choice, say which new fact reopened it, in one line, before writing code.
@@ -518,130 +523,41 @@ either. Both are carried to the Final Report.
    decision, and that was about $240 of a $385 run. Two decisions on one locus is a design
    question, and a design question is the user's.
 
-3. **Behavior findings get a red test before the edit.** A behavior finding is one where you
-   can name an input and the wrong output the current code gives for it. Write that test
-   first, run it, and confirm it fails on the assertion the finding names rather than on an
-   import error or a missing fixture. Then fix until it passes. Record the failing
-   assertion's first line in the commit body as `Red: <line>`. The red run happens before the
-   commit, so the never-commit-broken-code rule is untouched. You still run the existing
-   suite in sub-step 4. That run is not evidence the finding is fixed, because it only covers
-   behavior that already worked.
+3. **Build the packet and launch `fix-implementer`.** Sub-steps 3 to 6 used to run here, in
+   this context, and on one measured run they cost more than the review fan-out they were
+   answering: 180 turns in one iteration's fix phase, each re-reading 600K to 965K tokens. The
+   edit, the checks and the commit now run in a sub-agent that starts from the packet below and
+   nothing else. The rules it follows are [IMPLEMENTER.md](IMPLEMENTER.md), which is the text
+   that used to be these sub-steps. You keep what needs this context: which finding, which
+   approach, whether it reopens a decision, and the run log.
 
-   Everything else gets no new test. Comment punctuation, a cast turned into a type guard, a
-   log removed from beside a throw, a dropped metric, and doc wording are verified by the
-   linter, the type checker, or by reading the diff. Never invent an assertion to satisfy
-   this rule. A test that also passes against the unfixed code is worse than none. What an invented
-   assertion costs: [RATIONALE.md](RATIONALE.md).
+   Confirm `git status --porcelain` is empty, then launch one Agent-tool sub-agent with
+   `subagent_type: fix-implementer`, the stamp first:
 
-   If the test needs infrastructure the repo lacks (a live DB, a new mock harness, a running
-   server), use `AskUserQuestion` and offer to fix without a test or to skip the finding. Record a
-   skip in `skipped_findings`, keyed by the finding's `file` plus `title`, so later iterations do
-   not re-prompt. An untestable finding never blocks the loop.
+   ```
+   <!-- fix-implementer tag=iter<N> findings=<ids> target=<TARGET_ARG> -->
 
-4. **Implement the fix** following all project coding standards:
-   - Read the relevant `AGENTS.md` (root and sub-project) for mandatory conventions.
-   - A finding asking for error handling does not authorize a `catch` that swallows. If your
-     fix adds or edits a `catch`, it must either rethrow (bare, or wrapped with `cause`) or carry a
-     comment naming why continuing is correct. A reviewer's request does not waive that comment.
-     If neither shape fits the finding, use `AskUserQuestion` rather than guessing at the intent.
-   - Decide whether the fix changes a signature, a return value, what the code throws, or
-     anything else a caller can observe. When it does, list the call sites first with a
-     reference search (`mcp__serena__find_referencing_symbols`, or `rg` on the symbol name),
-     report the count in one line, and read every call site the change reaches. Any call site
-     that needs a matching change goes in the same commit.
-   - **A fix that corrects a factual claim gets the same treatment, in prose as much as in
-     code.** Search for the claim elsewhere before committing, report the count in one line, and
-     correct every occurrence in the same commit. Record the result in the commit body as
-     `Swept: <fragment> (<n> sites)`. Search by a distinctive FRAGMENT rather than the whole
-     phrase, with `rg -U` or `\s+` for every space, because prose wraps and a line-oriented
-     search cannot match a phrase split across two lines. **Bound the search to tracked files the
-     branch has ALREADY modified. Report a hit outside that set in one line and do not edit it**,
-     because editing it pulls that file into the modified set where role 5 then reads all of its
-     pre-existing comments. The judgement call is whether a hit is the same claim or a different
-     one that shares wording. A fix confined to formatting or punctuation still skips both
-     bullets. Why the bound is drawn there: [RATIONALE.md](RATIONALE.md).
-   - **Correcting a claim about another file's mechanism means deleting it, not narrowing it.**
-     A fix authored under review pressure reaches for the smallest edit that answers the finding,
-     and for a mechanism sentence the smallest edit is a rescope, which fails again next iteration
-     on a different reader. Replace it with a pointer, an invariant, a locally derivable fact, or
-     nothing.
-   - Run the project's linter/formatter if one exists and fix any violations it reports.
-   - Run the project's tests (`pnpm run test:unit` for the web sub-project, or the equivalent
-     for the relevant sub-project) to confirm no regressions.
-   - **Do not commit if lint or tests fail.** Fix the failures first or escalate to the user.
+   Finding: <id> <title>
+   Severity: <severity>   Category: <category>   Raised by: <roles / instances>
+   Location: <file:range>
+   Description: <full text>
+   Suggested fix: <text>
+   Approach (settled in sub-step 2, do not reopen): <one paragraph>
+   Behavior finding: <yes|no>   (yes means a red test first and a Red: line in the commit body)
+   Files you may touch: <the finding's files plus what sub-step 2's reference search turned up>
+   Repo conventions: read AGENTS.md at the repo root and in <sub-project> before editing.
 
-5. **Stage the fix, then scan the staged diff.** Run `git add -A`, then `git diff --staged`, and
-   read the added lines only. Sub-step 6 stages again, which is then a harmless no-op. Seven
-   checks, then one sub-agent read. Each check starts from a pattern match on the added lines,
-   never from a review of the design. Four of them need a judgement call, and each is named where
-   it arises. Fix whatever
-   a check catches, re-stage, and rerun the scan. Never commit with a note to fix it later. What a
-   noted violation costs: [RATIONALE.md](RATIONALE.md).
-   - **Pattern scan, authored prose and added lines only.** No `→ ← … ≥ ≤ × — –` and no curly
-     quotes. In comment bodies and prose or doc files only, no ` - ` and no `:` joining two
-     independent clauses, both of which AGENTS.md bans as joiners. A `:` is fine as a
-     line-leading label prefix such as `TODO:` or `NOTE:`, and in a ratio, a time, a path, or a
-     URL. Arithmetic, YAML and markdown list markers, and CLI examples are not violations.
-     No ticket key matching
-     `\b[A-Z][A-Z0-9]{1,9}-\d{1,6}\b`, excluding protocol names such as UTF-8, SHA-256,
-     RFC-7231, ISO-8601, and CVE-2024. None of the changelog literals `added this`,
-     `changed from`, `new logic`, `was previously`, `remove old impl`. No added `as any` and
-     no added `as unknown as`. Literal content is exempt, so one of these glyphs inside a
-     string, a fixture, or quoted output is not a violation.
-   - **Catch artifact.** Every added `catch` rethrows or carries a why-comment (sub-step 4).
-   - **`Red:` presence.** The commit message you are about to write in sub-step 6 carries a
-     `Red:` line when this was a behavior finding (sub-step 3).
-   - **Scope.** `git diff --staged --stat` lists only files the finding named or either search
-     in sub-step 4 turned up. For any other file, state why in one line.
-   - **Paths and identifiers resolve.** Every file path and every code identifier written into
-     authored prose on an added line must resolve. Resolve each one before the commit lands, and
-     correct or drop whatever does not. The judgement call is whether a token is a claim about
-     this repo or an illustrative example, and only a claim has to resolve.
-   - **Quantifier scan, run as a command and logged.** In authored prose, no `nothing`, `never`,
-     `always`, `every`, `only`, `none`, `the one`, or `the only` ranging over a set the line does
-     not name. Either the line names the set, or the word goes. Run it mechanically on the staged
-     diff rather than by reading:
+   Follow ~/.claude/skills/review-and-fix/IMPLEMENTER.md. Stop after staging and return
+   FIX_RESULT: staged.
+   ```
 
-     ```
-     git diff --cached -U0 | grep -nE '^\+.*\b(nothing|never|always|every|only|none|the one)\b'
-     ```
+   One finding per launch. Two findings share a launch only when they share a locus, as the
+   one-finding-per-commit rule in Constraints allows, and then `findings=` lists both. Do not
+   edit anything yourself while it runs, and do not launch anything else. It is the only writer.
 
-     Then append `quantifier-scan iter=<N> finding=<id> hits=<n>` to the run log before the commit,
-     where `<id>` is the merged finding this commit fixes, since the sha does not exist yet,
-     followed by one line per hit that names the set, is a carve-out, or was dropped. Zero hits is
-     a `hits=0` line, not silence. AGENTS.md's "Claims in authored prose" section carries the rule
-     and its carve-outs. Literal content is exempt here as it is in the pattern scan, so one of these
-     words inside a string, a fixture, or a list of the words themselves is not a violation. The
-     judgement call is whether a hit is a carve-out or a real claim, and the grep exists because
-     one run wrote four wrong `only` claims with this scan in place as a reading instruction.
-
-     The `ask-prose-claims` hook runs the same check on `git commit` itself, over added prose
-     lines and the commit message, plus a pointer check that every `dir/file.ext` or
-     `file.ext:123` in an added comment resolves, an identifier check that a comment names no
-     symbol the file's code lacks, and a length check on added comment blocks. When it denies,
-     every hit it lists is one this scan should already have resolved. Treat the deny as a failed
-     scan. Rewrite the lines and commit again. Use the `PROSE_CLAIMS_OK=1` prefix only when each
-     hit is a carve-out you have named in the `quantifier-scan` lines, because that prefix puts
-     the commit in front of the user.
-   - **Negative control, run and logged, for every added or changed test.** Revert the one
-     production line the test exists to pin (the guard, the arm, the log field), run that test
-     alone, confirm it fails on its assertion, restore the line, and append
-     `negative-control iter=<N> finding=<id> test="<name>" reverted=<what> fails_without_fix=<yes|no>`
-     to the run log. Revert and restore with the Edit tool, the same one-line change applied and
-     then applied backwards. Never `git checkout --`, `git restore` or `git stash` for this, because
-     the file also holds the rest of the staged fix and those commands take all of it. After the
-     restore, `git diff -- <file>` must print nothing, since the worktree and the index should
-     agree again. If it prints anything, the restore was wrong and the fix has to be re-applied
-     before anything else. A `no` means the test is vacuous and does not get committed as it
-     stands.
-     A commit that adds no test writes no line. This was already the rule for behavior findings
-     through `Red:`. It now covers the test-coverage fixes too, because six of thirty
-     self-inflicted fixes across five runs were tests that could not fail, matched any string, or
-     passed unchanged on `origin/master`, and the runs that ran controls had none of those.
-
-   **Then hand the staged diff to `fix-precommit-check`, and fix what it reports before
-   committing.** Launch one Agent-tool sub-agent with `subagent_type: fix-precommit-check` and
-   this prompt, the stamp on its first line so the usage filter attributes it:
+4. **Collect `staged`, then run the pre-commit check.** Wait for the task notification and read
+   the return. On `FIX_RESULT: blocked`, skip to sub-step 6. On `staged`, launch
+   `fix-precommit-check` exactly as before, the stamp first:
 
    ```
    <!-- fix-precommit tag=iter<N> findings=<ids> target=<TARGET_ARG> -->
@@ -653,41 +569,49 @@ either. Both are carried to the Final Report.
    PRECOMMIT_HITS as specified.
    ```
 
-   It is one agent with nothing else in flight, so wait for its task notification and read the
-   result. Then append
+   Wait for it, then append
    `precommit iter=<N> findings=<ids> model=<model pinned in its agent file> hits=<n> fixed=<n> left=<n>`
-   to the run log. `findings` is the same list the `commit iter=` line will carry, which is what
-   joins the two lines. `model` is the agent file's pin, not a usage line, because the usage line
-   for an Agent-tool launch arrives on the next workflow return or at the Final Report, and the
-   Final Report reads the actual model from there. Fix each hit that is a defect, re-stage, rerun the seven checks above, and do
-   not relaunch the agent for the fix of a fix. A hit you judge not a defect is `left`, with its
-   reason on the next line. If the agent returns nothing or output that does not parse, write
-   `precommit iter=<N> findings=<ids> model=none hits=? fixed=0 left=0 state=missing` and continue.
-   It is a check, not a gate, and a missing check is recorded rather than blocking.
+   to the run log, with `fixed` and `left` filled in from sub-step 5's return once it arrives.
+   `model` is the agent file's pin, not a usage line, because the usage line for an Agent-tool
+   launch arrives on the next workflow return or at the Final Report, and the Final Report reads
+   the actual model from there. If the check returns nothing or output that does not parse, the
+   line is `model=none hits=? fixed=0 left=0 state=missing` and the hits list is empty. It is a
+   check, not a gate.
 
-   Why this exists and what it costs: across five runs, thirty of sixty-nine fix commits were
-   fixes to the run's own earlier fixes, and every one of those had passed lint, tests and the
-   seven checks above. The agent's instructions are those thirty findings sorted into four
-   buckets. A 30-line diff costs it well under a dollar, about $2 to $5 an iteration, against the
-   $20 to $30 an iteration each self-inflicted round costs. Its tier is pinned in its agent file
-   and measured by the `precommit` line beside next iteration's `origin=self-inflicted` commits.
-   A self-inflicted finding that targets a commit whose `precommit` line said `hits=0` is a miss
-   at that tier, and three or four runs of those decide whether the tier moves.
+   Why the check is a separate agent and why it runs between staging and commit: across five runs,
+   thirty of sixty-nine fix commits were fixes to the run's own earlier fixes, and every one had
+   passed lint, tests and the staged-diff checks. A reader who did not write the diff catches what
+   the writer cannot. The implementer cannot launch it, because a sub-agent's sub-agent reports to
+   the session root and never to the agent that spawned it, which is the defect the review workflow
+   exists to avoid. Its tier is pinned in its agent file and measured by the Final Report's
+   Precommit block.
 
-6. **Commit the fix:**
+5. **Resume the implementer with the hits, and collect the commit.** Send it one message with
+   `SendMessage` (its agent id from the launch), carrying the `PRECOMMIT_HITS` list verbatim, or
+   `PRECOMMIT_HITS: 0`. It fixes, re-checks, commits, and returns `FIX_RESULT: committed` with the
+   sha, class, files, checks, negative control, and which hits it fixed or left. Then write the run
+   log lines from that return, in this order:
+   - `quantifier-scan iter=<N> findings=<ids> hits=<n>` and one line per hit from the
+     `quantifier=` field.
+   - `negative-control iter=<N> findings=<ids> test="<name>" reverted=<what> fails_without_fix=<yes|no>`
+     when the return carries one. A `no` here means the implementer committed a vacuous test
+     against its instructions. Treat the commit as blocked: do not record it in sub-step 7, tell
+     the user, and stop the iteration.
+   - The `precommit` line's `fixed=` and `left=`, with each left hit's reason on the next line.
 
-   ```
-   git add -A
-   git commit -m "<type>: <short description of what was fixed>
+   Confirm the sha exists (`git log -1 --format=%h`) and `git status --porcelain` is empty. Then
+   sub-step 7 records it.
 
-   <optional body explaining why>
-   Red: <first line of the failing assertion, behavior findings only>
-   Swept: <fragment> (<n> sites), claim corrections only"
-   ```
-
-   Use conventional commit types: defined in the `.github/semantic.yml` file (e.g., `fix`,
-   `feat`, `refactor`, `docs`, etc.) and ensure the message is clear and concise. If the file
-   is missing try to figure out what the correct type should be.
+6. **A `blocked` return.** The tree is clean again, and the reason is one of three kinds. An
+   untestable finding (`untestable:`) goes to the user with `AskUserQuestion`, fix without a test
+   or skip, and a skip lands in `skipped_findings` keyed by `file` plus `title`. A fact that
+   defeats the approach (a failing test, a type error, a call site) is new information for
+   sub-step 2, so choose again, once, and relaunch with the new approach paragraph. Anything else
+   (lint or tests that could not be made to pass, a file outside the packet, hits it judged all
+   carve-outs) goes to the user as it is. Never fix a blocked finding yourself in this context.
+   That is the cost this sub-step exists to remove, and a fix made here has none of the checks the
+   implementer runs. Record a blocked finding that was not relaunched under `skipped_findings`
+   with the reason, so the next iteration does not re-prompt for it.
 
 7. **Record what this commit was**, for Step 3's next-active-set decision and its commit table.
    The bullets below collect the fields. The commit line at the end of this sub-step is the one
@@ -750,7 +674,7 @@ either. Both are carried to the Final Report.
        configuration, and a code path behind a flag that is currently off. `tsconfig*.json` and
        `package.json` are `logic` despite the `*.json` entry on the never-logic list, because one
        decides what the compiler emits and the other decides which code is installed. A behavior
-       fix is `logic` too, because its red test (sub-step 3) and the change to the code under
+       fix is `logic` too, because its red test (IMPLEMENTER.md section 1) and the change to the code under
        test share one commit.
 
      Test-runner configuration is deliberately on the never-logic list, so do not classify it up.
@@ -998,7 +922,7 @@ What a `test` commit CAN introduce is a bad test, which is role 9's lens, and th
 unions role 9 in rather than trusting the productive set alone. See [PRUNING.md](PRUNING.md).
 
 **What a pruned `test` iteration gives up.** Roles 1 and 5 are not unioned in, so a pruned
-rerun judges new test code through role 9 alone. Sub-step 5's staged-diff scan is the partial
+rerun judges new test code through role 9 alone. IMPLEMENTER.md's staged-diff scan is the partial
 backstop for the mechanical subset and is not a substitute. The next `logic` commit forces row 4
 and they see the accumulated test code then. Cost trade: [PRUNING.md](PRUNING.md).
 

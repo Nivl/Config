@@ -71,11 +71,14 @@ runs. A 30-line diff earns a careful read, not a skim.
 
 ## Output
 
+When your caller hands you a range of several commits rather than one staged diff, read
+`git diff <range>` and name the commit each hit belongs to with `git blame` on the hit's line.
+
 Return exactly this, nothing before it and nothing after:
 
 ```
 PRECOMMIT_HITS: <n>
-- file:line bucket=<1|2|3|4> <one sentence naming the defect and the change that removes it>
+- file:line bucket=<1|2|3|4> commit=<short sha, when the diff spans more than one> <one sentence naming the defect and the change that removes it>
 ...
 ```
 

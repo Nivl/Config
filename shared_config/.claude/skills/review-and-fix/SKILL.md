@@ -461,8 +461,9 @@ either. Both are carried to the Final Report.
 Sub-steps 1 and 2 need this context and run here, once per finding, before any launch. Sub-steps
 3 to 7 run once per **batch** of up to six findings, because the orchestrator's handoff turns are
 the expensive part of the fix phase, at several hundred thousand tokens of context each, and a
-launch per finding pays them seven times per finding. Measured average is 6.7 findings fixed per
-iteration, so most iterations are one batch. Group by file cluster when there are more than six,
+launch per finding pays them seven times per finding. Measured average is about eight findings
+fixed per iteration (274 over 35 iterations in the five runs of 2026-09-08 to 2026-09-11 whose
+severity lines carry a `fixed:` group), so most iterations are one or two batches. Group by file cluster when there are more than six,
 so findings that touch the same files land in the same launch. A finding that a second `reopened`
 line sent to the user, or that `skipped_findings` or `resolved_ticket_findings` excludes, is not
 in any batch.
@@ -616,8 +617,15 @@ in any batch.
    - The `precommit` line's `fixed=` and `left=`, with each left hit's reason on the next line.
 
    The follow-up commit, when `fixed>0`, is recorded in sub-step 7 with `origin=precommit` and
-   `findings=<the ids whose commits it corrected>`, and its `class` is whatever the implementer
-   reported.
+   `findings=<the ids whose commits it corrected>`, classified from its own diff like any other
+   commit. Its reviewers for `productive_reviewers` come from the hits' buckets, since it closes
+   no finding of its own: bucket 1 adds roles 1 and 5, bucket 2 adds roles 2 and 8, bucket 3
+   adds role 9, bucket 4 adds role 1. Those are the lenses that would have raised the same
+   defects next iteration, and row 5 needs them in its set for the same reason it needs the
+   others. A block's `note=`, when present, goes on that commit's line verbatim as
+   `note="..."`. It records that the commit rewrote lines an earlier commit in the same batch
+   wrote, which is why blame next iteration will name this sha and not the earlier one. Nothing
+   else reads it.
 
 6. **`blocked` and `deferred` blocks.** Each names one finding, and the tree is clean of it. A
    `blocked` reason is one of three kinds. An untestable finding (`untestable:`) goes to the user
@@ -673,8 +681,13 @@ in any batch.
      | `CLAUDE.md` | role 1 |
      | `style` | role 1, never role 5, which is in-file comments and narrower |
      | `discussion` | no role. Discussion Context is the one lens in-depth cannot produce |
-   - **Classify the commit (diff-based).** Inspect the commit's own diff
-     (`git show --format= <sha>`). **Match every changed path against the test-file patterns and
+   - **Classify the commit (diff-based), and this classification is the one that counts.** The
+     implementer's block carries its own `class=`, computed the same way, and it is a cross-check
+     and not the source. Rows 4 and 5 read the class you derive here from the commit's own diff
+     (`git show --format= <sha>`), because the flags they set decide what the next iteration
+     costs, and that decision stays with the context that makes it. When the two disagree, yours
+     stands and the disagreement goes on the commit line as `class_reported=<theirs>`. Inspect
+     the diff. **Match every changed path against the test-file patterns and
      the never-logic list in [CLASSIFIER.md](CLASSIFIER.md) before you classify.** Then put the
      commit in exactly ONE of three classes, evaluating them in this order and taking the first
      that matches:

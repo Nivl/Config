@@ -1,38 +1,54 @@
-# What the fix-implementer does with one finding
+# What the fix-implementer does with a batch of findings
 
 This file is the `fix-implementer` agent's instructions for Step 2 sub-steps 3 to 6 of
-review-and-fix. The orchestrator has already done sub-steps 1 and 2: it knows whether the finding
-is self-inflicted, it has chosen the approach, and it has written both into the packet you
-received. Your job is the edit, the checks, and the commit, one finding, then stop.
+review-and-fix. The orchestrator has already done sub-steps 1 and 2 for every finding in your
+packet: it knows which are self-inflicted, it has chosen each approach, and it has written both
+into the packet. Your job is the edit, the checks, and the commit, one finding at a time in packet
+order, one commit per finding, then one return for the batch.
 
 **You are the only writer while you run.** The orchestrator is idle. Nothing else edits the tree.
 That is what makes it safe for you to edit at all, and it is why these are forbidden without
 exception: `git checkout`, `git restore`, `git reset`, `git stash`, `git clean`, `git push`,
 `git commit --amend`, `rm` of any file you did not create, and any edit to a file the packet's
-`Files you may touch` does not list. If the fix needs a file outside that list, return `blocked`
-naming it. Undo your own edits with the Edit tool applied backwards, never with git.
+`Files you may touch` does not list for that finding. If a fix needs a file outside that list, mark
+that finding `blocked` naming the file and move to the next. Undo your own edits with the Edit tool
+applied backwards, never with git.
 
-**The approach is settled.** The packet's approach paragraph is the orchestrator's decision. Do
-not reopen it. If a fact you find makes it impossible, meaning a test that fails, a type error, or
-a call site the approach cannot handle, return `blocked` with that fact, and the orchestrator
-decides. Your own second thoughts are not a fact.
+**Each approach is settled.** The packet's approach paragraph for a finding is the orchestrator's
+decision. Do not reopen it. If a fact you find makes it impossible, meaning a test that fails, a
+type error, or a call site the approach cannot handle, mark that finding `blocked` with the fact
+and move on. Your own second thoughts are not a fact.
 
-**Return shape**, exactly, nothing before or after:
+**Findings are independent until they are not.** Work them in packet order. Before starting one,
+`git status --porcelain` must be empty, because the previous one either committed or was undone.
+If a later finding's fix would touch a line an earlier commit in this batch wrote, do it anyway
+and say so in that finding's `note=`. The orchestrator reads that as a same-batch dependency.
+
+**Return shape**, exactly, one block per finding in packet order, nothing before or after:
 
 ```
-FIX_RESULT: staged | committed | blocked
-sha=<short sha, committed only> class=<logic|test|prose> files=<comma-separated paths>
-checks: pattern=ok catch=ok red=<ok|n/a> scope=ok paths=ok quantifier=<n> (<per-hit: named|carve-out|dropped>)
-negative-control: test="<name>" reverted=<what> fails_without_fix=<yes|no>   (or `none`)
-precommit: fixed=<n> left=<n> (<reason per left hit>)   (committed only)
-hook_hits: <file:line hit, carve-out> ...   (second staged return only, when the commit hook denied on carve-outs)
-swept: <fragment> (<n> sites)   (claim corrections only)
-blocked_reason: <one line>   (blocked only)
+BATCH_RESULT: <n committed> committed, <n blocked> blocked, <n deferred> deferred
+---
+finding=<id> result=committed sha=<short sha> class=<logic|test|prose> files=<paths>
+  checks: pattern=ok catch=ok red=<ok|n/a> scope=ok paths=ok quantifier=<n> (<per-hit: named|carve-out|dropped>)
+  negative-control: test="<name>" reverted=<what> fails_without_fix=yes   (or none)
+  swept: <fragment> (<n> sites)   (claim corrections only)
+  note: <same-batch dependency or nothing>
+---
+finding=<id> result=blocked reason=<one line>
+---
+finding=<id> result=deferred hook_hits: <file:line hit, carve-out> ...
+---
+tree: clean
 ```
 
-`class` is the commit's class per [CLASSIFIER.md](CLASSIFIER.md), which you compute from
-`git diff --staged` before committing. A `blocked` return leaves the tree exactly as you found it,
-and `git status --porcelain` is empty when you return it.
+`class` is the commit's class per [CLASSIFIER.md](CLASSIFIER.md), computed from
+`git diff --staged` before each commit. A `blocked` or `deferred` finding has its edits undone
+before you move to the next, and `tree: clean` at the end means `git status --porcelain` printed
+nothing. `deferred` is one case only, described in section 3: the commit hook denied on hits you
+judged carve-outs. When the orchestrator resumes you with `override approved for <ids>`, re-apply
+those fixes and commit each with the `PROSE_CLAIMS_OK=1` prefix, which puts the commit in front
+of the user at that moment.
 
 ## 1. A behavior finding gets a red test before the edit
 
@@ -143,10 +159,9 @@ noted violation costs: [RATIONALE.md](RATIONALE.md).
    symbol the file's code lacks, and a length check on added comment blocks. When it denies,
    every hit it lists is one this scan should already have resolved. Treat the deny as a failed
    scan. Rewrite the lines and commit again. Do not use the `PROSE_CLAIMS_OK=1` prefix on your
-   own. If every remaining hit is a carve-out you can name, leave the fix staged and return
-   `FIX_RESULT: staged` a second time with a `hook_hits:` line listing each hit and its carve-out.
-   The orchestrator decides. If it resumes you with `override approved`, commit with the
-   `PROSE_CLAIMS_OK=1` prefix, which puts the commit in front of the user at that moment.
+   own. If every remaining hit is a carve-out you can name, undo that finding's edits, mark it
+   `deferred` with a `hook_hits:` line naming each hit and its carve-out, and move to the next
+   finding. The orchestrator decides after the batch.
 - **Negative control, run and logged, for every added or changed test.** Revert the one
    production line the test exists to pin (the guard, the arm, the log field), run that test
    alone, confirm it fails on its assertion, restore the line, and report it in your return's
@@ -156,29 +171,39 @@ noted violation costs: [RATIONALE.md](RATIONALE.md).
    restore, `git diff -- <file>` must print nothing, since the worktree and the index should
    agree again. If it prints anything, the restore was wrong and the fix has to be re-applied
    before anything else. A `no` means the test is vacuous. Fix the test so that it fails without
-   the production line, and rerun the control. If you cannot make it fail, revert your edits and
-   return `blocked` with `blocked_reason: vacuous test: <name>`. A `staged` return never carries
-   `fails_without_fix=no`.
+   the production line, and rerun the control. If you cannot make it fail, undo that finding's
+   edits and mark it `blocked` with `reason=vacuous test: <name>`. A `committed` block never
+   carries `fails_without_fix=no`.
    A commit that adds no test writes no line. This was already the rule for behavior findings
    through `Red:`. It now covers the test-coverage fixes too, because six of thirty
    self-inflicted fixes across five runs were tests that could not fail, matched any string, or
    passed unchanged on `origin/master`, and the runs that ran controls had none of those.
 
-## 4. Stop after staging, and wait to be resumed
+## 4. After the batch, wait to be resumed with the pre-commit hits
 
-When the seven checks pass, do not commit. Return `FIX_RESULT: staged` in the shape below. The
-orchestrator hands the staged diff to a separate reader, `fix-precommit-check`, whose value is that
-it did not write the diff, and resumes you with its hits. You cannot launch it yourself, because a
-sub-agent's sub-agent reports to the session root and not to you.
+When the last finding is committed, undone, or deferred, return the batch block above and stop.
+The orchestrator hands the batch's commits to a separate reader, `fix-precommit-check`, whose
+value is that it did not write the diff, and resumes you with its hits. You cannot launch it
+yourself, because a sub-agent's sub-agent reports to the session root and not to you.
 
-When resumed, treat each hit as a finding against your own diff. Fix the ones that are defects,
-re-stage, rerun the seven checks, and say in the return which hits you fixed and which you left
-with a reason. Do not relaunch anything.
+When resumed with hits, treat each as a finding against your own commits. Fix the ones that are
+defects across the batch, run the seven checks on the staged result, and land them as **one
+follow-up commit** whose message names the commits it corrects. Return one more block:
+
+```
+PRECOMMIT_RESULT: fixed=<n> left=<n>
+sha=<short sha> class=<logic|test|prose> files=<paths>   (omitted when fixed=0)
+left: <hit, reason> ...
+tree: clean
+```
+
+Amending the original commits is forbidden, so the correction is its own commit. The orchestrator
+records it with `origin=precommit`. When resumed with `override approved for <ids>` instead, do
+what the header says for deferred findings and return a batch block for them.
 
 ## 5. Commit the fix
 
-Only after the orchestrator has resumed you with the pre-commit check's hits and you have
-resolved them (section 4). Then:
+As soon as the finding's seven checks pass, commit it, one commit for this finding alone:
 
 ```
 git add -A
@@ -196,6 +221,5 @@ is missing try to figure out what the correct type should be.
 The `ask-prose-claims` hook reads the commit message too. Write it from `git diff --staged`, name
 the set behind any quantifier or drop the word, and point at nothing the diff does not touch.
 
-After the commit, run `git status --porcelain`. It must be empty. Then return `committed` with the
-short sha, and stop. Do not start the next finding. The orchestrator records the commit and decides
-what comes next.
+After the commit, run `git status --porcelain`. It must be empty. Record the finding's block for
+the return, and start the next finding in the packet. After the last one, section 4.

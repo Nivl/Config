@@ -83,7 +83,8 @@ Iteration N:
 - [ ] Content probed after the fan-out returned, not git status alone
 - [ ] Every launched reviewer reported or resolved, none still RUNNING
 - [ ] t_fix appended
-- [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, tree clean, `fix-implementer` launched with the packet, `staged` collected, `fix-precommit-check` run, implementer resumed with the hits, `committed` collected, `quantifier-scan`, `negative-control` and `precommit` lines written from the return, sha and clean tree confirmed
+- [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, approach settled
+- [ ] Per batch of up to six: `<PRE_BATCH>` recorded, tree clean, `fix-implementer` launched with the batch packet, `BATCH_RESULT` collected, `fix-precommit-check` run over `<PRE_BATCH>..HEAD`, implementer resumed with the hits, `PRECOMMIT_RESULT` collected, `quantifier-scan`, `negative-control` and `precommit` lines written from the returns, every commit recorded, clean tree confirmed
 - [ ] No file edited by this orchestrator during Step 2
 - [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field, `findings=` lists one finding unless they share a locus
 - [ ] Per commit, before it landed: `quantifier-scan iter=<N> finding=<id> hits=<n>` appended, each hit named or resolved
@@ -455,7 +456,16 @@ dismissed in a prior iteration), and any finding of any category recorded in
 `skipped_findings` (examined, but no test was possible, see sub-step 6). Do not re-prompt for
 either. Both are carried to the Final Report.
 
-### For each finding:
+### For each finding, sub-steps 1 and 2. Then for each batch, sub-steps 3 to 7.
+
+Sub-steps 1 and 2 need this context and run here, once per finding, before any launch. Sub-steps
+3 to 7 run once per **batch** of up to six findings, because the orchestrator's handoff turns are
+the expensive part of the fix phase, at several hundred thousand tokens of context each, and a
+launch per finding pays them seven times per finding. Measured average is 6.7 findings fixed per
+iteration, so most iterations are one batch. Group by file cluster when there are more than six,
+so findings that touch the same files land in the same launch. A finding that a second `reopened`
+line sent to the user, or that `skipped_findings` or `resolved_ticket_findings` excludes, is not
+in any batch.
 
 1. **Read the relevant file(s)** to understand the context.
 
@@ -523,105 +533,112 @@ either. Both are carried to the Final Report.
    decision, and that was about $240 of a $385 run. Two decisions on one locus is a design
    question, and a design question is the user's.
 
-3. **Build the packet and launch `fix-implementer`.** Sub-steps 3 to 6 used to run here, in
-   this context, and on one measured run they cost more than the review fan-out they were
+3. **Build the batch packet and launch `fix-implementer`.** Sub-steps 3 to 6 used to run here,
+   in this context, and on one measured run they cost more than the review fan-out they were
    answering: 180 turns in one iteration's fix phase, each re-reading 600K to 965K tokens. The
-   edit, the checks and the commit now run in a sub-agent that starts from the packet below and
+   edit, the checks and the commits now run in a sub-agent that starts from the packet below and
    nothing else. The rules it follows are [IMPLEMENTER.md](IMPLEMENTER.md), which is the text
-   that used to be these sub-steps. You keep what needs this context: which finding, which
-   approach, whether it reopens a decision, and the run log.
+   that used to be these sub-steps. You keep what needs this context: which findings, which
+   approaches, whether one reopens a decision, and the run log.
 
-   Confirm `git status --porcelain` is empty, then launch one Agent-tool sub-agent with
-   `subagent_type: fix-implementer`, the stamp first:
+   Record `git rev-parse --short HEAD` as `<PRE_BATCH>`. Confirm `git status --porcelain` is
+   empty. Launch one Agent-tool sub-agent with `subagent_type: fix-implementer`, the stamp first,
+   then one block per finding in the order you want them fixed:
 
    ```
-   <!-- fix-implementer tag=iter<N> findings=<ids> target=<TARGET_ARG> -->
+   <!-- fix-implementer tag=iter<N> batch=<b> findings=<ids> target=<TARGET_ARG> -->
 
-   Finding: <id> <title>
-   Severity: <severity>   Category: <category>   Raised by: <roles / instances>
+   Repo conventions: read AGENTS.md at the repo root and in <sub-project> before editing.
+   Sweep set (claim corrections only): <git diff --name-only <RANGE>>
+
+   --- finding <id>
+   Title: <title>   Severity: <severity>   Category: <category>   Raised by: <roles / instances>
    Location: <file:range>
    Description: <full text>
    Suggested fix: <text>
    Approach (settled in sub-step 2, do not reopen): <one paragraph>
    Behavior finding: <yes|no>   (yes means a red test first and a Red: line in the commit body)
    Files you may touch: <the finding's files plus what sub-step 2's reference search turned up>
-   Sweep set (claim corrections only): <git diff --name-only <RANGE>, the tracked files the branch already modified>
-   Repo conventions: read AGENTS.md at the repo root and in <sub-project> before editing.
 
-   Follow ~/.claude/skills/review-and-fix/IMPLEMENTER.md. Stop after staging and return
-   FIX_RESULT: staged.
+   --- finding <id>
+   ...
+
+   Follow ~/.claude/skills/review-and-fix/IMPLEMENTER.md. One commit per finding, in this order.
+   Return BATCH_RESULT when the last one is committed, blocked, or deferred.
    ```
 
-   One finding per launch. Two findings share a launch only when they share a locus, as the
-   one-finding-per-commit rule in Constraints allows, and then `findings=` lists both. Do not
-   edit anything yourself while it runs, and do not launch anything else. It is the only writer.
+   Do not edit anything yourself while it runs, and do not launch anything else. It is the only
+   writer.
 
-4. **Collect `staged`, then run the pre-commit check.** Wait for the task notification and read
-   the return. On `FIX_RESULT: blocked`, skip to sub-step 6. On `staged`, launch
-   `fix-precommit-check` exactly as before, the stamp first:
+4. **Collect `BATCH_RESULT`, then run the pre-commit check over the batch.** Wait for the task
+   notification and read the return, one block per finding. Confirm `tree: clean` with
+   `git status --porcelain`. If any finding committed, launch `fix-precommit-check`, the stamp
+   first:
 
    ```
-   <!-- fix-precommit tag=iter<N> findings=<ids> target=<TARGET_ARG> -->
+   <!-- fix-precommit tag=iter<N> batch=<b> findings=<committed ids> target=<TARGET_ARG> -->
 
-   Findings being fixed: <ids and titles, every finding this commit will close>
-   Files staged: <git diff --staged --stat>
+   Commits being checked: <PRE_BATCH>..HEAD, one per finding: <sha: id title, ...>
+   Files changed: <git diff --stat <PRE_BATCH>..HEAD>
 
-   Run `git diff --staged` in this checkout and check it per your instructions. Return
-   PRECOMMIT_HITS as specified.
+   Run `git diff <PRE_BATCH>..HEAD` in this checkout and check it per your instructions. Name the
+   commit each hit belongs to. Return PRECOMMIT_HITS as specified.
    ```
 
    Wait for it, then append
-   `precommit iter=<N> findings=<ids> model=<model pinned in its agent file> hits=<n> fixed=<n> left=<n>`
-   to the run log, with `fixed` and `left` filled in from sub-step 5's return once it arrives.
-   `model` is the agent file's pin, not a usage line, because the usage line for an Agent-tool
-   launch arrives on the next workflow return or at the Final Report, and the Final Report reads
-   the actual model from there. If the check returns nothing or output that does not parse, the
-   line is `model=none hits=? fixed=0 left=0 state=missing` and the hits list is empty. It is a
-   check, not a gate.
+   `precommit iter=<N> batch=<b> findings=<committed ids> model=<model pinned in its agent file> hits=<n> fixed=<n> left=<n>`
+   to the run log, with `fixed` and `left` filled in from sub-step 5. `model` is the agent file's
+   pin, not a usage line, because the usage line for an Agent-tool launch arrives on the next
+   workflow return or at the Final Report, and the Final Report reads the actual model from
+   there. If the check returns nothing or output that does not parse, the line is
+   `model=none hits=? fixed=0 left=0 state=missing`. It is a check, not a gate.
 
-   Why the check is a separate agent and why it runs between staging and commit: across five runs,
-   thirty of sixty-nine fix commits were fixes to the run's own earlier fixes, and every one had
-   passed lint, tests and the staged-diff checks. A reader who did not write the diff catches what
-   the writer cannot. The implementer cannot launch it, because a sub-agent's sub-agent reports to
-   the session root and never to the agent that spawned it, which is the defect the review workflow
-   exists to avoid. Its tier is pinned in its agent file and measured by the Final Report's
-   Precommit block.
+   Why the check is a separate agent and why it runs once per batch: across five runs, thirty of
+   sixty-nine fix commits were fixes to the run's own earlier fixes, and every one had passed
+   lint, tests and the staged-diff checks. A reader who did not write the diff catches what the
+   writer cannot. The implementer cannot launch it, because a sub-agent's sub-agent reports to the
+   session root and never to the agent that spawned it. It runs per batch rather than per commit
+   because a round trip through this context per commit is the cost this design removes. The
+   price is that a caught defect sits in history for one commit before the follow-up corrects it.
 
-5. **Resume the implementer with the hits, and collect the commit.** Send it one message with
+5. **Resume the implementer with the hits, and collect the follow-up.** Send it one message with
    `SendMessage` (its agent id from the launch), carrying the `PRECOMMIT_HITS` list verbatim, or
-   `PRECOMMIT_HITS: 0`. It fixes, re-checks, commits, and returns `FIX_RESULT: committed` with the
-   sha, class, files, checks, negative control, and which hits it fixed or left. Then write the run
-   log lines from that return, in this order:
-   - `quantifier-scan iter=<N> findings=<ids> hits=<n>` and one line per hit from the
+   `PRECOMMIT_HITS: 0`. It fixes the defects across the batch as one follow-up commit and returns
+   `PRECOMMIT_RESULT`. Then write the run log lines from both returns, in this order, one set per
+   committed finding:
+   - `quantifier-scan iter=<N> findings=<id> hits=<n>` and one line per hit from that block's
      `quantifier=` field.
-   - `negative-control iter=<N> findings=<ids> test="<name>" reverted=<what> fails_without_fix=<yes|no>`
-     when the return carries one. Its instructions forbid a `no` in any return but `blocked`, so
-     a `no` beside a sha means it committed a vacuous test against them. The commit exists.
-     Record it in sub-step 7 as it is, tell the user in the iteration summary, and add the test
-     to the next iteration's findings as a `test-vacuity` finding so the loop fixes it.
+   - `negative-control iter=<N> findings=<id> test="<name>" reverted=<what> fails_without_fix=<yes|no>`
+     when the block carries one. Its instructions forbid a `no` in a committed block, so a `no`
+     beside a sha means it committed a vacuous test against them. The commit exists. Record it
+     in sub-step 7 as it is, tell the user in the iteration summary, and add the test to the next
+     iteration's findings as a `test-vacuity` finding so the loop fixes it.
    - The `precommit` line's `fixed=` and `left=`, with each left hit's reason on the next line.
 
-   Confirm the sha exists (`git log -1 --format=%h`) and `git status --porcelain` is empty. Then
-   sub-step 7 records it.
+   The follow-up commit, when `fixed>0`, is recorded in sub-step 7 with `origin=precommit` and
+   `findings=<the ids whose commits it corrected>`, and its `class` is whatever the implementer
+   reported.
 
-   **A second `staged` return with `hook_hits:`** means the commit hook denied and the implementer
-   judged every hit a carve-out. Read the hits against AGENTS.md's carve-outs yourself. If you
-   agree, resume it with `override approved`, and it commits with `PROSE_CLAIMS_OK=1`, which puts
-   the commit in front of the user at that point. If you do not, resume it with the hits that are
-   claims and what to change. Do not edit the files yourself.
+6. **`blocked` and `deferred` blocks.** Each names one finding, and the tree is clean of it. A
+   `blocked` reason is one of three kinds. An untestable finding (`untestable:`) goes to the user
+   with `AskUserQuestion`, fix without a test or skip, and a skip lands in `skipped_findings`
+   keyed by `file` plus `title`. A fact that defeats the approach (a failing test, a type error, a
+   call site) is new information for sub-step 2, so choose again, once, and put the finding in the
+   next batch with the new approach paragraph. Anything else (lint or tests that could not be made
+   to pass, a file outside the packet, a test that could not be made to fail) goes to the user as
+   it is, and lands in `skipped_findings` with the reason if not relaunched.
 
-6. **A `blocked` return.** The tree is clean again, and the reason is one of three kinds. An
-   untestable finding (`untestable:`) goes to the user with `AskUserQuestion`, fix without a test
-   or skip, and a skip lands in `skipped_findings` keyed by `file` plus `title`. A fact that
-   defeats the approach (a failing test, a type error, a call site) is new information for
-   sub-step 2, so choose again, once, and relaunch with the new approach paragraph. Anything else
-   (lint or tests that could not be made to pass, a file outside the packet, a test that could
-   not be made to fail) goes to the user as it is. Never fix a blocked finding yourself in this context.
-   That is the cost this sub-step exists to remove, and a fix made here has none of the checks the
-   implementer runs. Record a blocked finding that was not relaunched under `skipped_findings`
-   with the reason, so the next iteration does not re-prompt for it.
+   A `deferred` block means the commit hook denied and the implementer judged every hit a
+   carve-out. Read the `hook_hits` against AGENTS.md's carve-outs yourself. If you agree, resume
+   the implementer with `override approved for <ids>`, and it re-applies and commits with
+   `PROSE_CLAIMS_OK=1`, which puts each commit in front of the user at that point. If you do not,
+   the finding goes into the next batch with the hits that are claims named in its approach
+   paragraph. Never fix a blocked or deferred finding yourself in this context. That is the cost
+   this sub-step exists to remove, and a fix made here has none of the checks the implementer
+   runs.
 
-7. **Record what this commit was**, for Step 3's next-active-set decision and its commit table.
+7. **Record what each commit was**, one pass per committed block in the batch and one for the
+   follow-up commit, for Step 3's next-active-set decision and its commit table.
    The bullets below collect the fields. The commit line at the end of this sub-step is the one
    place they are written to the run log, as a single line per commit.
    - Set `any_commit = true`.
@@ -698,14 +715,16 @@ either. Both are carried to the Final Report.
      **Append the commit line to the run log now, as the commit lands, in this exact shape:**
 
      ```
-     commit iter=<N> sha=<short sha> class=<logic|test|prose> origin=<self-inflicted|branch> findings=<ids> category=<...> roles=<...> raised_by=<...> title="<title>"
+     commit iter=<N> sha=<short sha> class=<logic|test|prose> origin=<self-inflicted|branch|precommit> findings=<ids> category=<...> roles=<...> raised_by=<...> title="<title>"
      ```
 
      `class` takes one of the three values above and nothing else. It is what rows 4 and 5 read,
      and one run wrote `class=self-inflicted` and `class=new-from-branch` on twelve commits, which
      left the classifier's input unreadable for those. Whether the fix targets the run's own earlier
      commits is `origin`, a separate field. It is `branch` when any finding the commit closes did
-     not count toward `self_inflicted_count`, and `self-inflicted` when every one of them did. A
+     not count toward `self_inflicted_count`, `self-inflicted` when every one of them did, and
+     `precommit` for the follow-up commit that lands the pre-commit check's hits, whose `findings=`
+     names the findings whose commits it corrected. A
      commit that touches the branch's own work at all is branch work, whatever else it tidies.
      `findings` names the merged ids the commit closed. Add `actionable_unique=<sub_agent> conf=<n>` when the rule above applies. Not later in
      the per-iteration summary, which is a rollup of what this step already wrote. A run that stops
@@ -717,7 +736,8 @@ either. Both are carried to the Final Report.
      must survive, as in `commits=9 logic=5 test=3 prose=1`. The counts are enough for rows 4 and 5
      and enough for the stop gate in Step 3. Emitting nothing for an iteration is what is banned.
 
-8. After the bookkeeping, move to the next finding.
+8. After the bookkeeping for every block in the batch, launch the next batch, or stamp `t2` when
+   there is none.
 
 **Stamp `t2` when the fix phase ends**, after the last finding is processed, appending it on its own
 line as you take it. `t2` minus `t_fix` is the iteration's fixing time. An iteration whose findings

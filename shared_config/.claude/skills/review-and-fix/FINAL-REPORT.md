@@ -24,7 +24,7 @@ Summarise the entire session in a clear report to the user:
 
 | Iteration | Commit | Fix |
 |---|---|---|
-| Iteration <n> | <short sha> | <the finding's title> |
+| Iteration <n> | <short sha> | <the closed findings' titles, joined with `; `> |
 
 ### Tickets examined
 - <id>: ✅ implemented | ⚠️ N gap(s) — <user decision> | ❓ unread

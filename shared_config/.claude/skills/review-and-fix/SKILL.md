@@ -80,7 +80,7 @@ Iteration N:
 - [ ] Every launched reviewer reported or resolved, none still RUNNING
 - [ ] t_fix appended
 - [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, approach settled
-- [ ] Per finding: fix written per IMPLEMENTER.md, `quantifier-scan` and `negative-control` lines appended as they happen, one commit, recorded
+- [ ] Per class group: fix written per IMPLEMENTER.md, `quantifier-scan` and `negative-control` lines appended as they happen, one commit, class checked against the group's expected class, recorded
 - [ ] Per six commits and at the end: `<PRE_BATCH>` recorded, `fix-precommit-check` run over `<PRE_BATCH>..HEAD`, hits landed as one follow-up commit with `origin=precommit`, `precommit iter=` line appended
 - [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field, `findings=` lists the group's members and the commit holds one class
 - [ ] Per commit, before it landed: `quantifier-scan iter=<N> findings=<ids> hits=<n>` appended, each hit named or resolved
@@ -464,9 +464,16 @@ the hands that write it are cheaper and no worse in one place. The agent file is
 **Commits are grouped by class, not one per finding.** Run sub-steps 1 and 2 for every finding
 first. Then sort the findings whose approach is settled into groups: every `prose` fix in one
 group, every `test` fix in one group, and `logic` fixes one group per locus, meaning the same
-function or the same block. The expected class is the one sub-step 2's approach implies, and
-sub-step 7 still classifies the landed commit from its diff. Each group is one pass through
-sub-step 3 and one commit. The reason is measured twice over. One commit per finding made 22
+function or the same block, the same sense of locus the reopen rule uses. A finding the reopen
+rule sent to the user is in no group until the user has answered, and then in the group its
+answer implies. The expected class is the one sub-step 2's approach implies, and
+sub-step 7 still classifies the landed commit from its diff, and the diff wins. When the two
+disagree, a `prose` or `test` group that landed as `logic` because one member's fix touched code,
+record the commit as what it is, add `class_expected=<prose|test>` to its commit line, and for the
+rest of the iteration put that member's kind of fix in its own group. Do not stage a group whose
+edits you can already see span classes. Split it before the commit, because a mixed commit is the
+failure this rule exists to prevent and it fires row 4 for the whole group. Each group is one pass
+through sub-step 3 and one commit. The reason is measured twice over. One commit per finding made 22
 commits in one iteration where bundling made 4 or 5, and each commit carries a test run, the
 seven checks, a negative control, the hook, and four log lines, so that iteration's fix phase
 cost $121 and an hour against about $26 before. Bundling across classes, the other way round, put
@@ -609,8 +616,9 @@ grouped by class.
    The bullets below collect the fields. The commit line at the end of this sub-step is the one
    place they are written to the run log, as a single line per commit.
    - Set `any_commit = true`.
-   - Append the commit's short sha plus the finding's `title` to `iteration_commits`. Take the
-     title verbatim from the merged finding. It is the `Fix` cell in both tables.
+   - Append the commit's short sha plus every closed finding's `title` to `iteration_commits`.
+     Take each title verbatim from the merged finding. They are the `Fix` cell in both tables,
+     joined with `; `, and the count cell is their number.
    - Add the fixed finding's reviewer(s) to `productive_reviewers`: map its `category`(ies)
      to in-depth role number(s) via the role table in
      [in-depth-review's Step 1](../in-depth-review/SKILL.md), and add the
@@ -693,7 +701,8 @@ grouped by class.
      `precommit` for the follow-up commit that lands the pre-commit check's hits, whose `findings=`
      names the findings whose commits it corrected. A
      commit that touches the branch's own work at all is branch work, whatever else it tidies.
-     `findings` names the merged ids the commit closed. Add `actionable_unique=<sub_agent> conf=<n>` when the rule above applies. Not later in
+     `findings` names the merged ids the commit closed. Add `actionable_unique=<id>:<sub_agent>:<conf>` once per closed finding the rule above
+     applies to, comma-separated when there are several. Not later in
      the per-iteration summary, which is a rollup of what this step already wrote. A run that stops
      emitting summaries mid-way still has to leave a derived class behind, because the next
      iteration's stop decision reads it. See [SUMMARY.md](SUMMARY.md)'s note under the commit table
@@ -703,8 +712,8 @@ grouped by class.
      must survive, as in `commits=9 logic=5 test=3 prose=1`. The counts are enough for rows 4 and 5
      and enough for the stop gate in Step 3. Emitting nothing for an iteration is what is banned.
 
-8. After the bookkeeping, move to the next finding, or to sub-step 4 when six commits have landed
-   since the last check or the list is done.
+8. After the bookkeeping, move to the next group, or to sub-step 4 when six commits have landed
+   since the last check or the groups are done.
 
 **Stamp `t2` when the fix phase ends**, after the last finding is processed, appending it on its own
 line as you take it. `t2` minus `t_fix` is the iteration's fixing time. An iteration whose findings

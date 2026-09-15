@@ -28,9 +28,9 @@ Track state explicitly:
   iteration when one commit was `test` and another was `logic`. Row 4 is evaluated first, so
   `any_logic_change` wins that case and the whole set reruns anyway. Row 5 is the only reader,
   and it unions role 9 into the pruned set. It never sets `<ACTIVE_GH_STYLE>`.
-- `iteration_commits`: per-iteration; the `(short sha, finding title)` pairs Step 2 appended, in
-  commit order. The per-iteration commit table is this list.
-- `run_commits`: per-RUN list of `(iteration, short sha, finding title)`. Append
+- `iteration_commits`: per-iteration; the `(short sha, finding titles)` entries Step 2 appended, in
+  commit order, one entry per commit with every closed finding's title. The per-iteration commit table is this list.
+- `run_commits`: per-RUN list of `(iteration, short sha, finding titles)`. Append
   `iteration_commits` to it once that iteration's commit table has been emitted. The Final
   Report's Changes Made table is this list. Never reset it between iterations. Empty
   `iteration_commits` as soon as its pairs are appended here. Step 1 sends a clean batch straight

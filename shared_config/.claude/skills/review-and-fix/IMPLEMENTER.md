@@ -21,7 +21,8 @@ approach, run the checks, and let the result decide.
 can name an input and the wrong output the current code gives for it. Write that test
 first, run it, and confirm it fails on the assertion the finding names rather than on an
 import error or a missing fixture. Then fix until it passes. Record the failing
-assertion's first line in the commit body as `Red: <line>`. The red run happens before the
+assertion's first line in the commit body as `Red: <line>`, one `Red:` line per behavior finding
+in the group. The red run happens before the
 commit, so the never-commit-broken-code rule is untouched. You still run the existing
 suite in section 2. That run is not evidence the finding is fixed, because it only covers
 behavior that already worked.
@@ -53,7 +54,8 @@ Follow all project coding standards:
 - **A fix that corrects a factual claim gets the same treatment, in prose as much as in
    code.** Search for the claim elsewhere before committing, report the count in one line, and
    correct every occurrence in the same commit. Record the result in the commit body as
-   `Swept: <fragment> (<n> sites)`. Search by a distinctive FRAGMENT rather than the whole
+   `Swept: <fragment> (<n> sites)`, one line per corrected claim when the group holds several.
+   Search by a distinctive FRAGMENT rather than the whole
    phrase, with `rg -U` or `\s+` for every space, because prose wraps and a line-oriented
    search cannot match a phrase split across two lines. **Bound the search to tracked files the
    branch has ALREADY modified. Report a hit outside that set in one line and do not edit it**,
@@ -150,8 +152,8 @@ git add -A
 git commit -m "<type>: <short description of what was fixed>
 
 <optional body explaining why>
-Red: <first line of the failing assertion, behavior findings only>
-Swept: <fragment> (<n> sites), claim corrections only"
+Red: <first line of the failing assertion, one line per behavior finding in the group>
+Swept: <fragment> (<n> sites), one line per claim correction in the group"
 ```
 
 Use conventional commit types: defined in the `.github/semantic.yml` file (e.g., `fix`,

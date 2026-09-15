@@ -1,7 +1,7 @@
 ---
 name: fix-implementer
 description: Applies a batch of up to six review findings' fixes in review-and-fix's Step 2, one commit per finding, from red test through the staged-diff checks to each commit, and returns one block per finding. Invoked only by the review-and-fix skill, one batch per launch, sequentially. Never directly by a user and never by auto-delegation.
-model: opus
+model: sonnet
 effort: low
 tools: Bash, Read, Edit, Write, Grep, Glob
 color: green
@@ -30,7 +30,11 @@ cannot launch that check yourself. And a finding you block or defer leaves no tr
 ## Tier
 
 `model` and `effort` are pinned here so the fix's cost does not track the session's setting. Opus
-at low is the starting point, because the fixes that leaked past every check on the measured runs
-were locks, `finally` paths and log levels, and this is the agent that writes those. Your usage
-lines carry `kind=fix-implementer`, so the run log prices you per batch, and the pre-commit
-check's misses on commits you wrote are the measurement of whether this tier holds.
+at low was the first tier. Priced at the orchestrator's real rates on the first run, two Opus
+batches an iteration cost about $15 against the $16.50 the hand-off saved, a wash. Sonnet at low is
+the experiment that would make it pay, at roughly $6, with the pre-commit check moved to Opus as
+the reader under it. The risk is the buckets that leaked on the measured runs, locks, `finally`
+paths and log levels, which this agent writes. Your usage lines carry `kind=fix-implementer`, so
+the run log prices you per batch, and the next iteration's `self_inflicted_count` beside the
+Precommit block's misses is the measurement. If self-inflicted findings rise against the two Opus
+runs (48 and 42 across six and four iterations), this goes back to Opus.

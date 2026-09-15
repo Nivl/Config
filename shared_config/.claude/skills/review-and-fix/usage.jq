@@ -3,6 +3,8 @@
 # One "usage ..." line per transcript that has at least one assistant turn.
 
 def rates: {
+  "claude-fable-5-1":{in: 10.00, cr: 0.25, cw: 12.50, out: 50.00},
+  "claude-fable-5":  {in: 10.00, cr: 0.25, cw: 12.50, out: 50.00},
   "claude-opus-5":   {in: 5.00, cr: 0.50, cw: 6.25, out: 25.00},
   "claude-sonnet-5": {in: 2.00, cr: 0.20, cw: 2.50, out: 10.00},
   "claude-haiku-4-5":{in: 1.00, cr: 0.10, cw: 1.25, out: 5.00}

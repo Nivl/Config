@@ -1,7 +1,7 @@
 ---
 name: fix-precommit-check
 description: Reads the diff of one batch of review-and-fix's fix commits, right after they land, and reports the defects those fixes most often introduce, for the implementer to correct in a follow-up commit. Invoked only by the review-and-fix skill, once per batch. Never directly by a user and never by auto-delegation.
-model: sonnet
+model: opus
 effort: low
 tools: Bash, Read, Grep, Glob
 color: cyan
@@ -101,5 +101,8 @@ prefer reporting a doubtful hit with the doubt named.
 `model` and `effort` are pinned here so this check's cost does not track whatever the user set for
 the session. Your caller records `model=` beside every check in its run log, and a self-inflicted
 finding next iteration that targets a commit you passed is the measurement of whether this tier is
-enough. Sonnet at low is the starting point, chosen because the checks name their patterns and the
-diff is small. It moves up if bucket 2 leaks and down if nothing does.
+enough. Sonnet at low was the starting point, chosen because the checks name their patterns and the
+diff is small. Measured on the first two runs, it caught under one hit per batch while the next
+iteration blamed 48 and then 42 of 42 self-inflicted findings to commits it had passed, mostly
+buckets 1 and 2. That is the leak the rule named, so this is Opus at low now. If Opus at low misses
+at the same rate, the check is the wrong shape rather than the wrong tier.

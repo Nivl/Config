@@ -86,11 +86,17 @@ role 7 spent in that iteration.
 `est_usd` is list price times the standard cache multipliers, and it is an estimate rather than a
 bill. Rates as of 2026-09-02, per million tokens:
 
-| model | input | cache read (0.1x) | cache write (1.25x) | output |
+| model | input | cache read | cache write (1.25x) | output |
 |---|---|---|---|---|
+| `claude-fable-5-1`, `claude-fable-5` | 10.00 | 0.25 | 12.50 | 50.00 |
 | `claude-opus-5` | 5.00 | 0.50 | 6.25 | 25.00 |
 | `claude-sonnet-5` | 2.00 | 0.20 | 2.50 | 10.00 |
 | `claude-haiku-4-5` | 1.00 | 0.10 | 1.25 | 5.00 |
+
+Fable's rates were given by the user on 2026-09-14 (cache read is 0.025x input there, not 0.1x),
+and its cache-write rate is assumed at the 1.25x multiplier. Fable is the orchestrator's model, so
+this row prices the session transcript when the filter is pointed at it, which is how the
+orchestrator's per-phase cost in the run-log notes was computed.
 
 `est_usd = input*in + cache_read*cr + cache_write*cw + output*out`, each in millions. A model not in
 the table gets `est_usd=?` rather than a guess, and the summary says which model was unpriced. This

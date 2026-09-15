@@ -1,6 +1,6 @@
 ---
 name: fix-implementer
-description: Applies a batch of up to six review findings' fixes in review-and-fix's Step 2, one commit per finding, from red test through the staged-diff checks to each commit, and returns one block per finding. Invoked only by the review-and-fix skill, one batch per launch, sequentially. Never directly by a user and never by auto-delegation.
+description: UNWIRED. Was the review-and-fix fix writer for two runs in September 2026 and nothing launches it now; AGENTS.md says why. Kept so the tier arithmetic can be rerun. Never directly by a user and never by auto-delegation.
 model: sonnet
 effort: low
 tools: Bash, Read, Edit, Write, Grep, Glob

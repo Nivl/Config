@@ -82,7 +82,7 @@ Iteration N:
 - [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, approach settled
 - [ ] Per finding: fix written per IMPLEMENTER.md, `quantifier-scan` and `negative-control` lines appended as they happen, one commit, recorded
 - [ ] Per six commits and at the end: `<PRE_BATCH>` recorded, `fix-precommit-check` run over `<PRE_BATCH>..HEAD`, hits landed as one follow-up commit with `origin=precommit`, `precommit iter=` line appended
-- [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field, `findings=` lists one finding unless they share a locus
+- [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field, `findings=` lists the group's members and the commit holds one class
 - [ ] Per commit, before it landed: `quantifier-scan iter=<N> findings=<ids> hits=<n>` appended, each hit named or resolved
 - [ ] t2 appended, then the stamps: line
 - [ ] One `usage kind=` line per role agent confirmed in the log (the hook appends them); usage.jq run by hand only if short
@@ -452,7 +452,7 @@ dismissed in a prior iteration), and any finding of any category recorded in
 `skipped_findings` (examined, but no test was possible, see sub-step 3). Do not re-prompt for
 either. Both are carried to the Final Report.
 
-### For each finding, sub-steps 1 to 3 and 7. After every six commits, sub-step 4.
+### For each finding, sub-steps 1 and 2. Then sub-step 3 per group, sub-step 7 per commit, sub-step 4 after six commits.
 
 The fixes are written here, by this orchestrator. They were handed to a `fix-implementer`
 sub-agent for two runs in September 2026, on the measurement that this context's fix phase cost
@@ -460,9 +460,22 @@ more than the review fan-out. At Fable's real rates the hand-off removed about $
 from this context and the Opus-low implementer cost about $16, and self-inflicted findings per
 iteration did not fall. The writing came back here, because the judgement that picks the fix and
 the hands that write it are cheaper and no worse in one place. The agent file is kept unwired.
+
+**Commits are grouped by class, not one per finding.** Run sub-steps 1 and 2 for every finding
+first. Then sort the findings whose approach is settled into groups: every `prose` fix in one
+group, every `test` fix in one group, and `logic` fixes one group per locus, meaning the same
+function or the same block. The expected class is the one sub-step 2's approach implies, and
+sub-step 7 still classifies the landed commit from its diff. Each group is one pass through
+sub-step 3 and one commit. The reason is measured twice over. One commit per finding made 22
+commits in one iteration where bundling made 4 or 5, and each commit carries a test run, the
+seven checks, a negative control, the hook, and four log lines, so that iteration's fix phase
+cost $121 and an hour against about $26 before. Bundling across classes, the other way round, put
+one logic hunk in with six prose fixes, made the whole commit `logic`, fired row 4 every time
+and never let row 5 prune. Grouping by class keeps `class` pure per commit and lands 3 to 5
+commits an iteration.
 What did survive from that work is the rest of this step: [IMPLEMENTER.md](IMPLEMENTER.md) is the
-fix sub-steps as a checklist, `fix-precommit-check` reads every six commits, and one finding is
-one commit.
+fix sub-steps as a checklist, `fix-precommit-check` reads every six commits, and commits are
+grouped by class.
 
 1. **Read the relevant file(s)** to understand the context.
 
@@ -532,10 +545,10 @@ one commit.
 
 3. **Write the fix, following [IMPLEMENTER.md](IMPLEMENTER.md) in order.** Its sections are the
    red test for a behavior finding, the implementation rules, the seven staged-diff checks with the
-   negative control, and the commit. One finding, one commit. Two findings share a commit only when
-   they name the same locus, so that one change closes both, and the commit line's `findings=`
-   lists both. `git add -A` is for this finding's files, so when the tree holds edits for a second
-   finding, commit the first before touching the second. Each check that IMPLEMENTER.md says to
+   negative control, and the commit. One group, one commit. The commit line's `findings=` lists
+   every member of the group, and its log lines carry the same list. `git add -A` is for this
+   group's files, so when the tree holds edits for another group, commit this one first.
+   Each check that IMPLEMENTER.md says to
    log is appended to `run_log_path` as it happens: `quantifier-scan iter=<N> findings=<ids> hits=<n>`
    with one line per hit, and `negative-control iter=<N> findings=<ids> test="<name>" reverted=<what> fails_without_fix=<yes|no>`.
    A `no` means the test does not get committed as it stands.
@@ -558,7 +571,7 @@ one commit.
    ```
    <!-- fix-precommit tag=iter<N> batch=<b> findings=<committed ids> target=<TARGET_ARG> -->
 
-   Commits being checked: <PRE_BATCH>..HEAD, one per finding: <sha: id title, ...>
+   Commits being checked: <PRE_BATCH>..HEAD, one per class group: <sha: ids title, ...>
    Files changed: <git diff --stat <PRE_BATCH>..HEAD>
 
    Run `git diff <PRE_BATCH>..HEAD` in this checkout and check it per your instructions. Name the
@@ -997,13 +1010,12 @@ holds only its header. It still deletes the marker.
   clause-splitting `:` in a comment the diff adds or edits, per AGENTS.md. They are `suggestion`
   severity. Fix them when the iteration surfaces nothing more important, and never spend a fix
   iteration on punctuation while real bugs are outstanding.
-- **One commit per finding.** Never squash or amend. Two findings share a commit only when they
-  name the same locus, meaning the same function or the same block, so that one change closes
-  both, and the commit line's `findings=` lists both. A commit closing seven findings across
-  three concerns has one `class`, and one logic hunk among them makes the whole commit `logic`,
-  which fires row 4 and hides the prose and test work from row 5. One run bundled that way in
-  every iteration and row 5 never pruned once in ten. `git add -A` is for the one finding's files;
-  when the tree holds edits for a second finding, commit the first before touching the second.
+- **One commit per class group.** Never squash or amend. Prose fixes share one commit, test fixes
+  share one, and logic fixes share one per locus, as Step 2 says. A commit that mixes classes has
+  one `class`, and one logic hunk among six prose fixes makes the whole commit `logic`, which fires
+  row 4 and hides the prose and test work from row 5. One run bundled that way in every iteration
+  and row 5 never pruned once in ten. One commit per finding, the opposite extreme, made 22
+  commits in an iteration and cost $121 of orchestrator time for it.
 - **Never commit broken code.** Lint and tests must pass before committing.
 - **Never push.** Only local commits, and the user decides when to push.
 - **Ask before acting on ambiguous findings**, with `AskUserQuestion`.

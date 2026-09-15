@@ -1,8 +1,10 @@
 # The fix sub-steps
 
 Step 2 sub-step 3 of review-and-fix, in full. You have done sub-steps 1 and 2 for the finding, so
-you know whether it is self-inflicted and you have chosen the approach. What follows is the red test, the edit, the seven staged-diff checks, and the commit, for one finding,
-one commit. Sub-step 4 in SKILL.md runs the pre-commit check over every six of these commits, and
+you know whether it is self-inflicted and you have chosen the approach, and SKILL.md has sorted
+the findings into class groups. What follows is the red test, the edit, the seven staged-diff
+checks, and the commit, for one group, one commit. Where this file says "the finding", read the
+group's findings. Sub-step 4 in SKILL.md runs the pre-commit check over every six of these commits, and
 sub-step 7 records each one.
 
 **The approach is settled.** New information reopens it and rereading the same information does
@@ -141,7 +143,7 @@ noted violation costs: [RATIONALE.md](RATIONALE.md).
 
 ## 4. Commit the fix
 
-When the seven checks pass, commit, one commit for this finding alone:
+When the seven checks pass, commit, one commit for this group alone:
 
 ```
 git add -A

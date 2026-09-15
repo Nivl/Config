@@ -1,8 +1,7 @@
 # The fix sub-steps
 
-Step 2 sub-step 3 of review-and-fix, in full. The orchestrator has done sub-steps 1 and 2 for the
-finding, so it knows whether the finding is self-inflicted and it has chosen the approach. What
-follows is the red test, the edit, the seven staged-diff checks, and the commit, for one finding,
+Step 2 sub-step 3 of review-and-fix, in full. You have done sub-steps 1 and 2 for the finding, so
+you know whether it is self-inflicted and you have chosen the approach. What follows is the red test, the edit, the seven staged-diff checks, and the commit, for one finding,
 one commit. Sub-step 4 in SKILL.md runs the pre-commit check over every six of these commits, and
 sub-step 7 records each one.
 

@@ -83,7 +83,7 @@ Iteration N:
 - [ ] Per finding: fix written per IMPLEMENTER.md, `quantifier-scan` and `negative-control` lines appended as they happen, one commit, recorded
 - [ ] Per six commits and at the end: `<PRE_BATCH>` recorded, `fix-precommit-check` run over `<PRE_BATCH>..HEAD`, hits landed as one follow-up commit with `origin=precommit`, `precommit iter=` line appended
 - [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field, `findings=` lists one finding unless they share a locus
-- [ ] Per commit, before it landed: `quantifier-scan iter=<N> finding=<id> hits=<n>` appended, each hit named or resolved
+- [ ] Per commit, before it landed: `quantifier-scan iter=<N> findings=<ids> hits=<n>` appended, each hit named or resolved
 - [ ] t2 appended, then the stamps: line
 - [ ] One `usage kind=` line per role agent confirmed in the log (the hook appends them); usage.jq run by hand only if short
 - [ ] One `attribution iter=` line per instance appended, after merge and threshold
@@ -449,7 +449,7 @@ Stopping discards whatever roles had already finished inside it.
 Process each finding from the ordered work list (Step 1) one at a time. Skip any
 `ticket`-category finding already recorded in `resolved_ticket_findings` (deferred or
 dismissed in a prior iteration), and any finding of any category recorded in
-`skipped_findings` (examined, but no test was possible, see sub-step 6). Do not re-prompt for
+`skipped_findings` (examined, but no test was possible, see sub-step 3). Do not re-prompt for
 either. Both are carried to the Final Report.
 
 ### For each finding, sub-steps 1 to 3 and 7. After every six commits, sub-step 4.

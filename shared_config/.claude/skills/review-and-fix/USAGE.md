@@ -98,7 +98,18 @@ this row prices the session transcript when the filter is pointed at it, which i
 orchestrator's per-phase cost in the run-log notes was computed.
 
 `est_usd = input*in + cache_read*cr + cache_write*cw + output*out`, each in millions. A model not in
-the table gets `est_usd=?` rather than a guess, and the summary says which model was unpriced. This
+the table gets `est_usd=?` rather than a guess, and the summary says which model was unpriced.
+
+**A dated model id prices at its undated key.** A transcript can record either spelling, and one
+measured run logged `claude-haiku-4-5-20251001` where the table has `claude-haiku-4-5`. The filter
+strips a trailing `-YYYYMMDD` before the lookup, so the dated id prices at the same row instead of
+falling through to `?`. The printed `model=` keeps the id as recorded, so which snapshot ran is
+still readable. A bare tier alias is a different case and stays unpriced. `haiku` and `sonnet` both
+appear in this project's transcripts, and neither names a version, so pricing one would mean
+picking a version on the reader's behalf and printing a number for it. That is the guess the
+sentence above refuses.
+
+This
 table rots when prices change. The date is here so a reader can tell how stale it is, and updating
 it is the fix rather than trusting it.
 

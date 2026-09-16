@@ -9,8 +9,10 @@ def rates: {
   "claude-sonnet-5": {in: 2.00, cr: 0.20, cw: 2.50, out: 10.00},
   "claude-haiku-4-5":{in: 1.00, cr: 0.10, cw: 1.25, out: 5.00}
 };
+# A dated model id is the same model as its undated key, so it prices at that key.
+# A bare tier alias names no version, so it stays unpriced per USAGE.md.
 def est($m; $in; $cr; $cw; $out):
-  (rates[$m]) as $r
+  (rates[$m] // rates[$m | sub("-20[0-9]{6}$";"")]) as $r
   | if $r == null then "?" else
       ((($in*$r.in + $cr*$r.cr + $cw*$r.cw + $out*$r.out) / 1e6 * 100 | round) / 100) end;
 def M: (. / 1e6 * 10 | round) / 10;

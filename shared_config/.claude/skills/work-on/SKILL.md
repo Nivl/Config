@@ -40,7 +40,7 @@ validation phase is qualified by it.
 | 3 | Ask only what investigation could not settle. | no | `--lite` |
 | 4 | Verdict gate. Valid, invalid, superseded, or partial. | only if the user picks option (a) | `--lite` |
 | 5 | Rewrite the ticket. Status to In Progress, assignee to the user, sprint to the user's active one, description in place, plus a validation comment. | **Jira** | reduced, see "Argument" |
-| 6 | Do the work via brainstorming or systematic-debugging. | local files | `--assess` |
+| 6 | Do the work via brainstorming or systematic-debugging. Brainstorming's design is approved through one `AskUserQuestion` before the first edit. | local files | `--assess` |
 | 7 | Commit everything, push. No PR yet. | **remote** | `--assess` |
 | 8 | `review-and-fix`, every iteration, no early stop. | local commits | `--fast`, `--assess` |
 | 9 | Push, then `open-pr --draft`. Always a draft, never a question. No PR opens at all when Step 8 could not run, which is a Step 8 that broke and never a Step 8 the user skipped. | **remote** | `--assess` |
@@ -1443,6 +1443,37 @@ established and no blast radius was measured. Do not synthesize either one to fi
 is also why the pick above matters more on this path than on the full one: `systematic-debugging`
 starts by establishing the behavior, and on a flag run nothing has, so a bug ticket that would have
 gone to `brainstorming` after Step 2 pinned the cause has no pinned cause to build on.
+
+### The brainstorming gate is a question you ask, not a rule you remember
+
+Measured on five work-on runs of September 2026, `superpowers:brainstorming` was invoked in each
+and its approval gate was skipped in three. The skill text loaded, and the next assistant sentence
+was "Now the implementation" or "Writing the new tests now". No classification, no design, no
+approval. In the two that held, the design was presented and the user answered before the first
+edit. The difference was not the skill. It was whether the orchestrator treated Step 3's ticket
+approval as design approval, and by Step 6 the context holds enough validation material that it
+did.
+
+So the gate here is mechanical. Before the first `Edit` or `Write` in Step 6, three things happen in
+this order, and the skill's own HARD-GATE is satisfied only by all three:
+
+1. Say the classification out loud, `spike`, `bounded` or `architectural`, with the one sentence
+   the brainstorming skill asks for. If the run keeps a log, it goes there too as
+   `design classification=<...> reason="<...>"`.
+2. Present the design as the skill prescribes for that path. For `bounded` that is a few
+   sentences to a few short paragraphs in chat: approach, files touched, how it is tested.
+3. Put it to the user with `AskUserQuestion`, two options, approve and change, with the design's
+   summary as the question. The answer is the gate. Code is written after it and not before.
+
+**Step 3's approval is not this approval.** Step 3 approved a ticket, meaning what the work is.
+This approves a design, meaning how it is built, and the user has not seen that yet. A ticket
+rewrite that the user accepted does not carry an approach with it. Nor does the packet Step 2
+hands over. Both are inputs to the design, and the design is what the question shows.
+
+**"Bounded" is the common answer and it is still gated.** Every run so far classified bounded,
+which means no spec file, no `writing-plans`, and no per-task subagents. That is the right call
+when the flow being changed already exists in the repo. It does not shorten the gate. A bounded
+design is short, and its approval is one question, and both happen.
 
 ### Take Subagent-Driven execution without asking
 

@@ -9,8 +9,12 @@
 #
 # review-and-fix writes it at Step 0 with the run log path as its content and
 # deletes it at the Final Report. When it exists, the lines are appended to that
-# run log directly, skipping any `id=` the log already has, so a second firing
-# for the same tag is idempotent. When it does not exist (pr-review, a
+# run log directly, skipping any `id=` the log already has at the same turn
+# count or higher, so a second firing for the same tag is idempotent. A logged
+# line with fewer turns than the fresh one was written while that agent was
+# still running, and it is replaced rather than skipped. One line per id is what
+# the Spend total sums over, so appending the complete line beside the partial
+# one would count that agent twice. When it does not exist (pr-review, a
 # standalone in-depth run, any other tagged workflow), the lines come back as
 # additionalContext so the orchestrator has them in front of it with nothing to
 # run.
@@ -38,6 +42,12 @@ HOOK_DIR = os.path.dirname(os.path.realpath(__file__))
 USAGE_JQ = os.path.join(HOOK_DIR, "..", "skills", "review-and-fix", "usage.jq")
 MARKER_DIR = os.path.expanduser("~/.melvin/config/logs/review-and-fix")
 ID_RE = re.compile(r"\bid=([0-9a-f]+)\b")
+TURNS_RE = re.compile(r"\bturns=(\d+)\b")
+
+
+def _turns(line):
+    m = TURNS_RE.search(line)
+    return int(m.group(1)) if m else 0
 
 
 def _transcripts(session_dir):
@@ -108,22 +118,46 @@ def main() -> None:
     if run_log and os.path.isfile(run_log):
         try:
             with open(run_log) as fh:
-                # Only ids on usage lines count, so a Jira id or a sha elsewhere
-                # in the log cannot make a fresh line look already present.
-                have = {
-                    m.group(1)
-                    for ln in fh.read().splitlines()
-                    if ln.startswith("usage ")
-                    for m in [ID_RE.search(ln)]
-                    if m
-                }
-            fresh = [ln for ln in lines if not (ID_RE.search(ln) and ID_RE.search(ln).group(1) in have)]
-            if fresh:
+                log = fh.read().splitlines()
+            # Only ids on usage lines count, so a Jira id or a sha elsewhere
+            # in the log cannot make a fresh line look already present.
+            have = {}
+            for i, ln in enumerate(log):
+                if not ln.startswith("usage "):
+                    continue
+                m = ID_RE.search(ln)
+                if m:
+                    have[m.group(1)] = (_turns(ln), i)
+
+            fresh, grown = [], {}
+            for ln in lines:
+                m = ID_RE.search(ln)
+                prior = have.get(m.group(1)) if m else None
+                if prior is None:
+                    fresh.append(ln)
+                elif _turns(ln) > prior[0]:
+                    # The logged line was written while this agent was still
+                    # running, so its counts stopped short of the agent's own
+                    # total. Replacing it keeps one line per id, which is what
+                    # the Spend total sums over.
+                    grown[prior[1]] = ln
+
+            if grown:
+                for i, ln in grown.items():
+                    log[i] = ln
+                tmp = run_log + ".usage-lines.tmp"
+                with open(tmp, "w") as fh:
+                    fh.write("\n".join(log + fresh) + "\n")
+                os.replace(tmp, run_log)
+            elif fresh:
                 with open(run_log, "a") as fh:
                     fh.write("\n".join(fresh) + "\n")
+
             _emit(
-                f"usage-lines: appended {len(fresh)} usage line(s) for tag={tag} to {run_log} "
-                f"({len(lines) - len(fresh)} already present). Do not append them again."
+                f"usage-lines: appended {len(fresh)} usage line(s) for tag={tag} to {run_log}, "
+                f"replaced {len(grown)} that had been written mid-run "
+                f"({len(lines) - len(fresh) - len(grown)} already complete). "
+                "Do not append them again."
             )
             return
         except OSError:

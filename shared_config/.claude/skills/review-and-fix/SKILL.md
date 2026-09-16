@@ -80,7 +80,7 @@ Iteration N:
 - [ ] Every launched reviewer reported or resolved, none still RUNNING
 - [ ] t_fix appended
 - [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, approach settled
-- [ ] Per class group: fix written per IMPLEMENTER.md, `quantifier-scan` and `negative-control` lines appended as they happen, one commit, class checked against the group's expected class, recorded
+- [ ] Per class group: `cases` lines appended before any logic edit, fix written per IMPLEMENTER.md, `quantifier-scan` and `negative-control` lines appended as they happen, one commit, class checked against the group's expected class, recorded
 - [ ] Per six commits and at the end: `<PRE_BATCH>` recorded, `fix-precommit-check` run over `<PRE_BATCH>..HEAD`, hits landed as one follow-up commit with `origin=precommit`, `precommit iter=` line appended
 - [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field, `findings=` lists the group's members and the commit holds one class
 - [ ] Per commit, before it landed: `quantifier-scan iter=<N> findings=<ids> hits=<n>` appended, each hit named or resolved
@@ -551,8 +551,8 @@ grouped by class.
    question, and a design question is the user's.
 
 3. **Write the fix, following [IMPLEMENTER.md](IMPLEMENTER.md) in order.** Its sections are the
-   red test for a behavior finding, the implementation rules, the seven staged-diff checks with the
-   negative control, and the commit. One group, one commit. The commit line's `findings=` lists
+   case list for a logic group, the red test for a behavior finding, the implementation rules, the
+   seven staged-diff checks with the negative control, and the commit. One group, one commit. The commit line's `findings=` lists
    every member of the group, and its log lines carry the same list. `git add -A` is for this
    group's files, so when the tree holds edits for another group, commit this one first.
    Each check that IMPLEMENTER.md says to
@@ -579,6 +579,7 @@ grouped by class.
    <!-- fix-precommit tag=iter<N> batch=<b> findings=<committed ids> target=<TARGET_ARG> -->
 
    Commits being checked: <PRE_BATCH>..HEAD, one per class group: <sha: ids title, ...>
+   Case lists for the logic commits: <the cases lines from the run log, verbatim>
    Files changed: <git diff --stat <PRE_BATCH>..HEAD>
 
    Run `git diff <PRE_BATCH>..HEAD` in this checkout and check it per your instructions. Name the

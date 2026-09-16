@@ -37,6 +37,13 @@ runs. A 30-line diff earns a careful read, not a skim.
 
 ## 2. Logging, errors, locks (11 of 30)
 
+When the caller hands you `cases` lines for a logic commit, read `reaches=` first. Each neighbour
+it names is a path the fix claims to cover. Find it in the diff. A neighbour with no hunk and no
+assertion is a hit, and so is a neighbour the list should have named and did not, the other field
+the same guard applies to, the other provider, the null path. That list is what the self-inflicted
+logic fixes on the measured runs skipped, so it is where your read pays most.
+
+
 - **Error-level log on a hot path.** An added `error`-level log inside a request handler, a
   polling endpoint, a per-row loop, or a retry. Find where the function is called from before you
   decide. Per-call error logs on a client-polled endpoint were two separate findings in one run.

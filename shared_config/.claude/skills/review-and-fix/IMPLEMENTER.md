@@ -15,6 +15,27 @@ approach, run the checks, and let the result decide.
 **Undo an edit with the Edit tool applied backwards, never with git.** `git checkout -- <path>`,
 `git restore` and `git stash` take the whole file, and the file holds the rest of the fix.
 
+## 0. A logic group gets a case list before the edit
+
+Before touching code for a `logic` group, append three lines to the run log:
+
+```
+cases iter=<N> findings=<ids> changes="<what this edit changes, one sentence>"
+cases iter=<N> findings=<ids> keeps="<what must stay the same, one sentence>"
+cases iter=<N> findings=<ids> reaches="<the finding's case>; <each neighbour: the other field, the other provider, the null path, the error path, the other log level>"
+```
+
+Then the red test in section 1 covers the finding's case, and each neighbour that already works
+gets an assertion that pins it, in the same test file, before the edit. A neighbour you cannot
+name a test for is named in `reaches=` with `untested` after it.
+
+Why: across the logged runs, the self-inflicted logic fixes were the neighbour the finding did
+not name. A guard added for the tax and not the total. An id logged under the other provider's
+key. A resolved plan dropped on the no-total path. The fix handled the case the finding named,
+and the next iteration's roles found the case beside it, at $80 an iteration. The list is the
+enumeration those fixes skipped, made explicit before the edit and handed to the pre-commit check
+so it reads the neighbours too. A `prose` or `test` group writes no case list.
+
 ## 1. A behavior finding gets a red test before the edit
 
 **Behavior findings get a red test before the edit.** A behavior finding is one where you

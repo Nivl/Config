@@ -138,6 +138,13 @@ git add src/a.ts
 assert_eq "silent_block_at_limit" "silent" "$(decision 'git commit -m x')"
 unstage_all
 
+# ---- An added line that itself starts with ++ is content, not a file header ----
+printf '++ not a header\nThis helper is the only reader.\n' > docs/patch.md
+git add docs/patch.md
+assert_eq "deny_plusplus_content" "deny" "$(decision 'git commit -m x')"
+assert_contains "reason_plusplus_path_kept" "docs/patch.md:2" "$(reason 'git commit -m x')"
+unstage_all
+
 # ---- Hit cap ----
 for i in 1 2 3 4 5 6 7 8 9 10 11 12; do printf 'only %s\n' "$i" >> docs/notes.md; done
 git add docs/notes.md

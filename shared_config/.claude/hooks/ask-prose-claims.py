@@ -192,11 +192,18 @@ def _added_lines(diff):
     # Yields (path, new_line_number, text) for every added line.
     path = None
     new_ln = 0
+    prev = ""
     for raw in diff.splitlines():
-        if raw.startswith("+++ "):
+        # A `+++ ` line is a file header only right after its `--- ` line. Inside a
+        # hunk it is an added line whose content begins with `++ `, which a file
+        # holding diff text produces, and reading it as a header would reset the
+        # path for the rest of the hunk.
+        if raw.startswith("+++ ") and prev.startswith("--- "):
             p = raw[4:].strip()
             path = None if p == "/dev/null" else re.sub(r"^b/", "", p)
+            prev = raw
             continue
+        prev = raw
         if raw.startswith("--- ") or raw.startswith("diff ") or raw.startswith("index "):
             continue
         m = re.match(r"^@@ -\S+ \+(\d+)(?:,\d+)? @@", raw)

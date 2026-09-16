@@ -152,6 +152,9 @@ def _message_text(cmd, tokens):
             parts.append(tokens[i + 1])
         elif t.startswith("-m") and len(t) > 2 and not t.startswith("--"):
             parts.append(t[2:])
+        elif re.fullmatch(r"-[a-zA-Z]*m", t) and i + 1 < len(tokens):
+            # A bundled short cluster ending in m, `-am` or `-qm`, takes the next token.
+            parts.append(tokens[i + 1])
         elif t.startswith("--message="):
             parts.append(t[len("--message="):])
     # Only a heredoc whose opening line is the commit command is the message. A
@@ -366,7 +369,8 @@ def main() -> None:
             ptrs.append(f"{path}:{ln}: `{p}` does not resolve")
         if is_code_file:
             if path not in code_cache:
-                content = _staged_file(cwd, path)
+                # Diff paths are repo-root-relative, so the index read runs from the root.
+                content = _staged_file(roots[0], path)
                 code_cache[path] = _code_idents(path, content) if content is not None else None
             if code_cache[path] is not None:
                 for ident in _ident_hits(text, code_cache[path]):

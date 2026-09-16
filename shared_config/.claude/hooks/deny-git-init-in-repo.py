@@ -63,9 +63,10 @@ def _offending(tokens):
         if sub == "config":
             if any(r in {"--global", "--system"} for r in rest):
                 continue
-            keys = [r for r in rest if r.lower() in {"user.name", "user.email"}]
-            if keys:
-                return f"git config {keys[0]}"
+            # A key with a value after it is a write. A bare key is a read and is fine.
+            for j, r in enumerate(rest):
+                if r.lower() in {"user.name", "user.email"} and j + 1 < len(rest) and not rest[j + 1].startswith("-"):
+                    return f"git config {r}"
     return None
 
 

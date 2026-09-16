@@ -68,6 +68,8 @@ unstage_all
 
 # ---- Quantifier in the commit message -> deny (dash-m and heredoc) ----
 assert_eq "deny_message_m" "deny" "$(decision 'git commit -m "this is the only fix"')"
+assert_eq "deny_message_am" "deny" "$(decision 'git commit -am "this is the only fix"')"
+assert_eq "deny_message_qm" "deny" "$(decision 'git commit -qm "nothing else reads it"')"
 printf -v HEREDOC "git commit -q -F - <<'EOF'\nfix: thing\n\nNothing else reads it.\nEOF"
 assert_eq "deny_message_heredoc" "deny" "$(decision "$HEREDOC")"
 assert_contains "reason_message_line" "commit message line 3" "$(reason "$HEREDOC")"
@@ -96,6 +98,8 @@ printf 'export const paymentStatus = 1\nfunction refreshCache() {}\n' > src/a.ts
 git add src/a.ts && git commit -qm base
 stage src/a.ts '// updateSubscriptionWithNewData would mail the subscriber here'
 assert_eq "deny_ident_missing" "deny" "$(decision 'git commit -m x')"
+SUBDIR_OUT="$(jq -nc --arg c 'git commit -m x' --arg d "$FIX/src" '{cwd: $d, tool_input: {command: $c}}' | python3 "$HOOK" | jq -r '.hookSpecificOutput.permissionDecision')"
+assert_eq "deny_ident_from_subdir" "deny" "$SUBDIR_OUT"
 assert_contains "reason_ident" "\`updateSubscriptionWithNewData\` is named by this comment and by no code line" "$(reason 'git commit -m x')"
 unstage_all
 stage src/a.ts '// payment_status is read after refreshCache runs, see calm_model.find_all'

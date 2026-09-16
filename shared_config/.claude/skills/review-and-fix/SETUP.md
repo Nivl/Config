@@ -6,8 +6,8 @@ This file holds the commands those acts run.
 
 ## Resolving the target
 
-Run these in order. Return with `<RANGE>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>` and `<SKIP_TICKET>`
-all set.
+Run these in order. Return with `<RANGE>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`, `<SKIP_TICKET>` and
+`<REVIEW_LIMIT>` all set.
 
 1. **Default branch.**
 
@@ -44,6 +44,21 @@ all set.
    every in-depth-review sub-agent is invoked with `--skip-ticket` so role 10 never runs. When
    false, both in-depth-review instances run role 10, giving two ticket reviewers.
    `gh-style-review` is unaffected either way.
+
+6. **`<REVIEW_LIMIT>`** = the integer value of `--review-limit` when the invocation included it,
+   else 0. Both `--review-limit 3` and `--review-limit=3` set it to 3. A value of 0 or below means
+   no cap, which is the unflagged behavior. A value of 1 or more is the maximum number of
+   iterations Step 3 will let the loop reach, and that step is the single place the value is read.
+
+   A `--review-limit` with no value after it, or with a value that is not an integer, is a
+   malformed invocation. Say which and stop. Do not substitute 0, and do not substitute a number
+   of your own. Both of those turn a typo into a silently different run, and the 0 case is the
+   worse of the two because it reads as the cap having been honored.
+
+   The flag is also how a caller passes a cap down. `work-on` passes the user's value, or the
+   default its `--no-assess` mode supplies, and nothing about this skill's own behavior changes
+   based on which of those it was. A caller-supplied cap and a user-typed one are the same value
+   here. What the caller owes its own user is disclosure, and that is the caller's report to write.
 
 ## Probing for a Jira reader
 

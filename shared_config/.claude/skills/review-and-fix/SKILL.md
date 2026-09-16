@@ -6,7 +6,8 @@ description: >
   and `gh-style-review` sub-agents in parallel each iteration, merges and deduplicates their
   findings, and applies fixes one commit at a time. The loop stops when a pass finds nothing, when
   coverage is short, when only low-severity findings survive, when an iteration commits nothing,
-  when the user says stop, or it aborts when no reviewer can run at all. No GitHub writes.
+  when the user says stop, or when it reaches the `--review-limit X` cap if the invocation set one.
+  It aborts when no reviewer can run at all. No GitHub writes.
   Produces a final summary report.
   Use this skill when the user asks to "review and fix", "review my changes", "clean up my
   code", "improve my recent commits", or similar requests to audit and improve uncommitted or
@@ -97,7 +98,9 @@ Iteration N:
 1. Confirm the working tree is clean (`git status --porcelain`). If there are uncommitted
    changes, warn the user and ask whether to stash first or include them in the review.
 2. Resolve the target per [SETUP.md](SETUP.md), and return with `<RANGE>`, `<HAS_PR>`, `<PR>`,
-   `<TARGET_ARG>` and `<SKIP_TICKET>` set. Do not proceed with any of them unset.
+   `<TARGET_ARG>`, `<SKIP_TICKET>` and `<REVIEW_LIMIT>` set. Do not proceed with any of them unset.
+   When `<REVIEW_LIMIT>` is 1 or more, say so in the announce line, so the cap is visible from the
+   start rather than only at the ending it produces.
 3. Count how many commits the current branch is ahead of the default branch:
    ```
    git rev-list --count origin/<default-branch>..HEAD
@@ -756,10 +759,11 @@ The first that matches wins:
 A role-level shortfall is deliberately NOT retried. It blocks the clean exit and surfaces in
 Coverage as `partial`, which is why row 1 requires an empty unioned `roles_missing`.
 
-**There is no iteration cap, and the number column is a label column, not an index.** Rows 1, 1c,
-2 and 2b are the only rows that stop. Rows 1b, 4 and 5 are the only rows that go back to Step 1,
-and row 1b is bounded at one retry per reviewer kind per run. The user-directed stop below ends a
-run without being a row, and an interrupt ends one without reaching Step 4 at all.
+**This skill sets no iteration cap of its own, and the number column is a label column, not an
+index.** Rows 1, 1c, 2 and 2b are the only rows that stop. Rows 1b, 4 and 5 are the only rows that
+go back to Step 1, and row 1b is bounded at one retry per reviewer kind per run. The user-directed
+stop below ends a run without being a row, the `<REVIEW_LIMIT>` cap below ends one without being a
+row, and an interrupt ends one without reaching Step 4 at all.
 
 Row 0 is an abort rather than a stop, so the run ends there without a Final Report. Its Step 0
 trigger aborts before any launch. Its other two triggers fire in Step 1, as soon as the last launch
@@ -770,9 +774,36 @@ This table is not a termination proof. One iteration's fixes can introduce a def
 iteration finds, and that cycle can sustain itself. Row 2b bounds how long it can run on polish,
 and nothing bounds it on substance. A run that is going nowhere on substance is stopped by the
 user, which is why every iteration that reaches Step 3 emits a per-iteration summary.
-`iteration` is a label for the announce line, that summary, and the Final Report header. No stop
-rule reads it. Do not add a cap row, an iteration count of any size, a periodic check-in, or an
-oscillation detector, and do not renumber the rows that remain.
+`iteration` is a label for the announce line, that summary, and the Final Report header. The
+`<REVIEW_LIMIT>` check below is the one rule that reads it. Do not add a cap row, a cap this skill
+chose for itself at any size, a periodic check-in, or an oscillation detector, and do not renumber
+the rows that remain.
+
+**The `<REVIEW_LIMIT>` cap is a terminal state and it is not a row.** When `<REVIEW_LIMIT>` is 1 or
+more and the table above picked a row that goes back to Step 1, and the iteration just finished is
+the `<REVIEW_LIMIT>`th, stop instead. Reach Step 4 and write the Final Report. The check runs after
+the table, never instead of it, so a run that was going to stop on row 1, 1c, 2 or 2b still stops
+there and reports that ending rather than this one. A cap of 1 therefore ends the run after one
+iteration whatever the table said, which is the cap doing exactly what the number asks.
+
+That value comes from the invocation, and this skill never picks it. The ban in the paragraph above
+is on a cap nobody asked for, because a run cut short by its own arithmetic reports less coverage
+than it had reason to and nothing tells the user why. A cap the user typed is the user spending less
+on purpose, which is theirs to decide and gets disclosed on the Outcome line. Those are opposite
+situations and the second one does not reopen the first.
+
+**A run the cap stopped is never clean.** It stopped while the loop still had somewhere to go, and
+what it would have found in the iteration it did not run is unknown rather than absent. A run that
+carried a cap and stopped on row 1 before reaching it is a different run, and it reports row 1.
+[FINAL-REPORT.md](FINAL-REPORT.md) carries the Outcome line, which is its own line and not the
+user-directed stop's. The two endings are both the user choosing to spend less, and they are not
+interchangeable. One was decided before the run started, and the other after seeing where it went.
+
+Remaining Issues stays gated on its own content, which is a surviving finding that did not become a
+commit. A capped run whose last iteration committed every finding it kept has nothing for that
+section and omits it, the same as any other run would. The cap is reported on the Outcome line and
+not by an empty section, because a section listing nothing says the run found nothing left, and what
+this ending actually knows is that it stopped before looking again.
 
 **The user-directed stop is a terminal state and it is not a row.** The user is shown where the run
 is going and says to stop, in band, and that run does reach Step 4, which is the operative

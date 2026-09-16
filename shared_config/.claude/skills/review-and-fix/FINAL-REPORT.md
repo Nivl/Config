@@ -157,6 +157,11 @@ have continued, and the user was shown where it was going and chose to stop. Nam
 stopped after, names the signal it was shown, and points at Remaining Issues. Carries no green check
 at any coverage value, for the same reason row 2b carries none. Nothing here measured an absence of
 findings.
+— OR —
+⚠️ Stopped at the review limit — no row fired. The loop reached `<REVIEW_LIMIT>` iterations and the
+table had picked a row that would have gone back to Step 1. Names the cap, says the run was still
+going somewhere, and points at Remaining Issues when that section is present. Carries no green check
+at any coverage value, for the same reason the user-directed stop carries none.
 ```
 
 ## Selecting the Outcome line
@@ -174,6 +179,19 @@ a judgement, about severity in one case and about whether to keep going in the o
 an absence of findings or a gap in coverage. A green check on either would claim a completeness
 nothing measured supports. A user-directed stop at `partial` coverage uses the incomplete-coverage
 line and says the user ended it, the same way a row 2 or row 2b stop does.
+
+**The review-limit stop follows the user-directed stop's rules exactly, with one difference.** No
+green check at any coverage value, and at `partial` coverage it uses the incomplete-coverage line and
+says the cap ended it. The difference is when the decision was made. A user-directed stop is the user
+seeing where the run went and ending it, so the report names the signal they were shown. The cap was
+set before the run started, so there was no signal, and the report names the number instead. Do not
+write one of these two lines for the other. A cap reported as a user-directed stop makes the run look
+like somebody watched it, and a user-directed stop reported as a cap loses the fact that a human read
+the evidence.
+
+**Only a cap the invocation carried can produce that line.** `<REVIEW_LIMIT>` comes from
+[SETUP.md](SETUP.md) and the loop-control step is where it is read. A run with no cap has no route to
+this outcome, so the line never explains a loop that stopped for some other reason.
 
 Never pair a green check with `partial` coverage either. The two sections are read together, and a
 green check above a `partial` Coverage line is exactly the unearned clean result this machinery

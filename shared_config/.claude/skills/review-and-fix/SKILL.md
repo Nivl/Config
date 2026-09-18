@@ -66,7 +66,7 @@ Run setup, once:
 - [ ] <HAS_PR>, <PR>, <TARGET_ARG>, <SKIP_TICKET> set
 - [ ] Workflow and Agent tools confirmed, else abort with REVIEW_UNAVAILABLE_NO_FANOUT
 - [ ] Jira reader ready, or the user chose (a), (b) or (c)
-- [ ] <ACTIVE_ROLES>, <INSTANCE_2_ROLES> and <ACTIVE_GH_STYLE> set for iteration 1
+- [ ] <ACTIVE_ROLES> (roles 1-9 and 11), <INSTANCE_2_ROLES> and <ACTIVE_GH_STYLE> (true only with --gh-style) set for iteration 1
 - [ ] run_log_path opened, header written, active-run marker written
 
 Iteration N:
@@ -139,11 +139,14 @@ Iteration N:
 
 6. **Initialize the active reviewer set** used by Step 1. Three variables, and they are not
    symmetric:
-   - `<ACTIVE_ROLES>` = the roles instance 1 runs. Iteration 1: all in-depth-review roles `1..11`,
-     dropping `10` when `<SKIP_TICKET>` is true.
+   - `<ACTIVE_ROLES>` = the roles instance 1 runs. Iteration 1: in-depth-review roles `1..9` and
+     `11`. Role 10 does not run in this skill, and role 7 runs in iteration 1 only, per the two
+     notes below. `<SKIP_TICKET>` still gates the Jira preflight and the ticket-category decisions
+     in Step 2, and it removes nothing from the set because role 10 is already absent.
    - `<INSTANCE_2_ROLES>` = the roles instance 2 runs. Iteration 1: `{11, 9, 2}`, motivation, test
      coverage and bug scan. Not the full set. From iteration 2 the default is `{}`, per Step 3.
-   - `<ACTIVE_GH_STYLE>` = true. Iteration 1 only.
+   - `<ACTIVE_GH_STYLE>` = false, unless the invocation carried `--gh-style`, in which case true
+     in iteration 1 only.
    Step 3 recomputes all three before each subsequent iteration.
 
    **Why instance 2 is narrow.** Measured across 45 attributed fixes in three runs, 41 were raised
@@ -165,17 +168,22 @@ Iteration N:
    three of fourteen agents, about $8 to $10 an iteration, and bought ordering signal. So from iteration 2 the default is no instance 2, and the discretion rule in Step
    3 is how the orchestrator adds one back when the iteration gives it a reason.
 
-   **Why gh-style is iteration 1 only.** Across seven logged runs it has been the sole raiser of a
-   committed fix zero times. Its findings were corroborations every time. Its stated value is
-   Discussion Context, which is computed from the PR's existing comments and does not change during a
-   run, so one pass captures it. In branch mode there is no Discussion Context at all. One pass is
-   what it earns.
+   **Why gh-style is off by default.** Across the priced runs it cost $178 over 36 launches and was
+   the sole raiser of one committed fix, in 50 it contributed to. Its distinct product is Discussion
+   Context, the PR's prior human comments read against the diff, and every logged run of this skill
+   was in branch mode, where there is none. `--gh-style` turns it on for iteration 1, for a PR whose
+   discussion is worth reading in.
 
-   **Why role 10 is iterations 1 and 2.** Seven of nine role-10 contributions across three runs, and
-   every new ticket decision, came in the first two iterations. `resolved_ticket_findings` already
-   blocks re-prompting on decided gaps, so a later run can only surface a gap the run itself just
-   introduced, and role 11 covers that. Step 3 drops role 10 from iteration 3 on, with one re-entry
-   named there.
+   **Why role 10 does not run here.** $184 over 77 launches, 53 contributions, zero sole-raiser
+   fixes. Its lens is the ticket's intent, and in this skill's usual caller, work-on, that read
+   already happened in validation, with the user answering the questions it raises. Role 11 carries
+   intent inside the diff. Role 10 still runs in `in-depth-review` and `pr-review`, where no
+   validation preceded the review.
+
+   **Why role 7 is iteration 1 only.** $173 over 131 launches for two sole-raiser fixes, the worst
+   ratio of any lens, on payment code where its miss has a different shape from the others. It reads
+   the branch's own code once, in iteration 1, and is dropped from the self-inflicted rounds after,
+   where it found nothing in the logs.
 
 7. **Open the run log.** Resolve `run_log_path` per [SETUP.md](SETUP.md), trying the preferred
    home before the fallback rather than assuming it is unavailable (why: [RATIONALE.md](RATIONALE.md)). **Write the header now**,
@@ -210,7 +218,7 @@ Launch the iteration's **active** reviewers only:
   own, narrower set, and when `<INSTANCE_2_ROLES>` is empty pass `instances: 1` instead so no agent
   is dispatched for it. The two instances are asymmetric on purpose, per Step 0.
 - If `<ACTIVE_GH_STYLE>` is true, launch **1 gh-style-review** instance as an Agent-tool sub-agent.
-  It is true in iteration 1 only.
+  It is true only in iteration 1 of an invocation that passed `--gh-style`.
 
 **Why the two kinds are dispatched differently.** Nesting the in-depth roles inside a wrapper
 sub-agent lost their results. A nested agent's completion notification is delivered to the session
@@ -219,24 +227,25 @@ them, every role finished, and the wrappers received 5 and 7 of their 12 results
 `bash true` 111 times waiting. The workflow's `parallel()` is a barrier in code and has no
 notification to route. gh-style spawns nothing, so it never had the problem, and this thread is the
 session root, so its one notification arrives here.
-**Why gh-style runs once, in iteration 1, and why it is still run at all.** Measured on fixtures
+**Why gh-style is opt-in and one pass.** Measured on fixtures
 with planted issues, gh-style's findings were a strict SUBSET of in-depth's. Measured since on seven
 real runs, it has been the sole raiser of a committed fix zero times. Every finding of its that became
 a commit was also raised by an in-depth role. Its distinct contribution is Discussion Context, the
 PR's prior human comments cross-referenced against the diff, which in-depth cannot produce and which
 does not change while a run is in flight, so one pass captures all of it. In branch mode there is no
-Discussion Context and the one pass is a corroborator. It keeps its one iteration for the PR-mode
-case, and it does not get a second because this loop reruns its fan-out with no cap and a
-corroborator paid every pass is the cost the measurements put a number on, about $5.50 an iteration.
+Discussion Context and the one pass is a corroborator. Across the priced runs it was the sole raiser
+of one fix for $178, so it is off unless `--gh-style` asks for the PR-mode read, and then it gets
+one iteration and not a second, because a corroborator paid every pass costs about $5.50 an
+iteration.
 Measured basis: `~/.melvin/config/docs/research/pr-review-cost-efficiency/RESULTS.md` for the
 fixtures, `~/.melvin/config/docs/research/review-and-fix-run-log/NOTES.md` for the runs.
 
 Announce at iteration start, reflecting the ACTUAL active set, e.g.:
 
-> Iter 1: roles 1-11 (instance 1) + roles 11,9,2 (instance 2) + gh-style.
+> Iter 1: roles 1-9,11 (instance 1) + roles 11,9,2 (instance 2); gh-style off (no --gh-style).
 > Target: PR #<PR> [draft]  <-  or  Target: branch range <RANGE>
 
-> Iter 4: roles 1-9,11 (instance 1, full, role 10 dropped) + roles 2,9 (instance 2: new SQL rewritten, per the log line); gh-style off.
+> Iter 4: roles 1-6,8,9,11 (instance 1, full, role 7 dropped) + roles 2,9 (instance 2: new SQL rewritten, per the log line); gh-style off.
 
 > Iter 5: roles 1,5,9 (instance 1, pruned) + none (instance 2: default); gh-style off.
 
@@ -372,8 +381,12 @@ counting as `unavailable`. AGGREGATING.md also covers aggregating `tickets_exami
 If `<HAS_PR>` is false, **skip this step entirely.** gh-style-review returned empty
 `discussion_context.resolved` and `discussion_context.unaddressed` arrays in branch mode.
 
-If `<HAS_PR>` is true (and `<ACTIVE_GH_STYLE>` is true. When gh-style-review was not active
-this iteration there is no new Discussion Context, so carry forward the previous snapshot):
+If `<GH_STYLE>` is false, skip this step too: no gh-style pass ran, so there is no Discussion
+Context in this run at all, and the Final Report's section says so in one line.
+
+If `<HAS_PR>` is true and `<GH_STYLE>` is true (and `<ACTIVE_GH_STYLE>` is true this iteration.
+When gh-style-review was not active this iteration there is no new Discussion Context, so carry
+forward the previous snapshot):
 
 Because exactly ONE instance produces this block, there is no cross-instance dedup, no
 disagreement detection, and no agreement count. That is the deliberate trade of the 1x gh-style
@@ -875,8 +888,8 @@ Computing the next active set, for every row that goes back to Step 1 (1b, 4, an
   iteration ran if the `in-depth-review` kind fell short, otherwise empty. `<ACTIVE_GH_STYLE>` =
   true iff the `gh-style-review` kind fell short. The short kind relaunches at full multiplicity,
   and why the reviewers that did report are not relaunched is in [RATIONALE.md](RATIONALE.md).
-- **Row 4 (full):** `<ACTIVE_ROLES>` = all roles `1..11`, minus `10` when `<SKIP_TICKET>`, and
-  minus `10` from iteration 3 on unless the role-10 re-entry below applies. `<INSTANCE_2_ROLES>` =
+- **Row 4 (full):** `<ACTIVE_ROLES>` = roles `1..6`, `8`, `9` and `11`, the iteration-1 set minus
+  role 7, per the role-7 rule below. `<INSTANCE_2_ROLES>` =
   `{}` by default, or the orchestrator's choice per the discretion rule below.
   `<ACTIVE_GH_STYLE>` = **false**. A full rerun is a full run of instance 1. It is not a return to
   the iteration-1 roster, and gh-style is not part of it.
@@ -894,16 +907,12 @@ Computing the next active set, for every row that goes back to Step 1 (1b, 4, an
   `reviewer_unavailable` subtraction below can still remove role 9 along with the rest of an
   unavailable `in-depth-review` kind.
 
-- **Role 10, from iteration 3 on.** Drop it from `<ACTIVE_ROLES>` whichever row fired, BEFORE
-  the row-5 floor and before the retry union are applied, so a set of `{10}` alone empties and the
-  floor still puts `{2}` in its place, and a kind added back at full multiplicity comes back without
-  role 10. One
-  re-entry: when this iteration committed a `ticket`-category fix, meaning the user chose to
-  implement a gap role 10 surfaced, keep role 10 in the next iteration's set so it verifies the
-  implementation against the ticket, then drop it again. Measured across three runs, seven of nine
-  role-10 contributions and every new ticket decision came in iterations 1 and 2, and
-  `resolved_ticket_findings` already stops it re-asking about decided gaps. Never in
-  `<INSTANCE_2_ROLES>`.
+- **Role 7, from iteration 2 on.** Drop it from `<ACTIVE_ROLES>` whichever row fired, BEFORE the
+  row-5 floor and before the retry union are applied, so a set of `{7}` alone empties and the floor
+  still puts `{2}` in its place, and a kind added back at full multiplicity comes back without role
+  7. No re-entry. Its one read of the branch's code was iteration 1, and the later iterations
+  review the run's own fixes, where it found nothing across the logged runs. Never in
+  `<INSTANCE_2_ROLES>`. Role 10 needs no rule here because it is not in any set this skill builds.
 
 - **Instance 2's discretion rule, from iteration 2 on.** `<INSTANCE_2_ROLES>` defaults to `{}`,
   so no second instance runs. The orchestrator may replace that with any set, and the only
@@ -1037,7 +1046,7 @@ holds only its header. It still deletes the marker.
   has exactly three reasons to run fewer reviewers: the pruned-rerun rule, the row-1b retry, and
   the `reviewer_unavailable` subtraction. Never drop a reviewer for speed outside those three.
 - **Multiplicity is fixed while a kind is active.** in-depth-review at two instances, the second
-  narrow per Step 0, and gh-style-review at one pass in iteration 1.
+  narrow per Step 0, and gh-style-review at one pass in iteration 1 when `--gh-style` turned it on.
   An `unavailable` kind is not launched at all, so the rule binds only while the kind is active.
   There is no reduced-multiplicity path. A kind either relaunches in full or does not relaunch.
 - **The two reviewer kinds are dispatched differently, and the asymmetry is the point.** The

@@ -40,10 +40,15 @@ Run these in order. Return with `<RANGE>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`, `
 
 4. **`<TARGET_ARG>`** = `<PR>` when `<HAS_PR>`, otherwise `<RANGE>`.
 
-5. **`<SKIP_TICKET>`** = true if the invocation included `--skip-ticket`, else false. When true,
-   every in-depth-review sub-agent is invoked with `--skip-ticket` so role 10 never runs. When
-   false, both in-depth-review instances run role 10, giving two ticket reviewers.
-   `gh-style-review` is unaffected either way.
+5. **`<SKIP_TICKET>`** = true if the invocation included `--skip-ticket`, else false. Role 10 does
+   not run in this skill either way, per Step 0 item 6, so the flag gates the Jira preflight and
+   the ticket-category decisions in Step 2 and removes nothing from the role set.
+
+5b. **`<GH_STYLE>`** = true if the invocation included `--gh-style`, else false. When true,
+   `<ACTIVE_GH_STYLE>` is true for iteration 1 and the Discussion Context step runs in PR mode.
+   When false, no gh-style pass runs and Step 1.5 is skipped. Off by default because across the
+   priced runs it was the sole raiser of one committed fix for $178, and every logged run was in
+   branch mode, where its distinct product does not exist.
 
 6. **`<REVIEW_LIMIT>`** = the integer value of `--review-limit` when the invocation included it,
    else 0. Both `--review-limit 3` and `--review-limit=3` set it to 3. A value of 0 or below means

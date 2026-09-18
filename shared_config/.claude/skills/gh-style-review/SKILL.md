@@ -14,7 +14,7 @@ description: >
   invoked as a sub-agent by `pr-review` or `review-and-fix`). Output stays local: never
   posts to GitHub, never opens a PR comment, never updates a Claude comment via MCP.
   Used as a parallel reviewer primitive alongside `in-depth-review` by `pr-review` (1
-  instance) and `review-and-fix` (1 instance per iteration). Use this skill when the user
+  instance) and `review-and-fix` (1 instance in iteration 1, only with `--gh-style`). Use this skill when the user
   asks for "gh-style review", "@claude review locally", "review like the GitHub Action
   would", "local mirror of @claude review", or wants the same prompt as the Action without
   the GitHub round-trip.

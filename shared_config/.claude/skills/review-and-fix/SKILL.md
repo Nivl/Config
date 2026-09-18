@@ -3,7 +3,8 @@ name: review-and-fix
 description: >
   Iteratively reviews recent code changes (a PR if one exists for the current branch,
   otherwise the branch's commit range) and fixes what the reviews find. Runs `in-depth-review`
-  and `gh-style-review` sub-agents in parallel each iteration, merges and deduplicates their
+  roles behind a workflow barrier each iteration (gh-style-review too, in iteration 1, when
+  invoked with `--gh-style`), merges and deduplicates their
   findings, and applies fixes one commit at a time. The loop stops when a pass finds nothing, when
   coverage is short, when only low-severity findings survive, when an iteration commits nothing,
   when the user says stop, or when it reaches the `--review-limit X` cap if the invocation set one.

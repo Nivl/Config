@@ -30,6 +30,12 @@ mk "$ROLE1" "<!-- review-roles inst=1 role=2 attempt=1 tag=iter1 target=15 -->"
 jq -nc '{type:"assistant", message:{model:"claude-opus-5", usage:{input_tokens:10, cache_read_input_tokens:1000000, cache_creation_input_tokens:100000, output_tokens:2000}}}' >> "$ROLE1"
 mk "$FIX/$SESSION/subagents/workflows/wf1/agent-cccc2222dddd.jsonl" "<!-- review-roles inst=2 role=9 attempt=1 tag=iter1 target=15 -->"
 mk "$FIX/$SESSION/subagents/agent-eeee3333ffff.jsonl" "<!-- gh-style tag=iter2 target=15 -->"
+# A workflow launched from a slash command gets a harness relay record first, and the stamped
+# prompt second. The filter has to find the stamp there too.
+R="$FIX/$SESSION/subagents/workflows/wf1/agent-0000bbbb2222.jsonl"
+jq -nc '{type:"user", message:{role:"user", content:"[Workflow harness - user request] relayed slash command"}}' > "$R"
+jq -nc '{type:"user", message:{role:"user", content:"<!-- review-roles inst=1 role=5 attempt=1 tag=iter1 target=15 -->"}}' >> "$R"
+jq -nc '{type:"assistant", message:{model:"claude-opus-5", usage:{input_tokens:10, cache_read_input_tokens:500000, cache_creation_input_tokens:50000, output_tokens:1000}}}' >> "$R"
 
 run() {
   local tool="$1" tag="$2"
@@ -52,6 +58,8 @@ assert_contains "string_args_parsed" "usage kind=review-roles inst=1 role=2" "$S
 OUT="$(run Workflow iter1 | ctx)"
 assert_contains "ctx_has_inst1" "usage kind=review-roles inst=1 role=2 attempt=1 tag=iter1 target=15 id=aaaa1111" "$OUT"
 assert_contains "ctx_has_inst2" "inst=2 role=9" "$OUT"
+assert_contains "ctx_has_relayed_stamp" "inst=1 role=5 attempt=1 tag=iter1" "$OUT"
+assert_eq "ctx_no_unstamped" "0" "$(grep -c 'kind=unstamped' <<<"$OUT" || true)"
 assert_contains "ctx_priced" "est_usd=" "$OUT"
 assert_eq "ctx_excludes_other_tag" "0" "$(grep -c 'tag=iter2' <<<"$OUT" || true)"
 
@@ -64,14 +72,14 @@ printf '%s' "$LOG" > "$MARKER_DIR/.active-$SESSION"
 trap 'rm -f "$MARKER_DIR/.active-$SESSION"; rm -rf "$FIX"' EXIT
 
 OUT="$(run Workflow iter1 | ctx)"
-assert_contains "marker_appended_two" "appended 2 usage line(s)" "$OUT"
-assert_eq "log_has_two" "2" "$(grep -c '^usage kind=' "$LOG")"
+assert_contains "marker_appended_three" "appended 3 usage line(s)" "$OUT"
+assert_eq "log_has_three" "3" "$(grep -c '^usage kind=' "$LOG")"
 OUT="$(run Workflow iter1 | ctx)"
 assert_contains "marker_second_firing_zero" "appended 0 usage line(s)" "$OUT"
-assert_eq "log_still_two" "2" "$(grep -c '^usage kind=' "$LOG")"
+assert_eq "log_still_three" "3" "$(grep -c '^usage kind=' "$LOG")"
 OUT="$(run Workflow iter2 | ctx)"
 assert_contains "marker_other_tag" "appended 1 usage line(s) for tag=iter2" "$OUT"
-assert_eq "log_has_three" "3" "$(grep -c '^usage kind=' "$LOG")"
+assert_eq "log_has_four" "4" "$(grep -c '^usage kind=' "$LOG")"
 
 
 # ---- A line written mid-run is replaced, not skipped ----
@@ -80,7 +88,7 @@ PARTIAL="usage kind=review-roles inst=1 role=2 attempt=1 tag=iter1 target=15 id=
 printf '# run log\ncomment id=aaaa1111 on the ticket, not a usage line\n%s\n' "$PARTIAL" > "$LOG"
 OUT="$(run Workflow iter1 | ctx)"
 assert_contains "midrun_replaced_one" "replaced 1 that had been written mid-run" "$OUT"
-assert_contains "midrun_appended_one" "appended 1 usage line(s)" "$OUT"
+assert_contains "midrun_appended_two" "appended 2 usage line(s)" "$OUT"
 assert_eq "midrun_one_line_per_id" "1" "$(grep -c 'id=aaaa1111 model' "$LOG")"
 assert_eq "midrun_partial_gone" "0" "$(grep -c 'id=aaaa1111 model=opus-5 turns=1 ' "$LOG")"
 assert_eq "midrun_complete_kept" "1" "$(grep -c 'id=aaaa1111 model=opus-5 turns=2 ' "$LOG")"
@@ -88,6 +96,6 @@ assert_eq "midrun_non_usage_kept" "1" "$(grep -c 'on the ticket' "$LOG")"
 OUT="$(run Workflow iter1 | ctx)"
 assert_contains "midrun_then_idempotent" "appended 0 usage line(s)" "$OUT"
 assert_contains "midrun_then_no_replace" "replaced 0 that had been written mid-run" "$OUT"
-assert_eq "midrun_log_two" "2" "$(grep -c '^usage kind=' "$LOG")"
+assert_eq "midrun_log_three" "3" "$(grep -c '^usage kind=' "$LOG")"
 
 echo "usage-lines.py: all tests passed"

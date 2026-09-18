@@ -21,7 +21,11 @@ def K: (. / 1e3 | round);
 | group_by(.f)
 | map(
     (map(.r)) as $rows
-    | ($rows[0].message.content // "" | tostring) as $p
+    # The stamp is in the prompt, which is the first user record unless the
+    # Workflow harness relayed the triggering slash command first, in which case
+    # it is the second. Read every user record before the first assistant turn.
+    | ([$rows[] | select(.type=="user" or .type=="assistant")] | (map(.type) | index("assistant")) // length) as $nu
+    | ([$rows[] | select(.type=="user" or .type=="assistant")] | .[0:$nu] | map(.message.content // "" | tostring) | join(" ")) as $p
     | ([$rows[] | select(.type=="assistant") | .message]) as $m
     | select(($m|length) > 0)
     | ($p | capture("<!-- (?<kind>[a-z-]+)(?<rest>[^>]*) -->")? // {kind:"unstamped", rest:""}) as $s

@@ -36,6 +36,13 @@ and the next iteration's roles found the case beside it, at $80 an iteration. Th
 enumeration those fixes skipped, made explicit before the edit and handed to the pre-commit check
 so it reads the neighbours too. A `prose` or `test` group writes no case list.
 
+The `require-case-list` hook enforces this at `git commit`. Inside a run, a commit whose staged
+diff changes a code line is denied when the run log has no `cases iter=<N> ... reaches=` line for
+the current iteration. On the run that made the case for this list, it was written in iteration 1
+and skipped in iterations 2 to 4, and each of those fixed a bug the previous one's fix introduced.
+A prose-, test- or comment-only diff passes. `CASE_LIST_OK=1` in front of the command overrides
+and puts the commit in front of the user.
+
 ## 1. A behavior finding gets a red test before the edit
 
 **Behavior findings get a red test before the edit.** A behavior finding is one where you

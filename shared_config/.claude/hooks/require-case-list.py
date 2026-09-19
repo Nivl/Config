@@ -16,8 +16,10 @@
 # Scope. The hook does nothing unless
 #   ~/.melvin/config/logs/review-and-fix/.active-<session_id>
 # exists, which review-and-fix writes at Step 0 and deletes at the Final
-# Report, so a commit outside a run is untouched. The current iteration is the
-# highest N on a `t0 iter=N` line in that log. Code means an added or removed
+# Report, so a commit outside a run is untouched. The current iteration comes
+# from the log's own markers, `t0 iter=N`, `## Iteration N` and `stamps: iter=N`,
+# and a bare `t0=` after the last stamps line opens the next one, since the
+# logs write any of those. Code means an added or removed
 # line in a source file that is not blank and not a comment. A diff confined to
 # prose files, test files, or comment lines passes, since those groups write no
 # list. The check is per iteration and not per commit, so the pre-commit
@@ -43,7 +45,9 @@ ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 CODE_EXTS = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".go", ".rb", ".java", ".kt", ".kts",
              ".swift", ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".cs", ".scala", ".php", ".dart", ".sql", ".sh"}
 COMMENT_STARTS = ("//", "#", "/*", "*", "--")
-TEST_PATH = re.compile(r"(^|/)(__tests__|test|tests|spec|integration-tests)/|\.(test|spec)\.[a-z]+$|_test\.[a-z]+$|test_[^/]+\.py$")
+# A test file is named as one. A helper or fixture under a test directory is
+# logic, per review-and-fix's CLASSIFIER.md, so the directory alone is not enough.
+TEST_PATH = re.compile(r"\.(test|spec)\.[a-z]+$|_test\.[a-z]+$|(^|/)test_[^/]+\.py$|(^|/)[^/]*\.(test|spec)\.[a-z]+\.snap$")
 
 
 def _tokens(s):
@@ -87,7 +91,13 @@ def _changes_code(diff):
     for raw in diff.splitlines():
         if raw.startswith("+++ ") and prev.startswith("--- "):
             p = raw[4:].strip()
-            path = None if p == "/dev/null" else re.sub(r"^b/", "", p)
+            if p == "/dev/null":
+                # A deleted file. Its removed lines are code too, so the path
+                # comes from the `--- a/` side.
+                q = prev[4:].strip()
+                path = None if q == "/dev/null" else re.sub(r"^a/", "", q)
+            else:
+                path = re.sub(r"^b/", "", p)
             prev = raw
             continue
         prev = raw
@@ -105,8 +115,20 @@ def _changes_code(diff):
 
 
 def _current_iter(log_text):
-    its = [int(m) for m in re.findall(r"^t0 iter=(\d+)", log_text, re.M)]
-    return max(its) if its else None
+    # The logs mark an iteration three ways, and a run may use any of them:
+    # `t0 iter=N ...` at the start, `## Iteration N` as a heading, and
+    # `stamps: iter=N ...` at the end. Some write a bare `t0=<time>` with no
+    # iteration number, so a bare t0 after the last stamps line means the next
+    # iteration has started. Fail open when none of these is present.
+    started = [int(m) for m in re.findall(r"^t0 iter=(\d+)", log_text, re.M)]
+    started += [int(m) for m in re.findall(r"^#+ Iteration (\d+)\s*$", log_text, re.M)]
+    completed = [int(m) for m in re.findall(r"^stamps: iter=(\d+)", log_text, re.M)]
+    cur = max(started + completed) if (started or completed) else None
+    last_stamp = max((m.end() for m in re.finditer(r"^stamps: iter=\d+", log_text, re.M)), default=-1)
+    bare_t0_after = any(m.start() > last_stamp for m in re.finditer(r"^t0=\S", log_text, re.M))
+    if completed and bare_t0_after and (not started or max(started) <= max(completed)):
+        cur = max(completed) + 1
+    return cur
 
 
 def main() -> None:
@@ -146,7 +168,9 @@ def main() -> None:
                     f"IMPLEMENTER.md section 0: before a logic edit, append `cases iter={it} findings=<ids> changes=\"...\"`, "
                     f"`... keeps=\"...\"` and `... reaches=\"<the finding's case>; <each neighbour>\"` to the run log, "
                     "pin each working neighbour with an assertion, then commit. A prose- or test-only diff does not "
-                    "need one. CASE_LIST_OK=1 in front of the command overrides, and puts the commit in front of the user."
+                    "need one. CASE_LIST_OK=1 in front of the command overrides, and puts the commit in front of the user. "
+                    f"If no review-and-fix run is in progress in this session, the marker {marker} is stale from an "
+                    "earlier run that did not reach its Final Report. Delete it and commit again."
                 ),
             }
         },

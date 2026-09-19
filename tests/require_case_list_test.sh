@@ -74,4 +74,34 @@ stage src/a.ts '// a comment about a'
 assert_eq "silent_comment_only" "silent" "$(decision 'git commit -m x')"
 unstage_all
 
+# ---- Real log shapes: bare t0= plus stamps:, and ## Iteration N headings ----
+printf '# run log\nt0=2026-09-18T00:00:00Z range=1\nstamps: iter=1 t0=x t_fix=y t1=z t2=w\ncases iter=1 findings=A reaches="x"\nt0=2026-09-18T01:00:00Z range=2\n' > "$LOG"
+stage src/a.ts 'export const d = 4'
+assert_eq "deny_bare_t0_after_stamps" "deny" "$(decision 'git commit -m x')"
+printf 'cases iter=2 findings=B reaches="the case; a neighbour"\n' >> "$LOG"
+assert_eq "silent_bare_t0_with_cases" "silent" "$(decision 'git commit -m x')"
+printf '# run log\n## Iteration 1\ncases iter=1 findings=A reaches="x"\n## Iteration 1 summary\n## Iteration 2\n' > "$LOG"
+assert_eq "deny_heading_iteration" "deny" "$(decision 'git commit -m x')"
+unstage_all
+
+# ---- A deleted logic file is a code change ----
+printf '# run log\nt0 iter=2 2026-09-18T01:00:00Z\n' > "$LOG"
+git rm -q src/a.ts
+assert_eq "deny_deleted_file" "deny" "$(decision 'git commit -m x')"
+unstage_all
+
+# ---- Mixed prose and code: code wins ----
+stage docs/notes.md 'a doc line'
+stage src/a.ts 'export const e = 5'
+assert_eq "deny_mixed" "deny" "$(decision 'git commit -m x')"
+unstage_all
+
+# ---- A helper under a test directory is logic, not a test ----
+printf 'export const helper = 1\n' > src/__tests__/helpers.ts
+git add src/__tests__/helpers.ts
+assert_eq "deny_helper_in_test_dir" "deny" "$(decision 'git commit -m x')"
+unstage_all
+git checkout -q -- . 2>/dev/null || true
+rm -f src/__tests__/helpers.ts
+
 echo "require-case-list.py: all tests passed"

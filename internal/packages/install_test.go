@@ -120,10 +120,10 @@ func TestInstall_CaskFailureCapturesReason(t *testing.T) {
 	fake := brewtest.NewFakeRunner()
 	expectAllFormulaeInstalls(fake)
 	for _, c := range CommonCasks {
-		if c == "raycast" {
-			fake.On("InstallCask", mock.Anything, "raycast").Return(brew.CaskOutcome{
+		if c == "zoom" {
+			fake.On("InstallCask", mock.Anything, "zoom").Return(brew.CaskOutcome{
 				Status: brew.StatusFailed,
-				Reason: "Error: raycast download failed",
+				Reason: "Error: zoom download failed",
 			}, nil).Once()
 			continue
 		}
@@ -136,8 +136,8 @@ func TestInstall_CaskFailureCapturesReason(t *testing.T) {
 	summary, err := Install(context.Background(), &buf, fake, Opts{})
 	require.NoError(t, err)
 	require.Len(t, summary.FailedCasks, 1)
-	assert.Equal(t, "raycast", summary.FailedCasks[0].Name)
-	assert.Equal(t, "Error: raycast download failed", summary.FailedCasks[0].Reason)
+	assert.Equal(t, "zoom", summary.FailedCasks[0].Name)
+	assert.Equal(t, "Error: zoom download failed", summary.FailedCasks[0].Reason)
 	fake.AssertExpectations(t)
 }
 
@@ -233,8 +233,8 @@ func TestInstall_CaskHardErrorLimps(t *testing.T) {
 	fake := brewtest.NewFakeRunner()
 	expectAllFormulaeInstalls(fake)
 	for _, c := range CommonCasks {
-		if c == "raycast" {
-			fake.On("InstallCask", mock.Anything, "raycast").
+		if c == "zoom" {
+			fake.On("InstallCask", mock.Anything, "zoom").
 				Return(brew.CaskOutcome{}, errors.New("disk full")).Once()
 			continue
 		}
@@ -247,7 +247,7 @@ func TestInstall_CaskHardErrorLimps(t *testing.T) {
 	summary, err := Install(context.Background(), &buf, fake, Opts{})
 	require.NoError(t, err)
 	require.Len(t, summary.FailedCasks, 1)
-	assert.Equal(t, "raycast", summary.FailedCasks[0].Name)
+	assert.Equal(t, "zoom", summary.FailedCasks[0].Name)
 	assert.Equal(t, "disk full", summary.FailedCasks[0].Reason)
 	// The .Once() expectation per remaining cask proves the loop kept
 	// going past the hard error.
@@ -335,7 +335,7 @@ func TestInstall_MultipleFailuresAccumulate(t *testing.T) {
 	expectNoOutdatedCasks(fake)
 	for _, c := range CommonCasks {
 		switch c {
-		case "zoom", "raycast":
+		case "zoom":
 			fake.On("InstallCask", mock.Anything, c).
 				Return(brew.CaskOutcome{Status: brew.StatusFailed, Reason: "synthetic"}, nil).Once()
 		default:
@@ -351,9 +351,9 @@ func TestInstall_MultipleFailuresAccumulate(t *testing.T) {
 	require.Len(t, summary.FailedFormulae, 2)
 	assert.Equal(t, Formulae[0], summary.FailedFormulae[0].Name)
 	assert.Equal(t, DevTools[0], summary.FailedFormulae[1].Name)
-	require.Len(t, summary.FailedCasks, 2)
-	assert.ElementsMatch(t, []string{"zoom", "raycast"},
-		[]string{summary.FailedCasks[0].Name, summary.FailedCasks[1].Name})
+	require.Len(t, summary.FailedCasks, 1)
+	assert.ElementsMatch(t, []string{"zoom"},
+		[]string{summary.FailedCasks[0].Name})
 }
 
 // TestInstall_UnrunnableBrewBinaryAborts asserts the broader
@@ -428,7 +428,7 @@ func TestInstall_ContextCancellation(t *testing.T) {
 // curated lists fails here with a clear message instead of as a
 // confusing mock-expectation mismatch elsewhere.
 func TestCuratedListsContainTestCasks(t *testing.T) {
-	for _, cask := range []string{"zoom", "docker", "raycast"} {
+	for _, cask := range []string{"zoom", "docker"} {
 		assert.Contains(t, CommonCasks, cask)
 	}
 }

@@ -52,7 +52,6 @@ var CommonCasks = []string{
 	"brave-browser",
 	"warp",
 	"docker",
-	"raycast",
 	"keka",
 	"slack",
 	"shottr",
@@ -74,4 +73,5 @@ var PersonalCasks = []string{
 	"yaak",
 	"discord",
 	"enpass",
+	"battery",
 }

@@ -17,7 +17,8 @@ approach, run the checks, and let the result decide.
 
 ## 0. A logic group gets a case list before the edit
 
-Before touching code for a `logic` group, append three lines to the run log:
+Before touching code for a `logic` group, append these lines to the run log, the first three
+always and the fourth when the edit touches paired state:
 
 ```
 cases iter=<N> findings=<ids> changes="<what this edit changes, one sentence>"

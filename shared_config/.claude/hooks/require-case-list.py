@@ -13,6 +13,11 @@
 # files. A reading instruction decays with the iteration count. A deny does
 # not.
 #
+# When the iteration's `reaches=` names paired state (release, lock, unlock,
+# retry, transaction, rollback, acquire), an `invariant=` line is required as
+# well, since the measured fix chains were one exit of such a region per
+# iteration with the property never written down.
+#
 # Scope. The hook does nothing unless
 #   ~/.melvin/config/logs/review-and-fix/.active-<session_id>
 # exists, which review-and-fix writes at Step 0 and deletes at the Final
@@ -152,12 +157,25 @@ def main() -> None:
     it = _current_iter(log_text)
     if it is None:
         return
-    reaches = re.findall(rf"^cases iter={it} .*\breaches=\"?([^\n]*)", log_text, re.M)
+    # The value is the quoted text alone, so a later field on the same line
+    # cannot leak into it. An unquoted value runs to the next whitespace.
+    reaches = re.findall(rf"^cases iter={it} .*?(?:^|\s)reaches=(?:\"([^\"]*)\"|(\S+))", log_text, re.M)
+    reaches = [a or b for a, b in reaches]
     if reaches:
         # Paired state needs its property written down beside the exits. The
-        # words are the ones the measured chains were about.
-        paired = any(re.search(r"\b(claim|release|lock|unlock|retry|transaction|rollback|acquire)\w*", r, re.I) for r in reaches)
-        if not paired or re.search(rf"^cases iter={it} .*\binvariant=", log_text, re.M):
+        # words are the ones the measured chains were about. A bare "claim" is
+        # ordinary prose too often, so it counts as paired only beside a release.
+        def paired(r):
+            if re.search(r"\b(release|unlock|rollback|acquire|transaction|retry|lock)(s|ed|ing|es)?\b", r, re.I):
+                return True
+            return False
+        # The field has to sit outside any quoted value, or "invariant=" quoted
+        # inside reaches text would pass for the line.
+        has_invariant = any(
+            re.search(r"(^|\s)invariant=", re.sub(r"\"[^\"]*\"", '""', ln))
+            for ln in re.findall(rf"^cases iter={it} .*$", log_text, re.M)
+        )
+        if not any(paired(r) for r in reaches) or has_invariant:
             return
         missing_invariant = True
     else:

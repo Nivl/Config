@@ -92,6 +92,12 @@ printf 'cases iter=2 findings=C invariant="a claim taken on the path is released
 assert_eq "silent_paired_with_invariant" "silent" "$(decision 'git commit -m x')"
 printf '# run log\nt0 iter=2 x\ncases iter=2 findings=C reaches="the tax field; the total field; the null path"\n' > "$LOG"
 assert_eq "silent_unpaired_no_invariant_needed" "silent" "$(decision 'git commit -m x')"
+printf '# run log\nt0 iter=2 x\ncases iter=2 findings=C reaches="the tax field; the total field" note="a retry loop upstream handles this"\n' > "$LOG"
+assert_eq "silent_paired_word_in_other_field" "silent" "$(decision 'git commit -m x')"
+printf '# run log\nt0 iter=2 x\ncases iter=2 findings=C reaches="the tax claim in the invoice comment; the total field"\n' > "$LOG"
+assert_eq "silent_prose_claim" "silent" "$(decision 'git commit -m x')"
+printf '# run log\nt0 iter=2 x\ncases iter=2 findings=C reaches="claim on the paid arm; release on the normal return, invariant=x in passing"\n' > "$LOG"
+assert_eq "deny_invariant_inside_reaches_text" "deny" "$(decision 'git commit -m x')"
 unstage_all
 
 # ---- A deleted logic file is a code change ----

@@ -521,9 +521,11 @@ grouped by class.
    sub-step 2's approach instead. When the blamed commit wrote no `invariant=` line and the code
    pairs state, the root cause is that the property was never stated, and the fix starts by
    stating it in this iteration's case list. The point is that the second fix on a locus starts
-   from the property and the reason the first one missed it. On the run that motivates this, four
-   fixes to one claim/release region each closed the exit the finding named and none said what the
-   region had to guarantee.
+   from the property and the reason the first one missed it. On the run that motivates this, one
+   claim/release region written in iteration 1 was fixed in iterations 2, 3 and 4, each fix closing
+   the exit the finding named, and none of the four said what the region had to guarantee. Nothing
+   downstream reads the `rootcause` line. It exists for the writer, the way the case list does, and
+   for a reader of the log tracing how a chain of fixes reasoned.
 
    **This changes nothing about how the finding is handled.** Fix it exactly as you would any
    other, and never dismiss or deprioritise a finding for carrying the mark. No stop rule reads

@@ -43,6 +43,14 @@ assertion is a hit, and so is a neighbour the list should have named and did not
 the same guard applies to, the other provider, the null path. That list is what the self-inflicted
 logic fixes on the measured runs skipped, so it is where your read pays most.
 
+When a `cases` line carries `invariant=`, trace it. For each path `reaches=` names, and for each
+exit you can see in the diff that it does not name, say whether the invariant holds there: the
+normal return, each early return, each `await` or call between acquire and release that can throw.
+A path where it does not hold is a hit that names the path. An exit the list missed is a hit even
+when the invariant happens to hold there, because the list is what the next fix will read. One
+measured run fixed the same claim/release region four times, one exit per iteration, and a trace
+of the exits at the first fix would have named the other three.
+
 - **Error-level log on a hot path.** An added `error`-level log inside a request handler, a
   polling endpoint, a per-row loop, or a retry. Find where the function is called from before you
   decide. Per-call error logs on a client-polled endpoint were two separate findings in one run.

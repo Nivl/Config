@@ -152,8 +152,16 @@ def main() -> None:
     it = _current_iter(log_text)
     if it is None:
         return
-    if re.search(rf"^cases iter={it} .*\breaches=", log_text, re.M):
-        return
+    reaches = re.findall(rf"^cases iter={it} .*\breaches=\"?([^\n]*)", log_text, re.M)
+    if reaches:
+        # Paired state needs its property written down beside the exits. The
+        # words are the ones the measured chains were about.
+        paired = any(re.search(r"\b(claim|release|lock|unlock|retry|transaction|rollback|acquire)\w*", r, re.I) for r in reaches)
+        if not paired or re.search(rf"^cases iter={it} .*\binvariant=", log_text, re.M):
+            return
+        missing_invariant = True
+    else:
+        missing_invariant = False
     cwd = data.get("cwd") or os.getcwd()
     path = _changes_code(_staged_diff(cwd))
     if not path:
@@ -164,6 +172,11 @@ def main() -> None:
                 "hookEventName": "PreToolUse",
                 "permissionDecision": "deny",
                 "permissionDecisionReason": (
+                    (f"This commit changes code ({path}) and iteration {it}'s case list mentions paired state "
+                     f"(claim, release, lock, retry, transaction) with no `cases iter={it} ... invariant=\"...\"` line. "
+                     "State what must hold on every exit of the region, and list each exit in reaches=, per "
+                     "IMPLEMENTER.md section 0. ")
+                    if missing_invariant else
                     f"This commit changes code ({path}) and the run log has no case list for iteration {it}. "
                     f"IMPLEMENTER.md section 0: before a logic edit, append `cases iter={it} findings=<ids> changes=\"...\"`, "
                     f"`... keeps=\"...\"` and `... reaches=\"<the finding's case>; <each neighbour>\"` to the run log, "

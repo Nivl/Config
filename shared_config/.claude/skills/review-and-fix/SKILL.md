@@ -81,8 +81,8 @@ Iteration N:
 - [ ] Content probed after the fan-out returned, not git status alone
 - [ ] Every launched reviewer reported or resolved, none still RUNNING
 - [ ] t_fix appended
-- [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, approach settled
-- [ ] Per class group: `cases` lines appended before any logic edit, fix written per IMPLEMENTER.md, `quantifier-scan` and `negative-control` lines appended as they happen, one commit, class checked against the group's expected class, recorded
+- [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits, then a `rootcause iter=` line before any approach), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, approach settled
+- [ ] Per class group: `cases` lines appended before any logic edit (`invariant=` and every exit in `reaches=` when the edit touches paired state), fix written per IMPLEMENTER.md, `quantifier-scan` and `negative-control` lines appended as they happen, one commit, class checked against the group's expected class, recorded
 - [ ] Per six commits and at the end: `<PRE_BATCH>` recorded, `fix-precommit-check` run over `<PRE_BATCH>..HEAD`, hits landed as one follow-up commit with `origin=precommit`, `precommit iter=` line appended
 - [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field, `findings=` lists the group's members and the commit holds one class
 - [ ] Per commit, before it landed: `quantifier-scan iter=<N> findings=<ids> hits=<n>` appended, each hit named or resolved
@@ -512,6 +512,18 @@ grouped by class.
    which is how the Final Report counts the pre-commit check's misses. Do this BEFORE the fix,
    because afterwards blame shows the fix instead. Skip it when `run_commits` is empty, which is
    every finding in iteration 1.
+
+   **A self-inflicted finding gets a root cause before sub-step 2 chooses anything.** Read the
+   blamed commit's diff and the `cases`, `invariant` and `reopened` lines its iteration wrote for
+   that locus. Then append `rootcause iter=<N> finding=<id> blamed=<sha> because="<why the
+   previous fix was wrong>"`. "It released on the normal return and not on the throw at the
+   hydration await" is a root cause. "It should release in finally" is a plan, and it goes in
+   sub-step 2's approach instead. When the blamed commit wrote no `invariant=` line and the code
+   pairs state, the root cause is that the property was never stated, and the fix starts by
+   stating it in this iteration's case list. The point is that the second fix on a locus starts
+   from the property and the reason the first one missed it. On the run that motivates this, four
+   fixes to one claim/release region each closed the exit the finding named and none said what the
+   region had to guarantee.
 
    **This changes nothing about how the finding is handled.** Fix it exactly as you would any
    other, and never dismiss or deprioritise a finding for carrying the mark. No stop rule reads

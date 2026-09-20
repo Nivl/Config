@@ -23,7 +23,20 @@ Before touching code for a `logic` group, append three lines to the run log:
 cases iter=<N> findings=<ids> changes="<what this edit changes, one sentence>"
 cases iter=<N> findings=<ids> keeps="<what must stay the same, one sentence>"
 cases iter=<N> findings=<ids> reaches="<the finding's case>; <each neighbour: the other field, the other provider, the null path, the error path, the other log level>"
+cases iter=<N> findings=<ids> invariant="<what must hold across every path, when the edit touches paired state>"
 ```
+
+**When the edit touches state that has to pair up**, a claim and its release, a lock and its
+unlock, an open and its close, a retry and the idempotency it relies on, a transaction and its
+commit or rollback, two more things are required. `invariant=` states the property in one
+sentence, in the shape "a claim taken on this path is released on every exit of the path, and only
+while it is still ours". And `reaches=` names every exit of the region, not only the neighbours:
+the normal return, each early return, and each `await` or call between acquire and release that
+can throw. An exit the list does not name is the one the next iteration finds. Measured on one
+four-iteration run, the same claim/release region was fixed four times, each fix closing the exit
+the finding named and leaving the next one open, and no iteration wrote the property down. The
+`require-case-list` hook denies a code commit whose `reaches=` mentions those words with no
+`invariant=` line beside it.
 
 Then the red test in section 1 covers the finding's case, and each neighbour that already works
 gets an assertion that pins it, in the same test file, before the edit. A neighbour you cannot

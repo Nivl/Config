@@ -84,6 +84,16 @@ printf '# run log\n## Iteration 1\ncases iter=1 findings=A reaches="x"\n## Itera
 assert_eq "deny_heading_iteration" "deny" "$(decision 'git commit -m x')"
 unstage_all
 
+# ---- Paired state in reaches= needs an invariant= line ----
+printf '# run log\nt0 iter=2 x\ncases iter=2 findings=C reaches="claim on the paid arm; release on the normal return"\n' > "$LOG"
+stage src/a.ts 'export const f = 6'
+assert_eq "deny_paired_without_invariant" "deny" "$(decision 'git commit -m x')"
+printf 'cases iter=2 findings=C invariant="a claim taken on the path is released on every exit while still ours"\n' >> "$LOG"
+assert_eq "silent_paired_with_invariant" "silent" "$(decision 'git commit -m x')"
+printf '# run log\nt0 iter=2 x\ncases iter=2 findings=C reaches="the tax field; the total field; the null path"\n' > "$LOG"
+assert_eq "silent_unpaired_no_invariant_needed" "silent" "$(decision 'git commit -m x')"
+unstage_all
+
 # ---- A deleted logic file is a code change ----
 printf '# run log\nt0 iter=2 2026-09-18T01:00:00Z\n' > "$LOG"
 git rm -q src/a.ts

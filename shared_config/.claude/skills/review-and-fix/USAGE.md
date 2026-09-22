@@ -83,11 +83,12 @@ role 7 spent in that iteration.
 ## The estimate
 
 `est_usd` is list price times the standard cache multipliers, and it is an estimate rather than a
-bill. Rates as of 2026-09-02, per million tokens:
+bill. Rates as of 2026-09-22, per million tokens, from platform.claude.com's pricing page:
 
 | model | input | cache read | cache write (1.25x) | output |
 |---|---|---|---|---|
 | `claude-fable-5-1`, `claude-fable-5` | 10.00 | 0.25 | 12.50 | 50.00 |
+| `claude-opus-5-5` | 4.00 | 0.20 | 5.00 | 20.00 |
 | `claude-opus-5` | 5.00 | 0.50 | 6.25 | 25.00 |
 | `claude-sonnet-5` | 2.00 | 0.20 | 2.50 | 10.00 |
 | `claude-haiku-4-5` | 1.00 | 0.10 | 1.25 | 5.00 |
@@ -96,6 +97,12 @@ Fable's rates were given by the user on 2026-09-14 (cache read is 0.025x input t
 and its cache-write rate is assumed at the 1.25x multiplier. Fable is the orchestrator's model, so
 this row prices the session transcript when the filter is pointed at it, which is how the
 orchestrator's per-phase cost in the run-log notes was computed.
+
+Opus 5.5's cache read is 0.05x input, not 0.1x, so it is 60 percent below Opus 5's while input and
+output are 20 percent below. A role agent's spend is mostly cache reads, so the same role run
+prices at roughly half on 5.5. Compare runs across the switch by the `model=` field, since a
+`$/iteration` figure from before 2026-09-22 is an Opus 5 figure. The agents pin the `opus` alias,
+so which Opus ran is read from `model=`, never from the pin.
 
 `est_usd = input*in + cache_read*cr + cache_write*cw + output*out`, each in millions. A model not in
 the table gets `est_usd=?` rather than a guess, and the summary says which model was unpriced.

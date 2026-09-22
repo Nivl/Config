@@ -32,6 +32,8 @@ assert_eq "deny_chained" "deny" "$(decision 'mkdir x && git init' "$R")"
 assert_eq "deny_env_prefix" "deny" "$(decision 'GIT_DIR=.g git init' "$R")"
 printf -v MULTI "echo hi\ngit config user.email a@a.com"
 assert_eq "deny_multiline" "deny" "$(decision "$MULTI" "$R")"
+assert_eq "deny_global_in_next_command" "deny" "$(decision 'git config user.email a@a.com && git config --global core.pager cat' "$R")"
+assert_eq "silent_read_then_chain" "silent" "$(decision 'git config user.name && echo x' "$R")"
 
 assert_eq "silent_init_plain" "silent" "$(decision 'git init -q .' "$P")"
 assert_eq "silent_config_plain" "silent" "$(decision 'git config user.email t@example.com' "$P")"

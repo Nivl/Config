@@ -57,7 +57,8 @@ def _offending(tokens):
         if i >= len(tokens):
             continue
         sub = tokens[i]
-        rest = tokens[i + 1:]
+        end = next((k for k in range(i + 1, len(tokens)) if tokens[k] in {";", "&&", "||", "|"}), len(tokens))
+        rest = tokens[i + 1:end]
         if sub == "init":
             return "git init"
         if sub == "config":

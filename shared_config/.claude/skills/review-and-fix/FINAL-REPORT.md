@@ -126,7 +126,9 @@ which. The model in this block comes from the `usage kind=fix-precommit` lines, 
 `precommit` line's pin, so a pin that drifted from what ran is visible here. The
 bucket is the agent's own numbering (1 comments, 2 logging and locks, 3 tests, 4 scope), read from
 the finding's category. Findings blamed to iteration-1 commits made before the first check are not
-misses and are not counted in the denominator. Misses per bucket over three or four runs are the
+misses and are not counted in the denominator. A `precommit` line with `skipped=no-logic` is not a
+check, so its commits are unchecked and a finding blamed to one is not a miss either. Add
+`skipped <n> prose/test batches` to the first line when any were. Misses per bucket over three or four runs are the
 tier decision the agent file names. Omit the section when no check ran.
 
 ### Outcome

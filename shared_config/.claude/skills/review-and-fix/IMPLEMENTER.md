@@ -110,6 +110,19 @@ Follow all project coding standards:
    and for a mechanism sentence the smallest edit is a rescope, which fails again next iteration
    on a different reader. Replace it with a pointer, an invariant, a locally derivable fact, or
    nothing.
+- **A self-inflicted prose finding is fixed by deletion or a pointer, never by a rewrite.** When
+   sub-step 1 blamed the finding's sentence on a commit of this run, the sentence has already
+   been written once under review and found wrong. The allowed edits are two: delete the sentence,
+   or replace it with a pointer to a symbol this file's code names (`See <symbol>`, or the
+   docstring on it). No third wording. Grep the run log for `prose-locus` lines at the same
+   `file:range`. When one exists, this is the sentence's second self-inflicted finding, and the
+   only edit is deletion, the pointer form included. Before the edit, append
+   `prose-locus iter=<N> finding=<id> locus=<file:range> nth=<1|2> action=<deleted|pointer>`.
+   Measured on the run that motivated this: 56 self-inflicted findings over eight iterations,
+   every one prose, and the rootcause lines for them read "replaced one collaborator claim with
+   a different collaborator claim", "a shorter over-claim on the same locus", "a new why", with
+   five loci rewritten four to six times. Each rewrite was a fresh claim for the next iteration
+   to read. A deletion is not.
 - Run the project's linter/formatter if one exists and fix any violations it reports.
 - Run the project's tests (`pnpm run test:unit` for the web sub-project, or the equivalent
    for the relevant sub-project) to confirm no regressions.

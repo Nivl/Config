@@ -81,9 +81,9 @@ Iteration N:
 - [ ] Content probed after the fan-out returned, not git status alone
 - [ ] Every launched reviewer reported or resolved, none still RUNNING
 - [ ] t_fix appended
-- [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits, then a `rootcause iter=` line before any approach), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, approach settled
+- [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits, then a `rootcause iter=` line before any approach), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, `prose-locus` line before a self-inflicted prose fix and that fix a deletion or a pointer only, approach settled
 - [ ] Per class group: `cases` lines appended before any logic edit (`invariant=` and every exit in `reaches=` when the edit touches paired state), fix written per IMPLEMENTER.md, `quantifier-scan` and `negative-control` lines appended as they happen, one commit, class checked against the group's expected class, recorded
-- [ ] Per six commits and at the end: `<PRE_BATCH>` recorded, `fix-precommit-check` run over `<PRE_BATCH>..HEAD`, hits landed as one follow-up commit with `origin=precommit`, `precommit iter=` line appended
+- [ ] Per six commits and at the end: `<PRE_BATCH>` recorded; when the batch holds a `class=logic` commit, `fix-precommit-check` run over `<PRE_BATCH>..HEAD`, hits landed as one follow-up commit with `origin=precommit`, `precommit iter=` line appended; otherwise the `skipped=no-logic` line appended and no check launched
 - [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field, `findings=` lists the group's members and the commit holds one class
 - [ ] Per commit, before it landed: `quantifier-scan iter=<N> findings=<ids> hits=<n>` appended, each hit named or resolved
 - [ ] t2 appended, then the stamps: line
@@ -581,6 +581,12 @@ grouped by class.
    decision, and that was about $240 of a $385 run. Two decisions on one locus is a design
    question, and a design question is the user's.
 
+   **A self-inflicted prose finding has its own version of this rule, in IMPLEMENTER.md section
+   2.** The fix is a deletion or a pointer, the second finding on the same sentence is a deletion,
+   and each is logged as a `prose-locus` line. The reopen rule above is for behaviour and does not
+   cover a sentence, and the run that motivated the prose rule rewrote five sentences four to six
+   times each without a single `reopened` line, because none of the rewrites changed behaviour.
+
 3. **Write the fix, following [IMPLEMENTER.md](IMPLEMENTER.md) in order.** Its sections are the
    case list for a logic group, the red test for a behavior finding, the implementation rules, the
    seven staged-diff checks with the negative control, and the commit. One group, one commit. The commit line's `findings=` lists
@@ -603,8 +609,17 @@ grouped by class.
    it, once. Say the fact in one line and choose again.
 
 4. **After every six commits, and at the end of the iteration's fixes, run the pre-commit check
-   over them.** Record `git rev-parse --short HEAD` as `<PRE_BATCH>` before the first commit of
-   each batch. Then launch `fix-precommit-check`, the stamp first:
+   over them, when the batch holds a `class=logic` commit.** Record `git rev-parse --short HEAD`
+   as `<PRE_BATCH>` before the first commit of each batch. A batch whose `commit iter=` lines are
+   all `class=prose` or `class=test` is not checked. Append
+   `precommit iter=<N> batch=<b> findings=<committed ids> skipped=no-logic` and go on. Measured on
+   the two runs where the check read prose-only batches, 65 of 65 self-inflicted findings in the
+   next iteration sat on commits it had passed, and its follow-up commits were the blamed commit
+   for 23 of one run's 56 self-inflicted findings, twice as the source of that iteration's majors.
+   On a prose batch the check is a third writer on the same sentences, and the roles read its
+   output next iteration as they read yours. Its hits on logic batches in the same runs were real
+   (a warn on a rejected-payload arm, a locale-aware binding check), so it stays for those. For a
+   batch with a logic commit, launch `fix-precommit-check`, the stamp first:
 
    ```
    <!-- fix-precommit tag=iter<N> batch=<b> findings=<committed ids> target=<TARGET_ARG> -->
@@ -839,10 +854,21 @@ distinction from an interrupt. [FINAL-REPORT.md](FINAL-REPORT.md) carries its Ou
 that rather than bending row 1c or row 2 to fit, and rather than naming a stop of your own. The
 nine logged runs behind this rule are in the run-log notes.
 
-**Ask, do not decide.** When `self_inflicted_count` has been the majority of the kept findings for
-three consecutive iterations, put that in front of the user before launching the next one, and let
-them choose. That is the whole trigger. It does not also wait for `any_logic_change` and
-`any_test_change` to go false.
+**Ask, do not decide.** Two triggers, and either one fires the ask. When `self_inflicted_count`
+has been the majority of the kept findings for three consecutive iterations, or when
+`any_logic_change` has been false for two consecutive iterations, put that in front of the user
+before launching the next one, and let them choose. Neither trigger waits for the other, and the
+first does not wait for `any_logic_change` and `any_test_change` to go false.
+
+The second trigger is the prose lane's exit. Two iterations that committed prose and tests and no
+logic mean roles 1, 5, 9 and 11 are reading what this run wrote, and the rootcause lines of the
+run that motivated the trigger say what that reading produces: a rewrite of a rewrite. That run
+went nine iterations with no logic commit after iteration 1, at about $55 of roles each plus the
+orchestrator, with five loci rewritten four to six times, and the first trigger did not fire
+until iteration 9 because the majority dipped below half in iterations 5 and 6 while the absolute
+self-inflicted count kept rising, 6, 6, 8, 9, 9, 8. The second trigger would have asked after
+iteration 3. Read `any_logic_change` from the iterations' own `any_logic_change=` lines, so the
+count survives a compaction.
 
 The ask carries four things, so the decision is made on yield rather than on a percentage alone:
 the per-iteration self-inflicted counts, the spend so far, the last three iterations' `severity`
@@ -864,7 +890,7 @@ is the direct signal and the booleans only corroborate it. Requiring the corrobo
 and it cost roughly $500 of the run.
 
 If the user says continue, the signal keeps showing, and the ask fires again after three more
-consecutive majority iterations. That is gated on the signal and not on a schedule, so it is not the
+consecutive majority iterations, or two more with no logic commit. That is gated on the signal and not on a schedule, so it is not the
 periodic check-in the paragraph above forbids.
 
 Presenting a signal is not one of the four forbidden things. It counts no iterations, fires on no
@@ -875,7 +901,7 @@ authorized is harder to argue with than a bad one.
 The finding count is not the signal, because it falls monotonically the whole time this lane runs,
 so a run can look like it is converging while it eats its own output. The lane's only exits are
 row 1 once roles 1, 5 and 11 accept what the run wrote, row 2 once an iteration commits nothing,
-and the user, either by direction or by interrupt.
+and the user, by the no-logic ask above, by direction or by interrupt.
 
 **Row 2b is a severity floor, and it is none of the four things banned above.** It reads only the
 severity and category of the findings in hand. It does not count iterations, does not compare an
@@ -988,7 +1014,8 @@ and they see the accumulated test code then. Cost trade: [PRUNING.md](PRUNING.md
 
 **The pruned `prose` lane is absorbing.** A `prose` commit usually hands roles 1, 5 and 11 their
 own output. Row 4 needs a `logic` commit and a prose-only iteration has none, so no rerun row can
-end this lane. Its exits are the three the signal above already names. Full analysis:
+end this lane. Its exits are the ones the signal above names, and the no-logic ask is the one
+written for it. Full analysis:
 [PRUNING.md](PRUNING.md).
 
 **There is a second absorbing lane, and it runs at full cost.** An iteration that commits one small

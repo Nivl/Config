@@ -119,7 +119,9 @@ Cover these in this order, one line each, and drop any line that has nothing to 
   Final Report's Severity block reads it for. Write every bucket, zeros included, or the grep
   produces a ragged table.
 - `any_logic_change` and `any_test_change` for the iteration, which are what row 4 and row 5
-  read. Both false means every commit was `prose`.
+  read, as one line in exactly this shape: `any_logic_change=<true|false> any_test_change=<true|false>`.
+  Both false means every commit was `prose`. The no-logic ask in Step 3 counts consecutive
+  `any_logic_change=false` lines, so the shape is pinned.
 - Waiting time and fixing time, as `t_fix` minus `t0` and `t2` minus `t_fix`. Two numbers, one line.
   A long wait beside a near-zero fix is what a cheap iteration actually costs, and pruning cuts the
   reviewers launched without cutting the wait. Do not compute either from `t1`. `t1` is the last

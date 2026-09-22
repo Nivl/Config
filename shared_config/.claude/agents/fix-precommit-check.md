@@ -1,6 +1,6 @@
 ---
 name: fix-precommit-check
-description: Reads the diff of one batch of review-and-fix's fix commits, right after they land, and reports the defects those fixes most often introduce, for the implementer to correct in a follow-up commit. Invoked only by the review-and-fix skill, once per batch. Never directly by a user and never by auto-delegation.
+description: Reads the diff of one batch of review-and-fix's fix commits, right after they land, and reports the defects those fixes most often introduce, for the implementer to correct in a follow-up commit. Invoked only by the review-and-fix skill, once per batch that holds a logic commit. Never directly by a user and never by auto-delegation.
 model: opus
 effort: low
 tools: Bash, Read, Grep, Glob

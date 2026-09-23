@@ -65,7 +65,7 @@ Copy this at Step 0. Copy the iteration block again for each iteration.
 Run setup, once:
 - [ ] Tree clean, or the user chose stash or include
 - [ ] <RANGE> set, commit count above zero
-- [ ] <HAS_PR>, <PR>, <TARGET_ARG>, <SKIP_TICKET> set
+- [ ] <HAS_PR>, <PR>, <TARGET_ARG>, <SKIP_TICKET>, <REVIEW_LIMIT>, <FULL> set
 - [ ] Workflow and Agent tools confirmed, else abort with REVIEW_UNAVAILABLE_NO_FANOUT
 - [ ] Jira reader ready, or the user chose (a), (b) or (c)
 - [ ] <ACTIVE_ROLES> (roles 1-9 and 11), <INSTANCE_2_ROLES> and <ACTIVE_GH_STYLE> (true only with --gh-style) set for iteration 1

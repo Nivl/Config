@@ -175,8 +175,9 @@ up doing something nobody asked for, and here both readings are wrong. Ask which
 **`--review-limit` or `--full` with `--fast` or `--assess` is an error. Stop and say so.** Neither
 mode runs Step 8, so there is no loop for a cap to bound or an ask to suppress, and the user has
 asked to shape something they also asked to delete. This is the same shape as the contradiction above and it gets the same treatment. Do not
-pick a winner, and in particular do not silently drop the cap on the grounds that it would have had
-no effect. A run that quietly ignores a number the user typed teaches them the number works.
+pick a winner, and in particular do not silently drop the cap or `--full` on the grounds that it
+would have had no effect. A run that quietly ignores a flag the user typed teaches them the flag
+works.
 
 **This section is the single copy of what the flags mean, and the Pipeline table's `Cut by` column is
 the per-step map.** The two bullets above summarize that map in prose, and where the summary and the

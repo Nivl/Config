@@ -6,8 +6,8 @@ This file holds the commands those acts run.
 
 ## Resolving the target
 
-Run these in order. Return with `<RANGE>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`, `<SKIP_TICKET>` and
-`<REVIEW_LIMIT>` all set.
+Run these in order. Return with `<RANGE>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`, `<SKIP_TICKET>`,
+`<REVIEW_LIMIT>` and `<FULL>` all set.
 
 1. **Default branch.**
 
@@ -64,6 +64,11 @@ Run these in order. Return with `<RANGE>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`, `
    default its `--no-assess` mode supplies, and nothing about this skill's own behavior changes
    based on which of those it was. A caller-supplied cap and a user-typed one are the same value
    here. What the caller owes its own user is disclosure, and that is the caller's report to write.
+
+7. **`<FULL>`** = true if the invocation included `--full`, else false. It takes no value. When
+   true, Step 3's two asks do not fire and the loop ends only on a stop row, the `<REVIEW_LIMIT>`
+   cap, or an interrupt. Step 3 says what replaces each ask. `work-on` passes it down when its own
+   user typed it.
 
 ## Probing for a Jira reader
 

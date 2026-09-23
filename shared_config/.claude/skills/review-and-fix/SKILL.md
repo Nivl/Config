@@ -8,6 +8,7 @@ description: >
   findings, and applies fixes one commit at a time. The loop stops when a pass finds nothing, when
   coverage is short, when only low-severity findings survive, when an iteration commits nothing,
   when the user says stop, or when it reaches the `--review-limit X` cap if the invocation set one.
+  `--full` turns off the mid-run asks to stop early, so only those conditions end the run.
   It aborts when no reviewer can run at all. No GitHub writes.
   Produces a final summary report.
   Use this skill when the user asks to "review and fix", "review my changes", "clean up my
@@ -81,6 +82,7 @@ Iteration N:
 - [ ] Content probed after the fan-out returned, not git status alone
 - [ ] Every launched reviewer reported or resolved, none still RUNNING
 - [ ] t_fix appended
+- [ ] Step 3 ask: when a trigger fires, `AskUserQuestion` with the four facts, or under `<FULL>` an `ask-suppressed iter=` line and no question
 - [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits, then a `rootcause iter=` line before any approach), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, `prose-locus` line before a self-inflicted prose fix and that fix a deletion or a pointer only, approach settled
 - [ ] Per class group: `cases` lines appended before any logic edit (`invariant=` and every exit in `reaches=` when the edit touches paired state), fix written per IMPLEMENTER.md, `quantifier-scan` and `negative-control` lines appended as they happen, one commit, class checked against the group's expected class, recorded
 - [ ] Per six commits and at the end: `<PRE_BATCH>` recorded; when the batch holds a `class=logic` commit, `fix-precommit-check` run over `<PRE_BATCH>..HEAD`, hits landed as one follow-up commit with `origin=precommit`, `precommit iter=` line appended; otherwise the `skipped=no-logic` line appended and no check launched
@@ -99,9 +101,10 @@ Iteration N:
 1. Confirm the working tree is clean (`git status --porcelain`). If there are uncommitted
    changes, warn the user and ask whether to stash first or include them in the review.
 2. Resolve the target per [SETUP.md](SETUP.md), and return with `<RANGE>`, `<HAS_PR>`, `<PR>`,
-   `<TARGET_ARG>`, `<SKIP_TICKET>` and `<REVIEW_LIMIT>` set. Do not proceed with any of them unset.
-   When `<REVIEW_LIMIT>` is 1 or more, say so in the announce line, so the cap is visible from the
-   start rather than only at the ending it produces.
+   `<TARGET_ARG>`, `<SKIP_TICKET>`, `<REVIEW_LIMIT>` and `<FULL>` set. Do not proceed with any of
+   them unset. When `<REVIEW_LIMIT>` is 1 or more, say so in the announce line, so the cap is
+   visible from the start rather than only at the ending it produces. When `<FULL>` is true, say
+   that too, and say the run will not ask to stop early.
 3. Count how many commits the current branch is ahead of the default branch:
    ```
    git rev-list --count origin/<default-branch>..HEAD
@@ -888,6 +891,17 @@ gate stayed shut while the orchestrator wrote "self-inflicted findings were the 
 iteration 3 onward" into its own Final Report. The passage below already says `self_inflicted_count`
 is the direct signal and the booleans only corroborate it. Requiring the corroboration inverted that,
 and it cost roughly $500 of the run.
+
+**Under `<FULL>`, neither trigger asks.** The user said up front that the run ends on a stop row,
+the cap, or an interrupt, and that answer covers every ask this section would make. When a trigger
+fires, append `ask-suppressed iter=<N> trigger=<majority|no-logic> self_inflicted=<counts> spend=<so far> branch_logic_commits=<n>`
+and launch the next iteration without `AskUserQuestion`. The four facts the ask would carry still
+go in the per-iteration summary, so the signal is on record for the Final Report, and the counter
+restarts as it does after a "continue". This covers these two asks and nothing else. Step 0's
+dirty-tree question, a missing Jira reader, an untestable finding and the second reopen of a locus
+still go to the user, because each asks what to do with this iteration's work and none asks
+whether to stop. `<FULL>` also rules out the sentence "A recommendation to stop" below describes,
+while the loop runs.
 
 If the user says continue, the signal keeps showing, and the ask fires again after three more
 consecutive majority iterations, or two more with no logic commit. That is gated on the signal and not on a schedule, so it is not the

@@ -166,6 +166,10 @@ going somewhere, and points at Remaining Issues when that section is present. Ca
 at any coverage value, for the same reason the user-directed stop carries none.
 ```
 
+Under `--full`, add one line after whichever Outcome applies, naming each `ask-suppressed` line
+with its iteration and trigger, or `asks suppressed: none`. The user chose not to be asked, and this
+is where they read what they would have been asked and when.
+
 ## Selecting the Outcome line
 
 **A green check requires Coverage to be `complete`.** Key it on Coverage

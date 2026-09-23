@@ -13,7 +13,7 @@ description: >
   `--no-assess` skips validation and `--fast` skips validation and the review, so never answer a
   staleness or worth-fixing question with either one.
   `--review-limit X` caps how many iterations the review loop may run, and `--no-assess` defaults
-  that cap to 2.
+  that cap to 2. `--full` tells the review loop not to ask whether to stop early.
   Do not use it for a ticket the user only wants read or summarized, and do not use it to fix an
   existing PR (that is fix-pr).
 ---
@@ -44,7 +44,7 @@ validation phase is qualified by it.
 | 5 | Rewrite the ticket. Status to In Progress, assignee to the user, sprint to the user's active one, description in place, plus a validation comment. | **Jira** | reduced, see "Argument" |
 | 6 | Do the work via brainstorming or systematic-debugging. Brainstorming's design is approved through one `AskUserQuestion` before the first edit. | local files | `--assess` |
 | 7 | Commit everything, push. No PR yet. | **remote** | `--assess` |
-| 8 | `review-and-fix`, every iteration up to `--review-limit`, no early stop of this run's own. | local commits | `--fast`, `--assess` |
+| 8 | `review-and-fix`, every iteration up to `--review-limit`, no early stop of this run's own, and no ask to stop early under `--full`. | local commits | `--fast`, `--assess` |
 | 9 | Push, then `open-pr --draft`. Always a draft, never a question. No PR opens at all when Step 8 could not run, which is a Step 8 that broke and never a Step 8 the user skipped. | **remote** | `--assess` |
 | end | "Final report". PR URL, write verification, one line per shipped `TODO(user):`. | no | never |
 
@@ -129,6 +129,13 @@ choice rather than a fourth flag the run reached for.
   value of 1 means one iteration and then stop. Any higher value is a ceiling the loop stops at if
   it has not already stopped on its own. The flag is passed straight down to `review-and-fix`, which
   owns the cap and reports it, and Step 8 says what that ending may and may not claim.
+- **`--full` tells Step 8 not to ask whether to stop early.** It takes no value. `review-and-fix`
+  normally stops to ask when its own fixes dominate the findings or when iterations stop producing
+  logic changes. Under `--full` it logs those signals and keeps going, so the loop ends only on one
+  of its stop rows, on `--review-limit`, or on an interrupt. It changes no cap. `--no-assess --full`
+  still stops at 2 iterations, and `--no-assess --full --review-limit 0` is the uncapped, unasked
+  run. The flag is passed straight down, like `--review-limit`, and like that flag it is neither a
+  flag run nor in the Pipeline table's `Cut by` column.
 
 `--fast` implies `--no-assess`. Passing both is not an error and gets no warning, because `--fast` is a
 superset of it and the wider skip wins.
@@ -165,9 +172,9 @@ exist to delete that phase, so the pair asks for a report on an investigation th
 Do not resolve it by picking a winner. A silent resolution of contradictory flags is how a run ends
 up doing something nobody asked for, and here both readings are wrong. Ask which one they meant.
 
-**`--review-limit` with `--fast` or `--assess` is an error. Stop and say so.** Neither mode runs Step
-8, so there is no loop for a cap to bound and the user has asked to limit something they also asked
-to delete. This is the same shape as the contradiction above and it gets the same treatment. Do not
+**`--review-limit` or `--full` with `--fast` or `--assess` is an error. Stop and say so.** Neither
+mode runs Step 8, so there is no loop for a cap to bound or an ask to suppress, and the user has
+asked to shape something they also asked to delete. This is the same shape as the contradiction above and it gets the same treatment. Do not
 pick a winner, and in particular do not silently drop the cap on the grounds that it would have had
 no effect. A run that quietly ignores a number the user typed teaches them the number works.
 
@@ -381,6 +388,9 @@ whole product.
 /work-on WMP-837 --no-assess --review-limit 5   # the user's 5 replaces the default 2
 /work-on WMP-837 --no-assess --review-limit 0   # no cap, because the user asked for none
 /work-on WMP-837 --fast --review-limit 3        # nothing to cap, stop and say so
+/work-on WMP-837 --full                         # full pipeline, Step 8 never asks to stop early
+/work-on WMP-837 --no-assess --full             # still capped at 2, just no asks
+/work-on WMP-837 --assess --full                # no review to run, stop and say so
 ```
 
 ## Assume nothing
@@ -519,7 +529,7 @@ fixed. The Datadog brief asks for that correlation explicitly.
 ## Step 0: Preflight
 
 **1. Resolve the ticket key.** **Strip the modifier flags first**, per "Argument", and record the
-mode. The flags are `--no-assess`, `--fast`, `--assess` and `--review-limit`, they may sit anywhere
+mode. The flags are `--no-assess`, `--fast`, `--assess`, `--review-limit` and `--full`, they may sit anywhere
 in the argument, and what is left after removing them is the key. `--review-limit` carries a value,
 so strip its value with it per "Argument", whichever of the two spellings was used. A flag left in
 place either fails the regex below or reads as a missing key, and both failures look like a
@@ -1659,7 +1669,8 @@ So there is no middle setting the run may pick for itself, and every number that
 **Pass the cap down when there is one.** Invoke `review-and-fix` with `--review-limit <X>`, where
 `<X>` is the user's value or `--no-assess`'s default of 2, per "Argument". Pass nothing when there is
 no cap. That skill owns the cap, stops on it, and reports the ending, so do not count iterations here
-and do not stop the loop from outside.
+and do not stop the loop from outside. Pass `--full` too when the user gave it, and name it in the
+announce line below.
 
 **Announce the cap before invoking, and say where the number came from.** One line naming the
 number, and naming `--no-assess` when the default supplied it. The user cannot override a default

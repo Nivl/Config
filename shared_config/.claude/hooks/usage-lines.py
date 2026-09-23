@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-# PostToolUse hook (Workflow): when a Workflow call that carried `args.tag`
+# PostToolUse hook (Workflow, Bash): when a Workflow call that carried `args.tag`
 # returns, run the review-and-fix usage filter over this session's sub-agent
-# transcripts and produce the `usage kind=...` lines for that tag.
+# transcripts and produce the `usage kind=...` lines for that tag. A Workflow
+# that runs in the background returns before its agents write anything, so
+# _after_bash also sweeps every stamped transcript on each Bash call while a run
+# marker exists.
 #
 # Where the lines go depends on one marker file:
 #
@@ -79,10 +82,104 @@ def _emit(text):
     )
 
 
+def _read_marker(session_id):
+    marker = os.path.join(MARKER_DIR, f".active-{session_id}")
+    try:
+        with open(marker) as fh:
+            run_log = fh.read().strip() or None
+    except OSError:
+        return marker, None
+    return marker, run_log if run_log and os.path.isfile(run_log) else None
+
+
+def _merge_into_log(run_log, lines):
+    # Returns (appended, replaced, already_complete). Raises OSError.
+    with open(run_log) as fh:
+        log = fh.read().splitlines()
+    # Only ids on usage lines count, so a Jira id or a sha elsewhere
+    # in the log cannot make a fresh line look already present.
+    have = {}
+    for i, ln in enumerate(log):
+        if not ln.startswith("usage "):
+            continue
+        m = ID_RE.search(ln)
+        if m:
+            have[m.group(1)] = (_turns(ln), i)
+
+    fresh, grown = [], {}
+    for ln in lines:
+        m = ID_RE.search(ln)
+        prior = have.get(m.group(1)) if m else None
+        if prior is None:
+            fresh.append(ln)
+        elif _turns(ln) > prior[0]:
+            # The logged line was written while this agent was still
+            # running, so its counts stopped short of the agent's own
+            # total. Replacing it keeps one line per id, which is what
+            # the Spend total sums over.
+            grown[prior[1]] = ln
+
+    if grown:
+        for i, ln in grown.items():
+            log[i] = ln
+        tmp = run_log + ".usage-lines.tmp"
+        with open(tmp, "w") as fh:
+            fh.write("\n".join(log + fresh) + "\n")
+        os.replace(tmp, run_log)
+    elif fresh:
+        with open(run_log, "a") as fh:
+            fh.write("\n".join(fresh) + "\n")
+    return len(fresh), len(grown), len(lines) - len(fresh) - len(grown)
+
+
+def _after_bash(data):
+    # The Workflow tool returns as soon as it launches, so at its PostToolUse no
+    # role has a transcript yet and the tagged pass above finds nothing. The
+    # orchestrator's next Bash calls come after the workflow's notification, so
+    # this pass sweeps every stamped transcript into the run log then. It runs
+    # only while a run marker exists, and only when a transcript changed since
+    # the last sweep, which the .seen file beside the marker records.
+    marker, run_log = _read_marker(data.get("session_id", ""))
+    if not run_log:
+        return
+    transcript = data.get("transcript_path") or ""
+    if not transcript.endswith(".jsonl"):
+        return
+    files = _transcripts(transcript[: -len(".jsonl")])
+    if not files:
+        return
+    try:
+        newest = max(os.path.getmtime(f) for f in files)
+    except OSError:
+        return
+    seen_path = marker + ".seen"
+    try:
+        with open(seen_path) as fh:
+            if float(fh.read().strip() or 0) >= newest:
+                return
+    except (OSError, ValueError):
+        pass
+    lines = [ln for ln in _usage_lines(files) if not ln.startswith("usage kind=unstamped ")]
+    try:
+        added, replaced, _ = _merge_into_log(run_log, lines)
+        with open(seen_path, "w") as fh:
+            fh.write(repr(newest))
+    except OSError:
+        return
+    if added or replaced:
+        _emit(
+            f"usage-lines: appended {added} usage line(s) to {run_log} and replaced {replaced} "
+            "written mid-run. Do not append them again."
+        )
+
+
 def main() -> None:
     try:
         data = json.load(sys.stdin)
     except Exception:
+        return
+    if data.get("tool_name") == "Bash":
+        _after_bash(data)
         return
     if data.get("tool_name") != "Workflow":
         return
@@ -107,56 +204,14 @@ def main() -> None:
     if not lines:
         return
 
-    marker = os.path.join(MARKER_DIR, f".active-{data.get('session_id', '')}")
-    run_log = None
-    try:
-        with open(marker) as fh:
-            run_log = fh.read().strip() or None
-    except OSError:
-        run_log = None
-
-    if run_log and os.path.isfile(run_log):
+    _, run_log = _read_marker(data.get("session_id", ""))
+    if run_log:
         try:
-            with open(run_log) as fh:
-                log = fh.read().splitlines()
-            # Only ids on usage lines count, so a Jira id or a sha elsewhere
-            # in the log cannot make a fresh line look already present.
-            have = {}
-            for i, ln in enumerate(log):
-                if not ln.startswith("usage "):
-                    continue
-                m = ID_RE.search(ln)
-                if m:
-                    have[m.group(1)] = (_turns(ln), i)
-
-            fresh, grown = [], {}
-            for ln in lines:
-                m = ID_RE.search(ln)
-                prior = have.get(m.group(1)) if m else None
-                if prior is None:
-                    fresh.append(ln)
-                elif _turns(ln) > prior[0]:
-                    # The logged line was written while this agent was still
-                    # running, so its counts stopped short of the agent's own
-                    # total. Replacing it keeps one line per id, which is what
-                    # the Spend total sums over.
-                    grown[prior[1]] = ln
-
-            if grown:
-                for i, ln in grown.items():
-                    log[i] = ln
-                tmp = run_log + ".usage-lines.tmp"
-                with open(tmp, "w") as fh:
-                    fh.write("\n".join(log + fresh) + "\n")
-                os.replace(tmp, run_log)
-            elif fresh:
-                with open(run_log, "a") as fh:
-                    fh.write("\n".join(fresh) + "\n")
-
+            added, replaced, complete = _merge_into_log(run_log, lines)
             _emit(
-                f"usage-lines: appended {len(fresh)} usage line(s) for tag={tag} to {run_log}, "
-                f"replaced {len(grown)} that had been written mid-run "
-                f"({len(lines) - len(fresh) - len(grown)} already complete). "
+                f"usage-lines: appended {added} usage line(s) for tag={tag} to {run_log}, "
+                f"replaced {replaced} that had been written mid-run "
+                f"({complete} already complete). "
                 "Do not append them again."
             )
             return

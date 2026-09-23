@@ -338,9 +338,11 @@ line per instance that names the instance. `t1` is the last of them. `t1` minus 
 iteration's waiting time, and on a pruned iteration that number is most of the wall clock.
 
 **Then check the usage lines landed, before anything else in this iteration.** The `usage-lines`
-hook runs on every `review-roles` return and appends the lines for this iteration's `tag` to
-`run_log_path` while the marker from Step 0 exists. Its `additionalContext` says how many it
-appended. Read the log's tail and confirm one `usage kind=review-roles` line per role agent
+hook runs after every Bash call while the marker from Step 0 exists, and appends a line for each
+stamped transcript that changed since its last pass, so the first Bash call after the workflow's
+notification is where this iteration's lines land. Its `additionalContext` says how many it
+appended. It also runs on the `Workflow` return, which is too early to see anything now that the
+tool returns at launch. Read the log's tail and confirm one `usage kind=review-roles` line per role agent
 dispatched. If the count is short, or the hook reported nothing, run the filter yourself over the
 session's transcripts, where `<session>` is the directory holding this session's `.jsonl`:
 
@@ -1077,7 +1079,7 @@ hook could not have seen, the final iteration's gh-style and scorer, skipping an
 the log. Then delete the marker:
 
 ```
-rm -f ~/.melvin/config/logs/review-and-fix/.active-<session-id>
+rm -f ~/.melvin/config/logs/review-and-fix/.active-<session-id> ~/.melvin/config/logs/review-and-fix/.active-<session-id>.seen
 ```
 
 Append the report to `run_log_path` too, then tell the user where the log is. That path is the last

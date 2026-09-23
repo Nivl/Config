@@ -98,4 +98,26 @@ assert_contains "midrun_then_idempotent" "appended 0 usage line(s)" "$OUT"
 assert_contains "midrun_then_no_replace" "replaced 0 that had been written mid-run" "$OUT"
 assert_eq "midrun_log_three" "3" "$(grep -c '^usage kind=' "$LOG")"
 
+# ---- Bash after a background workflow: sweep every stamped transcript ----
+# The Workflow tool returns before its agents write anything, so the lines have
+# to land on a later Bash call. Every tag, no unstamped lines, and a .seen stamp
+# so an unchanged set of transcripts costs one stat pass.
+trap 'rm -f "$MARKER_DIR/.active-$SESSION" "$MARKER_DIR/.active-$SESSION.seen"; rm -rf "$FIX"' EXIT
+printf '# run log\n' > "$LOG"
+rm -f "$MARKER_DIR/.active-$SESSION.seen"
+OUT="$(run Bash '' | ctx)"
+assert_contains "bash_sweep_appended_four" "appended 4 usage line(s)" "$OUT"
+assert_eq "bash_sweep_log_four" "4" "$(grep -c '^usage kind=' "$LOG")"
+assert_eq "bash_sweep_has_iter2" "1" "$(grep -c 'tag=iter2' "$LOG")"
+assert_eq "bash_sweep_seen_written" "yes" "$([[ -s "$MARKER_DIR/.active-$SESSION.seen" ]] && echo yes || echo no)"
+assert_eq "bash_sweep_unchanged_silent" "" "$(run Bash '')"
+sleep 1
+jq -nc '{type:"assistant", message:{model:"claude-opus-5", usage:{input_tokens:10, cache_read_input_tokens:1000000, cache_creation_input_tokens:100000, output_tokens:2000}}}' >> "$ROLE1"
+OUT="$(run Bash '' | ctx)"
+assert_contains "bash_sweep_grown_replaced" "replaced 1 written mid-run" "$OUT"
+assert_eq "bash_sweep_one_line_per_id" "1" "$(grep -c 'id=aaaa1111 model' "$LOG")"
+assert_eq "bash_sweep_turns_three" "1" "$(grep -c 'id=aaaa1111 model=opus-5 turns=3 ' "$LOG")"
+rm -f "$MARKER_DIR/.active-$SESSION"
+assert_eq "bash_no_marker_silent" "" "$(run Bash '')"
+
 echo "usage-lines.py: all tests passed"

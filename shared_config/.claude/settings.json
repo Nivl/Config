@@ -109,7 +109,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Workflow",
+        "matcher": "Workflow|Bash",
         "hooks": [
           {
             "type": "command",

@@ -31,6 +31,7 @@ Summarise the entire session in a clear report to the user:
 
 ### Remaining Issues (omit when every surviving finding was fixed)
 - <finding description> [severity, cross-instance N/M active, sources <in-depth|gh-style|both>, confidence X] — <file:line>
+- <finding description> [follow-up: outside the branch's files] — <file:line>, one per `outside-branch` line
 - ...
 
 ### Discussion Context (PR mode only; omit entire section if branch mode or both pools empty)

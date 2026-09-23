@@ -83,7 +83,7 @@ Iteration N:
 - [ ] Every launched reviewer reported or resolved, none still RUNNING
 - [ ] t_fix appended
 - [ ] Step 3 ask: when a trigger fires, `AskUserQuestion` with the four facts, or under `<FULL>` an `ask-suppressed iter=` line and no question
-- [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits, then a `rootcause iter=` line before any approach), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, `prose-locus` line before a self-inflicted prose fix and that fix a deletion or a pointer only, approach settled
+- [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits, then a `rootcause iter=` line before any approach), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, `prose-locus` line before a self-inflicted prose fix and that fix a deletion or a pointer only, `outside-branch` line and no edit when the fix is in a file the branch had not changed (call sites excepted), approach settled
 - [ ] Per class group: `cases` lines appended before any logic edit (`invariant=` and every exit in `reaches=` when the edit touches paired state), fix written per IMPLEMENTER.md, `quantifier-scan` and `negative-control` lines appended as they happen, one commit, class checked against the group's expected class, recorded
 - [ ] Per six commits and at the end: `<PRE_BATCH>` recorded; when the batch holds a `class=logic` commit, `fix-precommit-check` run over `<PRE_BATCH>..HEAD`, hits landed as one follow-up commit with `origin=precommit`, `precommit iter=` line appended; otherwise the `skipped=no-logic` line appended and no check launched
 - [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field, `findings=` lists the group's members and the commit holds one class
@@ -144,8 +144,7 @@ Iteration N:
 6. **Initialize the active reviewer set** used by Step 1. Three variables, and they are not
    symmetric:
    - `<ACTIVE_ROLES>` = the roles instance 1 runs. Iteration 1: in-depth-review roles `1..9` and
-     `11`. Role 10 does not run in this skill, and role 7 runs in iteration 1 only, per the two
-     notes below. `<SKIP_TICKET>` still gates the Jira preflight and the ticket-category decisions
+     `11`. Role 10 does not run in this skill, per the note below. `<SKIP_TICKET>` still gates the Jira preflight and the ticket-category decisions
      in Step 2, and it removes nothing from the set because role 10 is already absent.
    - `<INSTANCE_2_ROLES>` = the roles instance 2 runs. Iteration 1: `{11, 9, 2}`, motivation, test
      coverage and bug scan. Not the full set. From iteration 2 the default is `{}`, per Step 3.
@@ -184,10 +183,12 @@ Iteration N:
    intent inside the diff. Role 10 still runs in `in-depth-review` and `pr-review`, where no
    validation preceded the review.
 
-   **Why role 7 is iteration 1 only.** $173 over 131 launches for two sole-raiser fixes, the worst
-   ratio of any lens, on payment code where its miss has a different shape from the others. It reads
-   the branch's own code once, in iteration 1, and is dropped from the self-inflicted rounds after,
-   where it found nothing in the logs.
+   **Why role 7 runs in every full iteration.** At Opus 5 prices it cost $173 over 131 launches for
+   two sole-raiser fixes, the worst ratio of any lens, and it ran in iteration 1 only. On Opus 5.5 a
+   role-7 launch priced at $0.37 in the first runs, about a quarter of its old $1.32, and the
+   security lens on payment code misses in a different shape from the others, so it is back in row
+   4's set from 2026-09-23 on the user's decision. Row 5 keeps it only when it was productive, like
+   any role.
 
 7. **Open the run log.** Resolve `run_log_path` per [SETUP.md](SETUP.md), trying the preferred
    home before the fallback rather than assuming it is unavailable (why: [RATIONALE.md](RATIONALE.md)). **Write the header now**,
@@ -249,7 +250,7 @@ Announce at iteration start, reflecting the ACTUAL active set, e.g.:
 > Iter 1: roles 1-9,11 (instance 1) + roles 11,9,2 (instance 2); gh-style off (no --gh-style).
 > Target: PR #<PR> [draft]  <-  or  Target: branch range <RANGE>
 
-> Iter 4: roles 1-6,8,9,11 (instance 1, full, role 7 dropped) + roles 2,9 (instance 2: new SQL rewritten, per the log line); gh-style off.
+> Iter 4: roles 1-9,11 (instance 1, full) + roles 2,9 (instance 2: new SQL rewritten, per the log line); gh-style off.
 
 > Iter 5: roles 1,5,9 (instance 1, pruned) + none (instance 2: default); gh-style off.
 
@@ -586,6 +587,20 @@ grouped by class.
    decision, and that was about $240 of a $385 run. Two decisions on one locus is a design
    question, and a design question is the user's.
 
+   **A fix outside the branch's files is a follow-up by default.** Before editing a file, check it
+   is one the branch changed before this run started:
+   `git diff --name-only <merge-base>..<the HEAD sha in the log header> -- <file>`. Empty output
+   means it is outside. Two cases may still edit it: a call site or test the branch's own change
+   makes wrong, per IMPLEMENTER.md's call-site bullet, and a file this run already had to edit under
+   that same exception. For anything else, do not edit. List the finding under Remaining Issues as
+   a follow-up and append `outside-branch iter=<N> finding=<id> file=<path> action=followup`. When
+   the finding is critical or major, ask instead, with "Leave it as a follow-up (Recommended)" as
+   the first option, and log `action=asked` plus the `user-decision` line. The rule covers
+   pre-commit hits in sub-step 4 the same way. Measured on GRO-18007: the branch changed two
+   controllers, a pre-commit hit in iteration 2 led into the shared `libraries/promises` helper,
+   iterations 3 to 8 each redesigned that helper's error message on a role 8 or role 11 finding, and
+   iteration 8 restored it to master. Six of nine iterations went to a file the ticket never touched.
+
    **A self-inflicted prose finding has its own version of this rule, in IMPLEMENTER.md section
    2.** The fix is a deletion or a pointer, the second finding on the same sentence is a deletion,
    and each is logged as a `prose-locus` line. The reopen rule above is for behaviour and does not
@@ -637,7 +652,8 @@ grouped by class.
    commit each hit belongs to. Return PRECOMMIT_HITS as specified.
    ```
 
-   Wait for its task notification. Fix each hit that is a defect, run the seven checks on the
+   Wait for its task notification. A hit whose fix is in a file outside the branch follows the
+   outside-branch rule in sub-step 2. Fix each other hit that is a defect, run the seven checks on the
    staged result, and land them as one follow-up commit whose message names the commits it
    corrects, recorded in sub-step 7 with `origin=precommit` and `findings=<the ids whose commits
    it corrected>`. It closes no finding of its own, so its reviewers for `productive_reviewers`
@@ -945,8 +961,7 @@ Computing the next active set, for every row that goes back to Step 1 (1b, 4, an
   iteration ran if the `in-depth-review` kind fell short, otherwise empty. `<ACTIVE_GH_STYLE>` =
   true iff the `gh-style-review` kind fell short. The short kind relaunches at full multiplicity,
   and why the reviewers that did report are not relaunched is in [RATIONALE.md](RATIONALE.md).
-- **Row 4 (full):** `<ACTIVE_ROLES>` = roles `1..6`, `8`, `9` and `11`, the iteration-1 set minus
-  role 7, per the role-7 rule below. `<INSTANCE_2_ROLES>` =
+- **Row 4 (full):** `<ACTIVE_ROLES>` = roles `1..9` and `11`, the iteration-1 set. `<INSTANCE_2_ROLES>` =
   `{}` by default, or the orchestrator's choice per the discretion rule below.
   `<ACTIVE_GH_STYLE>` = **false**. A full rerun is a full run of instance 1. It is not a return to
   the iteration-1 roster, and gh-style is not part of it.
@@ -964,12 +979,7 @@ Computing the next active set, for every row that goes back to Step 1 (1b, 4, an
   `reviewer_unavailable` subtraction below can still remove role 9 along with the rest of an
   unavailable `in-depth-review` kind.
 
-- **Role 7, from iteration 2 on.** Drop it from `<ACTIVE_ROLES>` whichever row fired, BEFORE the
-  row-5 floor and before the retry union are applied, so a set of `{7}` alone empties and the floor
-  still puts `{2}` in its place, and a kind added back at full multiplicity comes back without role
-  7. No re-entry. Its one read of the branch's code was iteration 1, and the later iterations
-  review the run's own fixes, where it found nothing across the logged runs. Never in
-  `<INSTANCE_2_ROLES>`. Role 10 needs no rule here because it is not in any set this skill builds.
+- **Role 10 needs no rule here** because it is not in any set this skill builds.
 
 - **Instance 2's discretion rule, from iteration 2 on.** `<INSTANCE_2_ROLES>` defaults to `{}`,
   so no second instance runs. The orchestrator may replace that with any set, and the only

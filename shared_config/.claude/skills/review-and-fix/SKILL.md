@@ -296,7 +296,7 @@ does not fail loudly, and one run passed a string for four iterations while the 
 which reads `args.tag`, appended no lines the whole run.
 
 Pass no `model` and no `effort`. The workflow spawns every role by
-`agentType: 'in-depth-review-role'`, and that agent file pins `opus` at `low`. `tag` is the
+`agentType: 'in-depth-review-role'`, and that agent file pins `opus` at `medium`. `tag` is the
 iteration number, and the workflow writes it into the first line of every role's prompt so the
 usage accounting below can tell this iteration's transcripts from the last iteration's on the same
 target. See [USAGE.md](USAGE.md).
@@ -314,7 +314,7 @@ Treat it as row 0's no-fan-out abort.
 ### The gh-style sub-agent
 
 Launched only when `<ACTIVE_GH_STYLE>` is true, by `subagent_type: pr-review-finder-ghstyle`, which
-pins `opus` at `low`. Pass no `model` and no `effort`. gh-style-review has no roles, so it is rerun
+pins `opus` at `medium`. Pass no `model` and no `effort`. gh-style-review has no roles, so it is rerun
 as a whole unit or skipped entirely. See [PROMPT-GH-STYLE.md](PROMPT-GH-STYLE.md) for the exact
 prompt.
 

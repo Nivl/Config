@@ -45,7 +45,7 @@ ones. One review entry, plus an explicit "what humans already raised that the di
 addressed" section.
 
 **Where the tiers sit.** There is one layer now. The agents that read the diff are the
-`in-depth-review-role` leaves inside the workflow, pinned to Opus at effort `low` by their agent
+`in-depth-review-role` leaves inside the workflow, pinned to Opus at effort `medium` by their agent
 file, and the gh-style sub-agent, pinned to the same by its own. The Sonnet wrapper tier that used
 to sit between this orchestrator and the roles is gone with the wrappers. The measured "1x Opus beat
 3x Sonnet on hard diffs" result in
@@ -202,7 +202,7 @@ Workflow({
 ```
 
 Pass no `model` and no `effort`. The workflow spawns every role by
-`agentType: 'in-depth-review-role'`, and that agent file pins `opus` at `low`. That is where the
+`agentType: 'in-depth-review-role'`, and that agent file pins `opus` at `medium`. That is where the
 reviewing happens, and it is the tier the cost-efficiency study measured for the agents that read
 the diff. There is no wrapper tier any more, because there is no wrapper. `tag` goes into the first
 line of every role's prompt so the usage accounting can find this run's transcripts, per
@@ -229,7 +229,7 @@ lives. Treat it as the no-fan-out abort in Step 2 and stop.
 
 ### The gh-style sub-agent
 
-Spawn one, by `subagent_type: pr-review-finder-ghstyle`, which pins `opus` at `low`. Pass no
+Spawn one, by `subagent_type: pr-review-finder-ghstyle`, which pins `opus` at `medium`. Pass no
 `model` and no `effort`. See [PROMPT-GH-STYLE.md](PROMPT-GH-STYLE.md) for the exact prompt.
 
 **If that `subagent_type` does not resolve** (the agent file has not been synced to
@@ -504,8 +504,8 @@ into a number beside the attribution ledger rather than an argument about it.
 - **Model and effort policy (cost): pinned in agent definitions, never inherited.** Every agent
   this skill spawns is addressed by `subagent_type`, and its tier and effort come from its file
   in `.claude/agents/`. Pass no `model` or `effort` to the workflow or to any launch from this
-  skill. The roles run as `in-depth-review-role` on Opus at `low`, the gh-style sub-agent on Opus
-  at `low`, the scorer per `review-scorer`, and the debate pair splits, the approach proposer on
+  skill. The roles run as `in-depth-review-role` on Opus at `medium`, the gh-style sub-agent on Opus
+  at `medium`, the scorer per `review-scorer`, and the debate pair splits, the approach proposer on
   Sonnet (its recall measured identical to Opus) and the nuanced judge on Opus at effort `high`
   (judging is judgment; proposing is recall). **Never let any of these inherit the session model
   or the session effort.** Inheritance is what let a `/effort

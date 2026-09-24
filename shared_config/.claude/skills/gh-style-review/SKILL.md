@@ -578,7 +578,7 @@ Notes on the JSON contract:
   while their findings come from role agents at `opus` `low`, so a cheap wrapper costs them
   nothing. Here the tier IS the review, because this agent does the reading and the judging
   itself. `pr-review` and `review-and-fix` therefore spawn it by `subagent_type:
-  pr-review-finder-ghstyle`, which pins `opus` at `low`, matching those role agents so a
+  pr-review-finder-ghstyle`, which pins `opus` at `medium`, matching those role agents so a
   comparison between the two reviewer kinds is not a comparison of tiers. That agent file is the
   single source of truth. Do not set a `model` override at the call site, and do not read this
   bullet as naming a tier of its own. Run directly by a user, it just uses the session model.

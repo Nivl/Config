@@ -2,7 +2,7 @@
 name: in-depth-review-role
 description: Runs one specialized reviewer role of the in-depth-review skill and returns that role's findings. Invoked only by the in-depth-review skill, never directly by a user and never by auto-delegation.
 model: opus
-effort: low
+effort: medium
 color: green
 ---
 

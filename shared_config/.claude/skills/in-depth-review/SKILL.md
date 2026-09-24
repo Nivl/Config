@@ -223,7 +223,7 @@ Evaluate the gates below first, so `<ROLE_SET>` is final. Then:
    })
    ```
 
-   Pass no `model` and no `effort`. The `in-depth-review-role` agent file pins `opus` at `low`, and
+   Pass no `model` and no `effort`. The `in-depth-review-role` agent file pins `opus` at `medium`, and
    the workflow spawns by that `agentType`.
 3. The call returns `{ results, instances, roles_by_instance }`. Each entry of `results` is
    `{ instance, role, findings, tickets_examined }`. `findings` is an array when the role ran and
@@ -373,7 +373,7 @@ column below holds the role's prompt text (the fenced block):
 
 **Model and effort: the workflow spawns every role by `agentType: 'in-depth-review-role'`, and this
 skill passes no `model` and no `effort` in `args`.** That file under `.claude/agents/` pins Opus at
-effort `low`. Never let a reviewer inherit the session model or the session effort.
+effort `medium`. Never let a reviewer inherit the session model or the session effort.
 
 The pin lives in the agent file rather than in the workflow script so it has one owner. The script
 could set `model` and `effort` on each `agent()` call, and if `agentType` turns out not to apply
@@ -394,6 +394,15 @@ keyed defects that Sonnet never found in any pass, Sonnet found none that Opus m
 assistant turns, and every turn re-reads the cached context, so cache reads dominate the bill.
 Per-token price favors Sonnet. Per-task cost does not. That was one diff in one domain, so
 re-measure before assuming it holds for a very different shape of change.
+
+The pin moved from `low` to `medium` on 2026-09-24, when the `opus` alias started resolving to
+Opus 5.5. At `low` on Opus 5 a role averaged 17 to 56 turns and none took 4 or fewer. At `low` on
+Opus 5.5, over the first three logged runs, roles 2, 6 and 8 averaged about 4 turns and did so 80
+to 85 percent of the time, which is reading the diff and returning without opening the function
+around it. A human review then caught a silent early return whose sibling returns in the same
+handler all logged, the error-handling lens's own ground, in a run where role 8 took 3 turns. Watch
+the `turns=` field on the `usage` lines, since a role that returns in 4 turns or fewer is the sign
+the tier is too low again.
 
 Confidence is recovered downstream by the cross-role agreement count and, for the orchestrators,
 the triangulation and adversarial converge stage. It is not recovered by making each finder more

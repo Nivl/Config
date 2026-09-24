@@ -575,7 +575,7 @@ Notes on the JSON contract:
   `review-and-fix`; for cross-instance triangulation see `pr-review` or `in-depth-review`.
 - **Model policy (cost):** this skill spawns no sub-agents. It runs in one agent, and that is
   what makes its tier different from the in-depth wrappers'. Their tier governs orchestration
-  while their findings come from role agents at `opus` `low`, so a cheap wrapper costs them
+  while their findings come from role agents at `opus` `medium`, so a cheap wrapper costs them
   nothing. Here the tier IS the review, because this agent does the reading and the judging
   itself. `pr-review` and `review-and-fix` therefore spawn it by `subagent_type:
   pr-review-finder-ghstyle`, which pins `opus` at `medium`, matching those role agents so a

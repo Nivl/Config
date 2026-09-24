@@ -24,9 +24,13 @@ import subprocess
 import sys
 
 HOOK_DIR = os.path.dirname(os.path.realpath(__file__))
-_spec = importlib.util.spec_from_file_location("ask_prose_claims", os.path.join(HOOK_DIR, "ask-prose-claims.py"))
-pc = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(pc)
+try:
+    _spec = importlib.util.spec_from_file_location("ask_prose_claims", os.path.join(HOOK_DIR, "ask-prose-claims.py"))
+    pc = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(pc)
+except Exception:
+    # The load is outside main(), so it has its own guard. No helpers, no check.
+    sys.exit(0)
 
 MAX_HITS = 10
 CODE_EXTS = set().union(*pc.COMMENT_MARKERS.values())
@@ -52,6 +56,13 @@ WEAK = re.compile(
     r"|\.to\.exist\b|\.to\.be\.ok\b|toBeDefined\(\)|toBeTruthy\(\)"
     r"|sinon\.match\.(?:any|string|number|object|func)\b|\.to\.throw\(\)|toThrow\(\)"
     r"|\.to\.be\.rejected\b(?!With)|rejectedWith\(\)"
+)
+# A value check anywhere on the line makes it a real assertion, so a chained
+# `.to.exist.and.to.equal(42)` is not weak.
+POSITIVE = re.compile(
+    r"\.(?:deep\.)?equals?\(|\.eql\(|calledWith|calledOnce|calledTwice|callCount\)\.to\.(?:equal|eq)\([1-9]"
+    r"|\.include\(|\.match\(|\.throw\(\s*\S|rejectedWith\(\s*\S|toEqual\(|toBe\(|toHaveBeenCalledWith"
+    r"|\.have\.property\(|lengthOf\(|\.to\.contain"
 )
 DOUBLE_CAST = re.compile(r"\bas\s+unknown\s+as\b")
 
@@ -131,7 +142,8 @@ def _dead_refs(top, lines):
             if is_doc:
                 if not DEAD_SKIP_PATHS.search(path):
                     docs.setdefault(c, []).append(f"{path}:{ln}")
-            elif ext in CODE_EXTS:
+            else:
+                # Any non-prose line is a use, a json or yaml config included.
                 alive.add(c)
     out = []
     for c in sorted(docs):
@@ -158,13 +170,17 @@ def _vacuous_tests(top, lines):
             if not m or i not in lns:
                 continue
             indent = m.group(1)
-            body = []
-            for nxt in rows[i:]:
-                if nxt.startswith(indent + "})") or (nxt.startswith(indent + "}") and nxt.strip().startswith("})")):
-                    break
-                body.append(nxt)
+            body = [row]
+            # A one-line test closes on its own line, so its body is that line.
+            if not re.search(r"\}\s*\)\s*;?\s*$", row):
+                for nxt in rows[i:]:
+                    if nxt.startswith(indent + "})") or (nxt.startswith(indent + "}") and nxt.strip().startswith("})")):
+                        break
+                    body.append(nxt)
             asserts = [b for b in body if ASSERTION.search(b)]
-            if asserts and all(WEAK.search(b) for b in asserts):
+            # POSITIVE reads what is left once the weak forms are cut out, so
+            # `callCount).to.equal(0)` stays weak and a chained `.equal(42)` does not.
+            if asserts and all(WEAK.search(b) and not POSITIVE.search(WEAK.sub("", b)) for b in asserts):
                 name = re.search(r"\(\s*(['\"`])(.*?)\1", row)
                 label = name.group(2)[:80] if name else row.strip()[:80]
                 out.append(f"{path}:{i}: test \"{label}\" has {len(asserts)} assertion(s) and each is an absence check or a bare matcher")

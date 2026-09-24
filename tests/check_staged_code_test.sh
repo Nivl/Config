@@ -72,6 +72,15 @@ git add -A
 assert_eq "silent_removed_but_still_called" "silent" "$(decision 'git commit -m x')"
 reset
 
+printf '{ "handler": "chargeCustomerNow" }\n' > config.json
+git add -A
+git commit -qm json
+printf 'export function refundCustomerLater() {}\n' > src/billing.ts
+git add -A
+assert_eq "silent_still_named_in_json" "silent" "$(decision 'git commit -m x')"
+reset
+git reset -q --hard HEAD~1
+
 printf '# Billing\n' > docs/map.md
 printf '# Changes\n\n- chargeCustomerNow removed\n' > CHANGELOG.md
 git add -A
@@ -117,6 +126,21 @@ it('rejects a bad payload', () => {
 EOF
 git add -A
 assert_eq "deny_bare_throw" "deny" "$(decision 'git commit -m x')"
+reset
+
+printf "export const x = 1\nit('sends nothing', () => { expect(send).to.not.have.been.called })\n" > test/foo.test.ts
+git add -A
+assert_eq "deny_one_line_test" "deny" "$(decision 'git commit -m x')"
+reset
+
+cat > test/foo.test.ts <<'EOF'
+export const x = 1
+it('returns the total', () => {
+  expect(result).to.exist.and.to.equal(42)
+})
+EOF
+git add -A
+assert_eq "silent_chained_positive" "silent" "$(decision 'git commit -m x')"
 reset
 
 cat > test/foo.test.ts <<'EOF'
@@ -172,6 +196,17 @@ rm -rf libraries
 printf 'export const k = 1\n// we avoid as unknown as here\nconst s = "as unknown as"\n' > src/a.ts
 git add -A
 assert_eq "silent_cast_in_comment_or_string" "silent" "$(decision 'git commit -m x')"
+reset
+
+# ---- The helper module is missing: silent, exit 0 ----
+LONE="/tmp/claude/check-staged-code-lone-$$"
+mkdir -p "$LONE"
+cp "$HOOK" "$LONE/check-staged-code.py"
+printf 'export const k = 1\nconst req = raw as unknown as Request\n' > src/a.ts
+git add -A
+OUT="$(jq -nc --arg d "$FIX" '{cwd: $d, tool_input: {command: "git commit -m x"}}' | python3 "$LONE/check-staged-code.py" 2>&1; echo "exit=$?")"
+assert_eq "silent_without_helper" "exit=0" "$OUT"
+rm -rf "$LONE"
 reset
 
 echo "check-staged-code.py: all tests passed"

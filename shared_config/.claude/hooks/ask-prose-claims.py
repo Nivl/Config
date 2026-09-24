@@ -254,6 +254,20 @@ def _unicode_hits(text):
     return [f"{ch} -> {UNICODE_SUBS[ch]}" for ch in dict.fromkeys(c for c in stripped if c in UNICODE_SUBS)]
 
 
+def _fenced_lines(content):
+    # Line numbers inside ``` or ~~~ fences, where a markdown file reproduces
+    # output or code rather than authoring prose.
+    out, fence = set(), None
+    for i, line in enumerate(content.splitlines(), 1):
+        m = re.match(r"^\s*(```|~~~)", line)
+        if m:
+            fence = None if fence == m.group(1) else (fence or m.group(1))
+            out.add(i)
+        elif fence:
+            out.add(i)
+    return out
+
+
 def _pointer_hits(text, path, roots):
     # A pointer inside backticks is still a pointer. It has to resolve.
     hits = []
@@ -361,6 +375,7 @@ def main() -> None:
 
     quant, ptrs, idents, blocks, glyphs = [], [], [], [], []
     code_cache = {}
+    fence_cache = {}
     run_path, run_start, run_len = None, 0, 0
 
     def close_block():
@@ -387,8 +402,12 @@ def main() -> None:
             quant.append(f"{path}:{ln}: `{w}` in: {text.strip()[:120]}")
         for p in _pointer_hits(text, path, roots):
             ptrs.append(f"{path}:{ln}: `{p}` does not resolve")
-        for g in _unicode_hits(text):
-            glyphs.append(f"{path}:{ln}: {g}")
+        if not is_code_file and path not in fence_cache:
+            content = _staged_file(roots[0], path)
+            fence_cache[path] = _fenced_lines(content) if content is not None else set()
+        if is_code_file or ln not in fence_cache[path]:
+            for g in _unicode_hits(text):
+                glyphs.append(f"{path}:{ln}: {g}")
         if is_code_file:
             if path not in code_cache:
                 # Diff paths are repo-root-relative, so the index read runs from the root.

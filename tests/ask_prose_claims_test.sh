@@ -181,6 +181,10 @@ unstage_all
 stage docs/notes.md 'The literal `a → b` is quoted output.'
 assert_eq "silent_glyph_in_backticks" "silent" "$(decision 'git commit -m x')"
 unstage_all
+printf '\n```\n$ run\nstep one → step two\n```\n' >> docs/notes.md
+git add docs/notes.md
+assert_eq "silent_glyph_in_fence" "silent" "$(decision 'git commit -m x')"
+unstage_all
 stage src/a.ts "const arrow = '→'"
 assert_eq "silent_glyph_in_code" "silent" "$(decision 'git commit -m x')"
 unstage_all

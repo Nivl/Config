@@ -171,6 +171,8 @@ Once the workflow has returned and the gh-style instance has reported or hit the
    - `permalink`: take any one valid permalink from the group.
    - `ticket_id`: preserved from `ticket`-category findings (the Jira ID the gap traces to);
      `null` for all other findings. Never merge two findings that name different `ticket_id`s.
+   - `pattern`: dropped here on purpose. The roles fill it for `review-and-fix`'s Static-check
+     candidates block, and a posted PR review has no use for it.
    - `citation_verified`: **merges DOWNWARD, unlike confidence.** If ANY member of the group carries
      `citation_verified: false`, the merged finding carries `false`. Never let a verified member's
      `true` overwrite an unverified member's `false`, and never drop the field during the merge. An

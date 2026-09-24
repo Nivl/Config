@@ -195,8 +195,10 @@ reached (up to 3 active; fewer when the iteration is pruned):
    - `ticket_id`: preserved from `ticket`-category findings (the Jira ID the gap traces to);
      `null` for all other findings. Never merge two findings with different `ticket_id`s.
    - `pattern`: every distinct non-null value among the members, joined with ` | `, or null. A
-     merged finding kept at >=50 with a pattern gets one `pattern iter=<N> finding=<id> origin=<self-inflicted|branch> pattern="<value>"`
-     line in the run log, which the Final Report's Static-check candidates block reads.
+     merged finding kept at >=50 with a pattern gets one `pattern iter=<N> finding=<id> pattern="<value>"`
+     line in the run log, which the Final Report's Static-check candidates block reads. It carries
+     no origin, because blame runs later, in Step 2, and a finding the fix loop never reaches has
+     none. The finding's `self-inflicted` line, when there is one, is where origin is joined from.
 
 4. **Score the merged set, once.** Every in-depth finding in the pool carries `confidence: null` at
    this point, because the `review-roles` workflow returns them unscored. This is the step that was worth

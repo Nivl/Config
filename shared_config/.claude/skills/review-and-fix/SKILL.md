@@ -206,9 +206,9 @@ Iteration N:
    ```
 
    `<session-id>` is the directory name in this session's scratchpad path, the same id
-   [USAGE.md](USAGE.md) uses to locate the transcripts. While the marker exists, every tagged
-   `review-roles` return appends its priced `usage` lines to the log through the hook, with no
-   turn spent here. Step 4 deletes it. A marker left behind by an interrupted run points at a
+   [USAGE.md](USAGE.md) uses to locate the transcripts. While the marker exists, the hook appends
+   the priced `usage` lines to the log on the Bash calls after each workflow finishes, per Step 1,
+   with no turn spent here. Step 4 deletes it. A marker left behind by an interrupted run points at a
    finished log, and the hook's id dedupe makes a stale append harmless, but delete it anyway.
 
    When the repo under review IS `~/.melvin/config`, its `.gitignore` entry for `logs/` is what

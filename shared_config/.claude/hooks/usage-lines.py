@@ -148,24 +148,21 @@ def _after_bash(data):
     files = _transcripts(transcript[: -len(".jsonl")])
     if not files:
         return
-    try:
-        newest = max(os.path.getmtime(f) for f in files)
-    except OSError:
-        return
+    # Size and mtime together, because an append inside one mtime tick
+    # leaves the mtime where it was and still grows the file.
+    stats = [os.stat(f) for f in files]
+    signature = f"{len(files)} {sum(s.st_size for s in stats)} {max(s.st_mtime for s in stats)!r}"
     seen_path = marker + ".seen"
     try:
         with open(seen_path) as fh:
-            if float(fh.read().strip() or 0) >= newest:
+            if fh.read().strip() == signature:
                 return
-    except (OSError, ValueError):
+    except OSError:
         pass
     lines = [ln for ln in _usage_lines(files) if not ln.startswith("usage kind=unstamped ")]
-    try:
-        added, replaced, _ = _merge_into_log(run_log, lines)
-        with open(seen_path, "w") as fh:
-            fh.write(repr(newest))
-    except OSError:
-        return
+    added, replaced, _ = _merge_into_log(run_log, lines)
+    with open(seen_path, "w") as fh:
+        fh.write(signature)
     if added or replaced:
         _emit(
             f"usage-lines: appended {added} usage line(s) to {run_log} and replaced {replaced} "
@@ -179,7 +176,12 @@ def main() -> None:
     except Exception:
         return
     if data.get("tool_name") == "Bash":
-        _after_bash(data)
+        # This runs on every Bash call while a marker exists, so any failure,
+        # a decode error included, has to stay silent or it breaks each call.
+        try:
+            _after_bash(data)
+        except Exception:
+            pass
         return
     if data.get("tool_name") != "Workflow":
         return

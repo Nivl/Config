@@ -111,7 +111,7 @@ assert_eq "bash_sweep_log_four" "4" "$(grep -c '^usage kind=' "$LOG")"
 assert_eq "bash_sweep_has_iter2" "1" "$(grep -c 'tag=iter2' "$LOG")"
 assert_eq "bash_sweep_seen_written" "yes" "$([[ -s "$MARKER_DIR/.active-$SESSION.seen" ]] && echo yes || echo no)"
 assert_eq "bash_sweep_unchanged_silent" "" "$(run Bash '')"
-sleep 1
+# No sleep: an append inside the same mtime tick must still be seen, through the size.
 jq -nc '{type:"assistant", message:{model:"claude-opus-5", usage:{input_tokens:10, cache_read_input_tokens:1000000, cache_creation_input_tokens:100000, output_tokens:2000}}}' >> "$ROLE1"
 OUT="$(run Bash '' | ctx)"
 assert_contains "bash_sweep_grown_replaced" "replaced 1 written mid-run" "$OUT"

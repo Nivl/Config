@@ -84,6 +84,25 @@ complete_log
 sd '^usage kind=review-roles .*tag=iter1 .*$' '' "$LOG"
 assert_contains "reason_names_usage" "iteration 1: \`usage kind=review-roles ... tag=iter1\` lines" "$(reason "$RM")"
 
+complete_log
+sd '^usage kind=review-roles .*tag=iter2 .*$' 'roles iter=2 none' "$LOG"
+assert_eq "silent_no_roles_marker" "silent" "$(decision "$RM")"
+
+complete_log
+sd '^### Iteration 2 summary$' '' "$LOG"
+M=~/.melvin/config/logs/review-and-fix
+assert_eq "silent_unrelated_rm_in_chain" "silent" "$(decision "rm -f /tmp/claude/x.txt && cat $M/.active-$SESSION")"
+assert_eq "silent_marker_write" "silent" "$(decision "printf '%s' /tmp/log > $M/.active-$SESSION")"
+assert_eq "deny_find_delete" "deny" "$(decision "find $M -name .active-$SESSION -delete")"
+assert_eq "deny_glob_delete" "deny" "$(decision "rm -f $M/.active-*")"
+assert_eq "deny_dir_delete" "deny" "$(decision "rm -rf $M/")"
+assert_eq "deny_quoted_path" "deny" "$(decision "rm -f \"$M/.active-$SESSION\"")"
+
+complete_log
+sd 'severity iter=1 kept: critical=0 major=1' 'severity iter=1 kept: critical=0 major=0' "$LOG"
+sd '^scored iter=1 .*$' '' "$LOG"
+assert_eq "silent_fixed_only_needs_no_scoring" "0" "$(reason "$RM" | grep -c 'scoring record' || true)"
+
 printf '# review-and-fix run log\nREVIEW_UNAVAILABLE_NO_FANOUT: no Agent tool\n' > "$LOG"
 assert_eq "silent_row0_abort" "silent" "$(decision "$RM")"
 

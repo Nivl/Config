@@ -1009,9 +1009,10 @@ that just used its last retry cannot be added back. Before launching, drop every
 `<ACTIVE_GH_STYLE>` = false no matter which row set it. If the `in-depth-review` kind is
 unavailable, `<ACTIVE_ROLES>` is empty and no in-depth instance launches. This subtraction is the
 only enforcement point for the table's "never relaunch it this run", so it runs on every path back
-to Step 1, not just rows 4 and 5. If the subtraction empties the set entirely, launch nothing and
-evaluate Step 3 as usual. Row 1c is then the row that fires, and the run stops with partial
-coverage.
+to Step 1, not just rows 4 and 5. If the subtraction empties the set entirely, launch nothing,
+append `roles iter=<N> none`, and evaluate Step 3 as usual. Row 1c is then the row that fires, and
+the run stops with partial coverage. That line is what tells the run-log gate the iteration has no
+usage lines to find.
 
 Track state explicitly. See [STATE.md](STATE.md) for every variable's exact definition,
 including the per-run vs. per-iteration distinction that the retry and dedup rules above depend

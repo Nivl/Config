@@ -39,10 +39,27 @@ def _current_iter(text):
 
 
 def _deletes_marker(cmd, sid):
-    if f".active-{sid}" not in cmd:
-        return False
-    words = re.split(r"[\s;&|()]+", cmd)
-    return any(os.path.basename(w) in DELETERS for w in words)
+    # Per command segment, so `rm x && cat .active-<sid>` is not a delete. A
+    # segment deletes the marker when a deleter names this marker, a glob over
+    # the markers, or the log directory itself, or when `find` there runs
+    # -delete. A delete from inside a script is out of reach and out of scope.
+    # The gate keeps the skill's own delete honest.
+    for seg in re.split(r"&&|\|\||[;|\n]", cmd):
+        words = [w.strip("'\"") for w in seg.split()]
+        if not words:
+            continue
+        names_marker = any(
+            w.endswith(f".active-{sid}") or re.search(r"\.active-\*", w)
+            or w.rstrip("/").endswith("logs/review-and-fix")
+            for w in words
+        )
+        if not names_marker:
+            continue
+        if any(os.path.basename(w) in DELETERS for w in words):
+            return True
+        if any(os.path.basename(w) == "find" for w in words) and "-delete" in words:
+            return True
+    return False
 
 
 def _missing(text):
@@ -60,13 +77,16 @@ def _missing(text):
         sev = re.search(rf"^severity iter={i} kept:.*$", text, re.M)
         if not sev:
             need.append(f"`severity iter={i} kept: ... | dropped: ... | fixed: ...`")
-        # Count the buckets only, after "kept:", so the iteration number is not read as one.
-        found_any = sev is None or any(int(n) for n in SEVERITY_NUMS.findall(sev.group(0).split("kept:", 1)[1]))
+        # The kept and dropped buckets only, so neither the iteration number
+        # nor the fixed bucket is read as a finding the scorer had to see.
+        scored_part = sev.group(0).split("kept:", 1)[1].split("| fixed:", 1)[0] if sev else ""
+        found_any = sev is None or any(int(n) for n in SEVERITY_NUMS.findall(scored_part))
         scored = re.search(rf"^scored iter={i}\b", text, re.M) or re.search(
             rf"^usage kind=review-scorer\b.*\btag=iter{i}\b", text, re.M)
         if found_any and not scored:
             need.append(f"a scoring record (`scored iter={i} by=...` or the scorer's usage line)")
-        if not re.search(rf"^usage kind=review-roles\b.*\btag=iter{i}\b", text, re.M):
+        if not re.search(rf"^usage kind=review-roles\b.*\btag=iter{i}\b", text, re.M) and not re.search(
+                rf"^roles iter={i} none\b", text, re.M):
             need.append(f"`usage kind=review-roles ... tag=iter{i}` lines")
         if not re.search(rf"^#+ Iteration {i} summary", text, re.M):
             need.append(f"the `### Iteration {i} summary` block")

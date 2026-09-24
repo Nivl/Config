@@ -255,7 +255,10 @@ reached (up to 3 active; fewer when the iteration is pruned):
    Per finding rather than per iteration, because the ladder produces mixed provenance inside a
    single iteration and one label would hide which numbers to distrust. Record
    `inline_fallback_count` for the iteration too, so a run that reached rung 5 says so without a
-   reader checking every finding.
+   reader checking every finding. Append both to the run log as one line in exactly this shape,
+   `scored iter=<N> by=<scorer|scorer-retry|inline-fallback|mixed> <id>=<score> ... inline_fallback_count=<n>`,
+   before any fix. The `require-run-log-complete` hook reads it at the Final Report, and an
+   iteration with findings and no such line, and no scorer usage line, cannot close.
 
 5. **Apply the orchestrator's confidence threshold: discard everything with `confidence < 50`.**
    This is the review-and-fix-specific threshold, lower than each sub-skill's default of 70

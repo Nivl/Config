@@ -114,6 +114,15 @@
             "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/check-staged-code.py"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/melvin/.melvin/config/shared_config/.claude/hooks/require-run-log-complete.py"
+          }
+        ]
       }
     ],
     "PostToolUse": [

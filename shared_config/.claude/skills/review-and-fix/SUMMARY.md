@@ -10,7 +10,8 @@
 - The commit table
 - Where each commit's class is written
 
-Every iteration that reaches Step 3 ends by emitting one summary block to chat. A row 0 abort
+Every iteration that reaches Step 3 ends by emitting one summary block to chat, whose first line
+is exactly `### Iteration <N> summary`. The run-log hook checks for that line. A row 0 abort
 emits none, because nothing was reviewed and the abort message is the whole record. Emit the block
 last in Step 3, after the table has picked a row and after the union and the subtraction have
 computed the next active set. That is the earliest point at which the ROW and the NEXT ACTIVE SET

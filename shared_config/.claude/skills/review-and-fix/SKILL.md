@@ -1086,16 +1086,24 @@ Made, Remaining Issues, and Tickets examined.
 
 Before the Spend block, run the usage filter from Step 3 one last time and append the lines the
 hook could not have seen, the final iteration's gh-style and scorer, skipping any `id=` already in
-the log. Then delete the marker:
+the log. Append the report to `run_log_path`, then delete the marker:
 
 ```
 rm -f ~/.melvin/config/logs/review-and-fix/.active-<session-id> ~/.melvin/config/logs/review-and-fix/.active-<session-id>.seen
 ```
 
-Append the report to `run_log_path` too, then tell the user where the log is. That path is the last
-line of the run, so it is there whether they want to read the run back or hand several logs to
-another agent. A run that aborted on row 0 gets neither, because nothing was reviewed and the log
-holds only its header. It still deletes the marker.
+**The delete is checked.** The `require-run-log-complete` hook denies it until the log holds, for
+every iteration, the `stamps:` line, the `severity` line, a scoring record when the iteration kept
+or dropped a finding, the `usage kind=review-roles` lines and the `### Iteration <N> summary`
+block, plus the Final Report under `## Review and Fix Report` with its Coverage, Spend, Severity
+and Outcome sections. Its deny lists what is missing. Write each gap from what the run did and
+delete again. Findings that were never scored cannot get a scoring record after the fact, and the
+Final Report says so instead.
+
+Then tell the user where the log is. That path is the last line of the run, so it is there whether
+they want to read the run back or hand several logs to another agent. A run that aborted on row 0
+gets no report, because nothing was reviewed and the log holds only its header. It still deletes
+the marker, and the hook lets that delete through.
 
 ## Constraints
 

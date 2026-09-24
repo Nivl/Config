@@ -169,6 +169,23 @@ stage docs/notes.md 'See example.com/docs/guide.md for details.'
 assert_eq "silent_bare_domain" "silent" "$(decision 'git commit -m x')"
 unstage_all
 
+# ---- Non-ASCII punctuation in added prose and the message ----
+stage src/a.ts '// retry once — the lock may be held'
+assert_eq "deny_emdash_comment" "deny" "$(decision 'git commit -m x')"
+assert_contains "reason_emdash_sub" "src/a.ts:3: — -> two sentences" "$(reason 'git commit -m x')"
+unstage_all
+stage docs/notes.md 'Step one → step two, and “quoted”.'
+assert_contains "reason_arrow_sub" "→ -> ->" "$(reason 'git commit -m x')"
+assert_contains "reason_curly_sub" "“ -> \"" "$(reason 'git commit -m x')"
+unstage_all
+stage docs/notes.md 'The literal `a → b` is quoted output.'
+assert_eq "silent_glyph_in_backticks" "silent" "$(decision 'git commit -m x')"
+unstage_all
+stage src/a.ts "const arrow = '→'"
+assert_eq "silent_glyph_in_code" "silent" "$(decision 'git commit -m x')"
+unstage_all
+assert_eq "deny_glyph_in_message" "deny" "$(decision 'git commit -m "fix: a → b"')"
+
 cd /
 rm -rf "$FIX"
 echo "ask-prose-claims.py: all tests passed"

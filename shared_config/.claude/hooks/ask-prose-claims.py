@@ -241,6 +241,19 @@ def _quantifier_hits(text):
     return [m.group(1) for m in QUANTIFIER.finditer(stripped)]
 
 
+# AGENTS.md "Plain ASCII in authored prose": each glyph and what to type instead.
+UNICODE_SUBS = {
+    "→": "->", "←": "<-", "…": "...", "≥": ">=", "≤": "<=",
+    "×": "x", "—": "two sentences", "–": "two sentences",
+    "“": '"', "”": '"', "‘": "'", "’": "'",
+}
+
+
+def _unicode_hits(text):
+    stripped = BACKTICKS.sub("", text)
+    return [f"{ch} -> {UNICODE_SUBS[ch]}" for ch in dict.fromkeys(c for c in stripped if c in UNICODE_SUBS)]
+
+
 def _pointer_hits(text, path, roots):
     # A pointer inside backticks is still a pointer. It has to resolve.
     hits = []
@@ -346,7 +359,7 @@ def main() -> None:
         return
     roots = [top, cwd]
 
-    quant, ptrs, idents, blocks = [], [], [], []
+    quant, ptrs, idents, blocks, glyphs = [], [], [], [], []
     code_cache = {}
     run_path, run_start, run_len = None, 0, 0
 
@@ -374,6 +387,8 @@ def main() -> None:
             quant.append(f"{path}:{ln}: `{w}` in: {text.strip()[:120]}")
         for p in _pointer_hits(text, path, roots):
             ptrs.append(f"{path}:{ln}: `{p}` does not resolve")
+        for g in _unicode_hits(text):
+            glyphs.append(f"{path}:{ln}: {g}")
         if is_code_file:
             if path not in code_cache:
                 # Diff paths are repo-root-relative, so the index read runs from the root.
@@ -387,22 +402,25 @@ def main() -> None:
     for i, line in enumerate(_message_text(cmd, tokens).splitlines(), 1):
         for w in _quantifier_hits(line):
             quant.append(f"commit message line {i}: `{w}` in: {line.strip()[:120]}")
+        for g in _unicode_hits(line):
+            glyphs.append(f"commit message line {i}: {g}")
 
-    if not quant and not ptrs and not idents and not blocks:
+    if not quant and not ptrs and not idents and not blocks and not glyphs:
         return
 
-    hits = quant + ptrs + idents + blocks
+    hits = quant + ptrs + idents + blocks + glyphs
     shown = hits[:MAX_HITS]
     more = len(hits) - len(shown)
     reason = (
         "Staged prose or the commit message carries "
         f"{len(quant)} unnamed quantifier(s), {len(ptrs)} unresolved pointer(s), "
-        f"{len(idents)} comment symbol(s) the file's code does not name, and {len(blocks)} "
-        "over-long comment block(s) (AGENTS.md, Claims in authored prose and Code comments):\n  "
+        f"{len(idents)} comment symbol(s) the file's code does not name, {len(blocks)} "
+        f"over-long comment block(s), and {len(glyphs)} non-ASCII punctuation mark(s) "
+        "(AGENTS.md, Claims in authored prose, Code comments and Plain ASCII):\n  "
         + "\n  ".join(shown)
         + (f"\n  ... and {more} more" if more > 0 else "")
         + "\nFor each: name the set or drop the word, fix the pointer, point at a symbol this file "
-        "names or delete the claim, or cut the block, then re-stage and commit. "
+        "names or delete the claim, cut the block, or type the ASCII shown, then re-stage and commit. "
         "If every hit is a carve-out (an instruction, a claim about the function in front of you, "
         "an aside about people, or literal content), say which carve-out each one is and rerun the "
         "commit prefixed with PROSE_CLAIMS_OK=1, which puts the override in front of the user."

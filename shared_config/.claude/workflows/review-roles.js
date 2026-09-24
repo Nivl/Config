@@ -43,6 +43,10 @@ const FINDING = {
     role_agreement: { type: 'integer' },
     citation_verified: { type: ['boolean', 'null'] },
     permalink: { type: ['string', 'null'] },
+    // A regex or one-line rule over added diff lines that would have caught
+    // this finding before review, or null. The fix loop's Final Report lists
+    // these, and a pattern that repeats across runs is a hook candidate.
+    pattern: { type: ['string', 'null'] },
   },
 }
 
@@ -110,7 +114,12 @@ ${args.target} (${args.mode} mode). You are instance ${j.inst} of ${args.instanc
 run the same role independently and you must not coordinate with them.
 
 Return your findings per the schema. Leave \`confidence\` as null. It is scored downstream by a
-different model, and a number you invent would collapse that separation.`,
+different model, and a number you invent would collapse that separation.
+
+Set \`pattern\` only when a mechanical check over the diff's added lines could have caught the
+finding with no judgement: a regex, or a one-line rule such as "a symbol removed from code but
+still named in a markdown file". Name what to match, not the fix. Leave it null for anything that
+needs you to understand intent, behaviour or a caller, which is most findings.`,
     { label: `inst${j.inst}:role${j.role}`, phase: 'Review', schema: ROLE_OUTPUT, agentType: 'in-depth-review-role' },
   )
 

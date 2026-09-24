@@ -76,7 +76,7 @@ Iteration N:
 - [ ] t0 plus range and file counts appended
 - [ ] Active reviewers launched in ONE message
 - [ ] Each instance's arrival stamped as its result was read
-- [ ] Findings pooled, deduped, filtered to >=50
+- [ ] Findings pooled, deduped, filtered to >=50, and a `pattern iter=` line for each kept finding that carries one
 - [ ] Discussion Context taken or carried forward (PR mode)
 - [ ] Seven accumulators reset
 - [ ] Content probed after the fan-out returned, not git status alone

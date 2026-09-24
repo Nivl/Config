@@ -28,7 +28,8 @@ this skill's full output machine-readable rather than as the chat report.
       "role_agreement": <1..11>,
       "citation_verified": <true | false | null>,
       "unscored": <true when no scorer produced this finding's confidence; omit or false otherwise>,
-      "permalink": "<github blob URL with full SHA, if available; null otherwise>"
+      "permalink": "<github blob URL with full SHA, if available; null otherwise>",
+      "pattern": "<regex or one-line rule over added lines that would have caught it, or null>"
     }
   ],
   "roles_launched": [<role numbers actually spawned, after gates and any --roles subset>],

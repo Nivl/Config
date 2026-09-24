@@ -132,6 +132,21 @@ check, so its commits are unchecked and a finding blamed to one is not a miss ei
 `skipped <n> prose/test batches` to the first line when any were. Misses per bucket over three or four runs are the
 tier decision the agent file names. Omit the section when no check ran.
 
+### Static-check candidates
+The `pattern` lines, grouped by pattern text, most frequent first, so a pattern that keeps coming
+back is visible as a hook candidate:
+
+```
+3  a symbol removed from code but still named in a markdown file   (P2 iter2, C4 iter3, D1 iter4)
+1  /\bas\s+any\b/ in a non-test file                                (A7 iter1)
+```
+
+Group by eye when two patterns say the same thing in different words. A pattern an existing hook
+already covers (see AGENTS.md's commit-time sections) is a miss for that hook, so mark it
+`covered by <hook>`, since that is a hook to tune rather than one to add. Omit the section when no
+`pattern` line was written. `docs/research/static-checks/README.md` is how a candidate is measured
+before it is built.
+
 ### Outcome
 ✅ Clean batch — the loop stopped on row 1, so `batch_clean` was true. The final iteration's active
 reviewers ALL reported, they found nothing actionable, and Coverage is `complete`. Done.

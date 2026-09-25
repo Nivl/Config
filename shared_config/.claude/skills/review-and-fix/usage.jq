@@ -27,7 +27,11 @@ def K: (. / 1e3 | round);
     # it is the second. Read every user record before the first assistant turn.
     | ([$rows[] | select(.type=="user" or .type=="assistant")] | (map(.type) | index("assistant")) // length) as $nu
     | ([$rows[] | select(.type=="user" or .type=="assistant")] | .[0:$nu] | map(.message.content // "" | tostring) | join(" ")) as $p
-    | ([$rows[] | select(.type=="assistant") | .message]) as $m
+    # One API response is written as several assistant records, one per content
+    # block, each carrying the same usage. Count each message id once, or a
+    # response with thinking, text and a tool call is billed three times.
+    | ([$rows[] | select(.type=="assistant") | .message]
+       | map(select(.id == null)) + (map(select(.id != null)) | unique_by(.id))) as $m
     | select(($m|length) > 0)
     | ($p | capture("<!-- (?<kind>[a-z-]+)(?<rest>[^>]*) -->")? // {kind:"unstamped", rest:""}) as $s
     | ($m[0].model // "?") as $model

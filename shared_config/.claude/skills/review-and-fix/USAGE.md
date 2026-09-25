@@ -104,6 +104,15 @@ prices at roughly half on 5.5. Compare runs across the switch by the `model=` fi
 `$/iteration` figure from before 2026-09-22 is an Opus 5 figure. The agents pin the `opus` alias,
 so which Opus ran is read from `model=`, never from the pin.
 
+**Every figure computed before 2026-09-25 is too high, by about 1.8x to 3.3x.** A transcript writes
+one API response as several assistant records, one per content block, and each record carries the
+same `usage`. The filter summed every record, so a response with thinking, text and a tool call was
+priced and counted as three turns. It now counts each message id once. Measured on the fix: one
+orchestrator transcript held 1,244 records for 380 responses, and older Fable and Opus 5 sessions
+split 1.8x to 3.0x. Comparisons between runs from before the fix mostly hold, since the ratio
+varies within that band, but the dollar amounts and turn counts in older run logs, in the Final
+Reports, and in the rationales quoted across these skills and AGENTS.md are the inflated ones.
+
 `est_usd = input*in + cache_read*cr + cache_write*cw + output*out`, each in millions. A model not in
 the table gets `est_usd=?` rather than a guess, and the summary says which model was unpriced.
 

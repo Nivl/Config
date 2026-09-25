@@ -37,6 +37,18 @@ jq -nc '{type:"user", message:{role:"user", content:"[Workflow harness - user re
 jq -nc '{type:"user", message:{role:"user", content:"<!-- review-roles inst=1 role=5 attempt=1 tag=iter1 target=15 -->"}}' >> "$R"
 jq -nc '{type:"assistant", message:{model:"claude-opus-5", usage:{input_tokens:10, cache_read_input_tokens:500000, cache_creation_input_tokens:50000, output_tokens:1000}}}' >> "$R"
 
+# One API response written as three records (thinking, text, tool_use), all
+# with the same message id and usage, is one turn and is priced once.
+SPLIT="$FIX/$SESSION/subagents/workflows/wf1/agent-5p1i7aaaa000.jsonl"
+jq -nc '{type:"user", message:{role:"user", content:"<!-- review-roles inst=1 role=8 attempt=1 tag=iter3 target=15 -->"}}' > "$SPLIT"
+for _ in 1 2 3; do
+  jq -nc '{type:"assistant", message:{id:"msg_1", model:"claude-opus-5", usage:{input_tokens:0, cache_read_input_tokens:1000000, cache_creation_input_tokens:0, output_tokens:0}}}' >> "$SPLIT"
+done
+SPLIT_LINE="$(jq -r -n -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$SPLIT")"
+assert_contains "split_records_one_turn" "turns=1 " "$SPLIT_LINE"
+assert_contains "split_records_priced_once" "est_usd=0.5" "$SPLIT_LINE"
+rm -f "$SPLIT"
+
 run() {
   local tool="$1" tag="$2"
   jq -nc --arg t "$tool" --arg g "$tag" --arg tp "$FIX/$SESSION.jsonl" --arg sid "$SESSION" \

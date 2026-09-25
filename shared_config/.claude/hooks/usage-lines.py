@@ -53,6 +53,11 @@ def _turns(line):
     return int(m.group(1)) if m else 0
 
 
+def _usd(line):
+    m = re.search(r"\best_usd=([\d.]+)", line)
+    return float(m.group(1)) if m else 0.0
+
+
 def _transcripts(session_dir):
     return sorted(
         glob.glob(os.path.join(session_dir, "subagents", "agent-*.jsonl"))
@@ -112,11 +117,14 @@ def _merge_into_log(run_log, lines):
         prior = have.get(m.group(1)) if m else None
         if prior is None:
             fresh.append(ln)
-        elif _turns(ln) > prior[0]:
+        elif _turns(ln) > prior[0] or (
+                _turns(ln) == prior[0] and ln != log[prior[1]] and _usd(ln) >= _usd(log[prior[1]])):
             # The logged line was written while this agent was still
             # running, so its counts stopped short of the agent's own
-            # total. Replacing it keeps one line per id, which is what
-            # the Spend total sums over.
+            # total. Its last response may also have been caught with a
+            # partial output count, which grows the cost at the same turn
+            # count. Replacing it keeps one line per id, which is what the
+            # Spend total sums over.
             grown[prior[1]] = ln
 
     if grown:

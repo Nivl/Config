@@ -141,25 +141,20 @@ def _unasked_reopens(log_text, it):
     # named is a second reopen, which the skill sends to the user. Loci are
     # matched as written, with whitespace collapsed, because the orchestrator
     # copies the earlier line's locus when it logs the next one.
-    def loc(line):
-        m = re.search(r"\blocus=(\"[^\"]*\"|\S+)", line)
-        return re.sub(r"\s+", " ", m.group(1).strip('"')) if m else None
+    def locs(line):
+        # Every locus= on the line, since one line can batch several.
+        return [re.sub(r"\s+", " ", v.strip('"')) for v in re.findall(r"\blocus=(\"[^\"]*\"|\S+)", line)]
     lines = re.findall(r"^reopened iter=(\d+)\b(.*)$", log_text, re.M)
+    decided = {l for r in re.findall(rf"^user-decision iter={it}\b(.*)$", log_text, re.M) for l in locs(r)}
     out = []
     for n, rest in lines:
         if int(n) != it:
             continue
-        l = loc(rest)
-        if not l or l in out:
-            continue
-        earlier = [r for m, r in lines if loc(r) == l and int(m) < it]
-        if not earlier:
-            continue
-        asked = any(
-            loc(r) == l for r in re.findall(rf"^user-decision iter={it}\b(.*)$", log_text, re.M)
-        )
-        if not asked:
-            out.append(l)
+        for l in locs(rest):
+            if l in out or l in decided:
+                continue
+            if any(l in locs(r) and int(m) < it for m, r in lines):
+                out.append(l)
     return out
 
 

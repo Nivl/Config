@@ -28,13 +28,20 @@ def K: (. / 1e3 | round);
     | ([$rows[] | select(.type=="user" or .type=="assistant")] | (map(.type) | index("assistant")) // length) as $nu
     | ([$rows[] | select(.type=="user" or .type=="assistant")] | .[0:$nu] | map(.message.content // "" | tostring) | join(" ")) as $p
     # One API response is written as several assistant records, one per content
-    # block, each carrying the same usage. Count each message id once, or a
-    # response with thinking, text and a tool call is billed three times.
-    | ([$rows[] | select(.type=="assistant") | .message]
-       | map(select(.id == null)) + (map(select(.id != null)) | unique_by(.id))) as $m
+    # block, all with the same message id. The cache fields repeat, and the
+    # output count grows from a partial value on the first record to the final
+    # one. So one entry per id, each usage field at its largest, or a response
+    # with thinking, text and a tool call is billed three times.
+    | ([$rows[] | select(.type=="assistant") | .message]) as $all
+    | ($all[0].model // "?") as $model
+    | ($all
+       | map(select(.id == null)) + (map(select(.id != null)) | group_by(.id) | map(
+           {usage: {input_tokens: (map(.usage.input_tokens // 0) | max),
+                    cache_read_input_tokens: (map(.usage.cache_read_input_tokens // 0) | max),
+                    cache_creation_input_tokens: (map(.usage.cache_creation_input_tokens // 0) | max),
+                    output_tokens: (map(.usage.output_tokens // 0) | max)}}))) as $m
     | select(($m|length) > 0)
     | ($p | capture("<!-- (?<kind>[a-z-]+)(?<rest>[^>]*) -->")? // {kind:"unstamped", rest:""}) as $s
-    | ($m[0].model // "?") as $model
     | ([$m[].usage.input_tokens]|add // 0) as $in
     | ([$m[].usage.cache_read_input_tokens]|add // 0) as $cr
     | ([$m[].usage.cache_creation_input_tokens]|add // 0) as $cw

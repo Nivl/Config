@@ -138,6 +138,9 @@ printf 'user-decision iter=3 chose="keep reviewing"\n' >> "$LOG"
 assert_eq "deny_generic_decision_is_not_the_locus" "deny" "$(decision 'git commit -m x')"
 printf 'user-decision iter=3 locus=billing.ts:paidTerm chose="invoice.total > 0"\n' >> "$LOG"
 assert_eq "silent_second_reopen_asked" "silent" "$(decision 'git commit -m x')"
+printf 'reopened iter=3 finding=H2,H3 locus=billing.ts:other locus=billing.ts:refund prior=ccc fact="batched"\n' >> "$LOG"
+printf 'reopened iter=2 finding=G9 locus=billing.ts:refund prior=ddd fact="earlier"\n' >> "$LOG"
+assert_eq "deny_second_locus_on_a_batched_line" "deny" "$(decision 'git commit -m x')"
 unstage_all
 
 cat > "$LOG" <<'EOF'

@@ -47,6 +47,13 @@ done
 SPLIT_LINE="$(jq -r -n -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$SPLIT")"
 assert_contains "split_records_one_turn" "turns=1 " "$SPLIT_LINE"
 assert_contains "split_records_priced_once" "est_usd=0.5" "$SPLIT_LINE"
+# The first record of a response carries a partial output count and a later
+# one the final count. The final one is what gets priced.
+jq -nc '{type:"assistant", message:{id:"msg_2", model:"claude-opus-5", usage:{input_tokens:0, cache_read_input_tokens:0, cache_creation_input_tokens:0, output_tokens:2}}}' >> "$SPLIT"
+jq -nc '{type:"assistant", message:{id:"msg_2", model:"claude-opus-5", usage:{input_tokens:0, cache_read_input_tokens:0, cache_creation_input_tokens:0, output_tokens:40000}}}' >> "$SPLIT"
+SPLIT_LINE="$(jq -r -n -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$SPLIT")"
+assert_contains "split_output_takes_final" "turns=2 " "$SPLIT_LINE"
+assert_contains "split_output_priced_final" "est_usd=1.5" "$SPLIT_LINE"
 rm -f "$SPLIT"
 
 run() {
@@ -109,6 +116,14 @@ OUT="$(run Workflow iter1 | ctx)"
 assert_contains "midrun_then_idempotent" "appended 0 usage line(s)" "$OUT"
 assert_contains "midrun_then_no_replace" "replaced 0 that had been written mid-run" "$OUT"
 assert_eq "midrun_log_three" "3" "$(grep -c '^usage kind=' "$LOG")"
+
+# ---- Same turn count, lower cost: the last response was caught mid-write ----
+SAME="usage kind=review-roles inst=1 role=2 attempt=1 tag=iter1 target=15 id=aaaa1111 model=opus-5 turns=2 cache_read=0.1M cache_write=0.0M in=0K out=0K est_usd=0.01"
+printf '# run log\n%s\n' "$SAME" > "$LOG"
+OUT="$(run Workflow iter1 | ctx)"
+assert_contains "same_turns_lower_cost_replaced" "replaced 1 that had been written mid-run" "$OUT"
+assert_eq "same_turns_one_line" "1" "$(grep -c 'id=aaaa1111 model' "$LOG")"
+assert_eq "same_turns_partial_gone" "0" "$(grep -c 'est_usd=0.01' "$LOG")"
 
 # ---- Bash after a background workflow: sweep every stamped transcript ----
 # The Workflow tool returns before its agents write anything, so the lines have

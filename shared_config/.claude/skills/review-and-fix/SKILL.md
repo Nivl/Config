@@ -34,6 +34,29 @@ run-log notes at `~/.melvin/config/docs/research/review-and-fix-run-log/NOTES.md
 seven-run measurement of what happens to a field specified elsewhere for later assembly. Treat that
 as a constraint on editing this file. Later references to "the run-log notes" mean that file.
 
+**Write the run log in batches, one Bash call per sub-step, never one per line.** Each call
+re-reads the whole cached context, so a one-line append costs as much as a code edit. On GRO-17317,
+76 of the orchestrator's 380 turns were single-line appends. Recording at the moment of the act
+still holds. What changes is that the lines one moment produces go out together, as one `printf`
+with one argument per line:
+
+```
+printf '%s\n' 'self-inflicted iter=2 finding=G1 blamed=3abda7ecf0' 'rootcause iter=2 finding=G1 blamed=3abda7ecf0 because="..."' 'cases iter=2 findings=G1 changes="..."' 'cases iter=2 findings=G1 keeps="..."' 'cases iter=2 findings=G1 reaches="..."' >> <run_log_path>
+```
+
+Not a heredoc. A heredoc is several statements to the `deny-multi-command` hook and is denied. Use
+single quotes around each line, since the lines carry double-quoted values. A line that holds a
+single quote gets `'\''` in its place.
+
+The natural batches are these. Before a group's edit: its `self-inflicted`, `rootcause`,
+`reopened`, `prose-locus`, `outside-branch` and `cases` lines. After the group's commit: its
+`quantifier-scan`, `negative-control` and `commit` lines. At the end of Step 2 and Step 3: `t2`,
+`stamps:`, `severity`, `any_logic_change=`, the attribution lines and the summary block. Three lines
+keep their own moment because something reads them at that moment. `t0` goes out before the launch.
+A `user-decision` goes out right after the answer, since the case-list hook reads it at the next
+commit. The Final Report goes out before the marker delete. Never hold a batch across a commit or
+a launch, because the hooks that read these lines run at those two points.
+
 ## Working-tree side-effect policy
 
 **Only this orchestrator touches the working tree. No sub-agent may.** Forbidden inside every

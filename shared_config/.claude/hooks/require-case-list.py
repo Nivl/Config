@@ -136,6 +136,33 @@ def _current_iter(log_text):
     return cur
 
 
+def _unasked_reopens(log_text, it):
+    # A locus this iteration reopened that an earlier reopened line already
+    # named is a second reopen, which the skill sends to the user. Loci are
+    # matched as written, with whitespace collapsed, because the orchestrator
+    # copies the earlier line's locus when it logs the next one.
+    def loc(line):
+        m = re.search(r"\blocus=(\"[^\"]*\"|\S+)", line)
+        return re.sub(r"\s+", " ", m.group(1).strip('"')) if m else None
+    lines = re.findall(r"^reopened iter=(\d+)\b(.*)$", log_text, re.M)
+    out = []
+    for n, rest in lines:
+        if int(n) != it:
+            continue
+        l = loc(rest)
+        if not l or l in out:
+            continue
+        earlier = [r for m, r in lines if loc(r) == l and int(m) < it]
+        if not earlier:
+            continue
+        asked = any(
+            loc(r) == l for r in re.findall(rf"^user-decision iter={it}\b(.*)$", log_text, re.M)
+        )
+        if not asked:
+            out.append(l)
+    return out
+
+
 def main() -> None:
     try:
         data = json.load(sys.stdin)
@@ -159,6 +186,7 @@ def main() -> None:
         return
     # The value is the quoted text alone, so a later field on the same line
     # cannot leak into it. An unquoted value runs to the next whitespace.
+    problem = None
     reaches = re.findall(rf"^cases iter={it} .*?(?:^|\s)reaches=(?:\"([^\"]*)\"|(\S+))", log_text, re.M)
     reaches = [a or b for a, b in reaches]
     if reaches:
@@ -175,36 +203,45 @@ def main() -> None:
             re.search(r"(^|\s)invariant=", re.sub(r"\"[^\"]*\"", '""', ln))
             for ln in re.findall(rf"^cases iter={it} .*$", log_text, re.M)
         )
-        if not any(paired(r) for r in reaches) or has_invariant:
-            return
-        missing_invariant = True
+        if any(paired(r) for r in reaches) and not has_invariant:
+            problem = "invariant"
     else:
-        missing_invariant = False
+        problem = "cases"
+    unasked = _unasked_reopens(log_text, it)
+    if not problem and not unasked:
+        return
     cwd = data.get("cwd") or os.getcwd()
     path = _changes_code(_staged_diff(cwd))
     if not path:
         return
+    parts = []
+    if problem == "invariant":
+        parts.append(
+            f"This commit changes code ({path}) and iteration {it}'s case list mentions paired state "
+            f"(claim, release, lock, retry, transaction) with no `cases iter={it} ... invariant=\"...\"` line. "
+            "State what must hold on every exit of the region, and list each exit in reaches=, per "
+            "IMPLEMENTER.md section 0.")
+    elif problem == "cases":
+        parts.append(
+            f"This commit changes code ({path}) and the run log has no case list for iteration {it}. "
+            f"IMPLEMENTER.md section 0: before a logic edit, append `cases iter={it} findings=<ids> changes=\"...\"`, "
+            f"`... keeps=\"...\"` and `... reaches=\"<the finding's case>; <each neighbour>\"` to the run log, "
+            "pin each working neighbour with an assertion, then commit. A prose- or test-only diff does not "
+            "need one.")
+    if unasked:
+        parts.append(
+            "Iteration {it} reopened {locs}, each already reopened earlier in this run, and the log has no "
+            "`user-decision iter={it} locus=<same locus> chose=...` line for it. SKILL.md Step 2 sub-step 2: the "
+            "second reopen of a locus goes to the user, not to the tree. Put the decisions, the fact each "
+            "claimed and the finding in front of the user with AskUserQuestion, log their answer, then commit."
+            .format(it=it, locs=", ".join(f"`{l}`" for l in unasked)))
+    parts.append(
+        "CASE_LIST_OK=1 in front of the command overrides, and puts the commit in front of the user. "
+        f"If no review-and-fix run is in progress in this session, the marker {marker} is stale from an "
+        "earlier run that did not reach its Final Report. Delete it and commit again.")
     json.dump(
-        {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": (
-                    (f"This commit changes code ({path}) and iteration {it}'s case list mentions paired state "
-                     f"(claim, release, lock, retry, transaction) with no `cases iter={it} ... invariant=\"...\"` line. "
-                     "State what must hold on every exit of the region, and list each exit in reaches=, per "
-                     "IMPLEMENTER.md section 0. ")
-                    if missing_invariant else
-                    f"This commit changes code ({path}) and the run log has no case list for iteration {it}. "
-                    f"IMPLEMENTER.md section 0: before a logic edit, append `cases iter={it} findings=<ids> changes=\"...\"`, "
-                    f"`... keeps=\"...\"` and `... reaches=\"<the finding's case>; <each neighbour>\"` to the run log, "
-                    "pin each working neighbour with an assertion, then commit. A prose- or test-only diff does not "
-                    "need one. CASE_LIST_OK=1 in front of the command overrides, and puts the commit in front of the user. "
-                    f"If no review-and-fix run is in progress in this session, the marker {marker} is stale from an "
-                    "earlier run that did not reach its Final Report. Delete it and commit again."
-                ),
-            }
-        },
+        {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                "permissionDecisionReason": " ".join(parts)}},
         sys.stdout,
     )
 

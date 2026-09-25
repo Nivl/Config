@@ -585,7 +585,10 @@ grouped by class.
    run, the fix phase changed its mind about one delivery's retry semantics three times, in
    iterations 5, 7 and 10, each as a logic commit that drew 13 findings against the previous
    decision, and that was about $240 of a $385 run. Two decisions on one locus is a design
-   question, and a design question is the user's.
+   question, and a design question is the user's. The `require-case-list` hook enforces it: a code
+   commit is denied while this iteration's `reopened` line names a locus an earlier one did and no
+   `user-decision iter=<N> locus=<that locus>` line exists. A general "keep reviewing" answer does
+   not carry the locus and does not count, which is the gap one run's third reopen went through.
 
    **A fix outside the branch's files is a follow-up by default.** Before editing a file, check it
    is one the branch changed before this run started:

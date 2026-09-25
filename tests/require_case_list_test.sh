@@ -120,4 +120,34 @@ unstage_all
 git checkout -q -- . 2>/dev/null || true
 rm -f src/__tests__/helpers.ts
 
+# ---- A second reopen of a locus needs a user-decision for that locus ----
+cat > "$LOG" <<'EOF'
+# run log
+t0 iter=1 2026-09-18T00:00:00Z
+stamps: iter=1 t0=a
+t0 iter=2 2026-09-18T01:00:00Z
+reopened iter=2 finding=G3 locus=billing.ts:paidTerm prior=aaa fact="proration"
+stamps: iter=2 t0=a
+t0 iter=3 2026-09-18T02:00:00Z
+cases iter=3 findings=H1 reaches="the case; the null path"
+reopened iter=3 finding=H1 locus=billing.ts:paidTerm prior=bbb fact="credit balance"
+EOF
+stage src/a.ts 'export const c = 3'
+assert_eq "deny_second_reopen_unasked" "deny" "$(decision 'git commit -m x')"
+printf 'user-decision iter=3 chose="keep reviewing"\n' >> "$LOG"
+assert_eq "deny_generic_decision_is_not_the_locus" "deny" "$(decision 'git commit -m x')"
+printf 'user-decision iter=3 locus=billing.ts:paidTerm chose="invoice.total > 0"\n' >> "$LOG"
+assert_eq "silent_second_reopen_asked" "silent" "$(decision 'git commit -m x')"
+unstage_all
+
+cat > "$LOG" <<'EOF'
+# run log
+t0 iter=1 2026-09-18T00:00:00Z
+cases iter=1 findings=A reaches="the case; the null path"
+reopened iter=1 finding=A locus=billing.ts:paidTerm prior=aaa fact="first time"
+EOF
+stage src/a.ts 'export const d = 4'
+assert_eq "silent_first_reopen" "silent" "$(decision 'git commit -m x')"
+unstage_all
+
 echo "require-case-list.py: all tests passed"

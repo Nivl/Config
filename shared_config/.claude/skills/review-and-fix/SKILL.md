@@ -49,13 +49,18 @@ single quotes around each line, since the lines carry double-quoted values. A li
 single quote gets `'\''` in its place.
 
 The natural batches are these. Before a group's edit: its `self-inflicted`, `rootcause`,
-`reopened`, `prose-locus`, `outside-branch` and `cases` lines. After the group's commit: its
-`quantifier-scan`, `negative-control` and `commit` lines. At the end of Step 2 and Step 3: `t2`,
-`stamps:`, `severity`, `any_logic_change=`, the attribution lines and the summary block. Three lines
-keep their own moment because something reads them at that moment. `t0` goes out before the launch.
-A `user-decision` goes out right after the answer, since the case-list hook reads it at the next
-commit. The Final Report goes out before the marker delete. Never hold a batch across a commit or
-a launch, because the hooks that read these lines run at those two points.
+`reopened`, `prose-locus`, `outside-branch` and `cases` lines. After the staged-diff checks and
+before the commit: its `quantifier-scan` and `negative-control` lines, which IMPLEMENTER.md
+section 3 requires before the commit lands. After the commit: its `commit` line. At the end of
+Step 3: `stamps:`, `severity`, `any_logic_change=` and the attribution lines. The summary block is
+one append already, written as it is emitted, per SUMMARY.md.
+
+Some lines keep their own moment because something reads them then, or because an interrupted run
+needs them. The stamps `t0`, each `arrival` and `t2` go out as they are taken, per STATE.md. A
+`user-decision` goes out right after the answer, since the case-list hook reads it at the next
+commit. The Final Report goes out before the marker delete. Flush a pending batch before a commit,
+a launch or an `AskUserQuestion`, and never hold one across them, because the hooks read these
+lines at the first two and a wait on the user can end the session.
 
 ## Working-tree side-effect policy
 

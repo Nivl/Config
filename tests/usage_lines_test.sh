@@ -61,6 +61,11 @@ CW="$FIX/$SESSION/subagents/workflows/wf1/agent-cw1hbbbb0000.jsonl"
 jq -nc '{type:"user", message:{role:"user", content:"<!-- review-roles inst=1 role=3 attempt=1 tag=iter4 target=15 -->"}}' > "$CW"
 jq -nc '{type:"assistant", message:{id:"msg_9", model:"claude-opus-5", usage:{input_tokens:0, cache_read_input_tokens:0, cache_creation_input_tokens:1000000, cache_creation:{ephemeral_1h_input_tokens:1000000, ephemeral_5m_input_tokens:0}, output_tokens:0}}}' >> "$CW"
 assert_contains "one_hour_write_at_2x" "est_usd=10" "$(jq -r -n -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$CW")"
+assert_contains "one_hour_share_printed" "cache_write_1h=1M" "$(jq -r -n -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$CW")"
+# The same write on a record with no message id takes the same rate.
+jq -nc '{type:"user", message:{role:"user", content:"<!-- review-roles inst=1 role=3 attempt=1 tag=iter4 target=15 -->"}}' > "$CW"
+jq -nc '{type:"assistant", message:{model:"claude-opus-5", usage:{input_tokens:0, cache_read_input_tokens:0, cache_creation_input_tokens:1000000, cache_creation:{ephemeral_1h_input_tokens:1000000, ephemeral_5m_input_tokens:0}, output_tokens:0}}}' >> "$CW"
+assert_contains "one_hour_write_no_id_at_2x" "est_usd=10" "$(jq -r -n -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$CW")"
 rm -f "$CW"
 
 run() {

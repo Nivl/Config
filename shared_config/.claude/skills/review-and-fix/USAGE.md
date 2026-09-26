@@ -113,7 +113,13 @@ split 1.8x to 3.0x. Comparisons between runs from before the fix mostly hold, si
 varies within that band, but the dollar amounts and turn counts in older run logs, in the Final
 Reports, and in the rationales quoted across these skills and AGENTS.md are the inflated ones.
 
-`est_usd = input*in + cache_read*cr + cache_write*cw + output*out`, each in millions. A model not in
+**A one-hour cache write bills at 2x input, not 1.25x.** Claude Code writes one-hour cache entries,
+and the usage record splits `cache_creation` into `ephemeral_5m_input_tokens` and
+`ephemeral_1h_input_tokens`. The filter prices the five-minute part at the table's cache-write rate
+and the one-hour part at twice the input rate. Before 2026-09-26 it priced both at the five-minute
+rate, which put one Opus 5.5 orchestrator session about 7 percent low.
+
+`est_usd = input*in + cache_read*cr + cache_write_5m*cw + cache_write_1h*2*in + output*out`, each in millions. A model not in
 the table gets `est_usd=?` rather than a guess, and the summary says which model was unpriced.
 
 **A dated model id prices at its undated key.** A transcript can record either spelling, and one

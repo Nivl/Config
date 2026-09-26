@@ -56,6 +56,13 @@ assert_contains "split_output_takes_final" "turns=2 " "$SPLIT_LINE"
 assert_contains "split_output_priced_final" "est_usd=1.5" "$SPLIT_LINE"
 rm -f "$SPLIT"
 
+# A one-hour cache write bills at 2x input, a five-minute one at 1.25x.
+CW="$FIX/$SESSION/subagents/workflows/wf1/agent-cw1hbbbb0000.jsonl"
+jq -nc '{type:"user", message:{role:"user", content:"<!-- review-roles inst=1 role=3 attempt=1 tag=iter4 target=15 -->"}}' > "$CW"
+jq -nc '{type:"assistant", message:{id:"msg_9", model:"claude-opus-5", usage:{input_tokens:0, cache_read_input_tokens:0, cache_creation_input_tokens:1000000, cache_creation:{ephemeral_1h_input_tokens:1000000, ephemeral_5m_input_tokens:0}, output_tokens:0}}}' >> "$CW"
+assert_contains "one_hour_write_at_2x" "est_usd=10" "$(jq -r -n -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$CW")"
+rm -f "$CW"
+
 run() {
   local tool="$1" tag="$2"
   jq -nc --arg t "$tool" --arg g "$tag" --arg tp "$FIX/$SESSION.jsonl" --arg sid "$SESSION" \

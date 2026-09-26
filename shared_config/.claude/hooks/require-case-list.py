@@ -158,6 +158,23 @@ def _unasked_reopens(log_text, it):
     return out
 
 
+SCORED_BY = r"(?:scorer|scorer-retry|inline-fallback|mixed)"
+
+
+def _scored(log_text, it):
+    # The scorer's own usage line proves it ran, since the skill launches it
+    # before any fallback. A `scored` line counts only with a by= value the
+    # skill defines, so "kept by reviewer agreement" is not a score.
+    return bool(
+        re.search(rf"^usage kind=review-scorer\b.*\btag=iter{it}\b", log_text, re.M)
+        or re.search(rf"^scored iter={it}\b.*\bby={SCORED_BY}\b", log_text, re.M)
+    )
+
+
+def _staged_any(cwd):
+    return bool(_staged_diff(cwd).strip())
+
+
 def main() -> None:
     try:
         data = json.load(sys.stdin)
@@ -203,13 +220,25 @@ def main() -> None:
     else:
         problem = "cases"
     unasked = _unasked_reopens(log_text, it)
-    if not problem and not unasked:
-        return
     cwd = data.get("cwd") or os.getcwd()
+    # Every fix commit needs this iteration's findings scored, prose and
+    # test commits included, since unscored findings reach those too.
+    unscored = not _scored(log_text, it) and _staged_any(cwd)
+    if not problem and not unasked and not unscored:
+        return
     path = _changes_code(_staged_diff(cwd))
     if not path:
-        return
+        problem, unasked = None, []
+        if not unscored:
+            return
     parts = []
+    if unscored:
+        parts.append(
+            f"Iteration {it}'s findings have no score: the run log has neither the scorer's "
+            f"`usage kind=review-scorer ... tag=iter{it}` line nor a `scored iter={it} by=<scorer|scorer-retry|"
+            "inline-fallback|mixed> ...` line. AGGREGATING.md step 4: launch review-scorer on the merged "
+            "findings, drop everything under 50, log the scored line, then fix. Reviewer agreement is not "
+            "a score, and inline-fallback is for a scorer that was launched and failed.")
     if problem == "invariant":
         parts.append(
             f"This commit changes code ({path}) and iteration {it}'s case list mentions paired state "

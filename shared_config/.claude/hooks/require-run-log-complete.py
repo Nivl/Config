@@ -81,7 +81,7 @@ def _missing(text):
         # nor the fixed bucket is read as a finding the scorer had to see.
         scored_part = sev.group(0).split("kept:", 1)[1].split("| fixed:", 1)[0] if sev else ""
         found_any = sev is None or any(int(n) for n in SEVERITY_NUMS.findall(scored_part))
-        scored = re.search(rf"^scored iter={i}\b", text, re.M) or re.search(
+        scored = re.search(rf"^scored iter={i}\b.*\bby=(?:scorer|scorer-retry|inline-fallback|mixed)\b", text, re.M) or re.search(
             rf"^usage kind=review-scorer\b.*\btag=iter{i}\b", text, re.M)
         if found_any and not scored:
             need.append(f"a scoring record (`scored iter={i} by=...` or the scorer's usage line)")

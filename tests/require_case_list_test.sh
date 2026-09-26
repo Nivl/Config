@@ -8,6 +8,10 @@
 #   marker, prose-only / test-only / comment-only diff         -> silent
 #   CASE_LIST_OK=1 prefix                                      -> silent
 #   not a git commit                                           -> silent
+#   a second reopen of a locus with no user-decision for it    -> deny
+#   any fix commit whose iteration has no score                -> deny
+# Fixture logs carry `scored iter=N by=scorer` lines so the cases that test
+# something else are not denied for want of a score.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 HOOK="$SCRIPT_DIR/shared_config/.claude/hooks/require-case-list.py"
@@ -46,7 +50,7 @@ stage src/a.ts 'export const b = 2'
 assert_eq "silent_no_marker" "silent" "$(decision 'git commit -m x')"
 
 # ---- Marker, iteration 2 open, no cases line ----
-printf '# run log\nt0 iter=1 2026-09-18T00:00:00Z\ncases iter=1 findings=A reaches="x; y"\nt0 iter=2 2026-09-18T01:00:00Z\n' > "$LOG"
+printf '# run log\nscored iter=1 by=scorer\nscored iter=2 by=scorer\nscored iter=3 by=scorer\nt0 iter=1 2026-09-18T00:00:00Z\ncases iter=1 findings=A reaches="x; y"\nt0 iter=2 2026-09-18T01:00:00Z\n' > "$LOG"
 printf '%s' "$LOG" > "$MARKER"
 assert_eq "deny_code_no_cases" "deny" "$(decision 'git commit -m x')"
 assert_eq "silent_override" "silent" "$(decision 'CASE_LIST_OK=1 git commit -m x')"
@@ -75,33 +79,33 @@ assert_eq "silent_comment_only" "silent" "$(decision 'git commit -m x')"
 unstage_all
 
 # ---- Real log shapes: bare t0= plus stamps:, and ## Iteration N headings ----
-printf '# run log\nt0=2026-09-18T00:00:00Z range=1\nstamps: iter=1 t0=x t_fix=y t1=z t2=w\ncases iter=1 findings=A reaches="x"\nt0=2026-09-18T01:00:00Z range=2\n' > "$LOG"
+printf '# run log\nscored iter=1 by=scorer\nscored iter=2 by=scorer\nscored iter=3 by=scorer\nt0=2026-09-18T00:00:00Z range=1\nstamps: iter=1 t0=x t_fix=y t1=z t2=w\ncases iter=1 findings=A reaches="x"\nt0=2026-09-18T01:00:00Z range=2\n' > "$LOG"
 stage src/a.ts 'export const d = 4'
 assert_eq "deny_bare_t0_after_stamps" "deny" "$(decision 'git commit -m x')"
 printf 'cases iter=2 findings=B reaches="the case; a neighbour"\n' >> "$LOG"
 assert_eq "silent_bare_t0_with_cases" "silent" "$(decision 'git commit -m x')"
-printf '# run log\n## Iteration 1\ncases iter=1 findings=A reaches="x"\n## Iteration 1 summary\n## Iteration 2\n' > "$LOG"
+printf '# run log\nscored iter=1 by=scorer\nscored iter=2 by=scorer\nscored iter=3 by=scorer\n## Iteration 1\ncases iter=1 findings=A reaches="x"\n## Iteration 1 summary\n## Iteration 2\n' > "$LOG"
 assert_eq "deny_heading_iteration" "deny" "$(decision 'git commit -m x')"
 unstage_all
 
 # ---- Paired state in reaches= needs an invariant= line ----
-printf '# run log\nt0 iter=2 x\ncases iter=2 findings=C reaches="claim on the paid arm; release on the normal return"\n' > "$LOG"
+printf '# run log\nscored iter=1 by=scorer\nscored iter=2 by=scorer\nscored iter=3 by=scorer\nt0 iter=2 x\ncases iter=2 findings=C reaches="claim on the paid arm; release on the normal return"\n' > "$LOG"
 stage src/a.ts 'export const f = 6'
 assert_eq "deny_paired_without_invariant" "deny" "$(decision 'git commit -m x')"
 printf 'cases iter=2 findings=C invariant="a claim taken on the path is released on every exit while still ours"\n' >> "$LOG"
 assert_eq "silent_paired_with_invariant" "silent" "$(decision 'git commit -m x')"
-printf '# run log\nt0 iter=2 x\ncases iter=2 findings=C reaches="the tax field; the total field; the null path"\n' > "$LOG"
+printf '# run log\nscored iter=1 by=scorer\nscored iter=2 by=scorer\nscored iter=3 by=scorer\nt0 iter=2 x\ncases iter=2 findings=C reaches="the tax field; the total field; the null path"\n' > "$LOG"
 assert_eq "silent_unpaired_no_invariant_needed" "silent" "$(decision 'git commit -m x')"
-printf '# run log\nt0 iter=2 x\ncases iter=2 findings=C reaches="the tax field; the total field" note="a retry loop upstream handles this"\n' > "$LOG"
+printf '# run log\nscored iter=1 by=scorer\nscored iter=2 by=scorer\nscored iter=3 by=scorer\nt0 iter=2 x\ncases iter=2 findings=C reaches="the tax field; the total field" note="a retry loop upstream handles this"\n' > "$LOG"
 assert_eq "silent_paired_word_in_other_field" "silent" "$(decision 'git commit -m x')"
-printf '# run log\nt0 iter=2 x\ncases iter=2 findings=C reaches="the tax claim in the invoice comment; the total field"\n' > "$LOG"
+printf '# run log\nscored iter=1 by=scorer\nscored iter=2 by=scorer\nscored iter=3 by=scorer\nt0 iter=2 x\ncases iter=2 findings=C reaches="the tax claim in the invoice comment; the total field"\n' > "$LOG"
 assert_eq "silent_prose_claim" "silent" "$(decision 'git commit -m x')"
-printf '# run log\nt0 iter=2 x\ncases iter=2 findings=C reaches="claim on the paid arm; release on the normal return, invariant=x in passing"\n' > "$LOG"
+printf '# run log\nscored iter=1 by=scorer\nscored iter=2 by=scorer\nscored iter=3 by=scorer\nt0 iter=2 x\ncases iter=2 findings=C reaches="claim on the paid arm; release on the normal return, invariant=x in passing"\n' > "$LOG"
 assert_eq "deny_invariant_inside_reaches_text" "deny" "$(decision 'git commit -m x')"
 unstage_all
 
 # ---- A deleted logic file is a code change ----
-printf '# run log\nt0 iter=2 2026-09-18T01:00:00Z\n' > "$LOG"
+printf '# run log\nscored iter=1 by=scorer\nscored iter=2 by=scorer\nscored iter=3 by=scorer\nt0 iter=2 2026-09-18T01:00:00Z\n' > "$LOG"
 git rm -q src/a.ts
 assert_eq "deny_deleted_file" "deny" "$(decision 'git commit -m x')"
 unstage_all
@@ -130,6 +134,7 @@ reopened iter=2 finding=G3 locus=billing.ts:paidTerm prior=aaa fact="proration"
 stamps: iter=2 t0=a
 t0 iter=3 2026-09-18T02:00:00Z
 cases iter=3 findings=H1 reaches="the case; the null path"
+scored iter=3 by=scorer H1=80
 reopened iter=3 finding=H1 locus=billing.ts:paidTerm prior=bbb fact="credit balance"
 EOF
 stage src/a.ts 'export const c = 3'
@@ -148,9 +153,33 @@ cat > "$LOG" <<'EOF'
 t0 iter=1 2026-09-18T00:00:00Z
 cases iter=1 findings=A reaches="the case; the null path"
 reopened iter=1 finding=A locus=billing.ts:paidTerm prior=aaa fact="first time"
+scored iter=1 by=scorer A=70
 EOF
 stage src/a.ts 'export const d = 4'
 assert_eq "silent_first_reopen" "silent" "$(decision 'git commit -m x')"
+unstage_all
+
+# ---- A fix commit needs this iteration's findings scored ----
+cat > "$LOG" <<'EOF'
+# run log
+t0 iter=1 2026-09-18T00:00:00Z
+cases iter=1 findings=A reaches="the case; the null path"
+EOF
+stage docs/notes.md 'a prose fix'
+assert_eq "deny_prose_commit_unscored" "deny" "$(decision 'git commit -m x')"
+printf 'scored iter=1 by=agreement A=kept\n' >> "$LOG"
+assert_eq "deny_agreement_is_not_a_score" "deny" "$(decision 'git commit -m x')"
+printf 'scored iter=1 by=scorer A=80 inline_fallback_count=0\n' >> "$LOG"
+assert_eq "silent_scored_line" "silent" "$(decision 'git commit -m x')"
+unstage_all
+cat > "$LOG" <<'EOF'
+# run log
+t0 iter=1 2026-09-18T00:00:00Z
+cases iter=1 findings=A reaches="the case; the null path"
+usage kind=review-scorer batch=1 tag=iter1 target=x id=abcd model=sonnet-5 turns=4 est_usd=0.2
+EOF
+stage src/a.ts 'export const e = 5'
+assert_eq "silent_scorer_usage_line" "silent" "$(decision 'git commit -m x')"
 unstage_all
 
 echo "require-case-list.py: all tests passed"

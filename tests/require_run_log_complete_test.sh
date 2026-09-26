@@ -77,6 +77,10 @@ assert_contains "reason_names_scoring" "iteration 1: a scoring record" "$(reason
 assert_eq "zero_finding_iter_needs_no_scoring" "0" "$(reason "$RM" | grep -c 'iteration 2' || true)"
 
 complete_log
+sd '^scored iter=1 by=scorer' 'scored iter=1 by=agreement' "$LOG"
+assert_contains "reason_agreement_is_not_a_score" "iteration 1: a scoring record" "$(reason "$RM")"
+
+complete_log
 sd '^### Spend$' '' "$LOG"
 assert_contains "reason_names_section" "\`### Spend\`" "$(reason "$RM")"
 

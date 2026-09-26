@@ -257,8 +257,13 @@ reached (up to 3 active; fewer when the iteration is pruned):
    `inline_fallback_count` for the iteration too, so a run that reached rung 5 says so without a
    reader checking every finding. Append both to the run log as one line in exactly this shape,
    `scored iter=<N> by=<scorer|scorer-retry|inline-fallback|mixed> <id>=<score> ... inline_fallback_count=<n>`,
-   before any fix. The `require-run-log-complete` hook reads it at the Final Report, and an
-   iteration with findings and no such line, and no scorer usage line, cannot close.
+   before any fix. The `require-case-list` hook reads it at every fix commit and denies the commit
+   when this iteration has neither the scorer's usage line nor a `scored` line with one of those
+   four `by=` values, and the `require-run-log-complete` hook checks it again at the Final Report.
+   `by=orchestrator` or `by=agreement` is not a score. `inline-fallback` is the orchestrator scoring
+   against SCORING.md after the scorer was launched and failed, and the scorer's usage line is what
+   shows it was launched. Two runs logged `by=orchestrator` in every iteration and dropped nothing
+   below 50 across all of them.
 
 5. **Apply the orchestrator's confidence threshold: discard everything with `confidence < 50`.**
    This is the review-and-fix-specific threshold, lower than each sub-skill's default of 70

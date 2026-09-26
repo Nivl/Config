@@ -26,9 +26,12 @@
 # and a bare `t0=` after the last stamps line opens the next one, since the
 # logs write any of those. Code means an added or removed
 # line in a source file that is not blank and not a comment. A diff confined to
-# prose files, test files, or comment lines passes, since those groups write no
-# list. The check is per iteration and not per commit, so the pre-commit
-# follow-up commit passes on the list the iteration already wrote.
+# prose files, test files, or comment lines needs no case list, since those
+# groups write none. The check is per iteration and not per commit, so the
+# pre-commit follow-up commit passes on the list the iteration already wrote.
+# Two checks read more than code lines. Any commit, prose and test ones
+# included, needs the iteration's findings scored first, and a code commit on a
+# second reopen of a locus needs the user's decision for that locus.
 #
 # The override is a CASE_LIST_OK=1 prefix, which passes here and, like
 # PROSE_CLAIMS_OK, falls to the normal permission prompt because git is
@@ -171,10 +174,6 @@ def _scored(log_text, it):
     )
 
 
-def _staged_any(cwd):
-    return bool(_staged_diff(cwd).strip())
-
-
 def main() -> None:
     try:
         data = json.load(sys.stdin)
@@ -221,12 +220,15 @@ def main() -> None:
         problem = "cases"
     unasked = _unasked_reopens(log_text, it)
     cwd = data.get("cwd") or os.getcwd()
+    diff = _staged_diff(cwd)
     # Every fix commit needs this iteration's findings scored, prose and
-    # test commits included, since unscored findings reach those too.
-    unscored = not _scored(log_text, it) and _staged_any(cwd)
+    # test commits included, since unscored findings reach those too. Inside
+    # a run only Step 2 commits, so a commit here is a fix unless the user
+    # asked for it, and the reason below says how to pass that one.
+    unscored = not _scored(log_text, it) and bool(diff.strip())
     if not problem and not unasked and not unscored:
         return
-    path = _changes_code(_staged_diff(cwd))
+    path = _changes_code(diff)
     if not path:
         problem, unasked = None, []
         if not unscored:
@@ -238,7 +240,9 @@ def main() -> None:
             f"`usage kind=review-scorer ... tag=iter{it}` line nor a `scored iter={it} by=<scorer|scorer-retry|"
             "inline-fallback|mixed> ...` line. AGGREGATING.md step 4: launch review-scorer on the merged "
             "findings, drop everything under 50, log the scored line, then fix. Reviewer agreement is not "
-            "a score, and inline-fallback is for a scorer that was launched and failed.")
+            "a score, and inline-fallback is for a scorer that was launched and failed. If this commit is "
+            "not a fix for this iteration's findings, such as one the user asked for, say so and prefix it "
+            "with CASE_LIST_OK=1.")
     if problem == "invariant":
         parts.append(
             f"This commit changes code ({path}) and iteration {it}'s case list mentions paired state "

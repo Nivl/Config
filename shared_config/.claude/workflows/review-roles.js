@@ -89,13 +89,11 @@ for (let inst = 1; inst <= args.instances; inst++) {
 }
 log(`dispatching ${jobs.length} role agents: ${Object.entries(rolesByInstance).map(([i, rs]) => `inst${i}=[${rs.join(',')}]`).join(' ')}`)
 
-// The common fragment opens every prompt so that all roles share one prefix,
-// which lets roles launched after the first read it from the prompt cache. A
-// stamp on the first line made each prompt differ from its first token, and
-// every role wrote about 57K tokens of cache the others could not reuse, which
-// was 68% of role spend. The stamp sits right after the fragment instead.
+// Putting the shared fragment first instead was tried and measured. The
+// harness caches at the end of each whole prompt, so roles with different
+// tails still each wrote the fragment, about 59K tokens apiece.
 //
-// The prompt carries a machine-readable stamp, because the
+// The first line of every prompt is a machine-readable stamp, because the
 // harness stores no label for a workflow agent. Its transcript's first record is
 // the prompt verbatim, and that is the only place inst and role survive the run.
 // The caller's usage accounting greps this line to join a transcript's token
@@ -108,9 +106,9 @@ const stamp = (j, attempt) =>
 
 const run = (j, attempt) =>
   agent(
-    `${args.common_fragment}
+    `${stamp(j, attempt)}
 
-${stamp(j, attempt)}
+${args.common_fragment}
 
 ${args.role_prompts[String(j.role)]}
 

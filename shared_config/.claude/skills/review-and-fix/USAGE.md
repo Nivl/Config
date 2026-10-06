@@ -22,11 +22,8 @@ hands every session.
 
 The harness stores no label for an agent. `agent-<id>.meta.json` holds only the agent type, and the
 workflow journal holds ids and cache keys. The transcript's first record is the prompt verbatim, so
-the prompt is where identity has to live. Every prompt this skill or its workflow sends carries one
-line of the form below. The scorer's, gh-style's and the pre-commit check's prompts begin with it.
-The `review-roles` prompts put it right after the shared common fragment, so every role's prompt
-opens with the same text and roles after the first can read it from the prompt cache. The filter
-finds the stamp anywhere in the prompt.
+the prompt is where identity has to live. Every prompt this skill or its workflow sends begins with
+one line of the form:
 
 ```
 <!-- review-roles inst=1 role=7 attempt=1 tag=iter3 target=15892 -->

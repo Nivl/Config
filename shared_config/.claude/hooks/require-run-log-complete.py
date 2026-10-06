@@ -66,16 +66,16 @@ STAMP_TIME = re.compile(r"\b(?:t0|t_fix|t1|t2)=(\d{4}-\d\d-\d\dT\d\d:\d\d:(\d\d)
 
 
 def _last_turn(transcript):
-    last = ""
+    # The last turn is at the end, so the tail is enough on a multi-MB file.
     try:
-        with open(transcript, errors="replace") as fh:
-            for line in fh:
-                m = re.search(r'"timestamp":"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)', line)
-                if m and m.group(1) > last:
-                    last = m.group(1)
+        with open(transcript, "rb") as fh:
+            fh.seek(0, 2)
+            fh.seek(max(0, fh.tell() - 262144))
+            tail = fh.read().decode("utf-8", "replace")
     except OSError:
         return None
-    return last or None
+    stamps = re.findall(r'"timestamp":"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)', tail)
+    return max(stamps) if stamps else None
 
 
 def _stamp_problems(text, transcript):

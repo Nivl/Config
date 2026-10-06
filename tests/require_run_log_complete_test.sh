@@ -34,6 +34,7 @@ reason() {
 complete_log() {
   cat > "$LOG" <<'EOF'
 # review-and-fix run log
+orchestrator model=claude-opus-5-5
 ## Iteration 1
 t0 iter=1 2026-09-24T00:00:00Z
 usage kind=review-roles inst=1 role=2 attempt=1 tag=iter1 target=x id=aaaa model=opus-5-5 turns=5 est_usd=0.4
@@ -106,6 +107,26 @@ complete_log
 sd 'severity iter=1 kept: critical=0 major=1' 'severity iter=1 kept: critical=0 major=0' "$LOG"
 sd '^scored iter=1 .*$' '' "$LOG"
 assert_eq "silent_fixed_only_needs_no_scoring" "0" "$(reason "$RM" | grep -c 'scoring record' || true)"
+
+complete_log
+sd '^orchestrator model=.*$' '' "$LOG"
+assert_contains "reason_names_orchestrator_line" "orchestrator model=<id>" "$(reason "$RM")"
+
+# ---- Stamps: on the minute everywhere, or after the session's last turn ----
+TR="$FIX/session.jsonl"
+printf '%s\n' '{"type":"assistant","timestamp":"2026-09-26T06:31:51.276Z","message":{}}' > "$TR"
+treason() {
+  jq -nc --arg c "$1" --arg s "$SESSION" --arg t "$TR" '{session_id: $s, transcript_path: $t, tool_input: {command: $c}}' | python3 "$HOOK" | jq -r '.hookSpecificOutput.permissionDecisionReason'
+}
+complete_log
+sd 'stamps: iter=1 t0=a t_fix=b t1=c t2=d' 'stamps: iter=1 t0=2026-09-26T05:41:00Z t_fix=2026-09-26T05:44:00Z t1=2026-09-26T05:43:00Z t2=2026-09-26T06:05:00Z' "$LOG"
+assert_contains "reason_stamps_on_the_minute" "every \`stamps:\` time is on the minute" "$(treason "$RM")"
+complete_log
+sd 'stamps: iter=1 t0=a t_fix=b t1=c t2=d' 'stamps: iter=1 t0=2026-09-26T05:41:12Z t_fix=2026-09-26T05:44:31Z t1=2026-09-26T05:43:07Z t2=2026-09-26T08:10:44Z' "$LOG"
+assert_contains "reason_stamp_after_last_turn" "2026-09-26T08:10:44Z" "$(treason "$RM")"
+complete_log
+sd 'stamps: iter=1 t0=a t_fix=b t1=c t2=d' 'stamps: iter=1 t0=2026-09-26T05:41:12Z t_fix=2026-09-26T05:44:31Z t1=2026-09-26T05:43:07Z t2=2026-09-26T06:05:44Z' "$LOG"
+assert_eq "silent_real_stamps" "" "$(treason "$RM" | sd '^null$' '')"
 
 printf '# review-and-fix run log\nREVIEW_UNAVAILABLE_NO_FANOUT: no Agent tool\n' > "$LOG"
 assert_eq "silent_row0_abort" "silent" "$(decision "$RM")"

@@ -98,6 +98,7 @@ Run setup, once:
 - [ ] Jira reader ready, or the user chose (a), (b) or (c)
 - [ ] <ACTIVE_ROLES> (roles 1-9 and 11), <INSTANCE_2_ROLES> and <ACTIVE_GH_STYLE> (true only with --gh-style) set for iteration 1
 - [ ] run_log_path opened, header written, active-run marker written
+- [ ] `orchestrator model=` line written, and the user asked when it is not a 5.5 model or the session was resumed from an earlier day
 
 Iteration N:
 - [ ] Tree re-checked immediately before the launch
@@ -138,6 +139,16 @@ Iteration N:
    git rev-list --count origin/<default-branch>..HEAD
    ```
    If 0, inform the user there are no new commits to review and stop.
+3b. **Check the orchestrator's own model before anything is launched.** Your system prompt names
+   the model you run on. Write it to the run log as `orchestrator model=<id>` once the log is open in
+   item 7. When it is not `claude-opus-5-5` or `claude-sonnet-5-5`, stop and ask with
+   `AskUserQuestion` whether to continue on it or restart the session on a 5.5 model, and log the
+   answer as a `user-decision`. Ask too when this session already holds a long history, meaning
+   this skill was invoked in a session resumed from an earlier day, since every orchestrator call
+   re-reads that history. One run resumed a session that had started on Fable three weeks earlier:
+   priced at each response's own model its orchestrator was $207 across the session's life and $46
+   for its three review iterations, against $13 to $34 for fresh sessions that week.
+
 4. **Confirm both the `Workflow` and the `Agent` tool are available, and abort here if either is
    not.** Check your own tool list. The in-depth roles run inside the `review-roles` workflow, so
    without `Workflow` no role runs. gh-style and the scorer are Agent-tool sub-agents, so without

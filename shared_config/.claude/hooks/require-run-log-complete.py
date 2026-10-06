@@ -62,11 +62,47 @@ def _deletes_marker(cmd, sid):
     return False
 
 
-def _missing(text):
+STAMP_TIME = re.compile(r"\b(?:t0|t_fix|t1|t2)=(\d{4}-\d\d-\d\dT\d\d:\d\d:(\d\d)(?:\.\d+)?Z)")
+
+
+def _last_turn(transcript):
+    last = ""
+    try:
+        with open(transcript, errors="replace") as fh:
+            for line in fh:
+                m = re.search(r'"timestamp":"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)', line)
+                if m and m.group(1) > last:
+                    last = m.group(1)
+    except OSError:
+        return None
+    return last or None
+
+
+def _stamp_problems(text, transcript):
+    # Stamps are read from the clock. A typed stamp shows as a run whose every
+    # stamp sits on the minute, or as a time after the session's last turn.
+    times = STAMP_TIME.findall(" ".join(re.findall(r"^stamps: .*$", text, re.M)))
+    out = []
+    if len(times) >= 4 and all(sec == "00" for _, sec in times):
+        out.append("every `stamps:` time is on the minute, which a typed stamp looks like. Take each "
+                   "stamp from `date -u +%Y-%m-%dT%H:%M:%SZ` when it happens")
+    last = _last_turn(transcript) if transcript else None
+    if last:
+        late = sorted({t for t, _ in times if t[:19] > last})
+        if late:
+            out.append(f"stamps after the session's last turn ({last}Z): {', '.join(late[:3])}. Take "
+                       "stamps from `date -u`, never from an estimate")
+    return out
+
+
+def _missing(text, transcript=None):
     if "REVIEW_UNAVAILABLE_NO_FANOUT" in text:
         return []
     cur = _current_iter(text)
     out = []
+    if not re.search(r"^orchestrator model=\S+", text, re.M):
+        out.append("the `orchestrator model=<id>` line from Step 0")
+    out += _stamp_problems(text, transcript)
     if cur is None:
         out.append("no iteration marker at all (t0 iter=N, ## Iteration N or stamps: iter=N)")
         cur = 0
@@ -115,7 +151,7 @@ def main() -> None:
         run_log = fh.read().strip()
     with open(run_log, errors="replace") as fh:
         text = fh.read()
-    missing = _missing(text)
+    missing = _missing(text, data.get("transcript_path"))
     if not missing:
         return
     reason = (

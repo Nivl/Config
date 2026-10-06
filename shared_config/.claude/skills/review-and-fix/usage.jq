@@ -39,9 +39,9 @@ def K: (. / 1e3 | round);
     | ([$rows[] | select(.type=="assistant") | .message]) as $all
     | ($all[0].model // "?") as $model
     | ($all
-       | map(select(.id == null) | {usage: (.usage + {cw_1h: (.usage.cache_creation.ephemeral_1h_input_tokens // 0)})})
+       | map(select(.id == null) | {model: .model, usage: (.usage + {cw_1h: (.usage.cache_creation.ephemeral_1h_input_tokens // 0)})})
          + (map(select(.id != null)) | group_by(.id) | map(
-           {usage: {input_tokens: (map(.usage.input_tokens // 0) | max),
+           {model: .[0].model, usage: {input_tokens: (map(.usage.input_tokens // 0) | max),
                     cache_read_input_tokens: (map(.usage.cache_read_input_tokens // 0) | max),
                     cache_creation_input_tokens: (map(.usage.cache_creation_input_tokens // 0) | max),
                     cw_1h: (map(.usage.cache_creation.ephemeral_1h_input_tokens // 0) | max),
@@ -53,6 +53,12 @@ def K: (. / 1e3 | round);
     | ([$m[].usage.cache_creation_input_tokens]|add // 0) as $cw
     | ([$m[].usage.output_tokens]|add // 0) as $out
     | ([$m[].usage.cw_1h // 0]|add // 0) as $cw1h
-    | "usage kind=\($s.kind)\($s.rest) id=\(.[0].f | sub("^.*agent-";"") | .[0:8]) model=\($model|sub("^claude-";"")) turns=\($m|length) cache_read=\($cr|M)M cache_write=\($cw|M)M cache_write_1h=\($cw1h|M)M in=\($in|K)K out=\($out|K)K est_usd=\(est($model;$in;$cr;$cw;$cw1h;$out))"
+    # A session can change model partway, so each response is priced at its own
+    # model's rate. One unpriced response makes the line unpriced.
+    | ([$m[] | .usage as $u | est(.model // $model; $u.input_tokens // 0; $u.cache_read_input_tokens // 0;
+          $u.cache_creation_input_tokens // 0; $u.cw_1h // 0; $u.output_tokens // 0)]) as $costs
+    | (if any($costs[]; . == "?") then "?" else (($costs | add) * 100 | round) / 100 end) as $usd
+    | ([$m[].model // $model | select(. != "<synthetic>") | sub("^claude-";"")] | unique | join("+")) as $models
+    | "usage kind=\($s.kind)\($s.rest) id=\(.[0].f | sub("^.*agent-";"") | .[0:8]) model=\($models) turns=\($m|length) cache_read=\($cr|M)M cache_write=\($cw|M)M cache_write_1h=\($cw1h|M)M in=\($in|K)K out=\($out|K)K est_usd=\($usd)"
   )
 | .[]

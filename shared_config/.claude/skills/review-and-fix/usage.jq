@@ -8,6 +8,7 @@ def rates: {
   "claude-opus-5-5": {in: 4.00, cr: 0.20, cw: 5.00, out: 20.00},
   "claude-opus-5":   {in: 5.00, cr: 0.50, cw: 6.25, out: 25.00},
   "claude-opus-4-7": {in: 5.00, cr: 0.50, cw: 6.25, out: 25.00},
+  "claude-sonnet-5-5": {in: 2.00, cr: 0.20, cw: 2.50, out: 10.00},
   "claude-sonnet-5": {in: 2.00, cr: 0.20, cw: 2.50, out: 10.00},
   "claude-haiku-4-5":{in: 1.00, cr: 0.10, cw: 1.25, out: 5.00}
 };

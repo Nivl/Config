@@ -89,6 +89,7 @@ bill. Rates as of 2026-09-22, per million tokens, from platform.claude.com's pri
 |---|---|---|---|---|
 | `claude-fable-5-1`, `claude-fable-5` | 10.00 | 0.25 | 12.50 | 50.00 |
 | `claude-opus-5-5` | 4.00 | 0.20 | 5.00 | 20.00 |
+| `claude-sonnet-5-5` | 2.00 | 0.20 | 2.50 | 10.00 |
 | `claude-opus-5` | 5.00 | 0.50 | 6.25 | 25.00 |
 | `claude-sonnet-5` | 2.00 | 0.20 | 2.50 | 10.00 |
 | `claude-haiku-4-5` | 1.00 | 0.10 | 1.25 | 5.00 |

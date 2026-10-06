@@ -132,6 +132,22 @@ check, so its commits are unchecked and a finding blamed to one is not a miss ei
 `skipped <n> prose/test batches` to the first line when any were. Misses per bucket over three or four runs are the
 tier decision the agent file names. Omit the section when no check ran.
 
+### A/B (only with --ab-model)
+Iteration 1's two instances, each the same roles on the same diff, compared from the `attribution`,
+`usage` and merge lines:
+
+```
+                 model       kept  unique_kept  majors kept  turns/role  $/role  $ total
+instance 1 (A)   opus-5-5      9        3            2          10.4      0.62    6.80
+instance 2 (B)   sonnet-5-5    7        1            1          14.1      0.41    4.50
+missed by B: <titles of A's unique kept findings, with severity>
+missed by A: <titles of B's unique kept findings, with severity>
+```
+
+`unique_kept` is a kept finding only that instance raised. Name each one B missed, because the
+decision is whether a cheaper tier loses findings that ship, and a count alone hides which. One
+diff is one sample, so say so and do not recommend switching on it alone.
+
 ### Static-check candidates
 The `pattern` lines, grouped by pattern text, most frequent first, so a pattern that keeps coming
 back is visible as a hook candidate:

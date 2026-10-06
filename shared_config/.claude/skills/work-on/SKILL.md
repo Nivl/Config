@@ -97,7 +97,7 @@ One positional argument, the ticket key, plus optional modifier flags in any ord
 either fails that check or gets mistaken for a missing key. Order does not matter once they are
 stripped, and `work-on --no-assess WMP-837` is the same invocation as `work-on WMP-837 --no-assess`.
 
-**`--review-limit` takes a value, and it is the one flag that does.** Both `--review-limit 3` and
+**`--review-limit` and `--ab-model` take a value.** The rules below are written for `--review-limit` and hold the same way for `--ab-model`. Both `--review-limit 3` and
 `--review-limit=3` are the same invocation, so the space-separated form means the token after it is
 the value and never the ticket key. Strip both tokens. A `--review-limit` with nothing after it, or
 with a non-numeric value, is a malformed invocation. Say which and stop, rather than falling back to
@@ -129,6 +129,9 @@ choice rather than a fourth flag the run reached for.
   value of 1 means one iteration and then stop. Any higher value is a ceiling the loop stops at if
   it has not already stopped on its own. The flag is passed straight down to `review-and-fix`, which
   owns the cap and reports it, and Step 8 says what that ending may and may not claim.
+- **`--ab-model <model>` makes Step 8's first iteration an A/B.** It takes a value, like
+  `--review-limit`, and is passed straight down to `review-and-fix`, whose SETUP.md and Step 1 say
+  what it does. With `--fast` or `--assess` there is no Step 8, so it is an error the same way.
 - **`--full` tells Step 8 not to ask whether to stop early.** It takes no value. `review-and-fix`
   normally stops to ask when its own fixes dominate the findings or when iterations stop producing
   logic changes. Under `--full` it logs those signals and keeps going, so the loop ends only on one
@@ -390,6 +393,7 @@ whole product.
 /work-on WMP-837 --no-assess --review-limit 0   # no cap, because the user asked for none
 /work-on WMP-837 --fast --review-limit 3        # nothing to cap, stop and say so
 /work-on WMP-837 --full                         # full pipeline, Step 8 never asks to stop early
+/work-on WMP-837 --ab-model sonnet              # Step 8 iteration 1 also runs every role on Sonnet
 /work-on WMP-837 --no-assess --full             # still capped at 2, just no asks
 /work-on WMP-837 --assess --full                # no review to run, stop and say so
 ```
@@ -530,7 +534,7 @@ fixed. The Datadog brief asks for that correlation explicitly.
 ## Step 0: Preflight
 
 **1. Resolve the ticket key.** **Strip the modifier flags first**, per "Argument", and record the
-mode. The flags are `--no-assess`, `--fast`, `--assess`, `--review-limit` and `--full`, they may sit anywhere
+mode. The flags are `--no-assess`, `--fast`, `--assess`, `--review-limit`, `--ab-model` and `--full`, they may sit anywhere
 in the argument, and what is left after removing them is the key. `--review-limit` carries a value,
 so strip its value with it per "Argument", whichever of the two spellings was used. A flag left in
 place either fails the regex below or reads as a missing key, and both failures look like a
@@ -1670,7 +1674,7 @@ So there is no middle setting the run may pick for itself, and every number that
 **Pass the cap down when there is one.** Invoke `review-and-fix` with `--review-limit <X>`, where
 `<X>` is the user's value or `--no-assess`'s default of 2, per "Argument". Pass nothing when there is
 no cap. That skill owns the cap, stops on it, and reports the ending, so do not count iterations here
-and do not stop the loop from outside. Pass `--full` too when the user gave it, and name it in the
+and do not stop the loop from outside. Pass `--full` and `--ab-model <model>` too when the user gave them, and name them in the
 announce line below.
 
 **Announce the cap before invoking, and say where the number came from.** One line naming the

@@ -261,6 +261,13 @@ Launch the iteration's **active** reviewers only:
   `instance_roles: { '2': <INSTANCE_2_ROLES> }`. Instance 1 runs the active set. Instance 2 runs its
   own, narrower set, and when `<INSTANCE_2_ROLES>` is empty pass `instances: 1` instead so no agent
   is dispatched for it. The two instances are asymmetric on purpose, per Step 0.
+- **With `--ab-model <model>`, iteration 1 is an A/B instead.** Instance 2 runs the same set as
+  instance 1, roles 1-9 and 11, and the call adds `instance_models: { '2': '<AB_MODEL>' }`, so the
+  same roles read the same diff on the pinned model and on the one named. Append
+  `ab iter=1 model_a=<instance 1's model from its usage lines> model_b=<AB_MODEL>` to the run log.
+  Merge both instances as usual, so the fix phase works from the union. From iteration 2 the run
+  is unchanged and instance 2 follows Step 3 as always. The Final Report's A/B block in
+  FINAL-REPORT.md says what to compare.
 - If `<ACTIVE_GH_STYLE>` is true, launch **1 gh-style-review** instance as an Agent-tool sub-agent.
   It is true only in iteration 1 of an invocation that passed `--gh-style`.
 
@@ -322,6 +329,7 @@ Workflow({
     instances: 2,
     active_roles: <ACTIVE_ROLES>,
     instance_roles: { '2': <INSTANCE_2_ROLES> },
+    instance_models: { '2': '<AB_MODEL>' },   // iteration 1 with --ab-model only, else omit
     role_prompts: { '<n>': '<contents of that role file>', ... },
     common_fragment: '<contents of _common-fragment.md>',
     skip_ticket: <SKIP_TICKET>,

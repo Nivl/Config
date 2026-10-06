@@ -44,6 +44,11 @@ Run these in order. Return with `<RANGE>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`, `
    not run in this skill either way, per Step 0 item 6, so the flag gates the Jira preflight and
    the ticket-category decisions in Step 2 and removes nothing from the role set.
 
+5c. **`<AB_MODEL>`** = the value of `--ab-model` when the invocation included it, else empty. Both
+   `--ab-model sonnet` and `--ab-model=claude-sonnet-5-5` work, and the value is passed to the
+   workflow as given. A `--ab-model` with no value is a malformed invocation, so say so and stop.
+   When set, Step 1 runs iteration 1 as an A/B of that model against the role agent's pin.
+
 5b. **`<GH_STYLE>`** = true if the invocation included `--gh-style`, else false. When true,
    `<ACTIVE_GH_STYLE>` is true for iteration 1 and the Discussion Context step runs in PR mode.
    When false, no gh-style pass runs and Step 1.5 is skipped. Off by default because across the

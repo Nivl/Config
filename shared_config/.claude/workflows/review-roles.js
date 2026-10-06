@@ -124,7 +124,13 @@ Set \`pattern\` only when a mechanical check over the diff's added lines could h
 finding with no judgement: a regex, or a one-line rule such as "a symbol removed from code but
 still named in a markdown file". Name what to match, not the fix. Leave it null for anything that
 needs you to understand intent, behaviour or a caller, which is most findings.`,
-    { label: `inst${j.inst}:role${j.role}`, phase: 'Review', schema: ROLE_OUTPUT, agentType: 'in-depth-review-role' },
+    {
+      label: `inst${j.inst}:role${j.role}`, phase: 'Review', schema: ROLE_OUTPUT, agentType: 'in-depth-review-role',
+      // args.instance_models overrides the agent file's model pin for one
+      // instance, for an A/B of a cheaper tier against the pinned one on the
+      // same diff. Effort stays the agent file's.
+      ...((args.instance_models ?? {})[String(j.inst)] ? { model: args.instance_models[String(j.inst)] } : {}),
+    },
   )
 
 // One retry per role that returned nothing, then null is final. A stall is

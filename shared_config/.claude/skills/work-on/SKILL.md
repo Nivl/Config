@@ -97,7 +97,10 @@ One positional argument, the ticket key, plus optional modifier flags in any ord
 either fails that check or gets mistaken for a missing key. Order does not matter once they are
 stripped, and `work-on --no-assess WMP-837` is the same invocation as `work-on WMP-837 --no-assess`.
 
-**`--review-limit` and `--ab-model` take a value.** The rules below are written for `--review-limit` and hold the same way for `--ab-model`. Both `--review-limit 3` and
+**`--review-limit` and `--ab-model` take a value.** `--ab-model` takes a model name, as
+`--ab-model sonnet` or `--ab-model=claude-sonnet-5-5`. Strip both tokens of the spaced form, pass
+the name through unchecked, and treat a missing value or one starting with `--` as malformed. The
+numeric rules below are `--review-limit`'s alone. Both `--review-limit 3` and
 `--review-limit=3` are the same invocation, so the space-separated form means the token after it is
 the value and never the ticket key. Strip both tokens. A `--review-limit` with nothing after it, or
 with a non-numeric value, is a malformed invocation. Say which and stop, rather than falling back to
@@ -175,7 +178,7 @@ exist to delete that phase, so the pair asks for a report on an investigation th
 Do not resolve it by picking a winner. A silent resolution of contradictory flags is how a run ends
 up doing something nobody asked for, and here both readings are wrong. Ask which one they meant.
 
-**`--review-limit` or `--full` with `--fast` or `--assess` is an error. Stop and say so.** Neither
+**`--review-limit`, `--ab-model` or `--full` with `--fast` or `--assess` is an error. Stop and say so.** Neither
 mode runs Step 8, so there is no loop for a cap to bound or an ask to suppress, and the user has
 asked to shape something they also asked to delete. This is the same shape as the contradiction above and it gets the same treatment. Do not
 pick a winner, and in particular do not silently drop the cap or `--full` on the grounds that it

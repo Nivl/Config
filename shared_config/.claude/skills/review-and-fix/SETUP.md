@@ -7,7 +7,7 @@ This file holds the commands those acts run.
 ## Resolving the target
 
 Run these in order. Return with `<RANGE>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`, `<SKIP_TICKET>`,
-`<REVIEW_LIMIT>` and `<FULL>` all set.
+`<REVIEW_LIMIT>`, `<FULL>` and `<AB_MODEL>` all set.
 
 1. **Default branch.**
 

@@ -93,7 +93,7 @@ Copy this at Step 0. Copy the iteration block again for each iteration.
 Run setup, once:
 - [ ] Tree clean, or the user chose stash or include
 - [ ] <RANGE> set, commit count above zero
-- [ ] <HAS_PR>, <PR>, <TARGET_ARG>, <SKIP_TICKET>, <REVIEW_LIMIT>, <FULL> set
+- [ ] <HAS_PR>, <PR>, <TARGET_ARG>, <SKIP_TICKET>, <REVIEW_LIMIT>, <FULL>, <AB_MODEL> set
 - [ ] Workflow and Agent tools confirmed, else abort with REVIEW_UNAVAILABLE_NO_FANOUT
 - [ ] Jira reader ready, or the user chose (a), (b) or (c)
 - [ ] <ACTIVE_ROLES> (roles 1-9 and 11), <INSTANCE_2_ROLES> and <ACTIVE_GH_STYLE> (true only with --gh-style) set for iteration 1
@@ -130,7 +130,7 @@ Iteration N:
 1. Confirm the working tree is clean (`git status --porcelain`). If there are uncommitted
    changes, warn the user and ask whether to stash first or include them in the review.
 2. Resolve the target per [SETUP.md](SETUP.md), and return with `<RANGE>`, `<HAS_PR>`, `<PR>`,
-   `<TARGET_ARG>`, `<SKIP_TICKET>`, `<REVIEW_LIMIT>` and `<FULL>` set. Do not proceed with any of
+   `<TARGET_ARG>`, `<SKIP_TICKET>`, `<REVIEW_LIMIT>`, `<FULL>` and `<AB_MODEL>` set. Do not proceed with any of
    them unset. When `<REVIEW_LIMIT>` is 1 or more, say so in the announce line, so the cap is
    visible from the start rather than only at the ending it produces. When `<FULL>` is true, say
    that too, and say the run will not ask to stop early.
@@ -186,7 +186,9 @@ Iteration N:
      `11`. Role 10 does not run in this skill, per the note below. `<SKIP_TICKET>` still gates the Jira preflight and the ticket-category decisions
      in Step 2, and it removes nothing from the set because role 10 is already absent.
    - `<INSTANCE_2_ROLES>` = the roles instance 2 runs. Iteration 1: `{11, 9, 2}`, motivation, test
-     coverage and bug scan. Not the full set. From iteration 2 the default is `{}`, per Step 3.
+     coverage and bug scan. Not the full set. With `--ab-model`, iteration 1's set is
+     `<ACTIVE_ROLES>` instead, so the two instances are comparable, per Step 1. From iteration 2 the
+     default is `{}`, per Step 3.
    - `<ACTIVE_GH_STYLE>` = false, unless the invocation carried `--gh-style`, in which case true
      in iteration 1 only.
    Step 3 recomputes all three before each subsequent iteration.
@@ -264,7 +266,7 @@ Launch the iteration's **active** reviewers only:
 - **With `--ab-model <model>`, iteration 1 is an A/B instead.** Instance 2 runs the same set as
   instance 1, roles 1-9 and 11, and the call adds `instance_models: { '2': '<AB_MODEL>' }`, so the
   same roles read the same diff on the pinned model and on the one named. Append
-  `ab iter=1 model_a=<instance 1's model from its usage lines> model_b=<AB_MODEL>` to the run log.
+  `ab iter=1 model_a=<instance 1's model from its usage lines> model_b=<instance 2's model from its usage lines> requested=<AB_MODEL>`, so a pin that silently won shows as model_a equal to model_b to the run log.
   Merge both instances as usual, so the fix phase works from the union. From iteration 2 the run
   is unchanged and instance 2 follows Step 3 as always. The Final Report's A/B block in
   FINAL-REPORT.md says what to compare.
@@ -328,7 +330,7 @@ Workflow({
     mode: '<pr | branch>',
     instances: 2,
     active_roles: <ACTIVE_ROLES>,
-    instance_roles: { '2': <INSTANCE_2_ROLES> },
+    instance_roles: { '2': <INSTANCE_2_ROLES> },   // with --ab-model, iteration 1 passes <ACTIVE_ROLES>
     instance_models: { '2': '<AB_MODEL>' },   // iteration 1 with --ab-model only, else omit
     role_prompts: { '<n>': '<contents of that role file>', ... },
     common_fragment: '<contents of _common-fragment.md>',
@@ -1031,7 +1033,8 @@ Computing the next active set, for every row that goes back to Step 1 (1b, 4, an
 
 - **Role 10 needs no rule here** because it is not in any set this skill builds.
 
-- **Instance 2's discretion rule, from iteration 2 on.** `<INSTANCE_2_ROLES>` defaults to `{}`,
+- **Instance 2's discretion rule, from iteration 2 on.** `instance_models` is omitted from
+  iteration 2 on, so an `--ab-model` run's later instance 2 uses the pinned model. `<INSTANCE_2_ROLES>` defaults to `{}`,
   so no second instance runs. The orchestrator may replace that with any set, and the only
   constraint is that the set and a one-line reason go in the run log before the launch, as
   `instance2 iter=<N> roles=[...] because <reason>`. A reason names something observed this

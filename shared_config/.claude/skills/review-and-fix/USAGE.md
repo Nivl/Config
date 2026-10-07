@@ -83,13 +83,15 @@ role 7 spent in that iteration.
 ## The estimate
 
 `est_usd` is list price times the standard cache multipliers, and it is an estimate rather than a
-bill. Rates as of 2026-09-22, per million tokens, from platform.claude.com's pricing page:
+bill. Rates as of 2026-10-07, per million tokens, from platform.claude.com's pricing page. Its table still listed Sonnet 5.5's cache read at $0.20 while its prompt-caching section gave 0.05x input, $0.10, and the section is the one used here. Haiku 5.5 is priced per response by that response's prompt size (input plus cache read plus cache write):
 
 | model | input | cache read | cache write (1.25x) | output |
 |---|---|---|---|---|
 | `claude-fable-5-1`, `claude-fable-5` | 10.00 | 0.25 | 12.50 | 50.00 |
 | `claude-opus-5-5` | 4.00 | 0.20 | 5.00 | 20.00 |
-| `claude-sonnet-5-5` | 2.00 | 0.20 | 2.50 | 10.00 |
+| `claude-sonnet-5-5` | 2.00 | 0.10 | 2.50 | 10.00 |
+| `claude-haiku-5-5`, prompt up to 100K tokens | 0.10 | 0.01 | 0.125 | 0.50 |
+| `claude-haiku-5-5`, prompt over 100K tokens | 0.50 | 0.05 | 0.625 | 2.50 |
 | `claude-opus-5` | 5.00 | 0.50 | 6.25 | 25.00 |
 | `claude-sonnet-5` | 2.00 | 0.20 | 2.50 | 10.00 |
 | `claude-haiku-4-5` | 1.00 | 0.10 | 1.25 | 5.00 |

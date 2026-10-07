@@ -66,6 +66,21 @@ assert_contains "one_hour_share_printed" "cache_write_1h=1M" "$(jq -r -n -f "$SC
 jq -nc '{type:"user", message:{role:"user", content:"<!-- review-roles inst=1 role=3 attempt=1 tag=iter4 target=15 -->"}}' > "$CW"
 jq -nc '{type:"assistant", message:{model:"claude-opus-5", usage:{input_tokens:0, cache_read_input_tokens:0, cache_creation_input_tokens:1000000, cache_creation:{ephemeral_1h_input_tokens:1000000, ephemeral_5m_input_tokens:0}, output_tokens:0}}}' >> "$CW"
 assert_contains "one_hour_write_no_id_at_2x" "est_usd=10" "$(jq -r -n -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$CW")"
+# Many sub-cent responses add up instead of each rounding to zero.
+SUB="$FIX/$SESSION/subagents/workflows/wf1/agent-subcent000000.jsonl"
+jq -nc '{type:"user", message:{role:"user", content:"<!-- review-roles inst=1 role=4 attempt=1 tag=iter5 target=15 -->"}}' > "$SUB"
+for n in 1 2 3 4 5 6 7 8 9 10; do
+  jq -nc --arg id "msg_$n" '{type:"assistant", message:{id:$id, model:"claude-opus-5", usage:{input_tokens:0, cache_read_input_tokens:8000, cache_creation_input_tokens:0, output_tokens:0}}}' >> "$SUB"
+done
+assert_contains "subcent_responses_sum" "est_usd=0.04" "$(jq -r -n -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$SUB")"
+# Haiku 5.5: a prompt over 100K tokens is billed at the 5x tier.
+printf '%s\n' "$(jq -nc '{type:"user", message:{role:"user", content:"<!-- review-scorer batch=1 tag=iter5 target=15 -->"}}')" > "$SUB"
+jq -nc '{type:"assistant", message:{id:"h1", model:"claude-haiku-5-5", usage:{input_tokens:0, cache_read_input_tokens:50000, cache_creation_input_tokens:0, output_tokens:0}}}' >> "$SUB"
+assert_contains "haiku_low_tier" "est_usd=0" "$(jq -r -n -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$SUB")"
+jq -nc '{type:"assistant", message:{id:"h2", model:"claude-haiku-5-5", usage:{input_tokens:0, cache_read_input_tokens:1000000, cache_creation_input_tokens:0, output_tokens:0}}}' >> "$SUB"
+assert_contains "haiku_high_tier" "est_usd=0.05" "$(jq -r -n -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$SUB")"
+rm -f "$SUB"
+
 # A <synthetic> response carries no billable usage and must not unprice the line.
 jq -nc '{type:"assistant", message:{id:"msg_s", model:"<synthetic>", usage:{input_tokens:0, cache_read_input_tokens:0, cache_creation_input_tokens:0, output_tokens:0}}}' >> "$CW"
 assert_contains "synthetic_does_not_unprice" "est_usd=10" "$(jq -r -n -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$CW")"

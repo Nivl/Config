@@ -8,18 +8,26 @@ def rates: {
   "claude-opus-5-5": {in: 4.00, cr: 0.20, cw: 5.00, out: 20.00},
   "claude-opus-5":   {in: 5.00, cr: 0.50, cw: 6.25, out: 25.00},
   "claude-opus-4-7": {in: 5.00, cr: 0.50, cw: 6.25, out: 25.00},
-  "claude-sonnet-5-5": {in: 2.00, cr: 0.20, cw: 2.50, out: 10.00},
+  "claude-sonnet-5-5": {in: 2.00, cr: 0.10, cw: 2.50, out: 10.00},
   "claude-sonnet-5": {in: 2.00, cr: 0.20, cw: 2.50, out: 10.00},
+  # Haiku 5.5 bills a prompt over 100K tokens at 5x every rate, per response.
+  "claude-haiku-5-5":{in: 0.10, cr: 0.01, cw: 0.125, out: 0.50,
+                      over: {at: 100000, in: 0.50, cr: 0.05, cw: 0.625, out: 2.50}},
   "claude-haiku-4-5":{in: 1.00, cr: 0.10, cw: 1.25, out: 5.00}
 };
 # A dated model id is the same model as its undated key, so it prices at that key.
 # A bare tier alias names no version, so it stays unpriced per USAGE.md.
 # cw is every cache write and cw1h the part of it with a one-hour lifetime,
 # which bills at 2x input where a five-minute write bills at 1.25x (cw).
+# The result is unrounded, because it is one response's cost and the line
+# sums many. Rounding each to the cent zeroed every response under half a cent.
 def est($m; $in; $cr; $cw; $cw1h; $out):
-  (rates[$m] // rates[$m | sub("-20[0-9]{6}$";"")]) as $r
+  (rates[$m] // rates[$m | sub("-20[0-9]{6}$";"")]) as $base
+  | (if $base == null then null
+     elif $base.over and ($in + $cr + $cw) > $base.over.at then $base.over
+     else $base end) as $r
   | if $r == null then "?" else
-      ((($in*$r.in + $cr*$r.cr + ($cw - $cw1h)*$r.cw + $cw1h*$r.in*2 + $out*$r.out) / 1e6 * 100 | round) / 100) end;
+      (($in*$r.in + $cr*$r.cr + ($cw - $cw1h)*$r.cw + $cw1h*$r.in*2 + $out*$r.out) / 1e6) end;
 def M: (. / 1e6 * 10 | round) / 10;
 def K: (. / 1e3 | round);
 [inputs | {f: input_filename, r: .}]

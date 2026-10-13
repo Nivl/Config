@@ -701,7 +701,7 @@ grouped by class.
    Files changed: <git diff --stat <PRE_BATCH>..HEAD>
 
    Run `git diff <PRE_BATCH>..HEAD` in this checkout and check it per your instructions. Name the
-   commit each hit belongs to. Return PRECOMMIT_HITS as specified.
+   commit each hit belongs to. Return the COVERAGE blocks and PRECOMMIT_HITS as specified.
    ```
 
    Wait for its task notification. A hit whose fix is in a file outside the branch follows the
@@ -712,8 +712,10 @@ grouped by class.
    come from the hits' buckets: bucket 1 adds roles 1 and 5, bucket 2 adds roles 2 and 8, bucket 3
    adds role 9, bucket 4 adds role 1. Those are the lenses that would have raised the same defects
    next iteration. Amending the originals is forbidden. Then append
-   `precommit iter=<N> batch=<b> findings=<committed ids> model=<model pinned in its agent file> hits=<n> fixed=<n> left=<n>`
-   with each left hit's reason on the next line. `model` is the agent file's pin, not a usage
+   `precommit iter=<N> batch=<b> findings=<committed ids> model=<model pinned in its agent file> hits=<n> fixed=<n> left=<n> uncovered=<n>`
+   with each left hit's reason on the next line. `uncovered` counts the COVERAGE lines marked
+   uncovered, which are hits too, so a later self-inflicted finding on a path the block called
+   covered is a miss of this check. `model` is the agent file's pin, not a usage
    line, because the usage line for an Agent-tool launch arrives on the next workflow return or at
    the Final Report, and the Final Report reads the actual model from there. If the check returns
    nothing or output that does not parse, the line is `model=none hits=? fixed=0 left=0 state=missing`.

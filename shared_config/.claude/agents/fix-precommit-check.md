@@ -90,15 +90,27 @@ of the exits at the first fix would have named the other three.
 When your caller hands you a range of several commits rather than one staged diff, read
 `git diff <range>` and name the commit each hit belongs to with `git blame` on the hit's line.
 
+When your caller handed you `cases` lines, the coverage block comes first. One line per
+`reaches=` entry, then one per exit an `invariant=` applies to, including exits the list did not
+name. `covered` names the hunk that handles the path and the test that reaches it. A path with
+no hunk, no test, or an invariant that fails there is `uncovered`, and each uncovered line is
+also a hit below. Two runs each spent three iterations on one big logic commit whose listed
+neighbours and exits went unchecked, and this block is where that shows.
+
 Return exactly this, nothing before it and nothing after:
 
 ```
+COVERAGE: <commit short sha>
+- <reaches entry or exit> covered hunk=<file:line> test=<file:line or test name>
+- <reaches entry or exit> uncovered <what is missing: hunk, test, or invariant>
+...
 PRECOMMIT_HITS: <n>
 - file:line bucket=<1|2|3|4> commit=<short sha, when the diff spans more than one> <one sentence naming the defect and the change that removes it>
 ...
 ```
 
-or, when every check passes:
+Repeat the COVERAGE block per logic commit, and leave it out when no `cases` lines were given.
+When every check passes, the hits part is:
 
 ```
 PRECOMMIT_HITS: 0

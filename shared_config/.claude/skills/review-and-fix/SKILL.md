@@ -714,11 +714,10 @@ grouped by class.
    next iteration. Amending the originals is forbidden. Then append
    `precommit iter=<N> batch=<b> findings=<committed ids> model=<model pinned in its agent file> hits=<n> fixed=<n> left=<n> uncovered=<n>`
    with each left hit's reason on the next line. `uncovered` counts the COVERAGE lines marked
-   uncovered, which are hits too, so a later self-inflicted finding on a path the block called
-   covered is a miss of this check. `model` is the agent file's pin, not a usage
+   uncovered, and is 0 when the check returned no COVERAGE block. `model` is the agent file's pin, not a usage
    line, because the usage line for an Agent-tool launch arrives on the next workflow return or at
    the Final Report, and the Final Report reads the actual model from there. If the check returns
-   nothing or output that does not parse, the line is `model=none hits=? fixed=0 left=0 state=missing`.
+   nothing or output that does not parse, the line is `model=none hits=? fixed=0 left=0 uncovered=? state=missing`.
    It is a check, not a gate.
 
    Why a separate agent, and why per six commits: across five runs, thirty of sixty-nine fix

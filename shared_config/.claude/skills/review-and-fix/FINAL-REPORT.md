@@ -111,7 +111,7 @@ What the `fix-precommit-check` agent caught and what it let through, from the `p
 `self-inflicted` and `commit` lines plus its `usage` lines:
 
 ```
-checks 31   hits 19   fixed 17   left 2   cost $14.30 (sonnet-5)
+checks 31   hits 19   fixed 17   left 2   uncovered 6   cost $14.30 (sonnet-5)
 misses 4 of 12 self-inflicted findings blamed to a checked commit:
   iter3 Q5  bucket 2  blamed 8776aed7a8 (iter2, precommit hits=0)
   iter4 R3  bucket 3  blamed c623f9d7a0 (iter3, precommit hits=1 fixed=1)
@@ -129,7 +129,8 @@ bucket is the agent's own numbering (1 comments, 2 logging and locks, 3 tests, 4
 the finding's category. Findings blamed to iteration-1 commits made before the first check are not
 misses and are not counted in the denominator. A `precommit` line with `skipped=no-logic` is not a
 check, so its commits are unchecked and a finding blamed to one is not a miss either. Add
-`skipped <n> prose/test batches` to the first line when any were. Misses per bucket over three or four runs are the
+`skipped <n> prose/test batches` to the first line when any were. `uncovered` sums the
+`precommit` lines' field, and a line without it counts as 0. Misses per bucket over three or four runs are the
 tier decision the agent file names. Omit the section when no check ran.
 
 ### A/B (only with --ab-model)

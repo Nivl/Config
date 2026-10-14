@@ -92,10 +92,13 @@ When your caller hands you a range of several commits rather than one staged dif
 
 When your caller handed you `cases` lines, the coverage block comes first. One line per
 `reaches=` entry, then one per exit an `invariant=` applies to, including exits the list did not
-name. `covered` names the hunk that handles the path and the test that reaches it. A path with
-no hunk, no test, or an invariant that fails there is `uncovered`, and each uncovered line is
-also a hit below. Two runs each spent three iterations on one big logic commit whose listed
-neighbours and exits went unchecked, and this block is where that shows.
+name. `covered` names the hunk that handles the path and the test that reaches it. A path is
+`uncovered` when it has no hunk or no test. It is also uncovered when the invariant fails there.
+Each uncovered line is repeated as a hit in PRECOMMIT_HITS, at bucket 2 when the hunk or
+invariant is missing and bucket 3 when only the test is. An exit the list missed is still a hit
+per section 2 even when it is covered, so `hits` can exceed the uncovered count. On GRO-18865
+and GRO-18989 most later self-inflicted findings traced to one iteration-1 logic commit whose
+listed neighbours and exits went unchecked.
 
 Return exactly this, nothing before it and nothing after:
 
@@ -103,14 +106,15 @@ Return exactly this, nothing before it and nothing after:
 COVERAGE: <commit short sha>
 - <reaches entry or exit> covered hunk=<file:line> test=<file:line or test name>
 - <reaches entry or exit> uncovered <what is missing: hunk, test, or invariant>
-...
+COVERAGE: <next logic commit short sha, when there is one>
+- ...
 PRECOMMIT_HITS: <n>
 - file:line bucket=<1|2|3|4> commit=<short sha, when the diff spans more than one> <one sentence naming the defect and the change that removes it>
 ...
 ```
 
-Repeat the COVERAGE block per logic commit, and leave it out when no `cases` lines were given.
-When every check passes, the hits part is:
+One COVERAGE block per logic commit, all before the single PRECOMMIT_HITS line. Leave them out
+when no `cases` lines were given. When every check passes, the hits part is:
 
 ```
 PRECOMMIT_HITS: 0

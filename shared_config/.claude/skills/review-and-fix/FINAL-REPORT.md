@@ -71,7 +71,7 @@ A run that aborted on row 0 never reaches this report. Coverage has no value to 
 nothing was reviewed.
 
 ### Spend
-The run total, summed from every `usage` line in the run log, by kind and by model, with the agent
+The run total, summed from every `usage` line in the run log plus the `orchestrator` row below, by kind and by model, with the agent
 count and the turn count beside the dollar figure, and the most expensive single agent named. One
 short block:
 
@@ -87,7 +87,7 @@ most expensive: inst1:role7 iter2, 89 turns, $10.10
 
 `$` is the estimate [USAGE.md](USAGE.md) defines, at the rates and date recorded there, and this
 section says so in one clause. Every sub-agent row is marked `floor`, and the section says why in
-one more clause: a sub-agent transcript records each response's output count from the start of the
+one more clause. A sub-agent transcript records each response's output count from the start of the
 stream, so those rows are low (USAGE.md, "Sub-agent output is a floor").
 
 The `orchestrator` row is this session's own transcript, priced from the run's start. It is not
@@ -96,7 +96,7 @@ writing this block:
 
 ```
 fd -t f '<session_id>.jsonl' ~/.claude/projects --max-depth 2
-jq -r -n --arg since <the log's start= value> -f <this skill's directory>/usage.jq <that path>
+jq -r -n --arg since <the header's start= value, UTC> -f <this skill's directory>/usage.jq <that path>
 ```
 
 `<session_id>` is the one in this run's `.active-<session_id>` marker. The row covers the session

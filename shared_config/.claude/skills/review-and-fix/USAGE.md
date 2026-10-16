@@ -2,8 +2,8 @@
 
 Shared by `review-and-fix` (one block per iteration) and `pr-review` (one block per run). Every
 agent the review spawns leaves a transcript, and every assistant turn in that transcript carries a
-`usage` object. Summing it per agent is the whole method. Nothing is estimated except the dollar
-figure, and that is labelled.
+`usage` object. Summing it per agent is the whole method. The dollar figure is an estimate, and a
+sub-agent's `out=` is low (see "Sub-agent output is a floor" below).
 
 ## Where the data is
 
@@ -158,7 +158,7 @@ Claude Code's own tally in `~/.claude.json` (`lastModelUsage`), sub-agent output
 57K to 103K for Opus 5.5, 2.9K against 27.8K for Sonnet 5.5, and 0.6K against 9.4K for Fable 5.1.
 The range for Opus depends on whether that tally counts thinking inside `outputTokens`, which it
 does not say. Cache reads and writes are most of an agent's cost, so the dollar effect is smaller
-than those ratios: the sub-agent lines ran about 10 to 25 percent low, and the whole session priced
+than those ratios. The sub-agent lines ran about 10 to 25 percent low, and the whole session priced
 at $25.70 against the tally's $29.56. The thinking text is blanked in the transcript, so the real
 count cannot be recovered from it. Read every sub-agent `est_usd` as a floor.
 

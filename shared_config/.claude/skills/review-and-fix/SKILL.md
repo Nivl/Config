@@ -234,7 +234,8 @@ Iteration N:
 7. **Open the run log.** Resolve `run_log_path` per [SETUP.md](SETUP.md), trying the preferred
    home before the fallback rather than assuming it is unavailable (why: [RATIONALE.md](RATIONALE.md)). **Write the header now**,
    naming the target, the mode, `<RANGE>`, `HEAD`'s short sha, the initial active set, and the
-   start time.
+   start time as its own line, `start=<date -u +%FT%TZ>`. It is UTC because the Final Report
+   compares it against transcript timestamps, which are UTC.
 
    **Append to this file as the run goes, never assemble it at the end.** Step 3 appends each
    per-iteration block as it emits it, and Step 4 appends the Final Report. Why live rather than at

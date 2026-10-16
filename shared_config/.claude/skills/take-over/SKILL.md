@@ -51,15 +51,18 @@ cap to 2, and the user's `--review-limit` wins either way.
 Run `work-on`'s Step 0 with these deltas.
 
 **Find the PR after item 6, the GitHub access check, and before item 6b.** Item 2 still decides
-whether the current branch matches the key, and the lookup below uses that answer. Run this alone:
+whether the current branch matches the key, and the lookup below uses that answer. Run these two,
+each alone:
 
 ```
 gh pr list --state open --search <KEY> --limit 100 --json number,title,url,headRefName,author,isDraft,isCrossRepository > /tmp/claude/take-over-<KEY>-prs.json
+gh pr list --state open --limit 300 --json number,title,url,headRefName,author,isDraft,isCrossRepository > /tmp/claude/take-over-<KEY>-open.json
 ```
 
-When it returns 100 entries, say the sweep may be truncated, since the takeover PR could sit past
-the limit. `--search` does not match branch names, so filter the result locally. Keep an entry when its
-`headRefName` or its `title` matches `(?i)<KEY>(?![0-9])`, the same match `work-on`'s item 2
+`--search` does not match branch names, so the second call is what finds a PR whose key sits in
+its branch name alone. Union the two by `number`. When either returns its limit, say the sweep may
+be truncated, since the takeover PR could sit past it. Filter the union locally. Keep an entry when its
+`headRefName` or its `title` matches `(?i)(?<![a-z0-9])<KEY>(?![0-9])`, the same match `work-on`'s item 2
 uses. Then:
 
 - **Zero entries.** Stop. Say no open PR carries the key and suggest `/work-on <KEY>`.

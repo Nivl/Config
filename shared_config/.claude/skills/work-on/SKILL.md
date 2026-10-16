@@ -251,7 +251,8 @@ else's uncommitted work are the last ones standing.
 Two things inside Step 0 differ on a flag run, and both are marked at their own line. Item 1 strips
 the flags, per the rule above. And the GitHub-access fallback question is not asked at all, because
 everything it offers to trade away is Step 2 evidence a flag run was never going to gather. That is
-the one question Step 0 drops. Every check in it still runs.
+the one question Step 0 drops. Every other check in it still runs. `--assess` is a separate case.
+It skips item 6b, for the reason item 6b gives.
 
 #### What Step 1 keeps, and why those two
 
@@ -575,8 +576,9 @@ Determine the default branch (`git remote show origin` and read the `HEAD branch
 back to `main`).
 
 **The current branch matches when its name contains the key**, case-insensitively, anywhere in
-the name, with no digit right after it. As a regex that is `(?i)<KEY>(?![0-9])`, so `GRO-12`
-matches `fix/gro-12-tax` and does not match `gro-123-foo`. A match means the run works here.
+the name, with no letter or digit right before it and no digit right after it. As a regex that is
+`(?i)(?<![a-z0-9])<KEY>(?![0-9])`, so `GRO-12` matches `fix/gro-12-tax` and does not match
+`gro-123-foo` or `xgro-12-foo`. A match means the run works here.
 
 **No match, whatever the current branch is, means the run opens a worktree** with the
 "Worktree preflight" below, as item 6b, once Jira access is confirmed and the ticket's summary can
@@ -618,8 +620,9 @@ Run these in order, each `git` command alone.
    the main thread only, and the Step 2 lenses and Step 8's reviewers would read the original
    checkout. If `EnterWorktree` cannot enter that path, stop and tell the user to relaunch Claude
    Code in it.
-6. **Confirm** that `git rev-parse --show-toplevel` prints that path. For a tracking target, also
-   confirm `git rev-parse HEAD` equals `git rev-parse origin/<target>`.
+6. **Confirm** that `git rev-parse --show-toplevel` prints that path. A reused tracking target can
+   still be behind `origin/<target>` here. `take-over`'s "Branch sync" fast-forwards it and checks
+   the tip, so do not stop on that.
 
 A new worktree starts clean, so Step 0's stash has nothing to take there and Step 7 has nothing to
 pop.

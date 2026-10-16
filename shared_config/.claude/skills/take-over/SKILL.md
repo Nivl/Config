@@ -199,3 +199,49 @@ Run `work-on`'s Steps 6 and 7 with the approved pick.
   the branch only when that is clearly cleaner, and then the report says the teammate's commits
   left the PR's history.
 
+## Phase C: review, the PR, the report
+
+### Step 8
+
+Run `work-on`'s Step 8 as written. That invokes `review-and-fix --branch`, plus `--review-limit`,
+`--full` and `--ab-model` when they apply. `--branch` matters more here than in `work-on`, since a
+PR is open and the review must still cover the branch range. Follow-ups from what the loop left
+are sorted and filed as `work-on` does, against the Step 4 scope.
+
+### Step 9, replaced. Update the existing PR
+
+Do not invoke `open-pr`. The PR exists.
+
+1. Push the review commits with `git push origin <HEAD>`.
+2. Read the PR with `gh pr view <PR> --json title,body,isDraft > /tmp/claude/take-over-<KEY>-pr.json`.
+3. Compare the title and body with the repo's PR template when one exists, `open-pr`'s title
+   rules otherwise, and the branch diff. Rewrite either one only where it breaks those conventions
+   or no longer describes the diff. Use `writing-work-docs` for the rewrite. The body links the
+   ticket and lists each `keep` item from B2, so a reviewer reads them as deliberate.
+4. When something changed, write the body to `/tmp/claude/take-over-<KEY>-pr-body.md` and run
+   `gh pr edit <PR> --title "<title>" --body-file /tmp/claude/take-over-<KEY>-pr-body.md`. When
+   nothing changed, make no edit.
+5. **Never change the draft or ready state.** No `gh pr ready`, and no `--draft` on any command.
+6. Read the PR back and confirm the edit landed, as `work-on` does after `open-pr`.
+
+If the edit fails, the branch is already pushed. Say so, give the exact error and the drafted
+title and body, and still emit the report.
+
+### The `--assess` ending
+
+Post one Jira comment carrying both verdicts: the ticket verdict from Phase A, then B2's buckets
+and B3's pick. Edit no PR and push nothing. Settle the stash as `work-on` does on that ending.
+
+### Final report
+
+`work-on`'s "Final report", with its `PR` line naming the existing PR and saying `edited` or
+`unchanged` instead of `(draft)`, plus these lines:
+
+```
+Takeover      PR #<PR> by <AUTHOR>, branch <HEAD>
+Sync          rebase, <n> conflicts | merge, <n> conflicts | not rebased (--assess) | stopped on lease rejection
+Check         done <n>, wrong <n>, missing <n>, approach <sound|structural>, beyond scope <n> (keep <n>, split <n>)
+Pick          none | patch | rewrite: <reason>
+PR text       title <changed|unchanged>, body <changed|unchanged>
+```
+

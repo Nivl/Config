@@ -109,3 +109,93 @@ decides.
 - The description rewrite and the validation comment run as in `work-on`.
 - Under `--assess` there is no board write, as in `work-on`, and the comment waits for Phase B's
   check so it carries both verdicts.
+
+## Phase B: bring the branch up to date, check it, build
+
+This phase replaces the start of `work-on`'s Step 6. `work-on`'s Constraints say never force-push
+and never rewrite pushed history. **B1 overrides that rule, here and nowhere else.** The PR is the
+user's now, and they asked for a rebase.
+
+### B1. Rebase onto the default branch
+
+Done before the check, so the check reads the code as it will merge.
+
+1. `git rebase origin/<default>`. Resolve each conflict and continue. Read both sides before
+   resolving, since the default branch's side is code somebody already reviewed and merged.
+2. **When the same conflicts keep coming back commit after commit**, so one merge is plainly
+   easier than resolving each replayed commit, run `git rebase --abort`, then
+   `git merge origin/<default>`, and resolve once.
+3. **Push.** After a rebase, `git push --force-with-lease=<HEAD>:<LEASE_SHA> origin <HEAD>`. After
+   a merge, `git push origin <HEAD>`.
+4. **A lease rejection stops the run.** It means `<AUTHOR>` or someone else pushed after the fetch.
+   Say so, name `<LEASE_SHA>` and the sha the remote now has, and stop. Do not refetch and retry on
+   your own, since that would overwrite whatever they pushed.
+
+Record which one happened, `rebase` or `merge`, and how many conflicts were resolved. Phase C's
+report reads both.
+
+**Under `--assess`, B1 does not run.** That mode writes nothing to the branch. Record
+`not rebased`, and B2 reads the branch as it is.
+
+### B2. Check the implementation, strictly
+
+Launch one fresh `general-purpose` subagent, from the main thread. A fresh reader does not anchor on
+the validation context, and the full diff stays out of the main thread. Its brief carries:
+
+- the ticket as validated, or on `--no-assess` and `--fast` the ticket as filed, said plainly as
+  unvalidated,
+- the scope Step 4 agreed, when there is one,
+- the repo's `AGENTS.md` and `CLAUDE.md` paths,
+- the range `origin/<default>...HEAD`, to read with `git diff` and `git show`,
+- the instruction to be strict. The question is whether the code does what the ticket asks,
+  correctly and completely, not whether it roughly does the thing.
+
+It returns JSON with five buckets:
+
+| Bucket | Holds |
+|---|---|
+| `done` | parts of the ticket the diff implements correctly, each with a locator |
+| `wrong` | behavior that does not match the ticket, bugs, and missing edge cases inside the scope |
+| `missing` | parts of the ticket the diff does not implement |
+| `approach` | `sound` or `structural`, with a reason. `structural` means patching it will keep producing findings |
+| `beyond_scope` | code the ticket does not ask for, or code outside the Step 4 scope, each marked `keep` or `split` with a reason |
+
+For `beyond_scope` the user's rule is to keep it when it makes sense and split it into a follow-up
+otherwise.
+
+### B3. Patch or rewrite, and the gate
+
+When `wrong`, `missing` and `beyond_scope` are all empty and `approach` is `sound`, the pick is
+`none`. Say so and go to Phase C.
+
+Otherwise pick `patch` or `rewrite`, whichever is cheaper, with a one-line reason. **Cost includes
+the review iterations a patch would leave behind**, not just the lines changed today. A
+`structural` approach leans to `rewrite`, since patching one is the scope-creep path this skill
+exists to avoid.
+
+**Before the first edit, put the pick to the user in one `AskUserQuestion`**, with two options,
+approve and change. The question carries the pick, its reason, and the `wrong`, `missing` and
+`beyond_scope` lists. Ask it whichever process skill `work-on`'s Step 6 picks. On the brainstorming
+path it is that skill's design gate, not a second question. On the systematic-debugging path,
+`work-on` has no gate before the first edit, and a rewrite would otherwise discard a teammate's
+work unseen.
+
+That answer also approves each `split` item for filing. That holds on `--no-assess` too, where
+`work-on`'s Step 8 files nothing because no scope was agreed, since this question is a human
+agreeing to each item by name.
+
+Under `--assess`, no question is asked and nothing is built. The pick and the five buckets go into
+the Jira comment.
+
+### B4. Build
+
+Run `work-on`'s Steps 6 and 7 with the approved pick.
+
+- **Everything in `wrong` and `missing` is fixed in this build**, in one go, before the review loop.
+- **`split` items are removed from the branch here** and filed through `work-on`'s "Filing the
+  follow-up", one call per item, with this run's ticket key as the originating ticket.
+- **`keep` items stay**, and Phase C lists them in the PR description.
+- **A rewrite lands as new commits on `<HEAD>`**, removing or replacing the teammate's code. Reset
+  the branch only when that is clearly cleaner, and then the report says the teammate's commits
+  left the PR's history.
+

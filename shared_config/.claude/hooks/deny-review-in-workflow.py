@@ -22,7 +22,7 @@
 # it. The same goes for any other leaf skill that reads and reports without
 # fanning out.
 #
-# open-ticket is here for a different reason than the four fan-out skills. It
+# open-ticket is here for a different reason than the five fan-out skills. It
 # does have a fan-out. Losing it inside a workflow costs coverage. It does not
 # gut the run, because Step 4 has a documented inline fallback. What a workflow
 # agent cannot do is present Step 9's approval gate to a human. That gate is the
@@ -59,12 +59,20 @@ import os
 import re
 import sys
 
-# Four of these five lose their fan-out inside a workflow. Three launch reviewer
+# Five of these six lose their fan-out inside a workflow. Three launch reviewer
 # roles directly. work-on hands its review step to review-and-fix, so it
-# inherits the same loss one level down. open-ticket is the fifth entry. It is
-# denied because it loses the human who approves its Jira writes. See the
-# top-of-file paragraph for the full reason.
-DENIED_SKILLS = ("in-depth-review", "review-and-fix", "pr-review", "work-on", "open-ticket")
+# inherits the same loss one level down. take-over runs work-on's steps, so it
+# inherits it the same way. open-ticket is the sixth entry. It is denied because
+# it loses the human who approves its Jira writes. See the top-of-file paragraph
+# for the full reason.
+DENIED_SKILLS = (
+    "in-depth-review",
+    "review-and-fix",
+    "pr-review",
+    "work-on",
+    "take-over",
+    "open-ticket",
+)
 
 # Agent types rather than skills. Empty on purpose. This held
 # `pr-review-finder-indepth` while that wrapper existed, because it ran

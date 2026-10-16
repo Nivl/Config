@@ -24,8 +24,11 @@ Run these in order. Return with `<RANGE>`, `<RANGE_BASE>`, `<FORCE_BRANCH>`, `<H
    **The value must be `<base>..HEAD`.** Fix commits land on `HEAD`, so a range ending anywhere
    else would hide them from the next iteration. Check the base resolves with
    `git rev-parse --verify <base>^{commit}` and that `git merge-base --is-ancestor <base> HEAD`
-   exits zero. A `--range` with no value, a value that does not end in `..HEAD`, or a base that
-   fails either check is a malformed invocation. Say which and stop.
+   exits zero. A `--range` with no value, a value that is not `<base>..HEAD` with two dots (a
+   three-dot `<base>...HEAD` is malformed too), or a base that fails either check is a malformed
+   invocation. Say which and stop. When the base is not an ancestor of `HEAD`, such as
+   `origin/<default-branch>` after it moved past the branch point, also say to drop `--range` to
+   review the whole branch, or to pass the sha `git merge-base <base> HEAD` prints as the base.
 
    `--range` sets `<FORCE_BRANCH>` below to true. A PR's diff is the whole branch, so a narrower
    range only means anything in branch mode.

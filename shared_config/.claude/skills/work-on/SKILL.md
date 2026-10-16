@@ -37,7 +37,7 @@ validation phase is qualified by it.
 
 | Step | What happens | Writes anything? | Cut by |
 |---|---|---|---|
-| 0 | Preflight. Ticket key, branch, tooling. | no | never |
+| 0 | Preflight. Ticket key, branch, tooling, and a `wt` worktree when the branch lacks the key. | a local branch and worktree, skipped under `--assess` | never |
 | 1 | Gather ground truth once, in the main thread. | no | reduced by `--no-assess` |
 | 2 | Validate. Inline when the surface is small, seven parallel lenses plus the telemetry probes and the triage agents when it is not. | no | `--no-assess` |
 | 3 | Ask only what investigation could not settle. | no | `--no-assess` |
@@ -912,7 +912,8 @@ sandbox and must run **alone**, with no pipe and no chaining. Redirect to a file
 
 **This note is a hook rule, not a Step 1 rule, and it survives every reduction.** It happens to sit
 at the end of the step a flag guts, and the commands it governs are spread across the run: Step 0's
-`git fetch`, `git status`, and `git rev-parse`, Step 7's commit, push, and three stash commands, and
+`git fetch`, `git status`, and `git rev-parse`, its worktree preflight's `git branch`, `git rev-list`
+and `git worktree list`, Step 7's commit, push, and three stash commands, and
 Step 9's `gh`. A flag run runs all of those, so read this note even when you skip everything above
 it.
 
@@ -2222,7 +2223,9 @@ undetectable rather than merely undocumented.
   is the only place it is visible at all.
 - **Nothing writes before Step 5 unless the user asks for it.** Steps 0 through 4 are read-only
   against Jira, GitHub, and the working tree on their own initiative, which is what makes the
-  validation phase safe to run aggressively. There are two exceptions and neither one moves without
+  validation phase safe to run aggressively. There are three exceptions. Step 0's worktree
+  preflight is local. It creates a branch and a worktree from `origin`, writes nothing remote, and
+  leaves the user's checkout alone, so it runs without asking. The other two do not move without
   an answer from the user first. Step 4's option (a) posts a comment, and it happens only after the
   user has seen the evidence and chosen it. "Filing the follow-up" creates a Jira issue between
   Step 4 and Step 5, and it happens only on the agreement to the reduced scope. Leave that second

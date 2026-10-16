@@ -62,8 +62,8 @@ assert_eq "deny_take_over_in_name" "deny" \
 assert_eq "silent_take_over_prefixed_workflow" "silent" \
   "$(decision script "export const meta = { name: 'take-over-check' };")"
 
-# open-ticket is denied for a different reason than the fan-out skills above. It does not
-# lose a fan-out inside a workflow. It loses the human who approves the Jira
+# open-ticket is denied for a different reason than the fan-out skills above.
+# It loses the human who approves the Jira
 # creation, so it would either block forever or create unapproved issues.
 assert_eq "deny_open_ticket" "deny" \
   "$(decision script "await agent({ skill: 'open-ticket', prompt: req })")"

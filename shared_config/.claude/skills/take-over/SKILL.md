@@ -82,8 +82,9 @@ uses. Then:
 
 Record `<PR>` (its number), `<HEAD>` (its `headRefName`) and `<AUTHOR>` (its author's login).
 
-**The branch.** When the current branch matches the key, it must be `<HEAD>`, per the rule above.
-When it does not match, run `work-on`'s "Worktree preflight" with `<HEAD>` as a tracking target,
+**The branch.** When the current branch is `<HEAD>`, the run works here, whether or not its name
+carries the key, and `work-on`'s item 3 dirty-tree check runs as usual. When the current branch
+matches the key, it must be `<HEAD>`, per the rule above. Otherwise run `work-on`'s "Worktree preflight" with `<HEAD>` as a tracking target,
 in place of `work-on`'s item 6b. Then run "Branch sync" below on both paths.
 
 **Under `--assess`, open no worktree and sync nothing.** That mode writes no code, so it reads the
@@ -120,8 +121,10 @@ stay in, since they are what the Step 0 warning is about. Set `args.takeover` to
 `VALIDATION.md` describes what it does to the lenses. Under `--assess` the run is still in the
 original checkout, so every range Step 1 builds from `HEAD` uses `origin/<HEAD>` in its place.
 
-**Step 2.** The inline path, when the surface is small enough that `work-on` skips the workflow,
-follows the same rule the `TAKEOVER` block gives the lenses. Judge the ticket against
+**Steps 2 to 5.** The inline path, when the surface is small enough that `work-on` skips the
+workflow, follows the same rule the `TAKEOVER` block gives the lenses. So do the main-thread reads
+in Steps 3, 4 and 5 wherever `work-on` says HEAD or the tree at HEAD, such as Step 4's "reproduces
+at HEAD" and its `file:line` at HEAD. Judge the ticket against
 `origin/<default>` with `git show origin/<default>:<path>`, and never treat the branch's commits
 as evidence the ticket is satisfied.
 

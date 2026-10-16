@@ -142,14 +142,30 @@ it is the fix rather than trusting it.
 
 ## What this deliberately leaves out
 
-**The orchestrator's own cost.** That is the session transcript, and the skill would be measuring
-itself mid-run, from a file that is still being appended to. Leave it out and say so in the summary.
-The number a reader wants for the orchestrator is the run total minus the sum of these lines, read
-from the session's own usage after the run, and that is a different tool.
+**Calls with no transcript record.** About 8M Opus cache-read tokens in the GRO-19075 session, around
+$1.60, appear in Claude Code's own tally and in no transcript. Which calls they are was not found.
 
-**Thinking tokens as a separate line.** `usage.output_tokens_details.thinking_tokens` exists on each
-turn and is already inside `output_tokens`, so it is billed in the output figure above. Break it out
-only if effort tuning becomes the question, since it is the number that effort moves.
+**Thinking tokens as a separate line.** On the main thread, `output_tokens` already includes
+thinking, so it is billed in the output figure above. Break it out only if effort tuning becomes the
+question, since it is the number that effort moves.
+
+## Sub-agent output is a floor
+
+A sub-agent's transcript records each response's `output_tokens` from the start of the stream, not
+the final count. One `fix-precommit` response wrote about 600 tokens of tool input and recorded 4.
+The main thread's transcript records the final count. Measured on the GRO-19075 session against
+Claude Code's own tally in `~/.claude.json` (`lastModelUsage`), sub-agent output was 18K against
+57K to 103K for Opus 5.5, 2.9K against 27.8K for Sonnet 5.5, and 0.6K against 9.4K for Fable 5.1.
+The range for Opus depends on whether that tally counts thinking inside `outputTokens`, which it
+does not say. Cache reads and writes are most of an agent's cost, so the dollar effect is smaller
+than those ratios: the sub-agent lines ran about 10 to 25 percent low, and the whole session priced
+at $25.70 against the tally's $29.56. The thinking text is blanked in the transcript, so the real
+count cannot be recovered from it. Read every sub-agent `est_usd` as a floor.
+
+**The orchestrator** is priced from its own transcript with `--arg since`, which drops the
+responses before the run started (a `work-on` session holds the implementation phase before them).
+FINAL-REPORT.md's Spend section has the command. On GRO-19075 the whole main thread was $15.12 and
+the review run's part of it $3.92.
 
 ## Why cache reads dominate, so nobody is surprised by the ratio
 

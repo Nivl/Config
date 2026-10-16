@@ -449,8 +449,8 @@ Coverage line is absent because there is nothing it could honestly say. See
 [USAGE.md](../review-and-fix/USAGE.md) over the session's transcripts, keep the lines whose stamp
 carries `tag=pr<PR>`, and sum them by kind and by model. Report agent count, turn count and the
 priced estimate per kind, the run total, and the single most expensive agent by its stamp. Say that
-`$` is the estimate at the rates and date USAGE.md records, and that the orchestrator's own spend is
-not included. A run whose transcripts carry no stamp reports `spend: not recorded` rather than a
+`$` is the estimate at the rates and date USAGE.md records, that it is a floor (USAGE.md, "Sub-agent
+output is a floor"), and that the orchestrator's own spend is not included. A run whose transcripts carry no stamp reports `spend: not recorded` rather than a
 guess. The block is what turns a question about whether instance 2's three roles earn their cost
 into a number beside the attribution ledger rather than an argument about it.
 

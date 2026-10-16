@@ -76,17 +76,33 @@ count and the turn count beside the dollar figure, and the most expensive single
 short block:
 
 ```
-roles      48 agents  1,990 turns  $236.80  (opus-5)
-gh-style    6 agents    318 turns   $41.70  (opus-5)
-scorer      6 agents     54 turns    $2.52  (sonnet-5)
-precommit   7 agents     70 turns    $9.80  (opus-5)
-total      67 agents  2,432 turns  $290.82  over 6 iterations
+roles        48 agents  1,990 turns  $236.80  (opus-5)   floor
+gh-style      6 agents    318 turns   $41.70  (opus-5)   floor
+scorer        6 agents     54 turns    $2.52  (sonnet-5) floor
+precommit     7 agents     70 turns    $9.80  (opus-5)   floor
+orchestrator  1 session    410 turns   $88.40  (opus-5)
+total        68           2,842 turns  $379.22  over 6 iterations
 most expensive: inst1:role7 iter2, 89 turns, $10.10
 ```
 
 `$` is the estimate [USAGE.md](USAGE.md) defines, at the rates and date recorded there, and this
-section says so in one clause. The orchestrator's own spend is not in it and the block says that
-too, because a reader adding this up against a bill needs to know what is missing. Omit the section
+section says so in one clause. Every sub-agent row is marked `floor`, and the section says why in
+one more clause: a sub-agent transcript records each response's output count from the start of the
+stream, so those rows are low (USAGE.md, "Sub-agent output is a floor").
+
+The `orchestrator` row is this session's own transcript, priced from the run's start. It is not
+in the run log as a `usage` line, so compute it here, after the Iteration summaries and before
+writing this block:
+
+```
+fd -t f '<session_id>.jsonl' ~/.claude/projects --max-depth 2
+jq -r -n --arg since <the log's start= value> -f <this skill's directory>/usage.jq <that path>
+```
+
+`<session_id>` is the one in this run's `.active-<session_id>` marker. The row covers the session
+up to the moment the filter ran, so the Final Report's own turns are missing from it. When the fd
+finds no file, or finds two, write `orchestrator  not recorded` and leave it out of the total
+rather than guess. Omit the section
 only for a row 0 abort, where no agent ran. A run whose `usage` lines are missing reports
 `spend: not recorded` rather than a guess, so the gap is visible.
 

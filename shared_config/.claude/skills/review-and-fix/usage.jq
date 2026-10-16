@@ -30,7 +30,10 @@ def est($m; $in; $cr; $cw; $cw1h; $out):
       (($in*$r.in + $cr*$r.cr + ($cw - $cw1h)*$r.cw + $cw1h*$r.in*2 + $out*$r.out) / 1e6) end;
 def M: (. / 1e6 * 10 | round) / 10;
 def K: (. / 1e3 | round);
-[inputs | {f: input_filename, r: .}]
+# --arg since <ISO time> prices only responses at or after it, compared to the second. The Final
+# Report uses it on the orchestrator's transcript, which also holds whatever ran before the run.
+($ARGS.named.since // "" | .[0:19]) as $since
+| [inputs | {f: input_filename, r: .}]
 | group_by(.f)
 | map(
     (map(.r)) as $rows
@@ -44,7 +47,8 @@ def K: (. / 1e3 | round);
     # output count grows from a partial value on the first record to the final
     # one. So one entry per id, each usage field at its largest, or a response
     # with thinking, text and a tool call is billed three times.
-    | ([$rows[] | select(.type=="assistant") | .message | select(.model != "<synthetic>")]) as $all
+    | ([$rows[] | select(.type=="assistant" and ((.timestamp // "")[0:19] >= $since)) | .message
+       | select(.model != "<synthetic>")]) as $all
     | ($all[0].model // "?") as $model
     | ($all
        | map(select(.id == null) | {model: .model, usage: (.usage + {cw_1h: (.usage.cache_creation.ephemeral_1h_input_tokens // 0)})})
@@ -67,6 +71,6 @@ def K: (. / 1e3 | round);
           $u.cache_creation_input_tokens // 0; $u.cw_1h // 0; $u.output_tokens // 0)]) as $costs
     | (if any($costs[]; . == "?") then "?" else (($costs | add) * 100 | round) / 100 end) as $usd
     | ([$m[].model // $model | select(. != "<synthetic>") | sub("^claude-";"")] | unique | join("+") | if . == "" then "?" else . end) as $models
-    | "usage kind=\($s.kind)\($s.rest) id=\(.[0].f | sub("^.*agent-";"") | .[0:8]) model=\($models) turns=\($m|length) cache_read=\($cr|M)M cache_write=\($cw|M)M cache_write_1h=\($cw1h|M)M in=\($in|K)K out=\($out|K)K est_usd=\($usd)"
+    | "usage kind=\($s.kind)\($s.rest) id=\(.[0].f | sub("^.*/";"") | sub("^agent-";"") | .[0:8]) model=\($models) turns=\($m|length) cache_read=\($cr|M)M cache_write=\($cw|M)M cache_write_1h=\($cw1h|M)M in=\($in|K)K out=\($out|K)K est_usd=\($usd)"
   )
 | .[]

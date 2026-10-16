@@ -87,6 +87,16 @@ assert_contains "synthetic_does_not_unprice" "est_usd=10" "$(jq -r -n -f "$SCRIP
 assert_contains "synthetic_not_in_model" "model=opus-5 " "$(jq -r -n -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$CW")"
 rm -f "$CW"
 
+# --arg since drops responses before the run started, compared to the second. A main-thread
+# transcript has no agent- prefix, so its id is the file name's first eight characters.
+MAIN="$FIX/orchmain0-1111.jsonl"
+jq -nc '{type:"assistant", timestamp:"2026-10-15T18:00:00.000Z", message:{id:"o1", model:"claude-opus-5", usage:{input_tokens:0, cache_read_input_tokens:0, cache_creation_input_tokens:0, output_tokens:1000000}}}' > "$MAIN"
+jq -nc '{type:"assistant", timestamp:"2026-10-15T18:39:32.500Z", message:{id:"o2", model:"claude-opus-5", usage:{input_tokens:0, cache_read_input_tokens:2000000, cache_creation_input_tokens:0, output_tokens:0}}}' >> "$MAIN"
+assert_contains "since_unset_prices_all" "est_usd=26" "$(jq -r -n -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$MAIN")"
+assert_contains "since_drops_earlier" "est_usd=1" "$(jq -r -n --arg since 2026-10-15T18:39:32Z -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$MAIN")"
+assert_contains "main_transcript_id" "id=orchmain " "$(jq -r -n -f "$SCRIPT_DIR/shared_config/.claude/skills/review-and-fix/usage.jq" "$MAIN")"
+rm -f "$MAIN"
+
 run() {
   local tool="$1" tag="$2"
   jq -nc --arg t "$tool" --arg g "$tag" --arg tp "$FIX/$SESSION.jsonl" --arg sid "$SESSION" \

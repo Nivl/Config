@@ -215,5 +215,14 @@ assert_eq "silent_real_review_roles_script" "silent" \
 assert_eq "silent_real_review_roles_by_name" "silent" \
   "$(decision name "review-roles")"
 
+# ---- Allow: work-on's real Step 2 script, cut from its javascript fence ----
+# work-on passes that fence as the call's script, so a denied name added to one
+# of its comments would kill Step 2. Cutting the real fence catches that here.
+VALIDATION_MD="$(cd "$(dirname "$0")/.." && pwd)/shared_config/.claude/skills/work-on/VALIDATION.md"
+sed -n '/^```javascript$/,/^```$/p' "$VALIDATION_MD" | sed '1d;$d' >"$FIXTURES/work-on-validate.js"
+[[ -s "$FIXTURES/work-on-validate.js" ]] || { echo "FAIL: no javascript fence in $VALIDATION_MD"; exit 1; }
+assert_eq "silent_real_work_on_validate_script" "silent" \
+  "$(decision scriptPath "$FIXTURES/work-on-validate.js")"
+
 rm -rf "$FIXTURES"
 echo "deny-review-in-workflow.py: all tests passed"

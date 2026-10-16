@@ -130,9 +130,10 @@ Iteration N:
 
 1. Confirm the working tree is clean (`git status --porcelain`). If there are uncommitted
    changes, warn the user and ask whether to stash first or include them in the review.
-2. Resolve the target per [SETUP.md](SETUP.md), and return with `<RANGE>`, `<HAS_PR>`, `<PR>`,
-   `<TARGET_ARG>`, `<SKIP_TICKET>`, `<REVIEW_LIMIT>`, `<FULL>` and `<AB_MODEL>` set. Do not proceed with any of
-   them unset. When `<REVIEW_LIMIT>` is 1 or more, say so in the announce line, so the cap is
+2. Resolve the target per [SETUP.md](SETUP.md), and return with `<RANGE>`, `<FORCE_BRANCH>`,
+   `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`, `<SKIP_TICKET>`, `<REVIEW_LIMIT>`, `<FULL>` and `<AB_MODEL>`
+   set. Do not proceed with any of them unset. `--branch` is the flag behind `<FORCE_BRANCH>`, and
+   it is a flag this skill accepts, the same as `--gh-style`. When `<REVIEW_LIMIT>` is 1 or more, say so in the announce line, so the cap is
    visible from the start rather than only at the ending it produces. When `<FULL>` is true, say
    that too, and say the run will not ask to stop early.
 3. Count how many commits the current branch is ahead of the default branch:

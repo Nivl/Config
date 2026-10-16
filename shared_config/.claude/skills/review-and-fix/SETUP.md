@@ -6,8 +6,8 @@ This file holds the commands those acts run.
 
 ## Resolving the target
 
-Run these in order. Return with `<RANGE>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`, `<SKIP_TICKET>`,
-`<REVIEW_LIMIT>`, `<FULL>` and `<AB_MODEL>` all set.
+Run these in order. Return with `<RANGE>`, `<FORCE_BRANCH>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`,
+`<SKIP_TICKET>`, `<REVIEW_LIMIT>`, `<FULL>` and `<AB_MODEL>` all set.
 
 1. **Default branch.**
 
@@ -19,8 +19,15 @@ Run these in order. Return with `<RANGE>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`, `
 
 2. **Commit range.** `<RANGE>` = `origin/<default-branch>..HEAD`.
 
+2b. **`<FORCE_BRANCH>`** = true if the invocation included `--branch`, else false. When true, skip
+   item 3 entirely and set `<HAS_PR> = false`, so sub-agents run in branch mode even when the
+   branch has an open PR. Callers that already hold the whole PR diff locally, such as `work-on`
+   and `take-over`, want the same branch-range review whether or not a PR exists. `--branch` with
+   `--gh-style` is a malformed invocation, because gh-style's product is the PR context that
+   `--branch` turns off. Say so, naming both flags, and stop.
+
 3. **Open PR for the current branch**, which is what unlocks gh-style-review's Discussion
-   Context.
+   Context. Skip this item when `<FORCE_BRANCH>` is true.
 
    ```
    gh pr view --json number,state,isDraft,url 2>/dev/null
@@ -37,13 +44,6 @@ Run these in order. Return with `<RANGE>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`, `
    neither a GitHub MCP nor `gh` is available, set `<HAS_PR> = false` and continue. The loop still
    works, and the reviewer sub-skills carry the same fallback for their own reads. Local `git`
    calls need no `gh`.
-
-3b. **`<FORCE_BRANCH>`** = true if the invocation included `--branch`, else false. When true, skip
-   the `gh pr view` call in item 3 and set `<HAS_PR> = false`, so sub-agents run in branch mode
-   even when the branch has an open PR. Callers that already hold the whole PR diff locally, such
-   as `work-on` and `take-over`, want the same branch-range review whether or not a PR exists.
-   `--branch` with `--gh-style` is a malformed invocation, because gh-style's product is the PR
-   context that `--branch` turns off. Say so, naming both flags, and stop.
 
 4. **`<TARGET_ARG>`** = `<PR>` when `<HAS_PR>`, otherwise `<RANGE>`.
 

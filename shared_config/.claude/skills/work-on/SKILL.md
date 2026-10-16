@@ -583,7 +583,7 @@ matches `fix/gro-12-tax` and does not match `gro-123-foo`. A match means the run
 name the branch. That covers the default branch, a detached HEAD, a branch named for another
 ticket, and an unrelated feature branch. None of them is aborted any more. Item 3 then does not
 run, since the dirty tree belongs to a checkout this run leaves alone. Step 1 onward runs in the
-new worktree.
+new worktree. `--assess` is the exception, and item 6b says why.
 
 #### Worktree preflight
 
@@ -731,6 +731,11 @@ so the PR consequence named above does not apply and the validation gap is the w
 **6b. Open the worktree when item 2 found no match.** Read the ticket's summary (one Jira read,
 `fields: ["summary"]`), then run "Worktree preflight" with `work-on`'s target and base. Skip this
 item when item 2 matched.
+
+**Skip it under `--assess` too.** That mode builds nothing, so a branch, a worktree and the editor
+window `wt` opens would all be side effects of a yes-or-no question. The run validates from the
+current checkout instead, and when that checkout is not the default branch, say in one line that
+the lenses read its HEAD. Item 3 runs as usual on that path.
 
 **7. Warehouse access. Nothing to do here, deliberately.** This skill has no database connection of
 its own. When a warehouse number is actually wanted, Step 3 checks whether a skill that runs SQL is

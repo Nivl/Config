@@ -54,10 +54,11 @@ Run `work-on`'s Step 0 with these deltas.
 whether the current branch matches the key, and the lookup below uses that answer. Run this alone:
 
 ```
-gh pr list --state open --search <KEY> --json number,title,url,headRefName,author,isDraft,isCrossRepository > /tmp/claude/take-over-<KEY>-prs.json
+gh pr list --state open --search <KEY> --limit 100 --json number,title,url,headRefName,author,isDraft,isCrossRepository > /tmp/claude/take-over-<KEY>-prs.json
 ```
 
-`--search` does not match branch names, so filter the result locally. Keep an entry when its
+When it returns 100 entries, say the sweep may be truncated, since the takeover PR could sit past
+the limit. `--search` does not match branch names, so filter the result locally. Keep an entry when its
 `headRefName` or its `title` matches `(?i)<KEY>(?![0-9])`, the same match `work-on`'s item 2
 uses. Then:
 
@@ -71,14 +72,34 @@ uses. Then:
 - **`isCrossRepository` is true on the chosen PR.** Stop. A fork's branch is not one this run can
   push to, and that case is out of scope.
 
-Record `<PR>` (its number), `<HEAD>` (its `headRefName`), `<AUTHOR>` (its author's login), and
-`<LEASE_SHA>`, which is `git rev-parse origin/<HEAD>` right after the fetch. `<LEASE_SHA>` is what
-Phase B's force-push compares against, so a later fetch cannot move it.
+Record `<PR>` (its number), `<HEAD>` (its `headRefName`) and `<AUTHOR>` (its author's login).
 
 **The branch.** When the current branch matches the key, it must be `<HEAD>`, per the rule above.
 When it does not match, run `work-on`'s "Worktree preflight" with `<HEAD>` as a tracking target,
-in place of `work-on`'s item 6b. Every rule in that subsection applies, the extra-commits stop
-included.
+in place of `work-on`'s item 6b. Then run "Branch sync" below on both paths.
+
+**Under `--assess`, open no worktree and sync nothing.** That mode writes no code, so it reads the
+teammate's branch from the remote ref instead. Phase A judges against `origin/<default>` already,
+and B2 reads `origin/<default>...origin/<HEAD>`. The run stays in the current checkout, and the
+report says no branch or worktree was created.
+
+### Branch sync
+
+Both paths end here, so one invariant holds before Phase A. Local `<HEAD>` tracks
+`origin/<HEAD>`, has no commits the remote lacks, and is at the remote's tip. The lease in B1 only
+protects against pushes after the fetch. It does not protect against a local branch that was
+never at the tip, so this check is what keeps a force-push from erasing the teammate's newest
+commits.
+
+1. `git fetch origin <HEAD>`. This is the last fetch before B1.
+2. `git rev-parse --abbrev-ref <HEAD>@{upstream}`. When it is not `origin/<HEAD>`, fix it with
+   `git branch --set-upstream-to=origin/<HEAD> <HEAD>`.
+3. `git rev-list origin/<HEAD>..<HEAD>`. A non-empty list is commits that are neither the
+   teammate's nor this run's. Stop, list them, and let the user decide.
+4. `git rev-list <HEAD>..origin/<HEAD>`. A non-empty list means the local branch is behind. Run
+   `git merge --ff-only origin/<HEAD>` and say how many commits it brought in.
+5. Record `<LEASE_SHA>` as `git rev-parse origin/<HEAD>`, and confirm `git rev-parse HEAD` prints
+   the same sha. Phase B's force-push compares against it, so a later fetch cannot move it.
 
 ## Phase A: validate the ticket
 
@@ -88,7 +109,8 @@ included.
 `coverage_notes` entry saying `PR #<PR> excluded as the takeover PR`. Other PRs that match the key
 stay in, since they are what the Step 0 warning is about. Set `args.takeover` to
 `{ "pr": <PR>, "head": "<HEAD>", "author": "<AUTHOR>", "baseline": "origin/<default>" }`.
-`VALIDATION.md` describes what it does to the lenses.
+`VALIDATION.md` describes what it does to the lenses. Under `--assess` the run is still in the
+original checkout, so every range Step 1 builds from `HEAD` uses `origin/<HEAD>` in its place.
 
 **Step 2.** The inline path, when the surface is small enough that `work-on` skips the workflow,
 follows the same rule the `TAKEOVER` block gives the lenses. Judge the ticket against
@@ -97,18 +119,19 @@ as evidence the ticket is satisfied.
 
 **Step 4.** A dead verdict, for any reason, touches no part of the PR. No comment, no close, no
 edit. The ending names `<PR>` and `<AUTHOR>` and recommends what to do with the PR, and the user
-decides.
+decides. Phase B does not run on a dead verdict, since there is no work left to check. Under
+`--assess` the Jira comment then posts here, as `work-on` posts it, carrying the ticket verdict and
+naming `<PR>`. It does not wait for Phase B.
 
 **Step 5.**
 
 - **Assignee.** Assign the ticket to the user, as `work-on` does. It usually moves the ticket off
   `<AUTHOR>`'s name, which is what a takeover means.
 - **Status.** No status move. The ticket keeps whatever status it has, In Review included.
-- **Sprint.** Add the ticket to the user's active sprint only when it sits in no active sprint.
-  A ticket on any active sprint, the teammate's included, stays where it is.
+- **Sprint.** As `work-on` does.
 - The description rewrite and the validation comment run as in `work-on`.
-- Under `--assess` there is no board write, as in `work-on`, and the comment waits for Phase B's
-  check so it carries both verdicts.
+- Under `--assess` there is no board write, as in `work-on`. On a live verdict the comment waits
+  for Phase B's check so it carries both verdicts.
 
 ## Phase B: bring the branch up to date, check it, build
 
@@ -127,15 +150,17 @@ Done before the check, so the check reads the code as it will merge.
    `git merge origin/<default>`, and resolve once.
 3. **Push.** After a rebase, `git push --force-with-lease=<HEAD>:<LEASE_SHA> origin <HEAD>`. After
    a merge, `git push origin <HEAD>`.
-4. **A lease rejection stops the run.** It means `<AUTHOR>` or someone else pushed after the fetch.
-   Say so, name `<LEASE_SHA>` and the sha the remote now has, and stop. Do not refetch and retry on
-   your own, since that would overwrite whatever they pushed.
+4. **A rejected push stops the run**, a lease rejection after a rebase or a non-fast-forward
+   rejection after a merge alike. Both mean `<AUTHOR>` or someone else pushed after the fetch. Say
+   so, name `<LEASE_SHA>` and the sha the remote now has, and stop. Do not refetch and retry on
+   your own, and never fall back to a plain `--force`, since either would overwrite whatever they
+   pushed.
 
 Record which one happened, `rebase` or `merge`, and how many conflicts were resolved. Phase C's
 report reads both.
 
 **Under `--assess`, B1 does not run.** That mode writes nothing to the branch. Record
-`not rebased`, and B2 reads the branch as it is.
+`not rebased`, and B2 reads `origin/<default>...origin/<HEAD>`, the branch as it is on the remote.
 
 ### B2. Check the implementation, strictly
 
@@ -195,9 +220,9 @@ Run `work-on`'s Steps 6 and 7 with the approved pick.
 - **`split` items are removed from the branch here** and filed through `work-on`'s "Filing the
   follow-up", one call per item, with this run's ticket key as the originating ticket.
 - **`keep` items stay**, and Phase C lists them in the PR description.
-- **A rewrite lands as new commits on `<HEAD>`**, removing or replacing the teammate's code. Reset
-  the branch only when that is clearly cleaner, and then the report says the teammate's commits
-  left the PR's history.
+- **A rewrite lands as new commits on `<HEAD>`**, removing or replacing the teammate's code.
+  Never reset the branch. B1's push is the run's one force-push, and Step 7 pushes plainly, so a
+  reset would leave a branch that cannot be pushed without a second, unguarded force-push.
 
 ## Phase C: review, the PR, the report
 

@@ -62,7 +62,7 @@ assert_eq "deny_take_over_in_name" "deny" \
 assert_eq "silent_take_over_prefixed_workflow" "silent" \
   "$(decision script "export const meta = { name: 'take-over-check' };")"
 
-# open-ticket is denied for a different reason than the four above. It does not
+# open-ticket is denied for a different reason than the fan-out skills above. It does not
 # lose a fan-out inside a workflow. It loses the human who approves the Jira
 # creation, so it would either block forever or create unapproved issues.
 assert_eq "deny_open_ticket" "deny" \
@@ -205,7 +205,7 @@ assert_eq "deny_within_read_cap" "deny" \
 # ---- Allow: the real saved role-dispatch script, fed by scriptPath ----
 # This is the one workflow the review skills drive from the main thread. Its
 # body names in-depth-review-role, which the trailing word boundary allows, and
-# must name none of the five denied skills anywhere, comments included. Feeding
+# must name no entry of DENIED_SKILLS anywhere, comments included. Feeding
 # the real file rather than a quote is what makes a later edit that adds a
 # denied name fail here instead of at run time.
 REAL_SCRIPT="$(cd "$(dirname "$0")/.." && pwd)/shared_config/.claude/workflows/review-roles.js"

@@ -581,7 +581,7 @@ matches `fix/gro-12-tax` and does not match `gro-123-foo`. A match means the run
 **No match, whatever the current branch is, means the run opens a worktree** with the
 "Worktree preflight" below, as item 6b, once Jira access is confirmed and the ticket's summary can
 name the branch. That covers the default branch, a detached HEAD, a branch named for another
-ticket, and an unrelated feature branch. None of them is aborted any more. Item 3 then does not
+ticket, and an unrelated feature branch. Item 3 then does not
 run, since the dirty tree belongs to a checkout this run leaves alone. Step 1 onward runs in the
 new worktree. `--assess` is the exception, and item 6b says why.
 

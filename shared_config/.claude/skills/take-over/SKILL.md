@@ -171,7 +171,8 @@ the validation context, and the full diff stays out of the main thread. Its brie
   unvalidated,
 - the scope Step 4 agreed, when there is one,
 - the repo's `AGENTS.md` and `CLAUDE.md` paths,
-- the range `origin/<default>...HEAD`, to read with `git diff` and `git show`,
+- the range `origin/<default>...HEAD`, or `origin/<default>...origin/<HEAD>` under `--assess`,
+  to read with `git diff` and `git show`,
 - the instruction to be strict. The question is whether the code does what the ticket asks,
   correctly and completely, not whether it roughly does the thing.
 

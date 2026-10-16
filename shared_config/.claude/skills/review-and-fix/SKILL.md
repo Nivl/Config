@@ -95,7 +95,7 @@ Copy this at Step 0. Copy the iteration block again for each iteration.
 Run setup, once:
 - [ ] Tree clean, or the user chose stash or include
 - [ ] <RANGE> set, commit count above zero
-- [ ] <HAS_PR>, <PR>, <TARGET_ARG>, <SKIP_TICKET>, <REVIEW_LIMIT>, <FULL>, <AB_MODEL> set
+- [ ] <RANGE_BASE>, <FORCE_BRANCH>, <HAS_PR>, <PR>, <TARGET_ARG>, <SKIP_TICKET>, <REVIEW_LIMIT>, <FULL>, <AB_MODEL> set
 - [ ] Workflow and Agent tools confirmed, else abort with REVIEW_UNAVAILABLE_NO_FANOUT
 - [ ] Jira reader ready, or the user chose (a), (b) or (c)
 - [ ] <ACTIVE_ROLES> (roles 1-9 and 11), <INSTANCE_2_ROLES> and <ACTIVE_GH_STYLE> (true only with --gh-style) set for iteration 1
@@ -656,7 +656,7 @@ grouped by class.
 
    **A fix outside the branch's files is a follow-up by default.** Before editing a file, check it
    is one the branch changed before this run started:
-   `git diff --name-only <RANGE_BASE>..<the HEAD sha in the log header> -- <file>`. Empty output
+   `git diff --name-only <RANGE_BASE>...<the HEAD sha in the log header> -- <file>`. Empty output
    means it is outside. Under `--range` that means outside the range, so a file only older commits
    on the branch changed is outside too. Two cases may still edit it: a call site or test the branch's own change
    makes wrong, per IMPLEMENTER.md's call-site bullet, and a file this run already had to edit under

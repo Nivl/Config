@@ -594,9 +594,11 @@ grouped by class.
      which reason a member gets), ask for the whole order at once. List every case that spot can
      reach, with the current order and the cases no decision has placed yet, and ask for a full
      ranking. Record it as `user-decision iter=<N> locus=<file:range> chose=order:<a>,<b>,<c>,...`.
-     A later finding that only re-argues a pair that ranking already places is dropped, as
-     `not-fixed iter=<N> finding=<id> reason=user-decision (order)`. A case the ranking missed is
-     the one new question. GRO-19108 asked about one pair per iteration in iterations 3 to 5,
+     A later finding that only re-argues a pair that ranking already places is not fixed. Log
+     `not-fixed iter=<N> finding=<id> reason=user-decision (order)` and add it to
+     `skipped_findings`. It stays a kept finding in the severity line, not a score drop, so it
+     blocks row 1 and an iteration whose kept findings are all of this kind ends on row 2. Tied
+     cases are written `a=b` in the ranking. A case the ranking missed is the one new question. GRO-19108 asked about one pair per iteration in iterations 3 to 5,
      four answers for one spot, and 7 of its 15 self-inflicted findings came from those fixes.
    - If the finding's `category` is `ticket` -> ALWAYS use `AskUserQuestion`, regardless of how
      clear the fix looks. Ticket gaps are intent decisions, not mechanical fixes. Present the

@@ -28,7 +28,8 @@ cases iter=<N> findings=<ids> invariant="<what must hold across every path, when
 ```
 
 **When the edit implements a `chose=order:` decision**, `reaches=` names every case in that
-ranking, and the group's tests pin each adjacent pair, not only the pair the finding raised.
+ranking, and the group's tests pin each adjacent pair in it plus the pair the finding raised. A
+case no test can reach is named in `reaches=` with the reason.
 
 **When the edit touches state that has to pair up**, a claim and its release, a lock and its
 unlock, an open and its close, a retry and the idempotency it relies on, a transaction and its

@@ -10,6 +10,7 @@ description: >
   when the user says stop, or when it reaches the `--review-limit X` cap if the invocation set one.
   `--full` turns off the mid-run asks to stop early, so only those conditions end the run.
   `--branch` reviews the branch's commit range even when the branch has an open PR.
+  `--range <base>..HEAD` reviews only the commits after `<base>`, in branch mode.
   It aborts when no reviewer can run at all. No GitHub writes.
   Produces a final summary report.
   Use this skill when the user asks to "review and fix", "review my changes", "clean up my
@@ -130,15 +131,16 @@ Iteration N:
 
 1. Confirm the working tree is clean (`git status --porcelain`). If there are uncommitted
    changes, warn the user and ask whether to stash first or include them in the review.
-2. Resolve the target per [SETUP.md](SETUP.md), and return with `<RANGE>`, `<FORCE_BRANCH>`,
-   `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`, `<SKIP_TICKET>`, `<REVIEW_LIMIT>`, `<FULL>` and `<AB_MODEL>`
-   set. Do not proceed with any of them unset. `--branch` is the flag behind `<FORCE_BRANCH>`, and
-   it is a flag this skill accepts, the same as `--gh-style`. When `<REVIEW_LIMIT>` is 1 or more, say so in the announce line, so the cap is
+2. Resolve the target per [SETUP.md](SETUP.md), and return with `<RANGE>`, `<RANGE_BASE>`,
+   `<FORCE_BRANCH>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`, `<SKIP_TICKET>`, `<REVIEW_LIMIT>`, `<FULL>`
+   and `<AB_MODEL>` set. Do not proceed with any of them unset. `--branch` and `--range` are the
+   flags behind `<FORCE_BRANCH>` and `<RANGE>`, and both are flags this skill accepts, the same as
+   `--gh-style`. When `--range` was given, name the range in the announce line. When `<REVIEW_LIMIT>` is 1 or more, say so in the announce line, so the cap is
    visible from the start rather than only at the ending it produces. When `<FULL>` is true, say
    that too, and say the run will not ask to stop early.
-3. Count how many commits the current branch is ahead of the default branch:
+3. Count how many commits the range holds:
    ```
-   git rev-list --count origin/<default-branch>..HEAD
+   git rev-list --count <RANGE>
    ```
    If 0, inform the user there are no new commits to review and stop.
 3b. **Check the orchestrator's own model before anything is launched.** Your system prompt names
@@ -654,8 +656,9 @@ grouped by class.
 
    **A fix outside the branch's files is a follow-up by default.** Before editing a file, check it
    is one the branch changed before this run started:
-   `git diff --name-only <merge-base>..<the HEAD sha in the log header> -- <file>`. Empty output
-   means it is outside. Two cases may still edit it: a call site or test the branch's own change
+   `git diff --name-only <RANGE_BASE>..<the HEAD sha in the log header> -- <file>`. Empty output
+   means it is outside. Under `--range` that means outside the range, so a file only older commits
+   on the branch changed is outside too. Two cases may still edit it: a call site or test the branch's own change
    makes wrong, per IMPLEMENTER.md's call-site bullet, and a file this run already had to edit under
    that same exception. For anything else, do not edit. List the finding under Remaining Issues as
    a follow-up and append `outside-branch iter=<N> finding=<id> file=<path> action=followup`. When

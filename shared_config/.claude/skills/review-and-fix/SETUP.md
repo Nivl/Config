@@ -6,7 +6,7 @@ This file holds the commands those acts run.
 
 ## Resolving the target
 
-Run these in order. Return with `<RANGE>`, `<FORCE_BRANCH>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`,
+Run these in order. Return with `<RANGE>`, `<RANGE_BASE>`, `<FORCE_BRANCH>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`,
 `<SKIP_TICKET>`, `<REVIEW_LIMIT>`, `<FULL>` and `<AB_MODEL>` all set.
 
 1. **Default branch.**
@@ -17,14 +17,25 @@ Run these in order. Return with `<RANGE>`, `<FORCE_BRANCH>`, `<HAS_PR>`, `<PR>`,
 
    Fall back to `main` if unavailable.
 
-2. **Commit range.** `<RANGE>` = `origin/<default-branch>..HEAD`.
+2. **Commit range.** `<RANGE>` = the value of `--range` when the invocation included it, else
+   `origin/<default-branch>..HEAD`. Both `--range <base>..HEAD` and `--range=<base>..HEAD` work.
+   `<RANGE_BASE>` = the part before `..`, which is `origin/<default-branch>` by default.
 
-2b. **`<FORCE_BRANCH>`** = true if the invocation included `--branch`, else false. When true, skip
+   **The value must be `<base>..HEAD`.** Fix commits land on `HEAD`, so a range ending anywhere
+   else would hide them from the next iteration. Check the base resolves with
+   `git rev-parse --verify <base>^{commit}` and that `git merge-base --is-ancestor <base> HEAD`
+   exits zero. A `--range` with no value, a value that does not end in `..HEAD`, or a base that
+   fails either check is a malformed invocation. Say which and stop.
+
+   `--range` sets `<FORCE_BRANCH>` below to true. A PR's diff is the whole branch, so a narrower
+   range only means anything in branch mode.
+
+2b. **`<FORCE_BRANCH>`** = true if the invocation included `--branch` or `--range`, else false. When true, skip
    item 3 entirely and set `<HAS_PR> = false`, so sub-agents run in branch mode even when the
    branch has an open PR. Callers that already hold the whole PR diff locally, such as `work-on`
-   and `take-over`, want the same branch-range review whether or not a PR exists. `--branch` with
-   `--gh-style` is a malformed invocation, because gh-style's product is the PR context that
-   `--branch` turns off. Say so, naming both flags, and stop.
+   and `take-over`, want the same branch-range review whether or not a PR exists. `--branch` or
+   `--range` with `--gh-style` is a malformed invocation, because gh-style's product is the PR
+   context that both flags turn off. Say so, naming both flags, and stop.
 
 3. **Open PR for the current branch**, which is what unlocks gh-style-review's Discussion
    Context. Skip this item when `<FORCE_BRANCH>` is true.

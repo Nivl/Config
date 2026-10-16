@@ -96,7 +96,8 @@ name. `covered` names the hunk that handles the path and the test that reaches i
 `uncovered` when it has no hunk or no test. It is also uncovered when the invariant fails there.
 Each uncovered line is repeated as a hit in PRECOMMIT_HITS, at bucket 2 when the hunk or
 invariant is missing and bucket 3 when only the test is. An exit the list missed is still a hit
-per section 2 even when it is covered, so `hits` can exceed the uncovered count. On GRO-18865
+per section 2 even when it is covered, so `hits` can exceed the uncovered count and is never
+below it. On GRO-18865
 and GRO-18989 most later self-inflicted findings traced to one iteration-1 logic commit whose
 listed neighbours and exits went unchecked.
 

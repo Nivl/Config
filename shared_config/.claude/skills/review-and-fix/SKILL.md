@@ -590,6 +590,14 @@ grouped by class.
    - If the fix is clear and unambiguous -> implement it directly.
    - If the fix is ambiguous or has multiple valid approaches -> use `AskUserQuestion` to present
      the options and wait for a decision before proceeding.
+   - If the finding is about which of several cases wins at one spot (arm order, precedence,
+     which reason a member gets), ask for the whole order at once. List every case that spot can
+     reach, with the current order and the cases no decision has placed yet, and ask for a full
+     ranking. Record it as `user-decision iter=<N> locus=<file:range> chose=order:<a>,<b>,<c>,...`.
+     A later finding that only re-argues a pair that ranking already places is dropped, as
+     `not-fixed iter=<N> finding=<id> reason=user-decision (order)`. A case the ranking missed is
+     the one new question. GRO-19108 asked about one pair per iteration in iterations 3 to 5,
+     four answers for one spot, and 7 of its 15 self-inflicted findings came from those fixes.
    - If the finding's `category` is `ticket` -> ALWAYS use `AskUserQuestion`, regardless of how
      clear the fix looks. Ticket gaps are intent decisions, not mechanical fixes. Present the
      ticket ID with the requirement it states, then the gap, meaning what the diff does against

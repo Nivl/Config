@@ -613,8 +613,10 @@ Run these in order, each `git` command alone.
    `git rev-list origin/<target>..<target>`. A non-empty list is commits that are neither the
    teammate's nor this run's. Stop, list them, and let the user decide, since pushing them would
    put them on someone else's PR.
-4. **`wt <target>`.** If it fails, ask the user to run `! wt <target>` themselves. Do not
-   reimplement `wt`, since the user keeps using it by hand.
+4. **`wt <target>`.** `wt` is a shell function, so it runs inside the Bash sandbox, and the
+   sandbox may deny the `.git` write its `git worktree add` makes. On the first failure, ask the
+   user to run `! wt <target>` themselves, and do not retry it. Do not reimplement `wt`, since the
+   user keeps using it by hand.
 5. **Move the whole session into the worktree** with the `EnterWorktree` tool, using the path
    `git worktree list --porcelain` shows for `refs/heads/<target>`. A `cd` in the Bash tool moves
    the main thread only, and the Step 2 lenses and Step 8's reviewers would read the original

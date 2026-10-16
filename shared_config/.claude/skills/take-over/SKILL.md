@@ -70,8 +70,13 @@ uses. Then:
 - **Several entries.** List them with number, author, branch and title, and ask which one with
   `AskUserQuestion`. This is a decision, so it is asked on a flag run too.
 - **The current branch matches the key.** The takeover PR is the entry whose `headRefName` is the
-  current branch. When none is, treat it as zero entries. When other entries also match, still
-  name them in one line, so the user knows more than one PR is open for this ticket.
+  current branch. When none is and other entries matched, stop. List those entries with number,
+  author and branch, say the current branch is not the head of any of them, and tell the user to
+  switch to that PR's branch, or to run from a checkout whose branch does not carry the key so the
+  worktree preflight opens it. Do not suggest `/work-on <KEY>`, since a PR already carries the
+  key. When no entry matched at all, treat it as zero entries. When other entries match beside the
+  current branch's own PR, still name them in one line, so the user knows more than one PR is open
+  for this ticket.
 - **`isCrossRepository` is true on the chosen PR.** Stop. A fork's branch is not one this run can
   push to, and that case is out of scope.
 

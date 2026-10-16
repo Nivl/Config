@@ -4,7 +4,8 @@ description: >
   Takes a Jira ticket key and drives it end to end. Validates the ticket against the code at HEAD
   and against merged work, open PRs and related tickets that may have overtaken it, sizes impact
   and fix on a bug or security ticket, rewrites the ticket from what it found, then builds,
-  commits, reviews and opens a draft PR.
+  commits, reviews and opens a draft PR. Opens a `wt` worktree for the ticket when the current
+  branch's name does not carry its key.
   Use it when the user says "work on WMP-837", "/work-on ABC-123", "pick up this ticket", "start
   on this ticket", or hands over a Jira key expecting the whole loop.
   Use it with `--assess` when they want the ticket judged and nothing built ("is this ticket still
@@ -241,11 +242,11 @@ out, so that note goes out when the read lands.
 
 #### Step 0 is never reduced
 
-Nothing in Step 0 is validation. The branch check, the dirty-tree stash, the stash ownership rule,
-`git fetch`, and the Jira and GitHub access checks are damage control, and a flag run needs them more
-rather than less. `--fast` commits, pushes, and opens a PR with nothing having reviewed the code, so
-the checks that stop it doing that on the default branch or over somebody else's uncommitted work are
-the last ones standing.
+Nothing in Step 0 is validation. The branch check, the worktree preflight, the dirty-tree stash, the
+stash ownership rule, `git fetch`, and the Jira and GitHub access checks are damage control, and a
+flag run needs them more rather than less. `--fast` commits, pushes, and opens a PR with nothing
+having reviewed the code, so the checks that keep it off the default branch and away from somebody
+else's uncommitted work are the last ones standing.
 
 Two things inside Step 0 differ on a flag run, and both are marked at their own line. Item 1 strips
 the flags, per the rule above. And the GitHub-access fallback question is not asked at all, because
@@ -559,11 +560,11 @@ references on real commands. A branch name is set by whoever created the branch,
 the person running this, so anything derived from it gets checked before it reaches a command line.
 Ask for the key directly rather than trying to sanitize a branch name into one.
 
-If the argument key and the branch-name key disagree, stop and ask which one is right. Working
-a ticket on a branch named for a different ticket is almost always a mistake, and it poisons
-the commit trail and the PR.
+If the argument key and the branch-name key disagree, the argument wins and the current branch
+does not match. Item 2 then opens a worktree for the argument's ticket rather than working it on
+a branch named for a different one, which would poison the commit trail and the PR.
 
-**2. Verify the repo and the branch.**
+**2. Verify the repo and decide whether the current branch is the ticket's.**
 
 ```
 git rev-parse --is-inside-work-tree
@@ -573,11 +574,55 @@ git rev-parse --abbrev-ref HEAD
 Determine the default branch (`git remote show origin` and read the `HEAD branch` line; fall
 back to `main`).
 
-**Abort if the current branch is the default branch, or if HEAD is detached.** Tell the user to
-cut a feature branch and re-run, and suggest a name from the ticket key and summary
-(`wmp-837-invoice-tax-double-add`). Do not create the branch. Which branch the work lands on is
-the user's call, and this skill pushes to the remote later in the run, so guessing wrong is
-expensive.
+**The current branch matches when its name contains the key**, case-insensitively, anywhere in
+the name, with no digit right after it. As a regex that is `(?i)<KEY>(?![0-9])`, so `GRO-12`
+matches `fix/gro-12-tax` and does not match `gro-123-foo`. A match means the run works here.
+
+**No match, whatever the current branch is, means the run opens a worktree** with the
+"Worktree preflight" below, as item 6b, once Jira access is confirmed and the ticket's summary can
+name the branch. That covers the default branch, a detached HEAD, a branch named for another
+ticket, and an unrelated feature branch. None of them is aborted any more. Item 3 then does not
+run, since the dirty tree belongs to a checkout this run leaves alone. Step 1 onward runs in the
+new worktree.
+
+#### Worktree preflight
+
+`take-over` runs this subsection too, by name, with its own target and base. Inputs are the
+target branch and the base it starts from.
+
+- **`work-on`'s target** is `<key-lower>-<summary-slug>`, such as
+  `wmp-837-invoice-tax-double-add`, from the ticket key and a few words of its summary. Its base
+  is `origin/<default>`.
+- **`take-over`'s target** is the head branch of the PR it takes over. Its base is
+  `origin/<target>`, which makes it a tracking target.
+
+Run these in order, each `git` command alone.
+
+1. `git fetch origin`.
+2. **Create the local branch before calling `wt`.** `wt` reuses a local branch that already has
+   the name and otherwise creates one from wherever HEAD is (`shared_config/config.zshrc`, the
+   `wt` function). Creating it first is what puts the right commits under it.
+   - `work-on`: `git branch <target> origin/<default>`.
+   - A tracking target: `git branch --track <target> origin/<target>`.
+3. **If `refs/heads/<target>` already exists, check it instead of creating it.** For `work-on`,
+   reuse it as it is. For a tracking target, read its upstream with
+   `git rev-parse --abbrev-ref <target>@{upstream}`. When that is not `origin/<target>`, fix it with
+   `git branch --set-upstream-to=origin/<target> <target>`. Then run
+   `git rev-list origin/<target>..<target>`. A non-empty list is commits that are neither the
+   teammate's nor this run's. Stop, list them, and let the user decide, since pushing them would
+   put them on someone else's PR.
+4. **`wt <target>`.** If it fails, ask the user to run `! wt <target>` themselves. Do not
+   reimplement `wt`, since the user keeps using it by hand.
+5. **Move the whole session into the worktree** with the `EnterWorktree` tool, using the path
+   `git worktree list --porcelain` shows for `refs/heads/<target>`. A `cd` in the Bash tool moves
+   the main thread only, and the Step 2 lenses and Step 8's reviewers would read the original
+   checkout. If `EnterWorktree` cannot enter that path, stop and tell the user to relaunch Claude
+   Code in it.
+6. **Confirm** that `git rev-parse --show-toplevel` prints that path. For a tracking target, also
+   confirm `git rev-parse HEAD` equals `git rev-parse origin/<target>`.
+
+A new worktree starts clean, so Step 0's stash has nothing to take there and Step 7 has nothing to
+pop.
 
 **3. Working tree.** `git status --porcelain`. If it is dirty, ask whether to stash or to commit
 first. Do not decide this silently, and do not offer to validate against a dirty tree. Every lens is
@@ -682,6 +727,10 @@ not.
 the one that wants this evidence most. The open PRs and the PR discussion are two of the four ways it
 establishes a ticket is dead, and losing them bounds the verdict it can reach. Step 9 never runs here,
 so the PR consequence named above does not apply and the validation gap is the whole of it.
+
+**6b. Open the worktree when item 2 found no match.** Read the ticket's summary (one Jira read,
+`fields: ["summary"]`), then run "Worktree preflight" with `work-on`'s target and base. Skip this
+item when item 2 matched.
 
 **7. Warehouse access. Nothing to do here, deliberately.** This skill has no database connection of
 its own. When a warehouse number is actually wanted, Step 3 checks whether a skill that runs SQL is
@@ -1695,8 +1744,10 @@ Three things to get right when invoking it:
   reviewer checks the build against the ticket exactly as somebody else filed it, unvalidated. That
   is the only check in a `--no-assess` run comparing the code to the ticket's own words, which makes it
   worth more on this path than on the full one rather than less.
-- **It runs in branch mode**, since no PR exists yet. That is expected. Discussion Context comes
-  back empty and nothing is wrong.
+- **Pass `--branch`, so it always runs in branch mode.** The whole diff is local, so the
+  branch range is the review's scope whether or not a PR exists. `take-over` reaches this step
+  with a PR open and passes the same flag, which keeps the two invocations identical. Discussion
+  Context comes back empty and nothing is wrong.
 - **Step 8 runs in the main thread.** Never wrap `review-and-fix`, or any reviewer, in a `Workflow`.
   A workflow agent has no `Agent` tool, so a skill that fans out into sub-agents has nothing to fan
   out with inside one. `review-and-fix` cannot launch its reviewers, and `in-depth-review` cannot

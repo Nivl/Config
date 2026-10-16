@@ -9,6 +9,7 @@ description: >
   coverage is short, when only low-severity findings survive, when an iteration commits nothing,
   when the user says stop, or when it reaches the `--review-limit X` cap if the invocation set one.
   `--full` turns off the mid-run asks to stop early, so only those conditions end the run.
+  `--branch` reviews the branch's commit range even when the branch has an open PR.
   It aborts when no reviewer can run at all. No GitHub writes.
   Produces a final summary report.
   Use this skill when the user asks to "review and fix", "review my changes", "clean up my

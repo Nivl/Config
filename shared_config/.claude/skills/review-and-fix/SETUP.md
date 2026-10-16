@@ -38,6 +38,13 @@ Run these in order. Return with `<RANGE>`, `<HAS_PR>`, `<PR>`, `<TARGET_ARG>`, `
    works, and the reviewer sub-skills carry the same fallback for their own reads. Local `git`
    calls need no `gh`.
 
+3b. **`<FORCE_BRANCH>`** = true if the invocation included `--branch`, else false. When true, skip
+   the `gh pr view` call in item 3 and set `<HAS_PR> = false`, so sub-agents run in branch mode
+   even when the branch has an open PR. Callers that already hold the whole PR diff locally, such
+   as `work-on` and `take-over`, want the same branch-range review whether or not a PR exists.
+   `--branch` with `--gh-style` is a malformed invocation, because gh-style's product is the PR
+   context that `--branch` turns off. Say so, naming both flags, and stop.
+
 4. **`<TARGET_ARG>`** = `<PR>` when `<HAS_PR>`, otherwise `<RANGE>`.
 
 5. **`<SKIP_TICKET>`** = true if the invocation included `--skip-ticket`, else false. Role 10 does

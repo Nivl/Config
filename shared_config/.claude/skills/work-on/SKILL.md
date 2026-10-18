@@ -1744,6 +1744,34 @@ announce line below.
 number, and naming `--no-assess` when the default supplied it. The user cannot override a default
 they were never shown.
 
+**Ask for a compaction first when the context is over 200K tokens.** Every orchestrator turn of
+the review re-reads the whole context, so what the earlier steps loaded is paid for again on each
+of the review's hundred or more turns. Two `take-over` runs started the review at 545K and 573K
+tokens, and their orchestrators cost $41 and $16 against $47 and $21 for every reviewer combined.
+Measure it from this session's transcript, where `<session_id>` is the name of the scratchpad
+directory the harness gave this session:
+
+```
+fd -t f '<session_id>.jsonl' ~/.claude/projects --max-depth 2
+tail -n 30 <that path> | jq -r 'select(.type=="assistant") | .message.usage | (.input_tokens // 0) + (.cache_read_input_tokens // 0) + (.cache_creation_input_tokens // 0)' | tail -n 1
+```
+
+At or under 200K, or when the lookup fails, go straight on. Over it, write
+`/tmp/claude/work-on-<KEY>-resume.md` with what the rest of the run needs: the ticket key, whether
+this is `work-on` or `take-over`, the worktree path, the branch, the PR number if one exists, the
+flags as given, the publish override if Step 5 declared one, the follow-up ticket keys filed so far,
+and the next step, which is this Step 8 and then Step 9 (or `take-over`'s replaced Step 9). Then
+end the turn with the size and one line the user can paste:
+
+```
+/compact Resuming <work-on|take-over> <KEY> at Step 8 (review-and-fix). Read /tmp/claude/work-on-<KEY>-resume.md first.
+```
+
+and ask them to say continue after it finishes. On continue, read the resume file and invoke
+`review-and-fix` as below. If they say continue without compacting, invoke it anyway. This pause
+happens under `--full` too, because `--full` governs the review loop's own asks and the loop has
+not started.
+
 Three things to get right when invoking it:
 
 - **Do not pass `--skip-ticket`.** Step 0 confirmed Jira access, so the ticket-compliance

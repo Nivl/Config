@@ -1279,8 +1279,8 @@ agent could not host this gate even if the deny were lifted, because putting Ste
 front of a human is exactly what a workflow agent cannot do. Step 2's validation lenses are a
 contrast here too, but not for Step 8's reason. Step 8's reason is fan-out loss, because
 `review-and-fix` inside a workflow has no `Agent` tool to launch its reviewers with. This one is
-the gate. `AGENTS.md` names it as the one exception to the fan-out reason the rest of
-`DENIED_SKILLS` carries.
+the gate. The repo `AGENTS.md` in `~/.melvin/config` names it as the one exception to the
+fan-out reason the rest of `DENIED_SKILLS` carries.
 
 **A failed create never blocks Step 5.** If `open-ticket` cannot file the follow-up, Step 5 still
 runs and describes the cut work in prose with no key, and the final report says the follow-up
@@ -1744,24 +1744,27 @@ announce line below.
 number, and naming `--no-assess` when the default supplied it. The user cannot override a default
 they were never shown.
 
-**Ask for a compaction first when the context is over 200K tokens.** Every orchestrator turn of
-the review re-reads the whole context, so what the earlier steps loaded is paid for again on each
-of the review's hundred or more turns. Two `take-over` runs started the review at 545K and 573K
-tokens, and their orchestrators cost $41 and $16 against $47 and $21 for every reviewer combined.
-Measure it from this session's transcript, where `<session_id>` is the name of the scratchpad
-directory the harness gave this session:
+**Ask for a compaction first when the context is over 200K tokens.** An orchestrator turn of the
+review re-reads the whole context, so what the earlier steps loaded is paid for again on each of
+the review's turns, which ran to 118 and 249 in the two runs measured. Those two `take-over` runs
+started the review at 545K and 573K tokens, and their orchestrators cost $16 and $41 against $21 and
+$47 for the reviewers, scorer and pre-commit check together. Measure it from this session's
+transcript. `<session_id>` is the name of the directory that holds the scratchpad directory the
+harness gave this session, the path segment just before `/scratchpad`:
 
 ```
 fd -t f '<session_id>.jsonl' ~/.claude/projects --max-depth 2
-tail -n 30 <that path> | jq -r 'select(.type=="assistant") | .message.usage | (.input_tokens // 0) + (.cache_read_input_tokens // 0) + (.cache_creation_input_tokens // 0)' | tail -n 1
+tail -n 30 <that path> | jq -r 'select(.type=="assistant" and .message.usage != null) | .message.usage | (.input_tokens // 0) + (.cache_read_input_tokens // 0) + (.cache_creation_input_tokens // 0)' | tail -n 1
 ```
 
 At or under 200K, or when the lookup fails, go straight on. Over it, write
 `/tmp/claude/work-on-<KEY>-resume.md` with what the rest of the run needs: the ticket key, whether
 this is `work-on` or `take-over`, the worktree path, the branch, the PR number if one exists, the
 flags as given, the publish override if Step 5 declared one, the follow-up ticket keys filed so far,
-and the next step, which is this Step 8 and then Step 9 (or `take-over`'s replaced Step 9). Then
-end the turn with the size and one line the user can paste:
+a short summary of the validation verdict, what Step 6 (or `take-over`'s Phase B) built and any
+deviation from the ticket, and the next step, which is this Step 8 and then Step 9 (or
+`take-over`'s replaced Step 9). Step 9 writes the PR description from that summary and the diff.
+Then end the turn with the size and one line the user can paste:
 
 ```
 /compact Resuming <work-on|take-over> <KEY> at Step 8 (review-and-fix). Read /tmp/claude/work-on-<KEY>-resume.md first.

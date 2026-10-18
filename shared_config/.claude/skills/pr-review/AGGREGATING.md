@@ -72,8 +72,9 @@ lens yourself and attribute it, and do not carry a result forward from elsewhere
 - **Every role `null` at once is not eleven independent deaths.** If the workflow returns and every
   `findings` is `null`, the plausible reading is that `agentType: 'in-depth-review-role'` or
   `'in-depth-review-role-lite'` did not resolve, because the agent files were not synced or were
-  renamed. Only roles 1-3, 5-9 and 11 null at once points at the lite agent alone. Say so in the Step 4 report
-  rather than listing eleven missing roles as though each failed on its own. Coverage is `partial`,
+  renamed. When role 4 or 10 returned output while every other role is `null`, the lite agent is
+  the one that did not resolve. Say so in the Step 4 report rather than listing eleven missing
+  roles as though each failed on its own. Coverage is `partial`,
   and the cause named is what lets someone fix it.
 - If `reviewers_missing` is non-empty, or any instance came back `"partial"`, this run's coverage
   is **partial**. Carry that flag through to Step 4 and to the clean-PR path.

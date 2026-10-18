@@ -175,7 +175,7 @@ back is visible as a hook candidate:
 ```
 
 Group by eye when two patterns say the same thing in different words. A pattern an existing hook
-already covers (see AGENTS.md's commit-time sections) is a miss for that hook, so mark it
+already covers (see "Commit-time checks" in the global AGENTS.md) is a miss for that hook, so mark it
 `covered by <hook>`, since that is a hook to tune rather than one to add. Omit the section when no
 `pattern` line was written. `docs/research/static-checks/README.md` is how a candidate is measured
 before it is built.

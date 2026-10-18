@@ -103,11 +103,11 @@ This governs prose that asserts something about the code: comments and docstring
 
 ## Commit-time checks
 
-These hooks read the staged diff or the run log and deny with the reasons listed. A deny is for you to fix, so rewrite and run the command again. Each override falls to the permission prompt, which puts it in front of the user, so name the carve-out before using one. The design and measurements are in `~/.melvin/config/AGENTS.md`.
+These hooks read the staged diff or the run log and deny with a `file:line` or run-log reason per hit. A deny is for you to fix, so rewrite and run the command again. Each override falls to the permission prompt, which puts it in front of the user, so name the carve-out before using one. The design and measurements are in `~/.melvin/config/AGENTS.md`.
 
-- `ask-prose-claims.py`, on every `git commit`. It flags an unbacked quantifier, a pointer to a file that does not exist, a code comment naming a symbol its file lacks, an added code comment block over eight lines, and non-ASCII punctuation, in added prose or the commit message. Fix the lines per "Claims in authored prose" and "Plain ASCII in authored prose". `PROSE_CLAIMS_OK=1 git commit ...` overrides, for a carve-out that section names.
+- `ask-prose-claims.py`, on every `git commit`. It flags an unbacked quantifier, a pointer to a file that does not exist, a code comment naming a symbol its file lacks, an added code comment block over eight lines, and non-ASCII punctuation, in added prose or the commit message. Fix the lines per "Claims in authored prose" and "Plain ASCII in authored prose". `PROSE_CLAIMS_OK=1 git commit ...` overrides, for one of the four carve-outs "Claims in authored prose" names.
 - `check-staged-code.py`, on every `git commit`. It flags a symbol removed from code that a doc or comment still names, a test whose assertions are all absence or bare existence, and an added `as unknown as` outside tests. `CODE_CHECKS_OK=1` overrides, for a doc that records history or a test whose point is that nothing is called.
-- `require-case-list.py`, on a `git commit` during a `review-and-fix` run. Its reason names the run-log line the skill requires and is missing. `CASE_LIST_OK=1` overrides.
+- `require-case-list.py`, on a `git commit` during a `review-and-fix` run. It denies a code commit with no `cases ... reaches=` line for the iteration (and no `invariant=` line when the cases touch paired state), any fix commit before the iteration has a score, and a code commit on a locus reopened a second time with no `user-decision` line for it. Its reason names what is missing. `CASE_LIST_OK=1` overrides.
 - `require-run-log-complete.py`, on deleting a `review-and-fix` run marker. It lists what the run log still lacks. `RUN_LOG_OK=1` overrides.
 
 ## TypeScript: narrow with type guards, don't cast

@@ -46,8 +46,9 @@ addressed" section.
 
 **Where the tiers sit.** There is one layer now. The agents that read the diff are the
 `in-depth-review-role` and `in-depth-review-role-lite` leaves inside the workflow, pinned to Opus at
-effort `medium` by their agent files, and the gh-style sub-agent, pinned to the same by its own. The Sonnet wrapper tier that used
-to sit between this orchestrator and the roles is gone with the wrappers. The measured "1x Opus beat
+effort `medium` by their agent files, and the gh-style sub-agent, pinned to the same by its own.
+The Sonnet wrapper tier that used to sit between this orchestrator and the roles is gone with the
+wrappers. The measured "1x Opus beat
 3x Sonnet on hard diffs" result in
 `~/.melvin/config/docs/research/pr-review-cost-efficiency/RESULTS.md` is about the tier of the
 agents doing the reading, and those are on Opus here. One run of each role plus a second run of
@@ -506,9 +507,10 @@ into a number beside the attribution ledger rather than an argument about it.
 - **Model and effort policy (cost): pinned in agent definitions, never inherited.** Every agent
   this skill spawns is addressed by `subagent_type`, and its tier and effort come from its file
   in `.claude/agents/`. Pass no `model` or `effort` to the workflow or to any launch from this
-  skill. The roles run as `in-depth-review-role` on Opus at `medium`, the gh-style sub-agent on Opus
-  at `medium`, the scorer per `review-scorer`, and the debate pair splits, the approach proposer on
-  Sonnet (its recall measured identical to Opus) and the nuanced judge on Opus at effort `high`
+  skill. The roles run as `in-depth-review-role` (roles 4 and 10) and `in-depth-review-role-lite`
+  (the rest), both on Opus at `medium`, the gh-style sub-agent on Opus at `medium`, the scorer
+  per `review-scorer`, and the debate pair splits, the approach proposer on Sonnet (its recall
+  measured identical to Opus) and the nuanced judge on Opus at effort `high`
   (judging is judgment; proposing is recall). **Never let any of these inherit the session model
   or the session effort.** Inheritance is what let a `/effort
   xhigh` session silently run the whole fan-out at `xhigh`. What protects quality is the >=60

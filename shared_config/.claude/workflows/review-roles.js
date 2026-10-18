@@ -104,16 +104,16 @@ log(`dispatching ${jobs.length} role agents: ${Object.entries(rolesByInstance).m
 const stamp = (j, attempt) =>
   `<!-- review-roles inst=${j.inst} role=${j.role} attempt=${attempt} tag=${args.tag ?? 'none'} target=${args.target} -->`
 
-// Roles 4 and 10 read GitHub, Jira and Datadog through MCP tools. The rest use
-// Bash and Read alone and run on the lite agent, whose restricted tool list
+// Roles 4 and 10 read GitHub, Jira and Datadog through MCP tools. The rest need
+// only the read tools and run on the lite agent, whose restricted tool list
 // keeps about 25K tokens of tool and skill listings out of each prompt. See the
 // lite agent file for the measurement.
 const MCP_ROLES = [4, 10]
 const agentTypeFor = (role) => (MCP_ROLES.includes(Number(role)) ?'in-depth-review-role' : 'in-depth-review-role-lite')
 
 // args.examined lists what earlier iterations of the same run already dropped
-// or the user already decided. Without it every iteration re-raises them, and
-// one run's fifth iteration was ten repeats out of fifteen findings.
+// or the user already decided. Roles see each iteration fresh, and one run's
+// fifth iteration raised fifteen findings of which ten were such repeats.
 const examinedBlock = args.examined
   ? `
 

@@ -386,9 +386,10 @@ is measured, the agent file is the single source of truth and the script names i
 **If either role agent type does not resolve** (the agent files have not been
 synced to `~/.claude/agents/` yet, or were renamed), the workflow's `agent()` calls for that type
 fail and every role it serves comes back `null`. Coverage is `partial`, and the report has to say
-which agent type did not resolve rather than that each of those roles independently died. Roles
-1-3, 5-9 and 11 all null with 4 and 10 present points at the lite agent. An absent `Workflow` tool is a different failure. That one aborts under the
-no-fanout rule above rather than reporting partial coverage.
+which agent type did not resolve rather than that each of those roles independently died. When
+role 4 or 10 ran and returned output while every other role in the set is null, the lite agent is
+the one that did not resolve. An absent `Workflow` tool is a different failure. That one aborts
+under the no-fanout rule above rather than reporting partial coverage.
 
 Why this tier. A replicated A/B measured Opus at `low` against Sonnet at `xhigh` over ten roles
 and three passes per arm, on a diff about Postgres transaction semantics. Opus at `low` found four

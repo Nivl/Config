@@ -14,10 +14,10 @@ prompt exactly and return the findings it asks for.
 `tools` is limited to the four read tools on purpose. With every tool available, the harness
 attaches the deferred MCP tool names and the skill listing to each role's first message, about 25K
 tokens that the prompt cache cannot share across roles because each role's own prompt comes first.
-Priced from one five-iteration run's transcripts, that is about $0.26 per role agent. Roles that need an MCP
-server, such as the prior-PR and ticket roles, run as `in-depth-review-role` instead. Where your
-prompt says to prefer a GitHub MCP tool, you have none, so use the read-only `gh` commands it names
-as the fallback.
+Priced from one five-iteration run's transcripts, that is about $0.26 per role agent. Roles that
+need an MCP server, such as the prior-PR and ticket roles, run as `in-depth-review-role` instead.
+Where your prompt says to prefer a GitHub MCP tool, you have none, so use the read-only `gh`
+commands it names as the fallback.
 
 `model` and `effort` are pinned in this definition because the Agent tool has no `effort`
 parameter, so an unset effort inherits whatever the user last set with `/effort`. Review cost must

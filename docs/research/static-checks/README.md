@@ -3,7 +3,7 @@
 The review loop is expensive and most of what it finds needs judgement. A small share has a shape a
 pattern over the staged diff can catch at commit time, and those are cheaper to deny than to review.
 This directory is how a candidate is found and measured before it becomes a hook. The hooks built
-this way are described in `shared_config/.claude/AGENTS.md`, "The commit-time code check".
+this way are described in the repo-root `AGENTS.md`, "The commit-time code check".
 
 ## Where candidates come from
 

@@ -350,10 +350,12 @@ Workflow({
 finding this run has already settled without a fix. Append to it after each iteration's scoring and
 user decisions, before the next launch. A finding dropped below 50 is written as
 `- <file>:<line_range> <title> -- dropped in iteration <N>`. A finding the user decided, or one
-logged `not-fixed` for a reason other than a missing test, is written as
-`- <file>:<line_range> <title> -- user decided in iteration <N>: <what they chose>`. No score goes in
-the line. Fixed findings stay out, because a role raising one again is a reopen and the run needs to
-see it. The workflow appends the list to every role's prompt with an instruction to raise an entry
+logged `not-fixed`, is written as
+`- <file>:<line_range> <title> -- user decided in iteration <N>: <what they chose>`, with the
+`not-fixed` reason in place of the choice when no user decided it. A `skipped_findings` entry is
+written as `- <file>:<line_range> <title> -- skipped in iteration <N>: no test possible`. No score
+goes in the line. Fixed findings stay out, because a role raising one again is a reopen and the
+run needs to see it. The workflow appends the list to every role's prompt with an instruction to raise an entry
 again only on new evidence. GRO-19165's fifth iteration raised 15 findings, and 10 were repeats of
 drops or user decisions from iterations 1 to 4.
 

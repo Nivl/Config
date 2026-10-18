@@ -2,7 +2,7 @@
 # PreToolUse hook (Bash): on `git commit`, read the staged diff and deny, with
 # file:line reasons, when it carries one of three code shapes review keeps
 # finding. Each is a pattern check, so each has a measured false-positive rate
-# on human commits, in AGENTS.md "The commit-time code check".
+# on human commits, in the repo AGENTS.md "The commit-time code check".
 #
 #   dead reference  a symbol the diff removed that no code line in the index
 #                   names any more, while a markdown file or a comment still does
@@ -227,7 +227,7 @@ def main() -> None:
     reason = (
         f"The staged diff carries {len(dead)} dead reference(s), {len(vacuous)} test(s) that cannot "
         f"fail for the right reason, and {len(casts)} `as unknown as` cast(s) in production code "
-        "(AGENTS.md, The commit-time code check):\n  "
+        "(AGENTS.md, Commit-time checks):\n  "
         + "\n  ".join(shown)
         + (f"\n  ... and {more} more" if more > 0 else "")
         + "\nFor each: update or delete the doc or comment that names the removed symbol, give the "

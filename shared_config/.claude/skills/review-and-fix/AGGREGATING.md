@@ -217,6 +217,13 @@ reached (up to 3 active; fewer when the iteration is pruned):
    reviewer cited for it. Name the rubric's path in the prompt, which is
    `~/.claude/skills/in-depth-review/SCORING.md`.
 
+   **Pass nothing from earlier iterations.** No earlier score, and no history block saying how a
+   similar finding scored before. The rubric scores each finding against its bands alone, and a
+   prior number becomes the answer. GRO-19165's orchestrator added a "History for the scorer" block
+   from iteration 4 on, and the scorer's reasons read "Matches the earlier 35" and "It was
+   previously scored 30". A finding the run already settled belongs in the examined file SKILL.md
+   names, which keeps the roles from raising it again, not in the scorer's prompt.
+
    `citation_verified` is not optional. The rubric caps an unverified-citation finding at 60, the
    scorer refuses to score rather than guess when the field is missing, and `in-depth-review` no
    longer applies the cap itself on a deferred run. This skill excludes `citation_verified: false`

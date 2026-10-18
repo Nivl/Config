@@ -45,8 +45,8 @@ ones. One review entry, plus an explicit "what humans already raised that the di
 addressed" section.
 
 **Where the tiers sit.** There is one layer now. The agents that read the diff are the
-`in-depth-review-role` leaves inside the workflow, pinned to Opus at effort `medium` by their agent
-file, and the gh-style sub-agent, pinned to the same by its own. The Sonnet wrapper tier that used
+`in-depth-review-role` and `in-depth-review-role-lite` leaves inside the workflow, pinned to Opus at
+effort `medium` by their agent files, and the gh-style sub-agent, pinned to the same by its own. The Sonnet wrapper tier that used
 to sit between this orchestrator and the roles is gone with the wrappers. The measured "1x Opus beat
 3x Sonnet on hard diffs" result in
 `~/.melvin/config/docs/research/pr-review-cost-efficiency/RESULTS.md` is about the tier of the
@@ -201,8 +201,9 @@ Workflow({
 })
 ```
 
-Pass no `model` and no `effort`. The workflow spawns every role by
-`agentType: 'in-depth-review-role'`, and that agent file pins `opus` at `medium`. That is where the
+Pass no `model` and no `effort`. The workflow spawns roles 4 and 10 by
+`agentType: 'in-depth-review-role'` and the rest by `'in-depth-review-role-lite'`, and both agent
+files pin `opus` at `medium`. That is where the
 reviewing happens, and it is the tier the cost-efficiency study measured for the agents that read
 the diff. There is no wrapper tier any more, because there is no wrapper. `tag` goes into the first
 line of every role's prompt so the usage accounting can find this run's transcripts, per

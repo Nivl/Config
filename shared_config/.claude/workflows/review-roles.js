@@ -104,6 +104,28 @@ log(`dispatching ${jobs.length} role agents: ${Object.entries(rolesByInstance).m
 const stamp = (j, attempt) =>
   `<!-- review-roles inst=${j.inst} role=${j.role} attempt=${attempt} tag=${args.tag ?? 'none'} target=${args.target} -->`
 
+// Roles 4 and 10 read GitHub, Jira and Datadog through MCP tools. The rest use
+// Bash and Read alone and run on the lite agent, whose restricted tool list
+// keeps about 25K tokens of tool and skill listings out of each prompt. See the
+// lite agent file for the measurement.
+const MCP_ROLES = [4, 10]
+const agentTypeFor = (role) => (MCP_ROLES.includes(Number(role)) ?'in-depth-review-role' : 'in-depth-review-role-lite')
+
+// args.examined lists what earlier iterations of the same run already dropped
+// or the user already decided. Without it every iteration re-raises them, and
+// one run's fifth iteration was ten repeats out of fifteen findings.
+const examinedBlock = args.examined
+  ? `
+
+## Already examined in this run
+
+These were raised in an earlier iteration and either dropped or decided by the user. Do not raise
+one again unless you have evidence the earlier finding lacked, such as a new commit on its lines or
+a path that reaches it which it did not name. When you do, say in the description what is new.
+
+${args.examined}`
+  : ''
+
 const run = (j, attempt) =>
   agent(
     `${stamp(j, attempt)}
@@ -123,9 +145,9 @@ different model, and a number you invent would collapse that separation.
 Set \`pattern\` only when a mechanical check over the diff's added lines could have caught the
 finding with no judgement: a regex, or a one-line rule such as "a symbol removed from code but
 still named in a markdown file". Name what to match, not the fix. Leave it null for anything that
-needs you to understand intent, behaviour or a caller, which is most findings.`,
+needs you to understand intent, behaviour or a caller, which is most findings.${examinedBlock}`,
     {
-      label: `inst${j.inst}:role${j.role}`, phase: 'Review', schema: ROLE_OUTPUT, agentType: 'in-depth-review-role',
+      label: `inst${j.inst}:role${j.role}`, phase: 'Review', schema: ROLE_OUTPUT, agentType: agentTypeFor(j.role),
       // args.instance_models overrides the agent file's model pin for one
       // instance, for an A/B of a cheaper tier against the pinned one on the
       // same diff. Effort stays the agent file's.

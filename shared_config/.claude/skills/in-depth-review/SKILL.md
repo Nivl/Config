@@ -223,8 +223,8 @@ Evaluate the gates below first, so `<ROLE_SET>` is final. Then:
    })
    ```
 
-   Pass no `model` and no `effort`. The `in-depth-review-role` agent file pins `opus` at `medium`, and
-   the workflow spawns by that `agentType`.
+   Pass no `model` and no `effort`. The `in-depth-review-role` and `in-depth-review-role-lite` agent
+   files pin `opus` at `medium`, and the workflow spawns by those `agentType`s.
 3. The call returns `{ results, instances, roles_by_instance }`. Each entry of `results` is
    `{ instance, role, findings, tickets_examined }`. `findings` is an array when the role ran and
    `null` when it returned nothing twice. An empty array is a role that ran and found nothing. The
@@ -371,20 +371,23 @@ column below holds the role's prompt text (the fenced block):
 | 10 | Ticket intent compliance | `ticket` | `roles/10-ticket.md` |
 | 11 | Headline-benefit / motivation | `motivation` | `roles/11-motivation.md` |
 
-**Model and effort: the workflow spawns every role by `agentType: 'in-depth-review-role'`, and this
-skill passes no `model` and no `effort` in `args`.** That file under `.claude/agents/` pins Opus at
-effort `medium`. Never let a reviewer inherit the session model or the session effort.
+**Model and effort: the workflow spawns roles 4 and 10 by `agentType: 'in-depth-review-role'` and
+the rest by `'in-depth-review-role-lite'`, and this skill passes no `model` and no `effort` in
+`args`.** Both files under `.claude/agents/` pin Opus at effort `medium`. The lite one restricts its
+tools to Bash, Read, Grep and Glob, which keeps the MCP tool and skill listings out of each role's
+prompt, and roles 4 and 10 are the two that read through MCP servers. Never let a reviewer inherit
+the session model or the session effort.
 
 The pin lives in the agent file rather than in the workflow script so it has one owner. The script
 could set `model` and `effort` on each `agent()` call, and if `agentType` turns out not to apply
 the agent file's pins that is the fix, made in the script and noted in the agent file. Until that
 is measured, the agent file is the single source of truth and the script names it.
 
-**If the `in-depth-review-role` agent type does not resolve** (the agent files have not been
-synced to `~/.claude/agents/` yet, or were renamed), the workflow's `agent()` calls fail and every
-role comes back `null`. That is a run with `roles_missing` equal to `roles_launched` and coverage
-`partial`, and the report has to say the agent type did not resolve rather than that eleven roles
-independently died. An absent `Workflow` tool is a different failure. That one aborts under the
+**If either role agent type does not resolve** (the agent files have not been
+synced to `~/.claude/agents/` yet, or were renamed), the workflow's `agent()` calls for that type
+fail and every role it serves comes back `null`. Coverage is `partial`, and the report has to say
+which agent type did not resolve rather than that each of those roles independently died. Roles
+1-3, 5-9 and 11 all null with 4 and 10 present points at the lite agent. An absent `Workflow` tool is a different failure. That one aborts under the
 no-fanout rule above rather than reporting partial coverage.
 
 Why this tier. A replicated A/B measured Opus at `low` against Sonnet at `xhigh` over ten roles

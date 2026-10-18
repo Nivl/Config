@@ -341,16 +341,29 @@ Workflow({
     common_fragment: '<contents of _common-fragment.md>',
     skip_ticket: <SKIP_TICKET>,
     tag: 'iter<N>',
+    examined: '<contents of the examined file>',   // iteration 2 on, when the file is non-empty
   },
 })
 ```
+
+**The examined file** is `/tmp/claude/rf-examined-<run log basename>.md`, and it holds one line per
+finding this run has already settled without a fix. Append to it after each iteration's scoring and
+user decisions, before the next launch. A finding dropped below 50 is written as
+`- <file>:<line_range> <title> -- dropped in iteration <N>`. A finding the user decided, or one
+logged `not-fixed` for a reason other than a missing test, is written as
+`- <file>:<line_range> <title> -- user decided in iteration <N>: <what they chose>`. No score goes in
+the line. Fixed findings stay out, because a role raising one again is a reopen and the run needs to
+see it. The workflow appends the list to every role's prompt with an instruction to raise an entry
+again only on new evidence. GRO-19165's fifth iteration raised 15 findings, and 10 were repeats of
+drops or user decisions from iterations 1 to 4.
 
 Pass `args` as a JSON object, not as a string holding JSON. The workflow reads either, so a string
 does not fail loudly, and one run passed a string for four iterations while the `usage-lines` hook,
 which reads `args.tag`, appended no lines the whole run.
 
-Pass no `model` and no `effort`. The workflow spawns every role by
-`agentType: 'in-depth-review-role'`, and that agent file pins `opus` at `medium`. `tag` is the
+Pass no `model` and no `effort`. The workflow spawns roles 4 and 10 by
+`agentType: 'in-depth-review-role'` and the rest by `'in-depth-review-role-lite'`, and both agent
+files pin `opus` at `medium`. `tag` is the
 iteration number, and the workflow writes it into the first line of every role's prompt so the
 usage accounting below can tell this iteration's transcripts from the last iteration's on the same
 target. See [USAGE.md](USAGE.md).

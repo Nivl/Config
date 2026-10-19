@@ -13,14 +13,26 @@ leave that group's edits out of the tree, mark it `blocked` in your return with 
 line, and go on to the next group. Undo edits to existing files with the Edit tool, and `rm` a file
 this group created, which is the one `rm` allowed.
 
-**A hook deny whose hits are all carve-outs is the exception, and it keeps the fix.** Never prefix
-`PROSE_CLAIMS_OK=1`, `CASE_LIST_OK=1` or `CODE_CHECKS_OK=1`, because the prefix needs the user. When
-every hit the hook lists is a carve-out you have named in the log, leave the group staged, write
-the commit message you would have used to `/tmp/claude/rf-staged-msg-iter<N>-group<g>.txt`, return
-the group as `state=staged` with the hits and that path, and stop the batch there. Do not start
-the next group, since its `git add -A` would sweep the staged edits into its commit. The orchestrator commits the staged
-group with the prefix and sends you the rest. A deny with any hit you can fix is not this case, so
-rewrite and commit again.
+**Never prefix `PROSE_CLAIMS_OK=1`, `CASE_LIST_OK=1` or `CODE_CHECKS_OK=1`.** The prefix needs
+the user. A `require-case-list` deny is never a carve-out. It means a missing `cases` or
+`invariant=` line, so write it per section 0 and commit again. When it names a missing score or a
+second reopen, return the group `blocked` with that line.
+
+**An `ask-prose-claims` or `check-staged-code` deny whose hits are all carve-outs keeps its fix.**
+A deny with any hit you can fix is not this case, so rewrite and commit again. When every hit is a
+carve-out, name each prose hit under the `quantifier-scan` line, as section 3 says, and then:
+
+1. Leave the group staged. Write the exact `-m` message the denied commit used, unchanged, to
+   `/tmp/claude/rf-staged-msg-iter<N>-batch<b>-group<g>.txt`.
+2. Skip sections 4 and 5. The orchestrator commits it and appends its line.
+3. Return the group `state=staged` (section 6 shape), each hit copied verbatim from the deny with
+   the carve-out named beside it, and stop. Do not start the next group, since its `git add -A`
+   would sweep the staged edits into its commit.
+
+The orchestrator answers one of three ways. `committed` means carry on with the packet's groups
+you had not started. `rewrite` with a hit means fix that line with the Edit tool, `git add -A`, run
+section 3 again, and commit or return `state=staged` again. `drop` means undo the group's edits as
+for a blocked group, confirm `git status --porcelain` is empty, and carry on.
 
 **The run log is yours to append to.** Its path is in the packet. Every line this file names goes
 there as you take the step, with the iteration number the packet gives. The `require-case-list` hook
@@ -256,9 +268,10 @@ After the commit, run `git status --porcelain`. It must be empty.
 
 ## 5. Append the commit line
 
-Classify the commit from its own diff and append its `commit iter=` line to the run log, per
-SKILL.md Step 2 sub-step 7's "Classify the commit" bullet and the line shape below it. Read that
-bullet and [CLASSIFIER.md](CLASSIFIER.md) once, before the first commit. The packet gives each
+A `state=staged` group skips this section, since the orchestrator makes that commit and writes its
+line. For every other commit, classify it from its own diff and append its `commit iter=` line to
+the run log, per SKILL.md Step 2 sub-step 7's "Classify the commit" bullet and the line shape
+below it. Read that bullet and [CLASSIFIER.md](CLASSIFIER.md) once, before the first commit. The packet gives each
 finding's `category`, `roles`, `raised_by`, `origin` and any `actionable_unique` value, and the
 `title` to copy verbatim, so the line is assembled from the packet plus your classification. When
 the class you got differs from the group's class in the packet, add `class_expected=<packet class>`
@@ -277,6 +290,6 @@ Return one line per group, then one line for the batch:
 ```
 group=<g> state=committed sha=<short sha> class=<prose|test|logic> findings=<ids>
 group=<g> state=blocked findings=<ids> fact="<one line>"
-group=<g> state=staged findings=<ids> hook=<hook name> msg=<message file> hits="<each hit and the carve-out named for it>"
-batch commits=<n> blocked=<n> tests="<command run, and passed or failed>"
+group=<g> state=staged class=<prose|test|logic> findings=<ids> hooks=<hook names> msg=<message file> hits="<hit verbatim> -- <carve-out>; ..."
+batch commits=<n> blocked=<n> staged=<n> not_started=<group numbers or none> tests="<command run, and passed or failed>"
 ```

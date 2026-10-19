@@ -732,21 +732,32 @@ commits an iteration.
    sub-step 2 reopens it, once. Say the fact in one line and choose again. A file outside the
    branch follows the outside-branch rule in sub-step 2.
 
-   A `state=staged` group is a commit hook's deny whose hits the implementer named as carve-outs.
-   Its fix is still staged and the batch stopped there, because the override prefix needs the
-   user. Check each hit against `git diff --cached` and the carve-outs the hook's deny reason
-   names. When they hold, commit it here with the hook's prefix and `git commit -F <msg file>`,
-   which puts the commit in front of the user, and append its `commit iter=` line per sub-step 7.
-   When one is a real claim, send the group back to the implementer to rewrite, still staged.
-   Then send the remaining groups as the next packet.
+   A `state=staged` group is an `ask-prose-claims` or `check-staged-code` deny whose hits the
+   implementer named as carve-outs. Its fix is still staged and the batch stopped there, because
+   the override prefix needs the user. The return carries each hit verbatim with its carve-out.
+   Check each one against `git diff --cached` and the carve-outs, which are the four in AGENTS.md
+   "Claims in authored prose" for the prose hook, and a doc that records history or a test whose
+   point is that nothing is called for the code hook. Then answer the implementer with
+   `SendMessage`, one of three ways.
+   - The carve-outs hold. Commit it here as `<PREFIX>=1 git commit -F <msg file>`, with the prefix
+     of each hook in the return's `hooks=` and no other, since the other hooks still check the
+     commit. Leave the message file as written. The commit goes in front of the user. When they
+     approve, append its `commit iter=` line per sub-step 7 from the packet's fields and the
+     returned `class=`, and answer `committed`.
+   - A hit is a real claim. Answer `rewrite` with the hit.
+   - The user declines the prompt. Answer `drop`, and log
+     `not-fixed iter=<N> finding=<id> reason=user-declined-override` for its findings.
 
-   Then send the regrouped findings, with
-   `no-test-ok` where the user chose that, to the same implementer with `SendMessage` as a packet
-   of their own. Append `implementer iter=<N> batch=<b> groups=<n> committed=<n> blocked=<n>` for
-   each return.
+   The implementer then carries on with the same packet's groups it had not started, under the
+   same `<PRE_BATCH>` and `batch=`, so sub-step 4 checks the whole batch when it returns complete.
+   Blocked groups regrouped after a new approach or a user answer, with `no-test-ok` where the
+   user chose that, go in the next packet. Append
+   `implementer iter=<N> batch=<b> groups=<n> committed=<n> blocked=<n> staged=<n>` for each
+   return.
 
    **When the implementer cannot run** (the agent type does not resolve, or it returns nothing
-   after one `SendMessage` nudge), stop it with `TaskStop`, then read
+   after one `SendMessage` nudge), stop it with `TaskStop`. Commit or undo a group it left staged
+   first, since the next `git add -A` would sweep it in. Then read
    `git log --oneline <PRE_BATCH>..HEAD` and the run log's `commit iter=<N>` lines to see which
    groups it already committed. Write only the rest here per IMPLEMENTER.md, appending the same
    lines, and log `implementer iter=<N> batch=<b> state=missing`.

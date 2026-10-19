@@ -80,8 +80,9 @@ roles        48 agents  1,990 turns  $236.80  (opus-5)   floor
 gh-style      6 agents    318 turns   $41.70  (opus-5)   floor
 scorer        6 agents     54 turns    $2.52  (sonnet-5) floor
 precommit     7 agents     70 turns    $9.80  (opus-5)   floor
+implementer   6 agents    380 turns   $14.60  (opus-5)   floor
 orchestrator  1 session    410 turns   $88.40  (opus-5)
-total        68           2,842 turns  $379.22  over 6 iterations
+total        74           3,222 turns  $393.82  over 6 iterations
 most expensive: inst1:role7 iter2, 89 turns, $10.10
 ```
 

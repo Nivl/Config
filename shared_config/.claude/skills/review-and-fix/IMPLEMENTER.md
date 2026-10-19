@@ -1,11 +1,19 @@
 # The fix sub-steps
 
-Step 2 sub-step 3 of review-and-fix, in full. You have done sub-steps 1 and 2 for the finding, so
-you know whether it is self-inflicted and you have chosen the approach, and SKILL.md has sorted
-the findings into class groups. What follows is the red test, the edit, the seven staged-diff
-checks, and the commit, for one group, one commit. Where this file says "the finding", read the
-group's findings. Sub-step 4 in SKILL.md runs the pre-commit check over every six of these commits, and
-sub-step 7 records each one.
+Step 2 sub-step 3 of review-and-fix, in full, for the `fix-implementer` agent. The orchestrator did
+sub-steps 1 and 2 for every finding, so the packet says whether each is self-inflicted and gives
+its settled approach, and it sorted the findings into class groups. What follows is the red test,
+the edit, the seven staged-diff checks, the commit, and its run-log line, for one group, one commit.
+Where this file says "the finding", read the group's findings. Work the packet's groups in order.
+The orchestrator runs the pre-commit check over each batch after you return (SKILL.md sub-step 4).
+
+**Questions go back, not to the user.** You have no way to ask one. Where a section below says a
+case needs a decision, leave that group's edits out of the tree (undo them with the Edit tool),
+mark it `blocked` in your return with the fact in one line, and go on to the next group.
+
+**The run log is yours to append to.** Its path is in the packet. Every line this file names goes
+there as you take the step, with the iteration number the packet gives. The `require-case-list` hook
+reads it at your `git commit`.
 
 **The approach is settled.** New information reopens it and rereading the same information does
 not. A test that fails, a type error, or a call site that makes the chosen approach impossible is
@@ -80,9 +88,9 @@ this rule. A test that also passes against the unfixed code is worse than none. 
 assertion costs: [RATIONALE.md](RATIONALE.md).
 
 If the test needs infrastructure the repo lacks (a live DB, a new mock harness, a running
-server), use `AskUserQuestion` and offer to fix without a test or to skip the finding. Record a
-skip in `skipped_findings`, keyed by the finding's `file` plus `title`, so later iterations do
-not re-prompt. An untestable finding never blocks the loop.
+server), return the group `blocked` with `untestable: <what is missing>`. The orchestrator asks the
+user whether to fix without a test or skip, and records a skip in `skipped_findings`. When the
+packet already says `no-test-ok` for the finding, the user chose to fix without a test, so fix it.
 
 ## 2. Implement the fix
 
@@ -91,7 +99,7 @@ Follow all project coding standards:
 - A finding asking for error handling does not authorize a `catch` that swallows. If your
    fix adds or edits a `catch`, it must either rethrow (bare, or wrapped with `cause`) or carry a
    comment naming why continuing is correct. A reviewer's request does not waive that comment.
-   If neither shape fits the finding, use `AskUserQuestion` rather than guessing at the intent.
+   If neither shape fits the finding, return the group `blocked` rather than guessing at the intent.
 - Decide whether the fix changes a signature, a return value, what the code throws, or
    anything else a caller can observe. When it does, list the call sites first with a
    reference search (`mcp__serena__find_referencing_symbols`, or `rg` on the symbol name),
@@ -130,7 +138,13 @@ Follow all project coding standards:
 - Run the project's linter/formatter if one exists and fix any violations it reports.
 - Run the project's tests (`pnpm run test:unit` for the web sub-project, or the equivalent
    for the relevant sub-project) to confirm no regressions.
-- **Do not commit if lint or tests fail.** Fix the failures first or escalate to the user.
+- **Do not commit if lint or tests fail.** Fix the failures first, or return the group `blocked`
+   with the failing output's first lines.
+- **A fact that defeats the settled approach** (a failing test the approach cannot pass, a type
+   error, a call site it cannot handle) is new information, and choosing again is the
+   orchestrator's job. Return the group `blocked` with the fact.
+- **Stay in the branch's files.** The packet lists the files each finding may touch. A call site or
+   test the fix itself makes wrong may be edited too. Any other file means `blocked`.
 
 ## 3. Stage the fix, then scan the staged diff
 
@@ -219,4 +233,30 @@ Use conventional commit types: defined in the `.github/semantic.yml` file (e.g.,
 `feat`, `refactor`, `docs`, etc.) and ensure the message is clear and concise. If the file
 is missing try to figure out what the correct type should be.
 
-After the commit, run `git status --porcelain`. It must be empty. Then SKILL.md sub-step 7.
+After the commit, run `git status --porcelain`. It must be empty.
+
+## 5. Append the commit line
+
+Classify the commit from its own diff and append its `commit iter=` line to the run log, per
+SKILL.md Step 2 sub-step 7's "Classify the commit" bullet and the line shape below it. Read that
+bullet and [CLASSIFIER.md](CLASSIFIER.md) once, before the first commit. The packet gives each
+finding's `category`, `roles`, `raised_by`, `origin` and any `actionable_unique` value, and the
+`title` to copy verbatim, so the line is assembled from the packet plus your classification. When
+the class you got differs from the group's class in the packet, add `class_expected=<packet class>`
+to the line.
+
+## 6. The follow-up and the return
+
+When the orchestrator resumes you with pre-commit hits, fix each one it marked a defect, run
+sections 3 to 5 on the result, and land them as one follow-up commit whose message names the
+commits it corrects. Its commit line carries `origin=precommit`, the `findings=` and `roles=` the
+orchestrator gave, and the title it gave. When it resumes you with another batch, start again at
+the first group of that packet.
+
+Return one line per group, then one line for the batch:
+
+```
+group=<g> state=committed sha=<short sha> class=<prose|test|logic> findings=<ids>
+group=<g> state=blocked findings=<ids> fact="<one line>"
+batch commits=<n> blocked=<n> tests="<command run, and passed or failed>"
+```

@@ -33,9 +33,9 @@ fix is worth:
 - You cannot ask the user anything. When a group needs a decision the packet does not settle, an
   untestable behavior finding, a fact that defeats the settled approach, a `catch` neither shape
   fits, or a hit outside the branch's files, leave its edits out of the tree, return the group as
-  `blocked` with the fact in one line, and go on to the next group. You run in the background, so
-  a permission prompt reaches nobody. Never prefix a commit with `PROSE_CLAIMS_OK=1`,
-  `CASE_LIST_OK=1` or `CODE_CHECKS_OK=1`. A hook deny you cannot fix by rewriting is a `blocked`
-  group carrying the hook's hits.
+  `blocked` with the fact in one line, and go on to the next group. You run in the background,
+  where a permission prompt may reach nobody. Never prefix a commit with `PROSE_CLAIMS_OK=1`,
+  `CASE_LIST_OK=1` or `CODE_CHECKS_OK=1`. A hook deny whose hits are all carve-outs keeps its fix:
+  leave the group staged, return it `state=staged`, and stop the batch (IMPLEMENTER.md, top).
 - After the batch you stop. The orchestrator runs the pre-commit check and may resume you with its
   hits, which you land as one follow-up commit, or with the next batch.

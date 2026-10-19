@@ -730,10 +730,17 @@ commits an iteration.
    the user with `AskUserQuestion`, fix without a test or skip, and a skip lands in
    `skipped_findings` keyed by `file` plus `title`. A fact that defeats the approach chosen in
    sub-step 2 reopens it, once. Say the fact in one line and choose again. A file outside the
-   branch follows the outside-branch rule in sub-step 2. A commit hook's hits that the
-   implementer named as carve-outs come back too, because the override prefix needs the user.
-   Check each named carve-out, then commit that group here with the prefix, which puts the commit
-   in front of the user, or send it back for a rewrite. Then send the regrouped findings, with
+   branch follows the outside-branch rule in sub-step 2.
+
+   A `state=staged` group is a commit hook's deny whose hits the implementer named as carve-outs.
+   Its fix is still staged and the batch stopped there, because the override prefix needs the
+   user. Check each hit against `git diff --cached` and the carve-outs the hook's deny reason
+   names. When they hold, commit it here with the hook's prefix and `git commit -F <msg file>`,
+   which puts the commit in front of the user, and append its `commit iter=` line per sub-step 7.
+   When one is a real claim, send the group back to the implementer to rewrite, still staged.
+   Then send the remaining groups as the next packet.
+
+   Then send the regrouped findings, with
    `no-test-ok` where the user chose that, to the same implementer with `SendMessage` as a packet
    of their own. Append `implementer iter=<N> batch=<b> groups=<n> committed=<n> blocked=<n>` for
    each return.

@@ -7,13 +7,20 @@ the edit, the seven staged-diff checks, the commit, and its run-log line, for on
 Where this file says "the finding", read the group's findings. Work the packet's groups in order.
 The orchestrator runs the pre-commit check over each batch after you return (SKILL.md sub-step 4).
 
-**Questions go back, not to the user.** You have no way to ask one, and you run in the background,
-so a permission prompt has nobody to answer it. Where a section below says a case needs a decision,
+**Questions go back, not to the user.** You have no tool to ask one, and you run in the background,
+where a permission prompt may reach nobody. Where a section below says a case needs a decision,
 leave that group's edits out of the tree, mark it `blocked` in your return with the fact in one
 line, and go on to the next group. Undo edits to existing files with the Edit tool, and `rm` a file
-this group created, which is the one `rm` allowed. A commit hook's deny you cannot fix by rewriting
-is the same case: never prefix `PROSE_CLAIMS_OK=1`, `CASE_LIST_OK=1` or `CODE_CHECKS_OK=1`. Return
-the group `blocked` with the hook's hit lines, and the orchestrator decides.
+this group created, which is the one `rm` allowed.
+
+**A hook deny whose hits are all carve-outs is the exception, and it keeps the fix.** Never prefix
+`PROSE_CLAIMS_OK=1`, `CASE_LIST_OK=1` or `CODE_CHECKS_OK=1`, because the prefix needs the user. When
+every hit the hook lists is a carve-out you have named in the log, leave the group staged, write
+the commit message you would have used to `/tmp/claude/rf-staged-msg-iter<N>-group<g>.txt`, return
+the group as `state=staged` with the hits and that path, and stop the batch there. Do not start
+the next group, since its `git add -A` would sweep the staged edits into its commit. The orchestrator commits the staged
+group with the prefix and sends you the rest. A deny with any hit you can fix is not this case, so
+rewrite and commit again.
 
 **The run log is yours to append to.** Its path is in the packet. Every line this file names goes
 there as you take the step, with the iteration number the packet gives. The `require-case-list` hook
@@ -209,8 +216,8 @@ class `blocked` with `fact="spans classes"`, and commit the rest.
    symbol the file's code lacks, and a length check on added comment blocks. When it denies,
    every hit it lists is one this scan should already have resolved. Treat the deny as a failed
    scan. Rewrite the lines and commit again. When every remaining hit is a carve-out, name each
-   one under the `quantifier-scan` line and return the group `blocked` with the hits, because the
-   override prefix needs the user and the orchestrator is the one who can reach them.
+   one under the `quantifier-scan` line and return the group `state=staged`, per the carve-out
+   rule at the top of this file.
 - **Negative control, run and logged, for every added or changed test.** Revert the one
    production line the test exists to pin (the guard, the arm, the log field), run that test
    alone, confirm it fails on its assertion, restore the line, and append
@@ -270,5 +277,6 @@ Return one line per group, then one line for the batch:
 ```
 group=<g> state=committed sha=<short sha> class=<prose|test|logic> findings=<ids>
 group=<g> state=blocked findings=<ids> fact="<one line>"
+group=<g> state=staged findings=<ids> hook=<hook name> msg=<message file> hits="<each hit and the carve-out named for it>"
 batch commits=<n> blocked=<n> tests="<command run, and passed or failed>"
 ```

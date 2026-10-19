@@ -50,8 +50,9 @@ Not a heredoc. A heredoc is several statements to the `deny-multi-command` hook 
 single quotes around each line, since the lines carry double-quoted values. A line that holds a
 single quote gets `'\''` in its place.
 
-The natural batches are these. Before a group's edit: its `self-inflicted`, `rootcause`,
-`reopened`, `prose-locus`, `outside-branch` and `cases` lines. After the staged-diff checks and
+The natural batches are these, whichever of this orchestrator and the `fix-implementer` is
+writing that line (Step 2 sub-step 3 says which). Before a group's edit: its `self-inflicted`,
+`rootcause`, `reopened`, `prose-locus`, `outside-branch` and `cases` lines. After the staged-diff checks and
 before the commit: its `quantifier-scan` and `negative-control` lines, which IMPLEMENTER.md
 section 3 requires before the commit lands. After the commit: its `commit` line. At the end of
 Step 3: `stamps:`, `severity`, `any_logic_change=` and the attribution lines. The summary block is
@@ -117,10 +118,10 @@ Iteration N:
 - [ ] t_fix appended
 - [ ] Step 3 ask: when a trigger fires, `AskUserQuestion` with the four facts, or under `<FULL>` an `ask-suppressed iter=` line and no question
 - [ ] Per finding: blame checked (`self-inflicted iter=` line with the blamed sha when it hits, then a `rootcause iter=` line before any approach), `reopened` line when the fix changes a run commit's behaviour and a second reopen of the locus asked rather than fixed, `prose-locus` line before a self-inflicted prose fix and that fix a deletion or a pointer only, `outside-branch` line and no edit when the fix is in a file the branch had not changed (call sites excepted), approach settled
-- [ ] Per class group: `cases` lines appended before any logic edit (`invariant=` and every exit in `reaches=` when the edit touches paired state), fix written per IMPLEMENTER.md, `quantifier-scan` and `negative-control` lines appended as they happen, one commit, class checked against the group's expected class, recorded
-- [ ] Per six commits and at the end: `<PRE_BATCH>` recorded; when the batch holds a `class=logic` commit, `fix-precommit-check` run over `<PRE_BATCH>..HEAD`, hits landed as one follow-up commit with `origin=precommit`, `precommit iter=` line appended; otherwise the `skipped=no-logic` line appended and no check launched
-- [ ] Per commit, appended AS IT LANDED as a `commit iter=` line in the sub-step 7 shape: class is logic|test|prose only, origin is its own field, `findings=` lists the group's members and the commit holds one class
-- [ ] Per commit, before it landed: `quantifier-scan iter=<N> findings=<ids> hits=<n>` appended, each hit named or resolved
+- [ ] Per packet of at most six groups: `<PRE_BATCH>` recorded, packet sent to `fix-implementer` (launched for the iteration's first, `SendMessage` after), tree left alone until it returns, each `blocked` group acted on, `implementer iter=` line appended
+- [ ] Per class group, written by the implementer and checked at sub-step 5: `cases` lines before any logic edit (`invariant=` and every exit in `reaches=` when the edit touches paired state), `quantifier-scan` and `negative-control` lines before the commit, one commit holding one class, its `commit iter=` line in the sub-step 7 shape (class is logic|test|prose only, origin its own field, `findings=` the group's members)
+- [ ] Per batch: when it holds a `class=logic` commit, `fix-precommit-check` run over `<PRE_BATCH>..HEAD`, hits sent to the implementer and landed as one follow-up commit with `origin=precommit`, `precommit iter=` line appended; otherwise the `skipped=no-logic` line appended and no check launched
+- [ ] Per batch, sub-step 5: commit lines read back, each class spot-checked against the diff's files and corrected in place when wrong, a commit with no line given one, accumulators set
 - [ ] t2 appended, then the stamps: line
 - [ ] One `usage kind=` line per role agent confirmed in the log (the hook appends them); usage.jq run by hand only if short
 - [ ] One `attribution iter=` line per instance appended, after merge and threshold
@@ -556,9 +557,9 @@ by the fix phase. GRO-19165 and GRO-18979 began their reviews at 545K and 573K t
 from `take-over`'s earlier steps, and GRO-19165's fix phases were $31 of its orchestrator's $43,
 because each turn re-read that context. The September 2026 trial of this hand-off ran Opus at low
 under a Fable orchestrator, and its self-inflicted findings rose, which measured a cheaper writer.
-This one runs at the orchestrator's tier. The same measurement decides it again: the run log's
-`self-inflicted` lines against the runs before, and the implementer's usage lines against the
-orchestrator's fix-phase spend.
+This one runs at the orchestrator's tier. The same measurement decides it again. It compares the
+run log's `self-inflicted` lines against the runs before, and the implementer's usage lines
+against the orchestrator's fix-phase spend.
 
 **Commits are grouped by class, not one per finding.** Run sub-steps 1 and 2 for every finding
 first. Then sort the findings whose approach is settled into groups: every `prose` fix in one
@@ -694,10 +695,15 @@ commits an iteration.
    cover a sentence, and the run that motivated the prose rule rewrote five sentences four to six
    times each without a single `reopened` line, because none of the rewrites changed behaviour.
 
-3. **Hand the groups to `fix-implementer`.** Record `git rev-parse --short HEAD` as `<PRE_BATCH>`,
-   then launch it by `subagent_type: fix-implementer` with no `model` and no `effort`, so it runs
-   at this session's tier. One packet holds at most six groups, which is one pre-commit batch. Do
-   not edit the tree while it runs, because it is the only writer. The packet:
+3. **Hand the groups to `fix-implementer`.** Record `git rev-parse --short HEAD` as `<PRE_BATCH>`
+   for this batch, then send the packet. The iteration's first packet launches the agent by
+   `subagent_type: fix-implementer` with no `model` and no `effort`, so it runs at this session's
+   tier, and its id from the launch result is recorded. Later packets in the same iteration go to
+   that id with `SendMessage`, and the next iteration launches a fresh one, so its stamp carries
+   the new `tag`. One packet holds at most six groups, which is one pre-commit batch, and `batch=`
+   counts up within the iteration. The agent runs in the background. Wait for its notification,
+   and do not edit the tree or run anything that writes the run log while it runs, because it is
+   the only writer. The packet:
 
    ```
    <!-- fix-implementer tag=iter<N> batch=<b> target=<TARGET_ARG> -->
@@ -705,6 +711,7 @@ commits an iteration.
    Run log: <run_log_path>. Iteration: <N>. Repo: <absolute path>, cd there first.
    Branch files: git diff --name-only <RANGE_BASE>...<HEAD sha from the log header>
    Tests and lint: <the commands for the sub-project, when you know them>
+   Commit trailer: <the attribution line this session's commits end with, or none>
 
    ## Group <g>: class=<prose|test|logic> findings=<ids>
    - <id> "<title, verbatim>" <file>:<line_range> severity=<...> category=<...> roles=<...>
@@ -722,15 +729,20 @@ commits an iteration.
    returns one line per group. For each `blocked` group, act on its fact here. Untestable goes to
    the user with `AskUserQuestion`, fix without a test or skip, and a skip lands in
    `skipped_findings` keyed by `file` plus `title`. A fact that defeats the approach chosen in
-   sub-step 2 reopens it, once: say the fact in one line and choose again. A file outside the
-   branch follows the outside-branch rule in sub-step 2. Then send the regrouped findings, with
+   sub-step 2 reopens it, once. Say the fact in one line and choose again. A file outside the
+   branch follows the outside-branch rule in sub-step 2. A commit hook's hits that the
+   implementer named as carve-outs come back too, because the override prefix needs the user.
+   Check each named carve-out, then commit that group here with the prefix, which puts the commit
+   in front of the user, or send it back for a rewrite. Then send the regrouped findings, with
    `no-test-ok` where the user chose that, to the same implementer with `SendMessage` as a packet
    of their own. Append `implementer iter=<N> batch=<b> groups=<n> committed=<n> blocked=<n>` for
    each return.
 
    **When the implementer cannot run** (the agent type does not resolve, or it returns nothing
-   after one `SendMessage` nudge), write the remaining groups here per IMPLEMENTER.md, appending
-   the same lines, and log `implementer iter=<N> batch=<b> state=missing`.
+   after one `SendMessage` nudge), stop it with `TaskStop`, then read
+   `git log --oneline <PRE_BATCH>..HEAD` and the run log's `commit iter=<N>` lines to see which
+   groups it already committed. Write only the rest here per IMPLEMENTER.md, appending the same
+   lines, and log `implementer iter=<N> batch=<b> state=missing`.
 
 4. **When the implementer returns a batch, run the pre-commit check over it, when the batch holds
    a `class=logic` commit.** `<PRE_BATCH>` is the sha sub-step 3 recorded before the packet. A
@@ -782,9 +794,11 @@ commits an iteration.
 5. **Read the batch's commit lines back.** `rg 'commit iter=<N> ' <run_log_path>` and, for each
    new line, run the accumulator bullets of sub-step 7 from its fields. Check each line's `class`
    against `git show --stat --format= <sha>`, which is enough to catch a test or logic file in a
-   commit marked `prose`. When the class is wrong, set the accumulators from the corrected class,
-   since rows 4 and 5 read them, and append `class-corrected iter=<N> sha=<sha> class=<corrected>
-   was=<logged>`. Then send the next packet, if groups remain.
+   commit marked `prose`. When the class is wrong, correct that line in place with
+   `sd -F 'sha=<sha> class=<logged>' 'sha=<sha> class=<corrected> class_was=<logged>' <run_log_path>`,
+   so every reader of the line sees the corrected class, and set the accumulators from it. A
+   commit in `<PRE_BATCH>..HEAD` with no `commit iter=` line gets one written here from its diff
+   per sub-step 7. Then go back to sub-step 3 for the next packet, if groups remain.
 
 6. Reserved.
 
@@ -866,7 +880,9 @@ commits an iteration.
      the order, so a commit that cleanly matches an earlier class is not a tie. Why up is the safe
      direction: [RATIONALE.md](RATIONALE.md).
 
-     **Append the commit line to the run log now, as the commit lands, in this exact shape:**
+     **Append the commit line to the run log now, as the commit lands, in this exact shape.** The
+     implementer writes it (IMPLEMENTER.md section 5). This orchestrator writes it only for a
+     commit it made itself, in the fallback or under sub-step 5:
 
      ```
      commit iter=<N> sha=<short sha> class=<logic|test|prose> origin=<self-inflicted|branch|precommit> findings=<ids> category=<...> roles=<...> raised_by=<...> title="<title>"
@@ -891,7 +907,8 @@ commits an iteration.
      must survive, as in `commits=9 logic=5 test=3 prose=1`. The counts are enough for rows 4 and 5
      and enough for the stop gate in Step 3. Emitting nothing for an iteration is what is banned.
 
-8. After the bookkeeping, send the next packet, or stamp `t2` below when the groups are done.
+8. After the bookkeeping, go back to sub-step 3 with a fresh `<PRE_BATCH>` for the next packet,
+   or stamp `t2` below when the groups are done.
 
 **Stamp `t2` when the fix phase ends**, after the last finding is processed, appending it on its own
 line as you take it. `t2` minus `t_fix` is the iteration's fixing time. An iteration whose findings

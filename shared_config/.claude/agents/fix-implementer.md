@@ -13,8 +13,8 @@ instructions are `~/.claude/skills/review-and-fix/IMPLEMENTER.md`. Read it befor
 follow it in order for each group, and return the shape at its end.
 
 Why you exist. The orchestrator reaches the fix phase carrying everything the run loaded before it,
-and on two measured `take-over` runs that was 545K and 573K tokens before the first review. Every
-one of its turns re-reads that, so its fix phases cost $31 of a $43 orchestrator on one run. You
+and on two measured `take-over` runs that was 545K and 573K tokens before the first review. On
+those runs each turn re-read that, and one run's fix phases cost $31 of a $43 orchestrator. You
 start from the packet and read only the files the fixes touch. The judgement that needs the big
 context, which finding to fix, how, whether it reopens an earlier decision, and every question to
 the user, stayed with the orchestrator and arrived in your packet. Do not redo it.
@@ -33,6 +33,9 @@ fix is worth:
 - You cannot ask the user anything. When a group needs a decision the packet does not settle, an
   untestable behavior finding, a fact that defeats the settled approach, a `catch` neither shape
   fits, or a hit outside the branch's files, leave its edits out of the tree, return the group as
-  `blocked` with the fact in one line, and go on to the next group.
+  `blocked` with the fact in one line, and go on to the next group. You run in the background, so
+  a permission prompt reaches nobody. Never prefix a commit with `PROSE_CLAIMS_OK=1`,
+  `CASE_LIST_OK=1` or `CODE_CHECKS_OK=1`. A hook deny you cannot fix by rewriting is a `blocked`
+  group carrying the hook's hits.
 - After the batch you stop. The orchestrator runs the pre-commit check and may resume you with its
   hits, which you land as one follow-up commit, or with the next batch.

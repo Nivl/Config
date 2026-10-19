@@ -7,13 +7,20 @@ the edit, the seven staged-diff checks, the commit, and its run-log line, for on
 Where this file says "the finding", read the group's findings. Work the packet's groups in order.
 The orchestrator runs the pre-commit check over each batch after you return (SKILL.md sub-step 4).
 
-**Questions go back, not to the user.** You have no way to ask one. Where a section below says a
-case needs a decision, leave that group's edits out of the tree (undo them with the Edit tool),
-mark it `blocked` in your return with the fact in one line, and go on to the next group.
+**Questions go back, not to the user.** You have no way to ask one, and you run in the background,
+so a permission prompt has nobody to answer it. Where a section below says a case needs a decision,
+leave that group's edits out of the tree, mark it `blocked` in your return with the fact in one
+line, and go on to the next group. Undo edits to existing files with the Edit tool, and `rm` a file
+this group created, which is the one `rm` allowed. A commit hook's deny you cannot fix by rewriting
+is the same case: never prefix `PROSE_CLAIMS_OK=1`, `CASE_LIST_OK=1` or `CODE_CHECKS_OK=1`. Return
+the group `blocked` with the hook's hit lines, and the orchestrator decides.
 
 **The run log is yours to append to.** Its path is in the packet. Every line this file names goes
 there as you take the step, with the iteration number the packet gives. The `require-case-list` hook
-reads it at your `git commit`.
+reads it at your `git commit`. Append the lines one moment produces in one Bash call, as one
+`printf '%s\n' '<line>' '<line>' >> <run log>`, single-quoted per line since the lines carry
+double-quoted values, with `'\''` for a single quote inside one. Not a heredoc, which a hook
+denies.
 
 **The approach is settled.** New information reopens it and rereading the same information does
 not. A test that fails, a type error, or a call site that makes the chosen approach impossible is
@@ -66,8 +73,8 @@ The `require-case-list` hook enforces this at `git commit`. Inside a run, a comm
 diff changes a code line is denied when the run log has no `cases iter=<N> ... reaches=` line for
 the current iteration. On the run that made the case for this list, it was written in iteration 1
 and skipped in iterations 2 to 4, and each of those fixed a bug the previous one's fix introduced.
-A prose-, test- or comment-only diff passes. `CASE_LIST_OK=1` in front of the command overrides
-and puts the commit in front of the user.
+A prose-, test- or comment-only diff passes. A deny means a line is missing, so write it and
+commit again.
 
 ## 1. A behavior finding gets a red test before the edit
 
@@ -112,7 +119,9 @@ Follow all project coding standards:
    Search by a distinctive FRAGMENT rather than the whole
    phrase, with `rg -U` or `\s+` for every space, because prose wraps and a line-oriented
    search cannot match a phrase split across two lines. **Bound the search to tracked files the
-   branch has ALREADY modified. Report a hit outside that set in one line and do not edit it**,
+   branch has ALREADY modified**, the packet's `Branch files` list plus
+   `git diff --name-only <RANGE_BASE>...HEAD` for what this run's commits added. **Report a hit
+   outside that set in one line and do not edit it**,
    because editing it pulls that file into the modified set where role 5 then reads all of its
    pre-existing comments. The judgement call is whether a hit is the same claim or a different
    one that shares wording. A fix confined to formatting or punctuation still skips both
@@ -123,12 +132,11 @@ Follow all project coding standards:
    on a different reader. Replace it with a pointer, an invariant, a locally derivable fact, or
    nothing.
 - **A self-inflicted prose finding is fixed by deletion or a pointer, never by a rewrite.** When
-   sub-step 1 blamed the finding's sentence on a commit of this run, the sentence has already
-   been written once under review and found wrong. The allowed edits are two: delete the sentence,
-   or replace it with a pointer to a symbol this file's code names (`See <symbol>`, or the
-   docstring on it). No third wording. Grep the run log for `prose-locus` lines at the same
-   `file:range`. When one exists, this is the sentence's second self-inflicted finding, and the
-   only edit is deletion, the pointer form included. Before the edit, append
+   the packet marks the finding `origin=self-inflicted`, the sentence has already been written
+   once under review and found wrong. The allowed edits are two: delete the sentence, or replace
+   it with a pointer to a symbol this file's code names (`See <symbol>`, or the docstring on it).
+   No third wording. The packet's `prose-locus nth=` says which finding on that sentence this is.
+   At `nth=2` the only edit is deletion, the pointer form included. Before the edit, append
    `prose-locus iter=<N> finding=<id> locus=<file:range> nth=<1|2> action=<deleted|pointer>`.
    Measured on the run that motivated this: 56 self-inflicted findings over eight iterations,
    every one prose, and the rootcause lines for them read "replaced one collaborator claim with
@@ -144,7 +152,8 @@ Follow all project coding standards:
    error, a call site it cannot handle) is new information, and choosing again is the
    orchestrator's job. Return the group `blocked` with the fact.
 - **Stay in the branch's files.** The packet lists the files each finding may touch. A call site or
-   test the fix itself makes wrong may be edited too. Any other file means `blocked`.
+   test the fix itself makes wrong may be edited too, when it is in the packet's `Branch files`
+   or this run's own commits already touched it. Any other file means `blocked`.
 
 ## 3. Stage the fix, then scan the staged diff
 
@@ -153,7 +162,9 @@ which is then a harmless no-op. Seven checks. Each check starts from a pattern m
 never from a review of the design. Four of them need a judgement call, and each is named where
 it arises. Fix whatever
 a check catches, re-stage, and rerun the scan. Never commit with a note to fix it later. What a
-noted violation costs: [RATIONALE.md](RATIONALE.md).
+noted violation costs: [RATIONALE.md](RATIONALE.md). When the staged diff spans classes, such as a
+`prose` group whose fix had to touch code, do not commit it as one. Return the member that changed
+class `blocked` with `fact="spans classes"`, and commit the rest.
 - **Pattern scan, authored prose and added lines only.** No `→ ← … ≥ ≤ × — –` and no curly
    quotes. In comment bodies and prose or doc files only, no ` - ` and no `:` joining two
    independent clauses, both of which AGENTS.md bans as joiners. A `:` is fine as a
@@ -197,9 +208,9 @@ noted violation costs: [RATIONALE.md](RATIONALE.md).
    `file.ext:123` in an added comment resolves, an identifier check that a comment names no
    symbol the file's code lacks, and a length check on added comment blocks. When it denies,
    every hit it lists is one this scan should already have resolved. Treat the deny as a failed
-   scan. Rewrite the lines and commit again. Use the `PROSE_CLAIMS_OK=1` prefix only when each
-   hit is a carve-out you have named in the `quantifier-scan` lines, because that prefix puts
-   the commit in front of the user.
+   scan. Rewrite the lines and commit again. When every remaining hit is a carve-out, name each
+   one under the `quantifier-scan` line and return the group `blocked` with the hits, because the
+   override prefix needs the user and the orchestrator is the one who can reach them.
 - **Negative control, run and logged, for every added or changed test.** Revert the one
    production line the test exists to pin (the guard, the arm, the log field), run that test
    alone, confirm it fails on its assertion, restore the line, and append
@@ -226,7 +237,8 @@ git commit -m "<type>: <short description of what was fixed>
 
 <optional body explaining why>
 Red: <first line of the failing assertion, one line per behavior finding in the group>
-Swept: <fragment> (<n> sites), one line per claim correction in the group"
+Swept: <fragment> (<n> sites), one line per claim correction in the group
+<the packet's commit trailer, when it gives one>"
 ```
 
 Use conventional commit types: defined in the `.github/semantic.yml` file (e.g., `fix`,

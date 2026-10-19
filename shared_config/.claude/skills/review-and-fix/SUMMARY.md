@@ -129,7 +129,7 @@ Cover these in this order, one line each, and drop any line that has nothing to 
   arrival and a straggler can arrive after fixing has started, which put two measured iterations at a
   fixing time of `0m00s` while git shows two commits landing inside each of them.
 - The iteration's spend, rolled up from the `usage` lines Step 1 already appended. One line, by kind:
-  `spend iter=3 roles=24 agents/$118.40 gh-style=1/$6.95 scorer=1/$0.42 total=$125.77 turns=1101`.
+  `spend iter=3 roles=24 agents/$118.40 gh-style=1/$6.95 scorer=1/$0.42 precommit=1/$0.34 implementer=1/$2.40 total=$128.51 turns=1161`.
   Then, when a role's two instances differ in cost by more than half, name it, because a role that
   costs twice as much in one instance as the other is usually one instance looping. This is a rollup
   of lines that are already on disk, per [USAGE.md](USAGE.md), so it can be skipped without losing
